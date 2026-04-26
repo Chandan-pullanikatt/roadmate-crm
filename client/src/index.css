@@ -1,0 +1,28 @@
+@import "tailwindcss";
+@import "./roadmate.css";
+
+/* Minimal base styles, all variables come from theme.css */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-bg text-text-primary antialiased;
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-surface/80 backdrop-blur-md border border-white/20;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment Variables
+.env
+client/.env
+server/.env
+*.env.local
+
+# Build outputs
+dist/
+client/dist/
+build/
+
+# IDEs and Tools
+.vscode/
+.idea/
+*.swp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# HTML Reference files (optional, if you want to keep them out of git)
+*.html

@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface2);
+  --color-surface-3: var(--surface3);
+  --color-border: var(--border);
+  --color-border-2: var(--border2);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-mid: var(--accent-mid);
+  --color-blue: var(--blue);
+  --color-blue-light: var(--blue-light);
+  --color-amber: var(--amber);
+  --color-amber-light: var(--amber-light);
+  --color-red: var(--red);
+  --color-red-light: var(--red-light);
+  --color-purple: var(--purple);
+  --color-purple-light: var(--purple-light);
+  --color-teal: var(--teal);
+  --color-teal-light: var(--teal-light);
+  --color-orange: var(--orange);
+  --color-orange-light: var(--orange-light);
+
+  --radius-default: var(--radius);
+  --radius-sm: var(--radius-sm);
+  --radius-lg: var(--radius-lg);
+
+  --shadow-default: var(--shadow);
+  --shadow-md: var(--shadow-md);
+}
+
+:root {
+  --bg: #F7F7F5; --surface: #FFFFFF; --surface2: #F2F1EE; --surface3: #ECEAE6;
+  --border: #E6E5E1; --border2: #D5D4CF;
+  --text-primary: #1A1A18; --text-secondary: #6B6A64; --text-muted: #9B9A94;
+  --accent: #1C6A4E; --accent-light: #E8F4EF; --accent-mid: #2D8F69;
+  --blue: #2563EB; --blue-light: #EFF4FF;
+  --amber: #B45309; --amber-light: #FEF3C7;
+  --red: #DC2626; --red-light: #FEF2F2;
+  --purple: #7C3AED; --purple-light: #F5F3FF;
+  --teal: #0891B2; --teal-light: #ECFEFF;
+  --orange: #C2410C; --orange-light: #FFF7ED;
+  --radius: 10px; --radius-sm: 6px; --radius-lg: 14px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.09), 0 2px 4px rgba(0,0,0,.04);
+}
+
+body {
+  @apply bg-bg text-text-primary font-sans;
+  font-family: 'DM Sans', sans-serif;
+}
