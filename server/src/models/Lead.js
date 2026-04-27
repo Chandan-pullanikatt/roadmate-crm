@@ -49,4 +49,14 @@ const leadSchema = new mongoose.Schema({
   expectedRevenue: { type: Number, default: 0 },
 }, { timestamps: true });
 
+// Performance Indexes
+leadSchema.index({ status: 1 });
+leadSchema.index({ priority: 1 });
+leadSchema.index({ owner: 1 });
+leadSchema.index({ state: 1 });
+leadSchema.index({ industry: 1 });
+leadSchema.index({ createdAt: -1 });
+leadSchema.index({ updatedAt: -1 });
+leadSchema.index({ meetingAt: 1 });
+
 module.exports = mongoose.model('Lead', leadSchema);

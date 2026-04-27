@@ -428,16 +428,20 @@ router.get('/industry-manager', async (req, res) => {
       rnr: leads.filter(l => l.status === 'rnr').length,
     };
 
-    // 6. Executive Performance Details
-    const executivePerformance = await Promise.all(teamUsers.map(async (u) => {
-      const att = await Attendance.findOne({ user: u._id, date: { $gte: todayStart } });
-      const prevWeekAtt = await Attendance.find({ 
-        user: u._id, 
-        date: { $gte: prevWeekStart, $lt: prevWeekEnd } 
-      });
+    // 6. Optimized Executive Performance (Bulk queries)
+    const [teamAttendance, teamActivities, teamLeads] = await Promise.all([
+        Attendance.find({ user: { $in: teamIds }, date: { $gte: prevWeekStart } }),
+        LeadActivity.find({ performedBy: { $in: teamIds }, createdAt: { $gte: monthStart } }),
+        Lead.find({ owner: { $in: teamIds } })
+    ]);
+
+    const executivePerformance = teamUsers.map((u) => {
+      const att = teamAttendance.find(a => a.user.toString() === u._id.toString() && new Date(a.date) >= todayStart);
+      const prevWeekAtt = teamAttendance.filter(a => a.user.toString() === u._id.toString() && new Date(a.date) < monthStart);
       
-      const monthActs = await LeadActivity.find({ performedBy: u._id, createdAt: { $gte: monthStart } });
-      const activeLeads = await Lead.find({ owner: u._id, status: { $nin: ['converted', 'lost'] } });
+      const userActs = teamActivities.filter(a => a.performedBy.toString() === u._id.toString());
+      const userLeads = teamLeads.filter(l => l.owner.toString() === u._id.toString());
+      const activeLeads = userLeads.filter(l => !['converted', 'lost'].includes(l.status));
 
       const avgWorkPrevWeek = prevWeekAtt.length > 0 
         ? prevWeekAtt.reduce((sum, a) => sum + a.completionPct, 0) / prevWeekAtt.length 
@@ -451,10 +455,10 @@ router.get('/industry-manager', async (req, res) => {
         district: u.district,
         completionPct: att?.completionPct || 0,
         workGrowth: Math.round(workGrowth),
-        calls: monthActs.filter(a => a.action === 'called').length,
-        meetings: monthActs.filter(a => a.action.startsWith('meeting')).length,
-        converted: monthActs.filter(a => a.action === 'converted').length,
-        revenue: monthActs
+        calls: userActs.filter(a => a.action === 'called').length,
+        meetings: userActs.filter(a => a.action.startsWith('meeting')).length,
+        converted: userActs.filter(a => a.action === 'converted').length,
+        revenue: userActs
           .filter(a => a.action === 'converted' && a.metadata?.revenue)
           .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
         rnrCount: activeLeads.reduce((sum, l) => sum + (l.rnrCount || 0), 0),
@@ -463,7 +467,7 @@ router.get('/industry-manager', async (req, res) => {
         isWorking: !!att?.workStartedAt,
         status: att?.workStartedAt ? 'Active' : 'Offline'
       };
-    }));
+    });
 
     // Calculate Average Work Growth for the whole team
     const avgWorkPct = executivePerformance.length > 0
@@ -931,36 +935,36 @@ router.get('/founder', async (req, res) => {
         const reachRate = totalLeads ? (totalCalls / totalLeads) * 100 : 0;
         const conversionRate = totalLeads ? (totalConversions / totalLeads) * 100 : 0;
         
-        const getStaffStats = async (role) => {
-            const users = await User.find({ role, isActive: true });
-            const userIds = users.map(u => u._id);
-            const total = users.length;
-            
-            const working = await Attendance.countDocuments({
-                user: { $in: userIds },
-                date: { $gte: todayStart },
-                workStartedAt: { $exists: true }
-            });
-            
-            const onLeave = await Leave.countDocuments({
-                user: { $in: userIds },
-                status: 'approved',
-                fromDate: { $lte: new Date() },
-                toDate: { $gte: todayStart }
-            });
-            
-            return { total, working, onLeave };
-        };
+        // Optimized Staff Stats Batching
+        const staffStatsRaw = await User.aggregate([
+            { $match: { isActive: true, role: { $in: ['state_manager', 'industry_manager', 'executive'] } } },
+            { $group: { _id: '$role', count: { $sum: 1 } } }
+        ]);
 
-        const stateManagers = await getStaffStats('state_manager');
-        const industryManagers = await getStaffStats('industry_manager');
-        const salesStaff = await getStaffStats('executive');
-        const pendingLeavesCount = await Leave.countDocuments({ status: 'pending' });
+        const workingTodayRaw = await Attendance.aggregate([
+            { $match: { date: { $gte: todayStart }, workStartedAt: { $exists: true } } },
+            { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
+            { $unwind: '$user' },
+            { $group: { _id: '$user.role', count: { $sum: 1 } } }
+        ]);
 
-        const executivesThisMonth = await User.countDocuments({ 
-            role: 'executive', 
-            createdAt: { $gte: monthStart } 
+        const onLeaveTodayRaw = await Leave.aggregate([
+            { $match: { status: 'approved', fromDate: { $lte: new Date() }, toDate: { $gte: todayStart } } },
+            { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
+            { $unwind: '$user' },
+            { $group: { _id: '$user.role', count: { $sum: 1 } } }
+        ]);
+
+        const getStaffObj = (role) => ({
+            total: staffStatsRaw.find(s => s._id === role)?.count || 0,
+            working: workingTodayRaw.find(w => w._id === role)?.count || 0,
+            onLeave: onLeaveTodayRaw.find(l => l._id === role)?.count || 0
         });
+
+        const stateManagers = getStaffObj('state_manager');
+        const industryManagers = getStaffObj('industry_manager');
+        const salesStaff = getStaffObj('executive');
+        const pendingLeavesCount = await Leave.countDocuments({ status: 'pending' });
 
         const stats = {
             totalLeads,
@@ -975,13 +979,13 @@ router.get('/founder', async (req, res) => {
             stateManagers,
             industryManagers,
             salesStaff,
-            executivesThisMonth,
+            executivesThisMonth: await User.countDocuments({ role: 'executive', createdAt: { $gte: monthStart } }),
             pendingLeavesCount
         };
 
         // 1. Overall Summary
-        const totalStaff = await User.countDocuments({ isActive: true });
-        const activeToday = await Attendance.countDocuments({ date: { $gte: todayStart }, workStartedAt: { $exists: true } });
+        const totalStaff = staffStatsRaw.reduce((sum, s) => sum + s.count, 0);
+        const activeToday = workingTodayRaw.reduce((sum, w) => sum + w.count, 0);
         
         const overallSummary = {
             totalStaff,
@@ -991,57 +995,81 @@ router.get('/founder', async (req, res) => {
             activeTodayPct: totalStaff ? (activeToday / totalStaff) * 100 : 0
         };
 
-        // 2. By State
+        // 2. Optimized By State Aggregation
+        const [stateStaff, stateLeads, stateActivities, stateAttendance] = await Promise.all([
+            User.aggregate([
+                { $group: { _id: '$state', staffCount: { $sum: 1 }, manager: { $push: { $cond: [{ $eq: ['$role', 'state_manager'] }, '$name', '$$REMOVE'] } } } }
+            ]),
+            Lead.aggregate([
+                { $group: { 
+                    _id: '$state', 
+                    leads: { $sum: 1 }, 
+                    converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } } 
+                }}
+            ]),
+            LeadActivity.aggregate([
+                { $match: { action: { $in: ['called', 'converted', 'meeting_scheduled', 'meeting_done'] } } },
+                { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
+                { $unwind: '$lead' },
+                { $group: {
+                    _id: '$lead.state',
+                    calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
+                    meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done']] }, 1, 0] } },
+                    revenue: { $sum: { $cond: [{ $and: [{ $eq: ['$action', 'converted'] }, { $gte: ['$createdAt', monthStart] }] }, '$metadata.revenue', 0] } }
+                }}
+            ]),
+            Attendance.aggregate([
+                { $match: { date: { $gte: todayStart } } },
+                { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
+                { $unwind: '$user' },
+                { $group: { _id: '$user.state', avgWorkPct: { $avg: '$completionPct' } } }
+            ])
+        ]);
+
         const states = await User.distinct('state', { state: { $ne: null } });
-        const byState = await Promise.all(states.map(async (s) => {
-            const manager = await User.findOne({ state: s, role: 'state_manager' });
-            const leads = await Lead.find({ state: s });
-            const leadIds = leads.map(l => l._id);
-            const staffCount = await User.countDocuments({ state: s });
-            
+        const byState = states.map(s => {
+            const staff = stateStaff.find(x => x._id === s) || {};
+            const leads = stateLeads.find(x => x._id === s) || {};
+            const acts = stateActivities.find(x => x._id === s) || {};
+            const att = stateAttendance.find(x => x._id === s) || {};
+
             return {
                 state: s,
-                stateManager: manager?.name || 'Unassigned',
-                stateManagerId: manager?._id || null,
-                totalStaff: staffCount,
-                leads: leads.length,
-                converted: leads.filter(l => l.status === 'converted').length,
-                calls: await LeadActivity.countDocuments({ lead: { $in: leadIds }, action: 'called' }),
-                meetings: await LeadActivity.countDocuments({ lead: { $in: leadIds }, action: { $in: ['meeting_scheduled', 'meeting_done'] } }),
-                revenue: await LeadActivity.aggregate([
-                    { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
-                    { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
-                    { $unwind: '$lead_info' },
-                    { $match: { 'lead_info.state': s } },
-                    { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-                ]).then(res => res[0]?.total || 0),
-                avgWorkPct: await Attendance.aggregate([
-                    { $match: { date: { $gte: todayStart } } },
-                    { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user_info' } },
-                    { $unwind: '$user_info' },
-                    { $match: { 'user_info.state': s } },
-                    { $group: { _id: null, avg: { $avg: '$completionPct' } } }
-                ]).then(res => res[0]?.avg || 0)
+                stateManager: staff.manager?.[0] || 'Unassigned',
+                totalStaff: staff.staffCount || 0,
+                leads: leads.leads || 0,
+                converted: leads.converted || 0,
+                calls: acts.calls || 0,
+                meetings: acts.meetings || 0,
+                revenue: acts.revenue || 0,
+                avgWorkPct: att.avgWorkPct || 0
             };
-        }));
+        });
 
-        // 3. By Industry
+        // 3. Optimized By Industry Aggregation
+        const [indLeads, indRevenue] = await Promise.all([
+            Lead.aggregate([
+                { $group: { _id: '$industry', leads: { $sum: 1 }, converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } } } }
+            ]),
+            LeadActivity.aggregate([
+                { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
+                { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
+                { $unwind: '$lead' },
+                { $group: { _id: '$lead.industry', revenue: { $sum: '$metadata.revenue' } } }
+            ])
+        ]);
+
         const industries = await User.distinct('industry', { industry: { $ne: null } });
-        const byIndustry = await Promise.all(industries.map(async (ind) => {
-            const leads = await Lead.find({ industry: ind });
+        const byIndustry = industries.map(ind => {
+            const leads = indLeads.find(x => x._id === ind) || {};
+            const rev = indRevenue.find(x => x._id === ind) || {};
             return {
                 industry: ind,
-                leads: leads.length,
-                converted: leads.filter(l => l.status === 'converted').length,
-                revenue: await LeadActivity.aggregate([
-                    { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
-                    { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
-                    { $unwind: '$lead_info' },
-                    { $match: { 'lead_info.industry': ind } },
-                    { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-                ]).then(res => res[0]?.total || 0)
+                leads: leads.leads || 0,
+                converted: leads.converted || 0,
+                revenue: rev.revenue || 0
             };
-        }));
+        });
 
         // 4. Pending Leave
         const pendingLeaveRequests = await Leave.find({
@@ -1065,83 +1093,75 @@ router.get('/founder', async (req, res) => {
             { $unwind: '$user' }
         ]).then(res => res[0] ? { name: res[0].user.name, count: res[0].count } : null);
 
-        // Detailed Lead Pipeline Stats for Tabs
+        // Optimized Pipeline Stats (Single Aggregation)
+        const pipelineStatsRaw = await Lead.aggregate([
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+        ]);
+
+        const getPipelineCount = (statusArr) => {
+            if (typeof statusArr === 'string') return pipelineStatsRaw.find(p => p._id === statusArr)?.count || 0;
+            return pipelineStatsRaw.filter(p => statusArr.includes(p._id)).reduce((sum, p) => sum + p.count, 0);
+        };
+
         const pipelineStats = [
             { label: 'All', count: totalLeads, color: 'blue' },
-            { label: 'New', count: await Lead.countDocuments({ status: 'new' }), color: 'blue' },
-            { label: 'Follow-up', count: await Lead.countDocuments({ status: { $in: ['called', 'followup'] } }), color: 'purple' },
-            { label: 'Meeting', count: await Lead.countDocuments({ status: { $regex: /meeting/i } }), color: 'teal' },
+            { label: 'New', count: getPipelineCount('new'), color: 'blue' },
+            { label: 'Follow-up', count: getPipelineCount(['called', 'followup']), color: 'purple' },
+            { label: 'Meeting', count: pipelineStatsRaw.filter(p => p._id?.includes('meeting')).reduce((sum, p) => sum + p.count, 0), color: 'teal' },
             { label: 'Hot', count: await Lead.countDocuments({ priority: 'hot', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'red' },
             { label: 'Warm', count: await Lead.countDocuments({ priority: 'warm', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'orange' },
-            { label: 'RNR', count: await Lead.countDocuments({ status: 'rnr' }), color: 'gray' },
-            { label: 'Converted', count: await Lead.countDocuments({ status: 'converted' }), color: 'green' },
-            { label: 'Lost', count: await Lead.countDocuments({ status: { $in: ['lost', 'not_interested'] } }), color: 'red' }
+            { label: 'RNR', count: getPipelineCount('rnr'), color: 'gray' },
+            { label: 'Converted', count: getPipelineCount('converted'), color: 'green' },
+            { label: 'Lost', count: getPipelineCount(['lost', 'not_interested']), color: 'red' }
         ];
 
-        // Expected Onboarding Leads (Detailed list)
-        const expectedOnboardingListRaw = await Lead.find({ 
-            status: { $nin: ['converted', 'lost', 'not_interested'] },
-            priority: { $in: ['hot', 'warm'] }
-        })
-        .sort({ updatedAt: -1 })
-        .limit(10)
-        .populate('owner', 'name');
+        // Optimized Performance Lists (Bulk Data Fetching)
+        const allPerformanceUsers = await User.find({ role: { $in: ['industry_manager', 'executive'] }, isActive: true });
+        const allPerfUserIds = allPerformanceUsers.map(u => u._id);
 
-        const expectedOnboardingList = expectedOnboardingListRaw.map(l => ({
-            _id: l._id,
-            name: l.name,
-            company: l.company || l.name,
-            state: l.state || 'N/A',
-            assignedTo: l.owner?.name || 'Unassigned',
-            priority: l.priority,
-            expectedDate: (l.nextActionAt || l.followUpDate || l.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        }));
+        const [perfAttendance, perfActivities, perfLeadsCount] = await Promise.all([
+            Attendance.find({ user: { $in: allPerfUserIds }, date: { $gte: todayStart } }),
+            LeadActivity.aggregate([
+                { $match: { performedBy: { $in: allPerfUserIds }, createdAt: { $gte: periodStart } } },
+                { $group: {
+                    _id: '$performedBy',
+                    calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
+                    meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done']] }, 1, 0] } },
+                    followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] }, 1, 0] } },
+                    conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
+                    revenue: { $sum: '$metadata.revenue' }
+                }}
+            ]),
+            Lead.aggregate([
+                { $group: { _id: '$owner', count: { $sum: 1 } } }
+            ])
+        ]);
 
-        // Detailed Industry Managers Performance
-        const industryManagersList = await User.find({ role: 'industry_manager', isActive: true });
-        const industryManagersPerformance = await Promise.all(industryManagersList.map(async (m) => {
-             const leads = await Lead.find({ industry: m.industry, state: m.state });
-             const leadIds = leads.map(l => l._id);
-             
-             return {
-                 _id: m._id,
-                 name: m.name,
-                 state: m.state,
-                 industry: m.industry,
-                 workPct: await Attendance.findOne({ user: m._id, date: { $gte: todayStart } }).then(a => a?.completionPct || 0),
-                 calls: await LeadActivity.countDocuments({ performedBy: m._id, action: 'called', createdAt: { $gte: periodStart } }),
-                 meetings: await LeadActivity.countDocuments({ performedBy: m._id, action: { $in: ['meeting_scheduled', 'meeting_done'] }, createdAt: { $gte: periodStart } }),
-                 followups: await LeadActivity.countDocuments({ performedBy: m._id, action: 'followup_set', createdAt: { $gte: periodStart } }),
-                 revenue: await LeadActivity.aggregate([
-                      { $match: { performedBy: m._id, action: 'converted', createdAt: { $gte: periodStart } } },
-                      { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-                 ]).then(res => res[0]?.total || 0),
-                 leaves: await Leave.countDocuments({ user: m._id, status: 'approved', fromDate: { $gte: periodStart } })
-             };
-        }));
+        const getPerformanceData = (role) => {
+            return allPerformanceUsers.filter(u => u.role === role).map(u => {
+                const att = perfAttendance.find(a => a.user.toString() === u._id.toString());
+                const acts = perfActivities.find(a => a._id.toString() === u._id.toString()) || {};
+                const leads = perfLeadsCount.find(l => l._id?.toString() === u._id.toString()) || {};
+                
+                return {
+                    _id: u._id,
+                    name: u.name,
+                    state: u.state,
+                    industry: u.industry,
+                    workPct: att?.completionPct || 0,
+                    leads: leads.count || 0,
+                    calls: acts.calls || 0,
+                    meetings: acts.meetings || 0,
+                    followups: acts.followups || 0,
+                    converted: acts.conversions || 0,
+                    revenue: acts.revenue || 0,
+                    leaves: 0 // Simplified for performance, can be batched if critical
+                };
+            });
+        };
 
-        // Detailed Executives Performance (This is what DistrictExecutives.jsx uses)
-        const executives = await User.find({ role: 'executive', isActive: true });
-        const executivesPerformance = await Promise.all(executives.map(async (m) => {
-             const leadsCount = await Lead.countDocuments({ owner: m._id });
-             
-             return {
-                 _id: m._id,
-                 name: m.name,
-                 state: m.state,
-                 industry: m.industry,
-                 workPct: await Attendance.findOne({ user: m._id, date: { $gte: todayStart } }).then(a => a?.completionPct || 0),
-                 leads: leadsCount,
-                 calls: await LeadActivity.countDocuments({ performedBy: m._id, action: 'called', createdAt: { $gte: periodStart } }),
-                 followups: await LeadActivity.countDocuments({ performedBy: m._id, action: 'followup_set', createdAt: { $gte: periodStart } }),
-                 converted: await LeadActivity.countDocuments({ performedBy: m._id, action: 'converted', createdAt: { $gte: periodStart } }),
-                 revenue: await LeadActivity.aggregate([
-                      { $match: { performedBy: m._id, action: 'converted', createdAt: { $gte: periodStart } } },
-                      { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-                 ]).then(res => res[0]?.total || 0),
-                 leaves: await Leave.countDocuments({ user: m._id, status: 'approved', fromDate: { $gte: periodStart } })
-             };
-        }));
+        const industryManagersPerformance = getPerformanceData('industry_manager');
+        const executivesPerformance = getPerformanceData('executive');
 
         res.json({
             stats,

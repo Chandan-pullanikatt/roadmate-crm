@@ -16,4 +16,10 @@ const leadActivitySchema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: true });
 
+// Performance Indexes
+leadActivitySchema.index({ lead: 1 });
+leadActivitySchema.index({ performedBy: 1 });
+leadActivitySchema.index({ action: 1 });
+leadActivitySchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('LeadActivity', leadActivitySchema);
