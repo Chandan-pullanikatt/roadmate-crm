@@ -10,20 +10,20 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
   // Role-specific configuration
   const roleConfigs = {
     founder: {
-      accentColor: 'var(--accent)',
+      accentColor: '#0f766e',
       logoSub: 'Team Management',
       roleBadge: '👑 Founder',
       roleBadgeClass: 'founder-badge',
-      logoMarkClass: '',
+      logoMarkClass: 'founder',
       logoMarkText: 'RM',
-      avatarClass: 'av-founder',
+      avatarClass: 'av-green',
       sections: [
         {
           label: 'Overview',
           items: [
             { label: 'Founder Dashboard', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'industry' },
-            { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry' },
+            { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'state-managers' },
+            { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry-managers' },
             { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' }
           ]
         },
@@ -31,18 +31,18 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Leads',
           items: [
             { label: 'All Leads', path: '/dashboard?page=leads', icon: 'leads', badge: 124, badgeColor: 'green' },
-            { label: 'Add Lead', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' })), icon: 'leads' },
-            { label: 'Bulk Upload', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' })), icon: 'leads' },
-            { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'leads', badge: 18 }
+            { label: 'Add Lead', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' })), icon: 'add-lead' },
+            { label: 'Bulk Upload', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' })), icon: 'bulk-upload' },
+            { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: 18, badgeColor: 'red' }
           ]
         },
         {
           label: 'HR & Team',
           items: [
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
-            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: 3 },
+            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'leave', badge: 3, badgeColor: 'red' },
             { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' },
-            { label: 'Working Hours', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' })), icon: 'attendance', badge: '9:30 AM', badgeColor: 'green' }
+            { label: 'Working Hours', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' })), icon: 'working-hours', badge: '9:30 AM', badgeColor: 'green' }
           ]
         },
         {

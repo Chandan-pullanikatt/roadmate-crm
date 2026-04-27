@@ -1,150 +1,255 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { attendanceApi } from '../../../api/attendanceApi';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
+import { Button, Tag } from '../../../components/ui';
 
 const Attendance = () => {
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [filterRole, setFilterRole] = useState('All');
+  const queryClient = useQueryClient();
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [roleFilter, setRoleFilter] = useState('All');
 
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data)
+  // Fetch Attendance Summary
+  const { data: attendanceSummary, isLoading: loadingAttendance } = useQuery({
+    queryKey: ['attendance-summary', month, year, roleFilter],
+    queryFn: () => dashboardApi.getAttendanceSummary({ 
+      month, 
+      year, 
+      role: roleFilter === 'All' ? undefined : roleFilter.toLowerCase().replace(' ', '_') 
+    }).then(res => res.data)
   });
 
-  const { data: attendanceRecords, isLoading } = useQuery({
-    queryKey: ['attendance', 'global', selectedMonth, selectedYear, filterRole],
-    queryFn: () => attendanceApi.getTeamAttendance(new Date().toISOString().split('T')[0]).then(res => res.data)
+  // Fetch Salary Data
+  const { data: salaryData, isLoading: loadingSalary } = useQuery({
+    queryKey: ['salary-report', month, year, roleFilter],
+    queryFn: () => dashboardApi.getReport('salary', { 
+      month, 
+      year 
+    }).then(res => res.data)
   });
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Syncing enterprise attendance...</div>;
+  // Run Payroll Mutation
+  const payrollMutation = useMutation({
+    mutationFn: (data) => dashboardApi.generateSalary(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['salary-report']);
+      alert('Payroll generated successfully!');
+    }
+  });
 
-  const stats = dashData?.stats || {};
-  const records = attendanceRecords || [];
+  const handleRunPayroll = () => {
+    if (window.confirm(`Are you sure you want to run payroll for ${getMonthName(month)} ${year}?`)) {
+      payrollMutation.mutate({ month, year });
+    }
+  };
 
-  const columns = [
-    {
-      header: 'Staff Member',
-      accessor: 'user.name',
-      render: (val, row) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={val} size="sm" />
-          <div>
-            <div className="font-bold text-[13px]">{val}</div>
-            <div className="text-[10px] text-text-muted uppercase">{row.user?.role?.replace('-', ' ')}</div>
-          </div>
-        </div>
-      )
-    },
-    { header: 'Check In', accessor: 'startTime', render: (val) => <span className="mono text-[11px] font-bold">{val || '--:--'}</span> },
-    { 
-      header: 'Status', 
-      accessor: 'status', 
-      render: (val) => <Tag variant={val === 'present' ? 'green' : val === 'half-day' ? 'amber' : 'red'} label={val?.toUpperCase()} /> 
-    },
-    { 
-      header: 'Work %', 
-      accessor: 'workPercentage', 
-      render: (val) => (
-        <div className="flex items-center gap-3">
-          <div className="h-1.2 w-12 bg-surface2 rounded-full overflow-hidden border border-border">
-            <div className={`h-full ${val >= 80 ? 'bg-accent' : 'bg-amber'}`} style={{ width: `${val || 0}%` }}></div>
-          </div>
-          <span className="text-[10px] mono font-bold">{val || 0}%</span>
-        </div>
-      ) 
-    },
-    { header: 'Efficiency', accessor: 'completionPct', render: (val) => <span className="mono text-[11px] font-bold text-blue">{val || 0}%</span> },
-    { header: 'State', accessor: 'user.state', render: (val) => <Tag variant="gray" label={val} /> }
-  ];
+  React.useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['salary-report'] });
+    };
+    window.addEventListener('refresh-attendance', handleRefresh);
+    return () => window.removeEventListener('refresh-attendance', handleRefresh);
+  }, [queryClient]);
+
+  const getMonthName = (m) => {
+    return new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' });
+  };
+
+  const getRoleLabel = (role) => {
+    if (role === 'state_manager') return 'State Mgr';
+    if (role === 'industry_manager') return 'Ind. Mgr';
+    if (role === 'executive') return 'Executive';
+    return role;
+  };
 
   return (
-    <div className="animate-in fade-in duration-500">
-      <div className="section-header">
+    <div className="animate-in fade-in duration-500 space-y-8 pb-20">
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <div>
-          <div className="section-title">Enterprise Attendance</div>
-          <div className="section-sub">Cross-state staff monitoring · Real-time presence · Automated work logging</div>
+          <h1 className="text-2xl font-bold text-text-primary">Attendance</h1>
+          <p className="text-sm text-text-muted mt-1">Attendance register · Work %, half-days, salary</p>
         </div>
-        <div className="flex gap-2">
-           <select 
-             className="bg-surface border border-border rounded-lg px-4 py-1.5 text-xs outline-none focus:border-purple"
-             value={selectedMonth}
-             onChange={e => setSelectedMonth(parseInt(e.target.value))}
-           >
-             {Array.from({ length: 12 }).map((_, i) => (
-               <option key={i} value={i}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
-             ))}
-           </select>
-           <select 
-             className="bg-surface border border-border rounded-lg px-4 py-1.5 text-xs outline-none focus:border-purple"
-             value={filterRole}
-             onChange={e => setFilterRole(e.target.value)}
-           >
-             <option value="All">All Roles</option>
-             <option value="state-manager">State Managers</option>
-             <option value="industry-manager">Industry Managers</option>
-             <option value="executive">Executives</option>
-           </select>
-           <Button variant="outline" size="sm">Export Master CSV</Button>
+        <div className="flex items-center gap-3">
+             <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Search leads, team, states..." 
+                  className="bg-white border border-border rounded-xl pl-10 pr-4 py-2 text-sm w-72"
+                />
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
+             </div>
+             <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-border text-text-secondary relative">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red rounded-full border-2 border-white"></span>
+             </button>
+             <button className="bg-[#0f766e] text-white px-6 py-2 rounded-xl font-bold text-sm shadow-sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ Add Lead</button>
+             <button className="bg-white border border-border text-text-primary px-6 py-2 rounded-xl font-bold text-sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'create-state-manager' }))}>+ State Manager</button>
         </div>
       </div>
 
-      <div className="stat-grid mb-6">
-        <div className="stat-card">
-          <div className="stat-label">Total Staff</div>
-          <div className="stat-value text-blue">{stats.totalStaff || 0}</div>
-          <div className="stat-delta">Across all regions</div>
+      {/* Attendance Register Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div className="p-6 border-b border-border flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">Attendance</h2>
+            <p className="text-xs text-text-muted mt-0.5">All staff attendance · Work %, half-days, leaves · Auto-calculated</p>
+          </div>
+          <div className="flex gap-3">
+             <select 
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none"
+               value={month}
+               onChange={e => setMonth(Number(e.target.value))}
+             >
+               {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                 <option key={m} value={m}>{getMonthName(m)} {year}</option>
+               ))}
+             </select>
+             <select 
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none"
+               value={roleFilter}
+               onChange={e => setRoleFilter(e.target.value)}
+             >
+               <option>All Roles</option>
+               <option>State Manager</option>
+               <option>Industry Manager</option>
+               <option>Executive</option>
+             </select>
+             <Button variant="outline" size="sm" className="bg-white font-bold">Export</Button>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Present Today</div>
-          <div className="stat-value text-accent">{stats.todayAttendance || 0}</div>
-          <div className="stat-delta">Currently active</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">On Leave</div>
-          <div className="stat-value text-red">{stats.onLeaveCount || 0}</div>
-          <div className="stat-delta">Approved absences</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Avg Work %</div>
-          <div className="stat-value text-teal">{stats.attendancePct || 0}%</div>
-          <div className="stat-delta">Global efficiency</div>
+
+        <div className="p-6">
+          {/* Working Hours Banner */}
+          <div className="bg-[#f0fdf4] border border-[#dcfce7] rounded-xl p-4 flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#166534] shadow-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <span className="text-[13px] font-bold text-[#166534]">Working Hours Configuration</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-[#dcfce7] text-[#166534] px-3 py-1 rounded-full text-[11px] font-bold border border-[#bbf7d0]">Normal: 9:30 AM</span>
+              <span className="bg-[#eff6ff] text-[#1e40af] px-3 py-1 rounded-full text-[11px] font-bold border border-[#dbeafe]">Ramadan: 9:00 AM</span>
+              <button className="bg-white border border-border px-4 py-1 rounded-lg text-[11px] font-bold ml-2 hover:bg-surface2 transition-all">Edit</button>
+              <span className="text-[10px] text-text-muted ml-4">Below 30% work → Leave | Below 70% → Half Day</span>
+            </div>
+          </div>
+
+          <div className="border border-border rounded-xl overflow-hidden">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-surface2/30 border-b border-border">
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Staff</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Present</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Absent</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Half Day</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Leave</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Work %</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {attendanceSummary?.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-surface2/20 transition-colors">
+                    <td className="p-4">
+                      <div className="font-bold text-[14px] text-text-primary">{row.user.name}</div>
+                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user.role)}</div>
+                    </td>
+                    <td className="p-4 text-center font-bold text-[13px] text-text-secondary">{row.present}</td>
+                    <td className="p-4 text-center font-bold text-[13px] text-red">{row.absent || '0'}</td>
+                    <td className="p-4 text-center font-bold text-[13px] text-orange">{row.halfDay || '0'}</td>
+                    <td className="p-4 text-center font-bold text-[13px] text-blue">{row.leave || '0'}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-1.5 bg-surface2 rounded-full overflow-hidden max-w-[80px]">
+                          <div 
+                            className={`h-full rounded-full ${row.avgWorkPct > 80 ? 'bg-[#0f766e]' : row.avgWorkPct > 50 ? 'bg-orange' : 'bg-red'}`} 
+                            style={{ width: `${row.avgWorkPct}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-[12px] font-bold">{Math.round(row.avgWorkPct)}%</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Tag variant={row.avgWorkPct > 80 ? 'success' : row.avgWorkPct > 50 ? 'warning' : 'danger'} size="sm">
+                        {row.avgWorkPct > 80 ? 'Active' : row.avgWorkPct > 50 ? 'Half Day' : 'Inactive'}
+                      </Tag>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div className="card mb-8">
-        <div className="card-header border-b border-border bg-surface2/10">
-          <div className="section-title text-sm">Attendance Register · {new Date(selectedYear, selectedMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
+      {/* Salary Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div className="p-6 border-b border-border flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">Auto Salary Calculation</h2>
+            <p className="text-xs text-text-muted mt-0.5">Basic salary + working days + leaves + incentives</p>
+          </div>
+          <Button 
+            className="bg-[#0f766e] text-white px-8 font-bold" 
+            onClick={handleRunPayroll}
+            isLoading={payrollMutation.isPending}
+          >
+            Run Payroll
+          </Button>
         </div>
-        <DataTable columns={columns} data={records} />
-      </div>
 
-      <div className="section-header">
-        <div>
-          <div className="section-title">Automated Payroll Preview</div>
-          <div className="section-sub">Real-time salary calculation based on attendance & efficiency</div>
+        <div className="p-6">
+          <div className="border border-border rounded-xl overflow-hidden">
+            <div className="p-4 bg-surface2/30 border-b border-border flex justify-between items-center">
+               <h3 className="text-sm font-bold text-text-primary">Salary Sheet — {getMonthName(month)} {year}</h3>
+               <div className="flex gap-2">
+                 <span className="bg-orange-light text-orange px-3 py-1 rounded-full text-[10px] font-bold border border-orange/20">Incentive correction: Manual</span>
+                 <Button variant="outline" size="xs" className="bg-white">Export</Button>
+               </div>
+            </div>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-surface2/10 border-b border-border">
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Staff</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Basic</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Working Days</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Leaves</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Deductions</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Incentives</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Net Pay</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {salaryData?.data?.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-surface2/20 transition-colors">
+                    <td className="p-4">
+                      <div className="font-bold text-[14px] text-text-primary">{row.user.name}</div>
+                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user.role)}</div>
+                    </td>
+                    <td className="p-4 font-medium text-[13px]">₹{row.baseSalary?.toLocaleString()}</td>
+                    <td className="p-4 text-center font-medium text-[13px]">{row.workingDays}</td>
+                    <td className="p-4 text-center font-medium text-[13px] text-blue">{row.leaveDays || '0'}</td>
+                    <td className="p-4 text-center font-medium text-[13px] text-red">-{row.deductions > 0 ? `₹${row.deductions.toLocaleString()}` : '₹0'}</td>
+                    <td className="p-4 text-center font-medium text-[13px] text-[#0f766e]">+{row.incentives > 0 ? `₹${row.incentives.toLocaleString()}` : '₹0'}</td>
+                    <td className="p-4 text-center font-bold text-[14px] text-text-primary">₹{row.netSalary?.toLocaleString()}</td>
+                    <td className="p-4 text-right">
+                      <button 
+                        className="bg-white border border-border text-text-secondary px-3 py-1 rounded-lg text-[11px] font-bold hover:bg-surface2 transition-all"
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'edit-incentive', salaryId: row._id } }))}
+                      >
+                        Edit Incentive
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <Button className="bg-purple text-white" size="sm">Run Monthly Payroll</Button>
-      </div>
-
-      <div className="card">
-         <div className="p-8 text-center text-text-muted text-xs italic">
-            Payroll generation is triggered on the 1st of every month. The preview above shows real-time data from the Attendance Register.
-         </div>
-         <DataTable 
-           columns={[
-             { header: 'Staff', accessor: 'user.name' },
-             { header: 'Basic', accessor: 'user.salary', render: (val) => <span className="mono">₹{val?.toLocaleString() || '0'}</span> },
-             { header: 'Working Days', accessor: 'presentCount', render: () => <span className="mono">22</span> },
-             { header: 'Leaves', accessor: 'leaveCount', render: () => <span className="mono text-red">2</span> },
-             { header: 'Incentives', accessor: 'incentives', render: () => <span className="mono text-accent">+₹2,500</span> },
-             { header: 'Net Pay', accessor: 'netPay', render: () => <span className="mono font-bold text-accent">₹24,500</span> },
-             { header: 'Action', accessor: '_id', render: () => <Button size="xs" variant="outline">Adjust</Button>, align: 'right' }
-           ]}
-           data={records.slice(0, 3)}
-         />
       </div>
     </div>
   );

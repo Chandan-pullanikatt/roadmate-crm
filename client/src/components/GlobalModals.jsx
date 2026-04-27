@@ -28,7 +28,8 @@ const GlobalModals = () => {
   const [leadFormData, setLeadFormData] = useState({
     name: '', company: '', countryCode: '+91', phone: '', email: '',
     country: '', district: '', state: '', industry: '',
-    leadSource: 'Direct', priority: 'Hot 🔥', manager: '', owner: '', notes: ''
+    leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
+    documents: []
   });
 
   const [managerFormData, setManagerFormData] = useState({
@@ -44,11 +45,24 @@ const GlobalModals = () => {
   });
 
   const [leaveAction, setLeaveAction] = useState({ id: '', reason: '' });
+  const [incentiveForm, setIncentiveForm] = useState({ salaryId: '', amount: 0, note: '' });
+  const [workingHours, setWorkingHours] = useState({
+    normalStart: '09:30', normalEnd: '18:30',
+    ramadanStart: '09:00', ramadanEnd: '17:30',
+    ramadanFrom: '', ramadanTo: '',
+    rules: { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true }
+  });
 
   useEffect(() => {
     const handleOpenModal = (e) => {
-      setActiveModal(e.detail);
-      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval'].includes(e.detail)) fetchUsers();
+      if (typeof e.detail === 'object' && e.detail.type === 'edit-incentive') {
+        setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
+        setActiveModal('edit-incentive');
+      } else {
+        setActiveModal(e.detail);
+        if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval'].includes(e.detail)) fetchUsers();
+        if (e.detail === 'work-time') fetchWorkingHours();
+      }
     };
     window.addEventListener('open-modal', handleOpenModal);
     return () => window.removeEventListener('open-modal', handleOpenModal);
@@ -78,7 +92,8 @@ const GlobalModals = () => {
       setLeadFormData({
         name: '', company: '', countryCode: '+91', phone: '', email: '',
         country: '', district: '', state: '', industry: '',
-        leadSource: 'Direct', priority: 'Hot 🔥', manager: '', owner: '', notes: ''
+        leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
+        documents: []
       });
     } catch (err) {
       addToast(err.response?.data?.message || 'Error adding lead', 'error');
@@ -127,77 +142,149 @@ const GlobalModals = () => {
     }
   };
 
+  const handleIncentiveSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { dashboardApi } = await import('../api/dashboardApi');
+      await dashboardApi.updateSalary(incentiveForm.salaryId, { 
+        incentives: incentiveForm.amount, 
+        incentiveNote: incentiveForm.note 
+      });
+      addToast('Incentive updated successfully!', 'success');
+      setActiveModal(null);
+      // Trigger a refresh of the attendance/salary query
+      window.dispatchEvent(new CustomEvent('refresh-attendance'));
+    } catch (err) {
+      addToast('Error updating incentive', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWorkingHours = async () => {
+    try {
+      const { configApi } = await import('../api/configApi');
+      const res = await configApi.getConfig('working-hours');
+      if (res.data?.value) setWorkingHours(res.data.value);
+    } catch (err) {
+      addToast('Error fetching configuration', 'error');
+    }
+  };
+
+  const handleWorkingHoursSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { configApi } = await import('../api/configApi');
+      await configApi.saveConfig({ key: 'working-hours', value: workingHours });
+      addToast('Working hours updated successfully!', 'success');
+      setActiveModal(null);
+    } catch (err) {
+      addToast('Error saving configuration', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!activeModal) return null;
 
   return (
     <>
-      {/* ADD LEAD MODAL */}
       <Modal 
         isOpen={activeModal === 'add-lead'} 
-        title="Add New Lead" 
+        title="Add Lead" 
+        subtitle="Enter a new lead into the CRM"
         onClose={() => setActiveModal(null)}
+        className="modal-lg"
       >
-        <form onSubmit={handleLeadSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div className="text-xs font-bold text-accent uppercase tracking-widest">Lead Information</div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
+        <form onSubmit={handleLeadSubmit} className="space-y-10 py-2">
+          {/* LEAD INFORMATION SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Lead Information</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+              <div className="space-y-2">
                 <label className="form-label">Full Name</label>
                 <input className="input" type="text" value={leadFormData.name} onChange={(e)=>setLeadFormData({...leadFormData, name: e.target.value})} placeholder="Lead name" required />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="form-label">Company / Business</label>
                 <input className="input" type="text" value={leadFormData.company} onChange={(e)=>setLeadFormData({...leadFormData, company: e.target.value})} placeholder="Company name" />
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="form-label">Phone Number</label>
-                <div className="flex gap-2">
-                  <select className="select w-24 shrink-0" value={leadFormData.countryCode} onChange={(e)=>setLeadFormData({...leadFormData, countryCode: e.target.value})}>
-                    <option value="+91">🇮🇳 +91</option>
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+971">🇦🇪 +971</option>
-                  </select>
+              
+              <div className="space-y-2">
+                <label className="form-label">Phone Number <span className="text-red">*</span></label>
+                <div className="flex gap-3">
+                  <div className="relative w-32 shrink-0">
+                    <select className="select pl-4" value={leadFormData.countryCode} onChange={(e)=>setLeadFormData({...leadFormData, countryCode: e.target.value})}>
+                      <option value="+91">🇮🇳 +91</option>
+                      <option value="+971">🇦🇪 +971</option>
+                      <option value="+1">🇺🇸 +1</option>
+                    </select>
+                  </div>
                   <input className="input flex-1" type="tel" value={leadFormData.phone} onChange={(e)=>setLeadFormData({...leadFormData, phone: e.target.value})} placeholder="XXXXX XXXXX" required />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="form-label">Email Address</label>
+              <div className="space-y-2">
+                <label className="form-label">Email</label>
                 <input className="input" type="email" value={leadFormData.email} onChange={(e)=>setLeadFormData({...leadFormData, email: e.target.value})} placeholder="email@example.com" />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="form-label">Country</label>
                 <select className="select" value={leadFormData.country} onChange={(e)=>setLeadFormData({...leadFormData, country: e.target.value, district: ''})}>
                   <option value="">Select Country</option>
                   {Object.keys(districtsByCountry).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="form-label">District</label>
                 <select className="select" value={leadFormData.district} onChange={(e)=>setLeadFormData({...leadFormData, district: e.target.value})}>
                   <option value="">Select District</option>
                   {(districtsByCountry[leadFormData.country] || []).map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-2">
+                <label className="form-label">State</label>
+                <select className="select" value={leadFormData.state} onChange={(e)=>setLeadFormData({...leadFormData, state: e.target.value})}>
+                  <option value="">Select State</option>
+                  <option>Kerala</option>
+                  <option>Telangana</option>
+                  <option>Maharashtra</option>
+                  <option>Karnataka</option>
+                  <option>Tamil Nadu</option>
+                  <option>Dubai</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">Industry</label>
+                <select className="select" value={leadFormData.industry} onChange={(e)=>setLeadFormData({...leadFormData, industry: e.target.value})}>
+                  <option value="">Select Industry</option>
+                  <option>Automobile</option>
+                  <option>Electronics</option>
+                  <option>Real Estate</option>
+                  <option>Technology</option>
+                  <option>Finance</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
                 <label className="form-label">Lead Source</label>
                 <select className="select" value={leadFormData.leadSource} onChange={(e)=>setLeadFormData({...leadFormData, leadSource: e.target.value})}>
                   <option>Direct</option>
                   <option>Referral</option>
                   <option>Campaign</option>
                   <option>Website</option>
+                  <option>Cold Call</option>
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="form-label">Priority</label>
+              <div className="space-y-2">
+                <label className="form-label">Lead Priority</label>
                 <select className="select" value={leadFormData.priority} onChange={(e)=>setLeadFormData({...leadFormData, priority: e.target.value})}>
                   <option>Hot 🔥</option>
                   <option>Warm</option>
@@ -205,16 +292,59 @@ const GlobalModals = () => {
                 </select>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-1">
-              <label className="form-label">Initial Notes</label>
-              <textarea className="textarea h-24" value={leadFormData.notes} onChange={(e)=>setLeadFormData({...leadFormData, notes: e.target.value})} placeholder="Any initial notes about this lead…"></textarea>
+          {/* ALLOCATION SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Allocation</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+              <div className="space-y-2">
+                <label className="form-label">Assign to State Manager</label>
+                <select className="select" value={leadFormData.managerId} onChange={(e)=>setLeadFormData({...leadFormData, managerId: e.target.value})}>
+                  <option value="">Select State Manager</option>
+                  {managers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">Assign to Executive</label>
+                <select className="select" value={leadFormData.ownerId} onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}>
+                  <option value="">Select Executive</option>
+                  {executives.map(ex => <option key={ex._id} value={ex._id}>{ex.name}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={loading}>Save Lead</Button>
+          {/* NOTES SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Initial Notes</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+            <textarea className="textarea" value={leadFormData.notes} onChange={(e)=>setLeadFormData({...leadFormData, notes: e.target.value})} placeholder="Any initial notes about this lead…"></textarea>
+          </div>
+
+          {/* DOCUMENTS SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Attach Documents (optional)</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+             <FileUpload 
+                onUpload={(file) => setLeadFormData({...leadFormData, documents: [...leadFormData.documents, file]})}
+                label="Click to upload lead documents"
+                subtitle="PDF, JPG, PNG up to 10MB"
+             />
+          </div>
+
+          <div className="flex justify-end gap-4 pt-6 border-t border-border mt-10">
+            <button type="button" className="btn btn-outline px-10" onClick={() => setActiveModal(null)}>Cancel</button>
+            <button type="submit" className="btn btn-primary px-10 bg-[#0f766e] border-[#0f766e]" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Lead'}
+            </button>
           </div>
         </form>
       </Modal>
@@ -507,6 +637,157 @@ const GlobalModals = () => {
             </div>
           </div>
         </div>
+      </Modal>
+
+      {/* EDIT INCENTIVE MODAL */}
+      <Modal
+        isOpen={activeModal === 'edit-incentive'}
+        title="Edit Incentive"
+        subtitle="Adjust performance incentives and add notes"
+        onClose={() => setActiveModal(null)}
+      >
+        <form onSubmit={handleIncentiveSubmit} className="space-y-6">
+          <div className="space-y-4">
+             <div className="space-y-1">
+                <label className="form-label">Incentive Amount (₹)</label>
+                <input 
+                  type="number" 
+                  className="input" 
+                  placeholder="e.g. 5000" 
+                  value={incentiveForm.amount}
+                  onChange={e => setIncentiveForm({...incentiveForm, amount: e.target.value})}
+                  required 
+                />
+             </div>
+             <div className="space-y-1">
+                <label className="form-label">Incentive Note</label>
+                <textarea 
+                  className="textarea" 
+                  placeholder="Reason for this incentive..."
+                  value={incentiveForm.note}
+                  onChange={e => setIncentiveForm({...incentiveForm, note: e.target.value})}
+                ></textarea>
+             </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
+            <Button variant="primary" type="submit" loading={loading} className="bg-[#0f766e]">Save Changes</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* WORKING HOURS CONFIGURATION MODAL */}
+      <Modal
+        isOpen={activeModal === 'work-time'}
+        title="Working Hours Configuration"
+        subtitle="Set normal and Ramadan start times · Affects attendance auto-marking"
+        onClose={() => setActiveModal(null)}
+        className="modal-lg"
+      >
+        <form onSubmit={handleWorkingHoursSubmit} className="space-y-8 py-2">
+          {/* RAMADAN HOURS SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Ramadan Working Hours</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+              <div className="space-y-2">
+                <label className="form-label">Start Time <span className="text-red">*</span></label>
+                <input 
+                  className="input" 
+                  type="time" 
+                  value={workingHours.ramadanStart} 
+                  onChange={(e) => setWorkingHours({...workingHours, ramadanStart: e.target.value})} 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">End Time</label>
+                <input 
+                  className="input" 
+                  type="time" 
+                  value={workingHours.ramadanEnd} 
+                  onChange={(e) => setWorkingHours({...workingHours, ramadanEnd: e.target.value})} 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="form-label">Ramadan Period From</label>
+                <input 
+                  className="input" 
+                  type="date" 
+                  value={workingHours.ramadanFrom} 
+                  onChange={(e) => setWorkingHours({...workingHours, ramadanFrom: e.target.value})} 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">Ramadan Period To</label>
+                <input 
+                  className="input" 
+                  type="date" 
+                  value={workingHours.ramadanTo} 
+                  onChange={(e) => setWorkingHours({...workingHours, ramadanTo: e.target.value})} 
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* AUTO-ATTENDANCE RULES SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Auto-Attendance Rules</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
+                <span className="text-sm font-medium text-text-primary">Work completion below <span className="font-bold text-red">30%</span> of allotted tasks → Auto-mark as <span className="font-bold">Leave</span></span>
+                <input 
+                  type="number" 
+                  className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold" 
+                  value={workingHours.rules.leaveThreshold}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, leaveThreshold: Number(e.target.value)}})}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
+                <span className="text-sm font-medium text-text-primary">Work completion below <span className="font-bold text-orange">70%</span> of allotted tasks → Auto-mark as <span className="font-bold">Half Day</span></span>
+                <input 
+                  type="number" 
+                  className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold" 
+                  value={workingHours.rules.halfDayThreshold}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, halfDayThreshold: Number(e.target.value)}})}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
+                <span className="text-sm font-medium text-text-primary">Delayed login → <span className="font-bold">Half day</span> (based on time frame above)</span>
+                <input 
+                  type="checkbox" 
+                  className="w-5 h-5 rounded accent-[#0f766e]" 
+                  checked={workingHours.rules.delayedLoginHalfDay}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, delayedLoginHalfDay: e.target.checked}})}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-xl flex gap-3 items-start">
+               <span className="text-amber">⚠️</span>
+               <div className="text-xs text-amber font-medium leading-relaxed">
+                 End of day: staff must mark "Today Work Completed". Uncompleted work is auto-evaluated for leave/half-day.
+               </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-4 pt-6 border-t border-border mt-10">
+            <button type="button" className="btn btn-outline px-10" onClick={() => setActiveModal(null)}>Cancel</button>
+            <button type="submit" className="btn btn-primary px-10 bg-[#0f766e] border-[#0f766e]" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Working Hours'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </>
   );

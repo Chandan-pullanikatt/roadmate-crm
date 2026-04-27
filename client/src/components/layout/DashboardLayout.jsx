@@ -3,26 +3,34 @@ import { NavLink, useLocation } from 'react-router-dom';
 import GlobalModals from '../GlobalModals';
 
 const getIcon = (iconName) => {
-  const props = { className: "icon", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.5" };
+  const props = { className: "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" };
   switch (iconName) {
     case 'overview':
-      return <svg {...props}><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>;
-    case 'my-work':
-      return <svg {...props} style={{ opacity: 1 }}><circle cx="8" cy="3" r="2"/><path d="M3 14v-2a5 5 0 0110 0v2"/><path d="M8 7v4M6 9h4"/></svg>;
-    case 'industry':
-      return <svg {...props}><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>;
+      return <svg {...props}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>;
+    case 'state-managers':
+      return <svg {...props}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+    case 'industry-managers':
+      return <svg {...props}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>;
     case 'executives':
-      return <svg {...props}><path d="M8 1l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 9.8l-3.7 2.7 1.4-4.3L2 5.5h4.5z"/></svg>;
+      return <svg {...props}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
     case 'leads':
-      return <svg {...props}><path d="M14 10c0 2.2-1.8 4-4 4H4c-1.7 0-3-1.3-3-3 0-1.4.9-2.5 2.2-2.9C3.1 7.8 3 7.4 3 7c0-1.7 1.3-3 3-3 .3 0 .7 0 1 .1C7.5 2.9 8.9 2 10.5 2 12.4 2 14 3.6 14 5.5c0 .3 0 .6-.1.9.6.4 1.1 1 1.1 1.8v.3H14z"/></svg>;
+      return <svg {...props}><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>;
+    case 'add-lead':
+      return <svg {...props}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+    case 'bulk-upload':
+      return <svg {...props}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
+    case 'expected':
+      return <svg {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
     case 'attendance':
-      return <svg {...props}><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M5 1v4M11 1v4M2 7h12"/></svg>;
-    case 'calendar':
-      return <svg {...props}><path d="M8 2v4l3 3"/><circle cx="8" cy="8" r="6"/></svg>;
+      return <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+    case 'leave':
+      return <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>;
     case 'performance':
-      return <svg {...props}><path d="M2 12l4-4 3 3 5-6"/></svg>;
+      return <svg {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+    case 'working-hours':
+      return <svg {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
     case 'reports':
-      return <svg {...props}><path d="M4 12V7M8 12V4M12 12V9"/></svg>;
+      return <svg {...props}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
     default:
       return null;
   }

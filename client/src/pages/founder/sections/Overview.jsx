@@ -235,75 +235,131 @@ const Overview = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="card">
-          <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center">
-            <div className="section-title text-sm">State Manager Performance</div>
-            <Button size="xs" variant="outline">Detailed Analytics</Button>
-          </div>
-          <div className="divide-y divide-border">
-            {managers.map((m, i) => (
-              <div key={m._id} className="flex items-center gap-4 p-4 hover:bg-surface2 transition-colors cursor-pointer">
-                <Avatar name={m.name} size="md" className="av-state" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-bold">{m.name}</div>
-                  <div className="text-[11px] text-text-muted mt-0.5">📍 {m.state} · SM</div>
+      <div className="flex justify-between items-end mb-4 mt-8">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Performance by State Manager</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Click any row to drill into full State Manager dashboard</div>
+        </div>
+        <Button size="sm" variant="outline" className="bg-white">View All</Button>
+      </div>
+
+      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
+        <div className="divide-y divide-border">
+          {dashData?.byState?.map((managerData, idx) => {
+            const mName = managerData.stateManager !== 'Unassigned' ? managerData.stateManager : 'Unassigned';
+            const initials = mName !== 'Unassigned' ? mName.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+            const colors = ['bg-[#3b82f6]', 'bg-[#4f46e5]', 'bg-[#0f766e]', 'bg-[#ea580c]'];
+            const avatarColor = colors[idx % colors.length];
+
+            return (
+              <div key={managerData.stateManagerId || idx} className="flex items-center justify-between p-4 hover:bg-surface2/30 transition-colors cursor-pointer group">
+                <div className="flex items-center gap-4 min-w-[300px]">
+                  <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>
+                    {initials}
+                  </div>
+                  <div>
+                    <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
+                    <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      {managerData.state} · State Manager
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-6 mx-4">
-                  <div className="text-center"><div className="text-xs font-bold text-blue mono">{m.leadsCount || 0}</div><div className="text-[9px] text-text-muted uppercase">Leads</div></div>
-                  <div className="text-center"><div className="text-xs font-bold text-accent mono">₹{m.revenue?.toLocaleString() || '0'}</div><div className="text-[9px] text-text-muted uppercase">Rev</div></div>
+
+                <div className="flex items-center justify-end gap-6 flex-1">
+                  <div className="text-center w-14">
+                    <div className="text-[15px] font-bold text-blue font-mono">{managerData.leads}</div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Leads</div>
+                  </div>
+                  <div className="text-center w-14">
+                    <div className="text-[15px] font-bold text-[#16a34a] font-mono">{managerData.converted}</div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Conv.</div>
+                  </div>
+                  <div className="text-center w-20">
+                    <div className="text-[15px] font-bold text-teal font-mono">
+                       ₹{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Revenue</div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center justify-center w-24 border-l border-border pl-4">
+                    <div className="flex items-center gap-2">
+                       <div className="w-6 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                         <div className="h-full bg-[#d97706]" style={{ width: `${managerData.avgWorkPct || 0}%` }}></div>
+                       </div>
+                       <div className="text-[13px] font-bold text-[#d97706]">{Math.round(managerData.avgWorkPct || 0)}%</div>
+                    </div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">Work %</div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                   <div className="text-[10px] font-bold mono">{m.completionPct || 0}%</div>
-                   <div className="w-12 h-1 bg-surface2 rounded-full overflow-hidden">
-                      <div className="h-full bg-accent" style={{ width: `${m.completionPct || 0}%` }}></div>
-                   </div>
+
+                <div className="flex items-center justify-end gap-2 ml-8 w-[180px]">
+                  <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4">View</Button>
+                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3">Edit</Button>
+                  <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3">Delete</Button>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+          {(!dashData?.byState || dashData.byState.length === 0) && (
+             <div className="p-8 text-center text-text-muted text-[13px]">No performance data found.</div>
+          )}
         </div>
+      </div>
 
-        <div className="flex flex-col gap-6">
-          <div className="card">
-            <div className="card-header border-b border-border bg-surface2/10">
-              <div className="section-title text-sm">Pending Founder Approvals</div>
-              <Tag variant="amber" label={`${pendingLeaves.length} Leaves`} />
-            </div>
-            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
-              {pendingLeaves.map((l) => (
-                <div key={l._id} className="flex items-center gap-4 p-4 hover:bg-surface2 transition-colors">
-                  <Avatar name={l.user?.name} size="sm" className="av-state" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold">{l.user?.name}</div>
-                    <div className="text-[11px] text-text-muted truncate">SM · {l.type} · {l.reason}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="xs" className="bg-accent text-white">Approve</Button>
-                    <Button size="xs" variant="outline" className="text-red border-red/10">Reject</Button>
-                  </div>
-                </div>
-              ))}
-              {pendingLeaves.length === 0 && <div className="p-12 text-center text-text-muted text-xs italic">No pending requests</div>}
-            </div>
-          </div>
 
-          <div className="card">
-            <div className="card-header border-b border-border bg-surface2/10">
-              <div className="section-title text-sm">Recent Global Leads</div>
-            </div>
-            <div className="p-4">
-              {recentLeads.slice(0, 3).map((l, i) => (
-                <div key={i} className="flex justify-between items-center mb-4 last:mb-0">
+      <div className="flex justify-between items-end mb-4 mt-8">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Leave Approvals</div>
+          <div className="text-[12px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
+        </div>
+        <div className="bg-amber/10 border border-amber/20 text-amber text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+           ⚠ {pendingLeaves.length} Pending
+        </div>
+      </div>
+
+      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
+        <div className="divide-y divide-border">
+          {pendingLeaves.map((l, idx) => {
+             const mName = l.user?.name || 'Unknown';
+             const initials = mName.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase();
+             const colors = ['bg-[#3b82f6]', 'bg-[#8b5cf6]', 'bg-[#ea580c]', 'bg-[#14b8a6]'];
+             const avatarColor = colors[idx % colors.length];
+
+             const roleDisplay = l.user?.role === 'state_manager' ? 'State Manager' : l.user?.role === 'industry_manager' ? 'Industry Mgr' : 'Executive';
+             const stateDisplay = l.user?.state || 'Unknown';
+             const typeDisplay = (l.type || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+             return (
+              <div key={l._id} className="flex items-center justify-between p-4 hover:bg-surface2/30 transition-colors group">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>
+                    {initials}
+                  </div>
                   <div>
-                    <div className="text-xs font-bold">{l.company}</div>
-                    <div className="text-[10px] text-text-muted">{l.state} · {l.industry}</div>
+                    <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
+                    <div className="text-[11px] text-text-muted mt-0.5">
+                      {roleDisplay}, {stateDisplay} · {typeDisplay} · {l.days} day(s) · <span className="italic">{l.reason}</span>
+                    </div>
                   </div>
-                  <Tag variant={l.status === 'hot' ? 'red' : 'gray'} label={l.status.toUpperCase()} />
                 </div>
-              ))}
-            </div>
-          </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button size="xs" variant="outline" className="bg-[#f0fdf4] border-[#bbf7d0] text-[#16a34a] shadow-sm hover:bg-[#dcfce7] px-4 font-semibold">Approve</Button>
+                  <Button size="xs" variant="outline" className="bg-[#fef2f2] border-[#fecaca] text-[#dc2626] shadow-sm hover:bg-[#fee2e2] px-4 font-semibold">Reject</Button>
+                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-4 font-semibold">Details</Button>
+                </div>
+              </div>
+             );
+          })}
+          {pendingLeaves.length === 0 && (
+             <div className="p-8 text-center text-text-muted text-[13px]">No pending leave requests.</div>
+          )}
+          {pendingLeaves.length > 0 && (
+             <div className="p-3 bg-surface2/30 flex justify-end">
+               <Button size="sm" variant="outline" className="bg-white text-text-primary shadow-sm font-semibold">Manage All Leave Requests</Button>
+             </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-const Modal = ({ isOpen = true, title, children, onClose }) => {
+const Modal = ({ isOpen = true, title, subtitle, children, onClose, className = "" }) => {
   useEffect(() => {
     if (!isOpen) return;
     
@@ -24,20 +24,20 @@ const Modal = ({ isOpen = true, title, children, onClose }) => {
       onClick={onClose}
     >
       <div 
-        className="glass w-full max-w-lg rounded-[28px] shadow-lg overflow-hidden animate-in"
+        className={`bg-white w-full rounded-[28px] shadow-2xl overflow-hidden animate-in ${className}`}
         style={{ animationDuration: '0.3s' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-8 py-6 border-b border-border flex items-center justify-between bg-surface/50">
+        <div className="px-8 py-6 border-b border-border flex items-start justify-between bg-white">
           <div>
-            <h2 className="text-xl font-extrabold text-text-primary tracking-tight">{title}</h2>
-            <div className="h-1 w-12 bg-blue-gradient rounded-full mt-1" />
+            <h2 className="text-xl font-bold text-text-primary">{title}</h2>
+            {subtitle && <p className="text-sm text-text-muted mt-0.5">{subtitle}</p>}
           </div>
           <button 
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface2 hover:bg-red-light hover:text-red transition-all duration-300 group"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-gray-100 transition-all"
           >
-            <span className="text-lg group-hover:rotate-90 transition-transform">✕</span>
+            <span className="text-sm text-text-muted">✕</span>
           </button>
         </div>
         <div className="p-8 max-h-[85vh] overflow-y-auto custom-scrollbar">

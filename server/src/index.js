@@ -89,6 +89,7 @@ app.use('/api/leave', leaveRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/config', require('./routes/config'));
 
 // Global Error Handler
 app.use(errorHandler);

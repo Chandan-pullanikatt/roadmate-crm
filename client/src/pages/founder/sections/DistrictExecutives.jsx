@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
+import { Avatar, Button, Tag } from '../../../components/ui';
 
 const DistrictExecutives = () => {
   const [viewType, setViewType] = useState('monthly');
   const [filterState, setFilterState] = useState('All');
 
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data)
-  });
-
-  const { data: executives, isLoading } = useQuery({
-    queryKey: ['users', 'executives-global'],
-    queryFn: () => usersApi.getUsers({ role: 'executive' }).then(res => res.data)
+  const { data: dashData, isLoading } = useQuery({
+    queryKey: ['dashboard', 'founder', viewType],
+    queryFn: () => dashboardApi.getFounderDashboard({ period: viewType }).then(res => res.data)
   });
 
   const openModal = (id) => {
@@ -25,138 +19,177 @@ const DistrictExecutives = () => {
   if (isLoading) return <div className="p-8 text-center text-text-muted">Analyzing field team performance...</div>;
 
   const stats = dashData?.stats || {};
-  const filteredExecs = executives?.filter(e => filterState === 'All' || e.state === filterState);
-
-  const columns = [
-    {
-      header: 'Executive',
-      accessor: 'name',
-      render: (val, row) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={val} size="sm" />
-          <span className="font-bold text-[14px]">{val}</span>
-        </div>
-      )
-    },
-    {
-      header: 'State · Industry',
-      accessor: 'state',
-      render: (val, row) => (
-        <div className="flex items-center gap-2">
-          <Tag variant="blue" label={val} />
-          <span className="text-[11px] text-text-muted font-medium">{row.industry}</span>
-        </div>
-      )
-    },
-    { header: 'Handling', accessor: 'leadsCount', render: (val) => <span className="mono text-[11px] font-bold">{val || 0}</span>, align: 'right' },
-    { header: 'Connected', accessor: 'callsToday', render: (val) => <span className="mono text-[11px] font-bold text-blue">{val || 0}</span>, align: 'right' },
-    { header: 'Converted', accessor: 'conversionsTotal', render: (val) => <span className="mono text-[11px] font-bold text-accent">{val || 0}</span>, align: 'right' },
-    { 
-      header: 'Revenue', 
-      accessor: 'revenue', 
-      render: (val) => <span className="mono text-[11px] font-bold text-teal">₹{val?.toLocaleString() || '0'}</span>, 
-      align: 'right' 
-    },
-    {
-      header: 'Work %',
-      accessor: 'completionPct',
-      render: (val) => (
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 w-16 bg-surface2 rounded-full overflow-hidden border border-border">
-            <div className={`h-full transition-all ${val >= 80 ? 'bg-accent' : val >= 50 ? 'bg-amber' : 'bg-red'}`} style={{ width: `${val || 0}%` }}></div>
-          </div>
-          <span className="text-[11px] mono font-bold">{val || 0}%</span>
-        </div>
-      ),
-      align: 'right'
-    },
-    {
-      header: 'Actions',
-      accessor: '_id',
-      render: (id) => (
-        <div className="flex gap-2">
-          <Button size="xs" variant="outline" onClick={() => openModal('create-exec')}>View</Button>
-          <Button size="xs" variant="outline" onClick={() => openModal('create-exec')}>Edit</Button>
-        </div>
-      ),
-      align: 'right'
-    }
-  ];
+  const executives = dashData?.executivesPerformance || [];
+  const filteredExecs = executives.filter(e => filterState === 'All' || e.state === filterState);
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="flex items-center gap-2 mb-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">
-        <span>FOUNDER</span>
-        <span>/</span>
-        <span className="text-text-primary">DISTRICT EXECUTIVES</span>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 mb-4 text-[12px] font-medium text-text-muted">
+        <span>Founder</span>
+        <span className="text-text-muted/30">›</span>
+        <span className="text-text-primary font-semibold">District Executives</span>
       </div>
 
-      <div className="section-header">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8">
         <div>
-          <div className="section-title">District Executives</div>
-          <div className="section-sub">Field execution monitoring · Lead conversion stats · Team efficiency</div>
+          <h1 className="text-[24px] font-bold text-text-primary tracking-tight">District Executives</h1>
+          <p className="text-[14px] text-text-muted mt-0.5">Performance summary · Lead handling · Attendance · Salary</p>
         </div>
-        <div className="flex gap-2">
-          <Button className="bg-purple text-white" size="sm" onClick={() => openModal('create-exec')}>+ Create Executive</Button>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-white border-border shadow-sm font-semibold text-[13px]"
+            onClick={() => openModal('create-executive')}
+          >
+            + Create Executive
+          </Button>
           <select 
-            className="bg-surface border border-border rounded-lg px-4 py-1.5 text-xs outline-none focus:border-purple"
+            className="bg-white border border-border rounded-lg px-4 py-1.5 text-[13px] font-medium outline-none focus:border-blue transition-colors min-w-[140px] shadow-sm appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
             value={filterState}
             onChange={e => setFilterState(e.target.value)}
           >
             <option value="All">All States</option>
-            <option value="Kerala">Kerala</option>
-            <option value="Tamil Nadu">Tamil Nadu</option>
-            <option value="Karnataka">Karnataka</option>
+            {Array.from(new Set(executives.map(e => e.state))).filter(Boolean).map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      <div className="stat-grid mb-6">
-        <div className="stat-card">
-          <div className="stat-label">Total Executives</div>
-          <div className="stat-value text-orange">{executives?.length || 0}</div>
-          <div className="stat-delta">Across all states</div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Total Executives</div>
+          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.salesStaff?.total || 0}</div>
+          <div className="text-[12px] text-[#16a34a] font-bold flex items-center gap-1.5">
+             <span className="text-[14px]">↑</span> {stats.executivesThisMonth || 0} this month
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Leads Handling</div>
-          <div className="stat-value text-green">{stats.totalLeads || 0}</div>
-          <div className="stat-delta">Active pipeline</div>
+
+        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#0f766e]"></div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Total Handling Leads</div>
+          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.totalLeads?.toLocaleString() || 0}</div>
+          <div className="text-[12px] text-[#0f766e] font-bold">Active pipeline</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Reach Rate</div>
-          <div className="stat-value text-teal">{stats.reachRate || 0}%</div>
-          <div className="stat-delta">Call connectivity</div>
+
+        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Total Connected</div>
+          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.totalCalls?.toLocaleString() || 0}</div>
+          <div className="text-[12px] text-text-muted font-bold">
+            <span className="text-[#3b82f6]">{stats.reachRate || 0}%</span> reach rate
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Platform Conv.</div>
-          <div className="stat-value text-accent">{stats.conversionRate || 0}%</div>
-          <div className="stat-delta">Closed successfully</div>
+
+        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Conversions</div>
+          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.totalConversions?.toLocaleString() || 0}</div>
+          <div className="text-[12px] text-text-muted font-bold">
+            <span className="text-[#16a34a]">{stats.conversionRate || 0}%</span> conv. rate
+          </div>
         </div>
       </div>
 
-      <div className="section-header">
+      {/* Table Section */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <div className="section-title">Executive Performance — {viewType.charAt(0).toUpperCase() + viewType.slice(1)} Report</div>
-          <div className="section-sub">Detailed activity metrics for every field member</div>
+          <h2 className="text-[18px] font-bold text-text-primary">Executive Performance — {viewType.charAt(0).toUpperCase() + viewType.slice(1)} Report</h2>
+          <p className="text-[13px] text-text-muted mt-1 font-medium">Handling leads · Connected · Follow-ups · Converted · Revenue · Leaves</p>
         </div>
-        <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-          {['daily', 'weekly', 'monthly'].map(type => (
+        <div className="flex bg-[#f1f5f9] p-1 rounded-xl border border-border w-fit">
+          {['Daily', 'Weekly', 'Monthly'].map(t => (
             <button 
-              key={type}
-              onClick={() => setViewType(type)}
-              className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+              key={t}
+              onClick={() => setViewType(t.toLowerCase())}
+              className={`px-5 py-2 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${viewType === t.toLowerCase() ? 'bg-white text-text-primary shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
             >
-              {type}
+              {t}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="card">
-        <DataTable columns={columns} data={filteredExecs || []} />
+      <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+            <thead>
+              <tr className="bg-[#f8fafc] border-b border-border">
+                <th className="p-4 pl-6">Executive</th>
+                <th className="p-4">State - Industry</th>
+                <th className="p-4 text-center">Handling</th>
+                <th className="p-4 text-center">Connected</th>
+                <th className="p-4 text-center">Follow-up</th>
+                <th className="p-4 text-center">Converted</th>
+                <th className="p-4 text-center">Revenue</th>
+                <th className="p-4 text-center">Work %</th>
+                <th className="p-4 text-center">Leaves</th>
+                <th className="p-4 text-right pr-6">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
+              {filteredExecs.map((m) => (
+                <tr key={m._id} className="hover:bg-surface2/30 transition-colors group">
+                  <td className="p-4 pl-6">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={m.name} size="sm" className="rounded-lg shadow-sm border border-border" />
+                      <span className="font-bold text-[14px] text-text-primary group-hover:text-blue transition-colors">{m.name}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">{m.state || 'N/A'}</span>
+                      <span className="text-[12px] text-text-muted font-medium capitalize">{m.industry || 'General'}</span>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.leads || 0}</td>
+                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.calls || 0}</td>
+                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.followups || 0}</td>
+                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.converted || 0}</td>
+                  <td className="p-4 text-center text-[13px] font-bold text-blue">
+                     ₹{m.revenue >= 100000 ? (m.revenue / 100000).toFixed(1) + 'L' : (m.revenue / 1000).toFixed(1) + 'K'}
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-3 justify-center">
+                       <div className="w-16 h-2 bg-[#f1f5f9] rounded-full overflow-hidden border border-border/50">
+                         <div className={`h-full transition-all duration-700 ${m.workPct >= 80 ? 'bg-[#0f766e]' : m.workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${m.workPct}%` }}></div>
+                       </div>
+                       <span className="font-bold text-[12px] w-8">{m.workPct}%</span>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.leaves || 0}</td>
+                  <td className="p-4 text-right pr-6">
+                    <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3 py-1">View</Button>
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 py-1 font-bold">Edit</Button>
+                      <Button size="xs" variant="outline" className="bg-white border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] shadow-sm px-3 py-1 font-bold">Delete</Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredExecs.length === 0 && (
+                 <tr>
+                   <td colSpan="10" className="p-16 text-center">
+                     <div className="flex flex-col items-center gap-2">
+                       <div className="text-[24px]">📊</div>
+                       <p className="text-text-muted italic font-medium">No executive performance data available for this selection.</p>
+                     </div>
+                   </td>
+                 </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
 
 export default DistrictExecutives;
+

@@ -410,23 +410,30 @@ router.get('/founder', async (req, res) => {
             return res.status(403).json({ message: 'Forbidden: Founder only' });
         }
 
+        const period = req.query.period || 'monthly';
+        const getEffectivePeriod = (p) => p === 'daily' ? 'today' : p;
+        const { start: periodStart } = getDateRange(getEffectivePeriod(period));
         const { start: todayStart } = getDateRange('today');
-        const monthStart = getDateRange('monthly').start;
+        const { start: monthStart } = getDateRange('monthly');
 
-        // Stats for the 8 top cards
+        // Stats for the top cards
         const totalLeads = await Lead.countDocuments();
         const leadsToday = await Lead.countDocuments({ createdAt: { $gte: todayStart } });
         
         // Expected Onboarding (active pipeline)
         const expectedOnboarding = await Lead.countDocuments({ status: { $in: ['new', 'followup', 'meeting_scheduled', 'meeting_done'] } });
 
-        const converted = await Lead.countDocuments({ status: 'converted' });
+        const totalConversions = await Lead.countDocuments({ status: 'converted' });
         const convertedThisMonth = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: monthStart } });
         
-        const revenue = await LeadActivity.aggregate([
+        const totalRevenue = await LeadActivity.aggregate([
             { $match: { action: 'converted' } },
             { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
         ]).then(res => res[0]?.total || 0);
+
+        const totalCalls = await LeadActivity.countDocuments({ action: 'called' });
+        const reachRate = totalLeads ? (totalCalls / totalLeads) * 100 : 0;
+        const conversionRate = totalLeads ? (totalConversions / totalLeads) * 100 : 0;
         
         const getStaffStats = async (role) => {
             const users = await User.find({ role, isActive: true });
@@ -454,16 +461,25 @@ router.get('/founder', async (req, res) => {
         const salesStaff = await getStaffStats('executive');
         const pendingLeavesCount = await Leave.countDocuments({ status: 'pending' });
 
+        const executivesThisMonth = await User.countDocuments({ 
+            role: 'executive', 
+            createdAt: { $gte: monthStart } 
+        });
+
         const stats = {
             totalLeads,
             leadsToday,
             expectedOnboarding,
-            converted,
+            totalConversions,
             convertedThisMonth,
-            revenue,
+            totalRevenue,
+            totalCalls,
+            reachRate: Math.round(reachRate * 10) / 10,
+            conversionRate: Math.round(conversionRate * 10) / 10,
             stateManagers,
             industryManagers,
             salesStaff,
+            executivesThisMonth,
             pendingLeavesCount
         };
 
@@ -474,8 +490,8 @@ router.get('/founder', async (req, res) => {
         const overallSummary = {
             totalStaff,
             totalLeads,
-            converted,
-            revenue,
+            converted: totalConversions,
+            revenue: totalRevenue,
             activeTodayPct: totalStaff ? (activeToday / totalStaff) * 100 : 0
         };
 
@@ -484,14 +500,18 @@ router.get('/founder', async (req, res) => {
         const byState = await Promise.all(states.map(async (s) => {
             const manager = await User.findOne({ state: s, role: 'state_manager' });
             const leads = await Lead.find({ state: s });
+            const leadIds = leads.map(l => l._id);
             const staffCount = await User.countDocuments({ state: s });
             
             return {
                 state: s,
                 stateManager: manager?.name || 'Unassigned',
+                stateManagerId: manager?._id || null,
                 totalStaff: staffCount,
                 leads: leads.length,
                 converted: leads.filter(l => l.status === 'converted').length,
+                calls: await LeadActivity.countDocuments({ lead: { $in: leadIds }, action: 'called' }),
+                meetings: await LeadActivity.countDocuments({ lead: { $in: leadIds }, action: { $in: ['meeting_scheduled', 'meeting_done'] } }),
                 revenue: await LeadActivity.aggregate([
                     { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
                     { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
@@ -527,11 +547,10 @@ router.get('/founder', async (req, res) => {
             };
         }));
 
-        // 4. Pending Leave (from state managers)
+        // 4. Pending Leave
         const pendingLeaveRequests = await Leave.find({
-            status: 'pending',
-            user: { $in: await User.find({ role: 'state_manager' }).distinct('_id') }
-        }).populate('user', 'name role');
+            status: 'pending'
+        }).populate('user', 'name role state industry');
 
         // 5. Recent Activity
         const recentActivity = await LeadActivity.find()
@@ -550,15 +569,17 @@ router.get('/founder', async (req, res) => {
             { $unwind: '$user' }
         ]).then(res => res[0] ? { name: res[0].user.name, count: res[0].count } : null);
 
-        // Lead Pipeline Stats
-        const getPipelineCount = async (statusArray) => await Lead.countDocuments({ status: { $in: statusArray } });
+        // Detailed Lead Pipeline Stats for Tabs
         const pipelineStats = [
-            { label: 'New', count: await getPipelineCount(['new']), color: 'blue' },
-            { label: 'Follow-up', count: await getPipelineCount(['called', 'followup', 'rnr']), color: 'purple' },
-            { label: 'Meeting', count: await getPipelineCount(['meeting_virtual', 'meeting_direct']), color: 'teal' },
-            { label: 'Negotiation', count: await Lead.countDocuments({ priority: 'hot', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'amber' }, // Assuming hot leads are in negotiation
-            { label: 'Converted', count: await getPipelineCount(['converted']), color: 'green' },
-            { label: 'Lost', count: await getPipelineCount(['lost', 'not_interested']), color: 'red' }
+            { label: 'All', count: totalLeads, color: 'blue' },
+            { label: 'New', count: await Lead.countDocuments({ status: 'new' }), color: 'blue' },
+            { label: 'Follow-up', count: await Lead.countDocuments({ status: { $in: ['called', 'followup'] } }), color: 'purple' },
+            { label: 'Meeting', count: await Lead.countDocuments({ status: { $regex: /meeting/i } }), color: 'teal' },
+            { label: 'Hot', count: await Lead.countDocuments({ priority: 'hot', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'red' },
+            { label: 'Warm', count: await Lead.countDocuments({ priority: 'warm', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'orange' },
+            { label: 'RNR', count: await Lead.countDocuments({ status: 'rnr' }), color: 'gray' },
+            { label: 'Converted', count: await Lead.countDocuments({ status: 'converted' }), color: 'green' },
+            { label: 'Lost', count: await Lead.countDocuments({ status: { $in: ['lost', 'not_interested'] } }), color: 'red' }
         ];
 
         // Expected Onboarding Leads (Detailed list)
@@ -580,10 +601,58 @@ router.get('/founder', async (req, res) => {
             expectedDate: (l.nextActionAt || l.followUpDate || l.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         }));
 
+        // Detailed Industry Managers Performance
+        const industryManagersList = await User.find({ role: 'industry_manager', isActive: true });
+        const industryManagersPerformance = await Promise.all(industryManagersList.map(async (m) => {
+             const leads = await Lead.find({ industry: m.industry, state: m.state });
+             const leadIds = leads.map(l => l._id);
+             
+             return {
+                 _id: m._id,
+                 name: m.name,
+                 state: m.state,
+                 industry: m.industry,
+                 workPct: await Attendance.findOne({ user: m._id, date: { $gte: todayStart } }).then(a => a?.completionPct || 0),
+                 calls: await LeadActivity.countDocuments({ performedBy: m._id, action: 'called', createdAt: { $gte: periodStart } }),
+                 meetings: await LeadActivity.countDocuments({ performedBy: m._id, action: { $in: ['meeting_scheduled', 'meeting_done'] }, createdAt: { $gte: periodStart } }),
+                 followups: await LeadActivity.countDocuments({ performedBy: m._id, action: 'followup_set', createdAt: { $gte: periodStart } }),
+                 revenue: await LeadActivity.aggregate([
+                      { $match: { performedBy: m._id, action: 'converted', createdAt: { $gte: periodStart } } },
+                      { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
+                 ]).then(res => res[0]?.total || 0),
+                 leaves: await Leave.countDocuments({ user: m._id, status: 'approved', fromDate: { $gte: periodStart } })
+             };
+        }));
+
+        // Detailed Executives Performance (This is what DistrictExecutives.jsx uses)
+        const executives = await User.find({ role: 'executive', isActive: true });
+        const executivesPerformance = await Promise.all(executives.map(async (m) => {
+             const leadsCount = await Lead.countDocuments({ owner: m._id });
+             
+             return {
+                 _id: m._id,
+                 name: m.name,
+                 state: m.state,
+                 industry: m.industry,
+                 workPct: await Attendance.findOne({ user: m._id, date: { $gte: todayStart } }).then(a => a?.completionPct || 0),
+                 leads: leadsCount,
+                 calls: await LeadActivity.countDocuments({ performedBy: m._id, action: 'called', createdAt: { $gte: periodStart } }),
+                 followups: await LeadActivity.countDocuments({ performedBy: m._id, action: 'followup_set', createdAt: { $gte: periodStart } }),
+                 converted: await LeadActivity.countDocuments({ performedBy: m._id, action: 'converted', createdAt: { $gte: periodStart } }),
+                 revenue: await LeadActivity.aggregate([
+                      { $match: { performedBy: m._id, action: 'converted', createdAt: { $gte: periodStart } } },
+                      { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
+                 ]).then(res => res[0]?.total || 0),
+                 leaves: await Leave.countDocuments({ user: m._id, status: 'approved', fromDate: { $gte: periodStart } })
+             };
+        }));
+
         res.json({
             stats,
             pipelineStats,
             expectedOnboardingList,
+            industryManagersPerformance,
+            executivesPerformance,
             overallSummary,
             byState,
             byIndustry,
@@ -703,6 +772,52 @@ router.get('/reports/performance', async (req, res) => {
             pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
             summary
         });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/dashboard/reports/attendance-summary
+router.get('/reports/attendance-summary', async (req, res) => {
+    try {
+        const { month, year, role } = req.query;
+        if (!month || !year) return res.status(400).json({ message: 'Month and year required' });
+
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0, 23, 59, 59, 999);
+
+        const usersQuery = { isActive: true };
+        if (role) usersQuery.role = role;
+
+        const users = await User.find(usersQuery).select('name role');
+        const userIds = users.map(u => u._id);
+
+        const summary = await Attendance.aggregate([
+            { $match: { 
+                user: { $in: userIds },
+                date: { $gte: start, $lte: end }
+            }},
+            { $group: {
+                _id: '$user',
+                present: { $sum: { $cond: [{ $eq: ['$status', 'present'] }, 1, 0] } },
+                absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
+                halfDay: { $sum: { $cond: [{ $eq: ['$status', 'half_day'] }, 1, 0] } },
+                leave: { $sum: { $cond: [{ $eq: ['$status', 'leave'] }, 1, 0] } },
+                avgWorkPct: { $avg: '$completionPct' }
+            }}
+        ]);
+
+        const data = users.map(u => {
+            const stats = summary.find(s => s._id.toString() === u._id.toString()) || {
+                present: 0, absent: 0, halfDay: 0, leave: 0, avgWorkPct: 0
+            };
+            return {
+                user: u,
+                ...stats
+            };
+        });
+
+        res.json(data);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

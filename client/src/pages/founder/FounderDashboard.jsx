@@ -9,6 +9,7 @@ import Attendance from './sections/Attendance';
 import LeaveCalendar from './sections/LeaveCalendar';
 import Performance from './sections/Performance';
 import Reports from './sections/Reports';
+import ExpectedOnboarding from './sections/ExpectedOnboarding';
 import './founder.css';
 
 const FounderDashboard = () => {
@@ -27,6 +28,7 @@ const FounderDashboard = () => {
       case 'calendar': return <LeaveCalendar />;
       case 'performance': return <Performance />;
       case 'reports': return <Reports />;
+      case 'leads-onboarding': return <ExpectedOnboarding />;
       default: return <Overview />;
     }
   };
