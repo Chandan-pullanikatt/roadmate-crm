@@ -33,15 +33,16 @@ initCronJobs();
 
 // Middleware
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+app.use(cors({ origin: [process.env.CLIENT_URL, 'http://localhost:5173', 'https://roadmate-crm.netlify.app'].filter(Boolean), credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json());
 
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: [process.env.CLIENT_URL, 'http://localhost:5173', 'https://roadmate-crm.netlify.app'].filter(Boolean),
     methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
