@@ -5,9 +5,11 @@ const FileUpload = ({
   folder, 
   entityId, 
   onUploadComplete, 
+  onUpload,
   accept = ".pdf,.jpg,.jpeg,.png",
   maxSize = 10, // 10MB
-  label = "Upload File"
+  label = "Upload File",
+  subtitle
 }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -43,14 +45,16 @@ const FileUpload = ({
       });
 
       // 3. Callback
-      if (onUploadComplete) {
-        onUploadComplete({ 
-          fileKey, 
-          fileName: file.name, 
-          size: file.size,
-          url: uploadUrl.split('?')[0] // Optional: base R2 URL
-        });
-      }
+      const uploadResult = {
+        name: file.name,
+        fileName: file.name,
+        fileKey,
+        size: file.size,
+        contentType: file.type,
+        url: uploadUrl.split('?')[0]
+      };
+      if (onUploadComplete) onUploadComplete(uploadResult);
+      if (onUpload) onUpload(uploadResult);
       
       setUploading(false);
     } catch (err) {
@@ -92,7 +96,7 @@ const FileUpload = ({
           <div className="flex flex-col items-center gap-2">
             <i className={`ri-upload-cloud-2-line text-2xl ${error ? 'text-red-400' : 'text-gray-400'}`}></i>
             <span className="text-sm font-medium text-gray-300">{error || label}</span>
-            <span className="text-xs text-gray-500">Max size {maxSize}MB</span>
+            <span className="text-xs text-gray-500">{subtitle || `Max size ${maxSize}MB`}</span>
           </div>
         )}
       </div>

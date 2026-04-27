@@ -54,9 +54,9 @@ router.post('/presign', verifyToken, async (req, res) => {
  * @desc    Generate a presigned URL for secure file download/viewing
  * @access  Private
  */
-router.get('/url/:key', verifyToken, async (req, res) => {
+router.get('/url', verifyToken, async (req, res) => {
   try {
-    const key = req.params.key;
+    const key = req.query.key;
     
     if (!key) {
       return res.status(400).json({ message: 'File key is required' });

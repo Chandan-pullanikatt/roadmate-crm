@@ -15,7 +15,7 @@ const leadSchema = new mongoose.Schema({
     enum: ['hot','warm','cold'], 
     default: 'cold' 
   },
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   allocatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   state: { type: String },
   district: { type: String },
@@ -39,6 +39,9 @@ const leadSchema = new mongoose.Schema({
   documents: [{ 
     name: String, 
     url: String, 
+    fileKey: String,
+    size: Number,
+    contentType: String,
     uploadedAt: { type: Date, default: Date.now } 
   }],
   meetingLink: { type: String },

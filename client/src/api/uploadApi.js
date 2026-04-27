@@ -27,12 +27,12 @@ export const uploadApi = {
   /**
    * Get secure download URL for a file
    */
-  getPresignedDownload: (key) => api.get(`/upload/url/${key}`),
+  getPresignedDownload: (key) => api.get('/upload/url', { params: { key } }),
 
   /**
    * Delete file from R2
    */
-  deleteFile: (key) => api.delete(`/upload/${key}`),
+  deleteFile: (key) => api.delete('/upload', { params: { key } }),
 };
 
 export default uploadApi;

@@ -12,27 +12,44 @@ router.use(verifyToken);
  */
 router.post('/create-executive', async (req, res) => {
   try {
-    const { name, email, phone, state, industry, probationEndDate, basicSalary, employeeId, reportingTo } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      state,
+      district,
+      industry,
+      address,
+      employmentType,
+      password,
+      probationEndDate,
+      basicSalary,
+      employeeId,
+      reportingTo,
+      documents = []
+    } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
-    const defaultPassword = 'RoadMateUser2026!';
-
     const newExecutive = new User({
       name,
       email,
       phone,
-      password: defaultPassword,
+      password: password || 'RoadMateUser2026!',
       role: 'executive',
       reportingTo: reportingTo || req.user._id,
       state: state || req.user.state,
+      district: district || '',
       industry: industry || req.user.industry,
+      address: address || '',
+      employmentType: employmentType || 'Full Time',
       probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
       basicSalary: basicSalary || 0,
-      employeeId: employeeId || `EXEC-${Date.now().toString().slice(-6)}`
+      employeeId: employeeId || `EXEC-${Date.now().toString().slice(-6)}`,
+      documents
     });
 
     await newExecutive.save();
@@ -53,11 +70,16 @@ router.post('/create-executive', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const query = {};
+    const { role } = req.query;
     
     if (req.user.role === 'industry_manager') {
       query.reportingTo = req.user._id;
     } else if (req.user.role === 'state_manager') {
       query.state = req.user.state;
+    }
+
+    if (role) {
+      query.role = role;
     }
 
     const users = await User.find(query).select('-password');
@@ -134,15 +156,16 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/:id/documents', async (req, res) => {
   try {
-    const { name, url, fileKey, size } = req.body;
+    const { name, url, fileKey, size, contentType } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.documents.push({ 
       name, 
       url, 
-      fileKey, // Store R2 key
+      fileKey,
       size,
+      contentType,
       uploadedAt: new Date() 
     });
     await user.save();
@@ -163,7 +186,21 @@ router.post('/create-industry-manager', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, email, phone, industry, workingHours, basicSalary, employeeId, reportingTo, state } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      industry,
+      district,
+      address,
+      employmentType,
+      workingHours,
+      basicSalary,
+      employeeId,
+      reportingTo,
+      state,
+      documents = []
+    } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
@@ -175,14 +212,20 @@ router.post('/create-industry-manager', async (req, res) => {
       role: 'industry_manager',
       reportingTo: reportingTo || req.user._id,
       state: state || req.user.state,
+      district: district || '',
       industry,
+      address: address || '',
+      employmentType: employmentType || 'Full Time',
       workingHours: workingHours || { start: '09:30', end: '18:30' },
       basicSalary: basicSalary || 0,
-      employeeId: employeeId || `IM-${Date.now().toString().slice(-6)}`
+      employeeId: employeeId || `IM-${Date.now().toString().slice(-6)}`,
+      documents
     });
 
     await newIM.save();
-    res.status(201).json(newIM);
+    const userResponse = newIM.toObject();
+    delete userResponse.password;
+    res.status(201).json(userResponse);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -212,7 +255,19 @@ router.post('/create-state-manager', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: Founder only' });
     }
 
-    const { name, email, phone, state, workingHours, basicSalary, employeeId } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      state,
+      district,
+      address,
+      employmentType,
+      workingHours,
+      basicSalary,
+      employeeId,
+      documents = []
+    } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
@@ -223,13 +278,19 @@ router.post('/create-state-manager', async (req, res) => {
       password: 'RoadMateSM2026!',
       role: 'state_manager',
       state,
+      district: district || '',
+      address: address || '',
+      employmentType: employmentType || 'Full Time',
       workingHours: workingHours || { start: '09:30', end: '18:30' },
       basicSalary: basicSalary || 0,
-      employeeId: employeeId || `SM-${Date.now().toString().slice(-6)}`
+      employeeId: employeeId || `SM-${Date.now().toString().slice(-6)}`,
+      documents
     });
 
     await newSM.save();
-    res.status(201).json(newSM);
+    const userResponse = newSM.toObject();
+    delete userResponse.password;
+    res.status(201).json(userResponse);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

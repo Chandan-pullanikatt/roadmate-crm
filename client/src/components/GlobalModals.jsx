@@ -45,6 +45,7 @@ const GlobalModals = () => {
     aadhaar: '', pan: '', documents: []
   });
 
+  const [pendingLeaves, setPendingLeaves] = useState([]);
   const [leaveAction, setLeaveAction] = useState({ id: '', reason: '' });
   const [incentiveForm, setIncentiveForm] = useState({ salaryId: '', amount: 0, note: '' });
   const [workingHours, setWorkingHours] = useState({
@@ -55,17 +56,22 @@ const GlobalModals = () => {
   });
 
   const [leaveFormData, setLeaveFormData] = useState({
-    leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: ''
+    leaveType: 'sick', fromDate: '', toDate: '', reason: ''
   });
 
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await leaveApi.applyLeave(leaveFormData);
+      await leaveApi.applyLeave({
+        type: leaveFormData.leaveType,
+        fromDate: leaveFormData.fromDate,
+        toDate: leaveFormData.toDate,
+        reason: leaveFormData.reason
+      });
       addToast('Leave application submitted!', 'success');
       setActiveModal(null);
-      setLeaveFormData({ leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: '' });
+      setLeaveFormData({ leaveType: 'sick', fromDate: '', toDate: '', reason: '' });
       window.dispatchEvent(new CustomEvent('refresh-matrix'));
     } catch (err) {
       addToast(err.response?.data?.message || 'Error submitting leave', 'error');
@@ -88,6 +94,7 @@ const GlobalModals = () => {
       } else {
         setActiveModal(e.detail);
         if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(e.detail)) fetchUsers();
+        if (e.detail === 'leave-approval') fetchPendingLeaves();
         if (e.detail === 'work-time') fetchWorkingHours();
       }
     };
@@ -98,10 +105,19 @@ const GlobalModals = () => {
   const fetchUsers = async () => {
     try {
       const res = await usersApi.getUsers();
-      setManagers(res.data.filter(u => u.role === 'state-manager'));
+      setManagers(res.data.filter(u => u.role === 'state_manager'));
       setExecutives(res.data.filter(u => u.role === 'executive'));
     } catch (err) {
       addToast('Error fetching users', 'error');
+    }
+  };
+
+  const fetchPendingLeaves = async () => {
+    try {
+      const res = await leaveApi.getLeaves();
+      setPendingLeaves((res.data || []).filter((leave) => leave.status === 'pending'));
+    } catch (err) {
+      addToast('Error fetching leave requests', 'error');
     }
   };
 
@@ -136,6 +152,7 @@ const GlobalModals = () => {
       await usersApi.createStateManager(managerFormData);
       addToast('State Manager created successfully!', 'success');
       setActiveModal(null);
+      window.dispatchEvent(new CustomEvent('refresh-users'));
     } catch (err) {
       addToast(err.response?.data?.message || 'Error creating manager', 'error');
     } finally {
@@ -154,6 +171,7 @@ const GlobalModals = () => {
       }
       addToast('Account created successfully!', 'success');
       setActiveModal(null);
+      window.dispatchEvent(new CustomEvent('refresh-users'));
     } catch (err) {
       addToast(err.response?.data?.message || 'Error creating account', 'error');
     } finally {
@@ -164,9 +182,10 @@ const GlobalModals = () => {
   const handleLeaveAction = async (id, status) => {
     try {
       if (status === 'approve') await leaveApi.approveLeave(id);
-      else await leaveApi.rejectLeave(id, leaveAction.reason);
+      else await leaveApi.rejectLeave(id, { approvalNote: leaveAction.reason });
       addToast(`Leave ${status}d successfully!`, 'success');
-      setActiveModal(null);
+      setLeaveAction({ id: '', reason: '' });
+      await fetchPendingLeaves();
     } catch (err) {
       addToast('Error updating leave', 'error');
     }
@@ -364,7 +383,9 @@ const GlobalModals = () => {
               <div className="h-[1px] w-full bg-border"></div>
             </div>
              <FileUpload 
-                onUpload={(file) => setLeadFormData({...leadFormData, documents: [...leadFormData.documents, file]})}
+                folder="lead-documents"
+                entityId={leadFormData.ownerId || 'unallocated'}
+                onUploadComplete={(file) => setLeadFormData({...leadFormData, documents: [...leadFormData.documents, file]})}
                 label="Click to upload lead documents"
                 subtitle="PDF, JPG, PNG up to 10MB"
              />
@@ -444,7 +465,9 @@ const GlobalModals = () => {
             </div>
 
             <FileUpload 
-              onUpload={(file) => setManagerFormData({...managerFormData, documents: [...managerFormData.documents, file]})}
+              folder="staff-documents"
+              entityId={managerFormData.email || managerFormData.phone || 'state-manager'}
+              onUploadComplete={(file) => setManagerFormData({...managerFormData, documents: [...managerFormData.documents, file]})}
               label="Upload Identity & Agreement"
             />
           </div>
@@ -593,14 +616,14 @@ const GlobalModals = () => {
 
       {/* LEAVE APPROVAL MODAL */}
       <Modal 
-        isOpen={activeModal === 'leave-approval'} 
+        isOpen={activeModal === 'leave-approval-legacy'} 
         title="Leave Approvals" 
         onClose={() => setActiveModal(null)}
       >
         <div className="space-y-4">
           <div className="text-xs font-bold text-accent uppercase tracking-widest mb-2">Pending Requests</div>
           
-          {/* Sample leave request card */}
+          {/* Legacy leave request preview retained only for layout reference */}
           <div className="p-5 rounded-2xl bg-surface2/30 border border-border space-y-4">
             <div className="flex items-center gap-3">
               <Avatar initials="RS" colorClass="state" />
@@ -630,11 +653,65 @@ const GlobalModals = () => {
                 onChange={(e) => setLeaveAction({...leaveAction, reason: e.target.value})}
               />
               <div className="flex gap-2">
-                <Button size="sm" variant="primary" className="flex-1" onClick={() => handleLeaveAction('sample-id', 'approve')}>Approve</Button>
-                <Button size="sm" variant="outline" className="flex-1 text-red hover:bg-red-light" onClick={() => handleLeaveAction('sample-id', 'reject')}>Reject</Button>
+                <Button size="sm" variant="primary" className="flex-1" onClick={() => handleLeaveAction(leaveAction.id || '', 'approve')}>Approve</Button>
+                <Button size="sm" variant="outline" className="flex-1 text-red hover:bg-red-light" onClick={() => handleLeaveAction(leaveAction.id || '', 'reject')}>Reject</Button>
               </div>
             </div>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'leave-approval'}
+        title="Leave Approvals"
+        onClose={() => setActiveModal(null)}
+      >
+        <div className="space-y-4">
+          <div className="text-xs font-bold text-accent uppercase tracking-widest mb-2">Pending Requests</div>
+          {pendingLeaves.length === 0 ? (
+            <div className="p-5 rounded-2xl bg-surface2/30 border border-border text-sm text-text-muted text-center">
+              No pending leave requests right now.
+            </div>
+          ) : (
+            pendingLeaves.map((leave) => (
+              <div key={leave._id} className="p-5 rounded-2xl bg-surface2/30 border border-border space-y-4">
+                <div className="flex items-center gap-3">
+                  <Avatar name={leave.user?.name || 'Staff'} />
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-text-primary">{leave.user?.name}</div>
+                    <div className="text-[10px] text-text-muted">
+                      {[leave.user?.role?.replace(/_/g, ' '), leave.user?.state, leave.user?.industry].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <Tag variant="amber">Pending</Tag>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-2 text-xs">
+                  <div className="text-text-muted">Type: <span className="text-text-primary font-bold">{leave.type.replace(/_/g, ' ')}</span></div>
+                  <div className="text-text-muted">Duration: <span className="text-text-primary font-bold">{leave.days} day{leave.days > 1 ? 's' : ''}</span></div>
+                  <div className="text-text-muted">From: <span className="text-text-primary font-bold">{new Date(leave.fromDate).toLocaleDateString()}</span></div>
+                  <div className="text-text-muted">To: <span className="text-text-primary font-bold">{new Date(leave.toDate).toLocaleDateString()}</span></div>
+                </div>
+
+                <div className="text-xs bg-white/50 p-3 rounded-xl border border-border/50 text-text-secondary leading-relaxed italic">
+                  "{leave.reason}"
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <textarea
+                    className="textarea text-xs h-20"
+                    placeholder="Add approval/rejection notes..."
+                    value={leaveAction.id === leave._id ? leaveAction.reason : ''}
+                    onChange={(e) => setLeaveAction({ id: leave._id, reason: e.target.value })}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="primary" className="flex-1" onClick={() => handleLeaveAction(leave._id, 'approve')}>Approve</Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-red hover:bg-red-light" onClick={() => handleLeaveAction(leave._id, 'reject')}>Reject</Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Modal>
 
@@ -805,10 +882,10 @@ const GlobalModals = () => {
                 onChange={(e) => setLeaveFormData({...leaveFormData, leaveType: e.target.value})}
                 required
               >
-                <option>Sick Leave</option>
-                <option>Casual Leave</option>
-                <option>Emergency Leave</option>
-                <option>Personal Work</option>
+                <option value="sick">Sick Leave</option>
+                <option value="paid">Paid Leave</option>
+                <option value="unpaid">Unpaid Leave</option>
+                <option value="optional_holiday">Optional Holiday</option>
               </select>
             </div>
             <div className="space-y-1">

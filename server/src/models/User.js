@@ -21,7 +21,10 @@ const userSchema = new mongoose.Schema({
   basicSalary: { type: Number, default: 0 },
   reportingTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   state: { type: String },
+  district: { type: String },
   industry: { type: String },
+  address: { type: String },
+  employmentType: { type: String },
   isActive: { type: Boolean, default: true },
   workingHours: { 
     start: { type: String, default: '09:30' }, 
@@ -30,6 +33,9 @@ const userSchema = new mongoose.Schema({
   documents: [{ 
     name: String, 
     url: String, 
+    fileKey: String,
+    size: Number,
+    contentType: String,
     uploadedAt: { type: Date, default: Date.now } 
   }],
   probationEndDate: { type: Date, default: null },

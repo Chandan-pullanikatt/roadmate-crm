@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 
 const StateManagers = () => {
+  const queryClient = useQueryClient();
   const [detailMgr, setDetailMgr] = useState(null);
   const [filterState, setFilterState] = useState('All');
 
@@ -15,8 +16,18 @@ const StateManagers = () => {
 
   const { data: managers, isLoading } = useQuery({
     queryKey: ['users', 'state-managers'],
-    queryFn: () => usersApi.getUsers({ role: 'state-manager' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'state_manager' }).then(res => res.data)
   });
+
+  useEffect(() => {
+    const handleRefreshUsers = () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'state-managers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+    };
+
+    window.addEventListener('refresh-users', handleRefreshUsers);
+    return () => window.removeEventListener('refresh-users', handleRefreshUsers);
+  }, [queryClient]);
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));

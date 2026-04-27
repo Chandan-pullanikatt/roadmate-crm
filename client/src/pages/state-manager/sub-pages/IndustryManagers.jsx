@@ -16,7 +16,7 @@ const IndustryManagers = () => {
 
   const { data: managersRaw, isLoading: managersLoading } = useQuery({
     queryKey: ['users', 'industry-managers'],
-    queryFn: () => usersApi.getUsers({ role: 'industry-manager' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data)
   });
 
   const escalateMutation = useMutation({
@@ -186,4 +186,3 @@ const IndustryManagers = () => {
 };
 
 export default IndustryManagers;
-

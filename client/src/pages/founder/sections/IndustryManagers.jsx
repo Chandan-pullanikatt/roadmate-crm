@@ -16,7 +16,7 @@ const IndustryManagers = () => {
 
   const { data: managers, isLoading } = useQuery({
     queryKey: ['users', 'industry-managers-global'],
-    queryFn: () => usersApi.getUsers({ role: 'industry-manager' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data)
   });
 
   const openModal = (id) => {

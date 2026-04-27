@@ -8,6 +8,36 @@ const LeadActivity = require('../models/LeadActivity');
 // Protect all routes
 router.use(verifyToken);
 
+const normalizePriority = (priority) => {
+  if (!priority) return 'cold';
+  const value = String(priority).toLowerCase();
+  if (value.includes('hot')) return 'hot';
+  if (value.includes('warm')) return 'warm';
+  return 'cold';
+};
+
+const normalizeLeadPayload = (payload = {}) => {
+  const normalized = { ...payload };
+  if (payload.ownerId && !payload.owner) normalized.owner = payload.ownerId;
+  normalized.priority = normalizePriority(payload.priority);
+  if (payload.expectedRevenue !== undefined && payload.expectedRevenue !== null && payload.expectedRevenue !== '') {
+    normalized.expectedRevenue = Number(payload.expectedRevenue) || 0;
+  }
+  if (Array.isArray(payload.documents)) {
+    normalized.documents = payload.documents.map((doc) => ({
+      name: doc.name || doc.fileName,
+      url: doc.url,
+      fileKey: doc.fileKey,
+      size: doc.size,
+      contentType: doc.contentType,
+      uploadedAt: doc.uploadedAt || new Date()
+    }));
+  }
+  delete normalized.ownerId;
+  delete normalized.managerId;
+  return normalized;
+};
+
 /**
  * GET /api/leads/queue - Executive lead queue
  * MUST BE BEFORE /:id
@@ -101,7 +131,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const lead = new Lead({
-      ...req.body,
+      ...normalizeLeadPayload(req.body),
       allocatedBy: req.user._id
     });
     await lead.save();
@@ -124,10 +154,13 @@ router.post('/', async (req, res) => {
  */
 router.post('/bulk', async (req, res) => {
   try {
-    const leadsData = req.body.map(item => ({
-      ...item,
-      allocatedBy: req.user._id
-    }));
+    const leadsData = req.body.map(item => {
+      const normalized = normalizeLeadPayload(item);
+      return {
+        ...normalized,
+        allocatedBy: req.user._id
+      };
+    });
     
     const leads = await Lead.insertMany(leadsData);
     
@@ -205,7 +238,7 @@ router.put('/:id/allocate', async (req, res) => {
  */
 router.post('/:id/documents', async (req, res) => {
   try {
-    const { name, url, fileKey, size } = req.body;
+    const { name, url, fileKey, size, contentType } = req.body;
     const lead = await Lead.findById(req.params.id);
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
 
@@ -214,6 +247,7 @@ router.post('/:id/documents', async (req, res) => {
       url,
       fileKey,
       size,
+      contentType,
       uploadedAt: new Date()
     });
     await lead.save();
