@@ -7,7 +7,7 @@ import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 
-const MyWork = ({ openModal }) => {
+const MyWork = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const [currentLeadIdx, setCurrentLeadIdx] = useState(0);
@@ -247,7 +247,7 @@ const MyWork = ({ openModal }) => {
               <div className="flex bg-surface2 p-1 rounded-lg border border-border">
                  {['All', 'Hot', 'Follow-up', 'Converted'].map(tab => <button key={tab} className="px-4 py-1 text-[10px] font-bold uppercase rounded-md hover:bg-white hover:shadow-sm transition-all">{tab}</button>)}
               </div>
-              <Button size="sm" className="bg-blue text-white" onClick={() => openModal('new-lead')}>+ Add Lead</Button>
+              <Button size="sm" className="bg-blue text-white" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ Add Lead</Button>
            </div>
         </div>
         <DataTable 

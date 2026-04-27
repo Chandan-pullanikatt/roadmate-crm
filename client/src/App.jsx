@@ -69,40 +69,51 @@ const DashboardSwitcher = () => {
 };
 
 import { Toaster } from 'react-hot-toast';
+import NotificationListener from './components/NotificationListener';
+import GlobalModals from './components/GlobalModals';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Router>
-      <Toaster position="top-right" reverseOrder={false} />
-      <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--accent)]"></div>
-        </div>
-      }>
-        <Routes>
-          <Route 
-            path="/login" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} 
-          />
-          
-          <Route path="/403" element={<Forbidden />} />
-          
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <DashboardSwitcher />
-              </ProtectedRoute>
-            } 
-          />
+    <ErrorBoundary>
+      <Router>
+        <Toaster position="top-right" reverseOrder={false} />
+        {isAuthenticated && (
+          <>
+            <NotificationListener />
+            <GlobalModals />
+          </>
+        )}
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--accent)]"></div>
+          </div>
+        }>
+          <Routes>
+            <Route 
+              path="/login" 
+              element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} 
+            />
+            
+            <Route path="/403" element={<Forbidden />} />
+            
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <DashboardSwitcher />
+                </ProtectedRoute>
+              } 
+            />
 
-          <Route path="/" element={<Navigate to="/dashboard" />} />
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </Suspense>
-    </Router>
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </Suspense>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

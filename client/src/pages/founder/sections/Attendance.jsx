@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
+import { exportToCSV } from '../../../utils/exportUtils';
 
 const Attendance = () => {
   const queryClient = useQueryClient();
@@ -41,6 +42,35 @@ const Attendance = () => {
     if (window.confirm(`Are you sure you want to run payroll for ${getMonthName(month)} ${year}?`)) {
       payrollMutation.mutate({ month, year });
     }
+  };
+
+  const handleExportAttendance = () => {
+    if (!attendanceSummary) return;
+    const exportData = attendanceSummary.map(item => ({
+      Staff: item.user?.name,
+      Role: item.user?.role?.replace('_', ' '),
+      Present: item.present,
+      Absent: item.absent || 0,
+      'Half Day': item.halfDay || 0,
+      Leave: item.leave || 0,
+      'Work %': (item.avgWorkPct || 0) + '%',
+    }));
+    exportToCSV(exportData, `Attendance_${getMonthName(month)}_${year}`);
+  };
+
+  const handleExportSalary = () => {
+    if (!salaryData?.data) return;
+    const exportData = salaryData.data.map(item => ({
+      Staff: item.user?.name,
+      Role: item.user?.role?.replace('_', ' '),
+      'Base Salary': item.baseSalary,
+      'Working Days': item.workingDays,
+      'Leaves': item.leaveDays || 0,
+      'Deductions': item.deductions || 0,
+      'Incentives': item.incentives || 0,
+      'Net Salary': item.netSalary
+    }));
+    exportToCSV(exportData, `Salary_Sheet_${getMonthName(month)}_${year}`);
   };
 
   React.useEffect(() => {
@@ -116,7 +146,7 @@ const Attendance = () => {
                <option>Industry Manager</option>
                <option>Executive</option>
              </select>
-             <Button variant="outline" size="sm" className="bg-white font-bold">Export</Button>
+             <Button variant="outline" size="sm" className="bg-white font-bold" onClick={handleExportAttendance}>Export</Button>
           </div>
         </div>
 
@@ -137,7 +167,7 @@ const Attendance = () => {
             </div>
           </div>
 
-          <div className="border border-border rounded-xl overflow-hidden">
+          <div className="border border-border rounded-xl overflow-hidden table-responsive">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-surface2/30 border-b border-border">
@@ -202,12 +232,12 @@ const Attendance = () => {
         </div>
 
         <div className="p-6">
-          <div className="border border-border rounded-xl overflow-hidden">
+          <div className="border border-border rounded-xl overflow-hidden table-responsive">
             <div className="p-4 bg-surface2/30 border-b border-border flex justify-between items-center">
                <h3 className="text-sm font-bold text-text-primary">Salary Sheet — {getMonthName(month)} {year}</h3>
                <div className="flex gap-2">
                  <span className="bg-orange-light text-orange px-3 py-1 rounded-full text-[10px] font-bold border border-orange/20">Incentive correction: Manual</span>
-                 <Button variant="outline" size="xs" className="bg-white">Export</Button>
+                 <Button variant="outline" size="xs" className="bg-white" onClick={handleExportSalary}>Export</Button>
                </div>
             </div>
             <table className="w-full text-left">

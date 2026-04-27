@@ -40,7 +40,7 @@ const Executives = () => {
           <div className="section-title">District Executives · {user.state}</div>
           <div className="section-sub text-[13px]">All executives across industries - Performance overview</div>
         </div>
-        <Button className="bg-blue text-white shadow-sm" size="sm">+ Add Executive</Button>
+        <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}>+ Add Executive</Button>
       </div>
 
       {/* STAT CARDS */}

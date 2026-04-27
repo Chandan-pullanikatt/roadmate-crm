@@ -19,21 +19,20 @@ const StateDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeModal, setActiveModal] = useState(null);
   const currentPage = searchParams.get('page') || 'overview';
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'overview': return <Overview openModal={setActiveModal} />;
-      case 'my-work': return <MyWork openModal={setActiveModal} />;
-      case 'industry-managers': return <IndustryManagers openModal={setActiveModal} />;
-      case 'executives': return <Executives openModal={setActiveModal} />;
-      case 'leads': return <LeadManagement openModal={setActiveModal} />;
-      case 'attendance': return <Attendance openModal={setActiveModal} />;
-      case 'calendar': return <LeaveCalendar openModal={setActiveModal} />;
-      case 'performance': return <Performance openModal={setActiveModal} />;
-      case 'reports': return <Reports openModal={setActiveModal} />;
-      default: return <Overview openModal={setActiveModal} />;
+      case 'overview': return <Overview />;
+      case 'my-work': return <MyWork />;
+      case 'industry-managers': return <IndustryManagers />;
+      case 'executives': return <Executives />;
+      case 'leads': return <LeadManagement />;
+      case 'attendance': return <Attendance />;
+      case 'calendar': return <LeaveCalendar />;
+      case 'performance': return <Performance />;
+      case 'reports': return <Reports />;
+      default: return <Overview />;
     }
   };
 
@@ -80,7 +79,7 @@ const StateDashboard = () => {
           label: 'Create Ind. Manager', 
           path: '#', 
           icon: 'industry', 
-          onClick: () => setActiveModal('create-ind-mgr') 
+          onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'industry-manager' } })) 
         },
         { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' },
       ]
@@ -116,13 +115,6 @@ const StateDashboard = () => {
           {renderPage()}
         </Suspense>
       </div>
-
-      {activeModal && (
-        <StateModals 
-          type={activeModal} 
-          onClose={() => setActiveModal(null)} 
-        />
-      )}
     </DashboardLayout>
   );
 };

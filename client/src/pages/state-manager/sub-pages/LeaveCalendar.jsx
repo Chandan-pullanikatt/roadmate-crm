@@ -5,7 +5,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 
-const LeaveCalendar = ({ openModal }) => {
+const LeaveCalendar = () => {
   const queryClient = useQueryClient();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -78,7 +78,7 @@ const LeaveCalendar = ({ openModal }) => {
           <div className="section-title">Leave Calendar · {user.state}</div>
           <div className="section-sub text-[13px]">Holiday calendar - Leave policies - Approvals</div>
         </div>
-        <Button variant="outline" size="sm" className="bg-white shadow-sm border-border text-text font-bold px-5" onClick={() => openModal('leave-policy')}>
+        <Button variant="outline" size="sm" className="bg-white shadow-sm border-border text-text font-bold px-5" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'leave-policy' }))}>
            <span className="mr-2">📄</span> Leave Policy
         </Button>
       </div>

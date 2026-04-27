@@ -28,7 +28,7 @@ const generateMonthlySalary = async (month, year) => {
       });
 
       const presentDays = attendances.filter(a => a.status === 'present').length;
-      const halfDays = attendances.filter(a => a.status === 'half-day').length;
+      const halfDays = attendances.filter(a => a.status === 'half_day').length;
       const leaveDays = attendances.filter(a => a.status === 'leave').length;
 
       // 2. Get Policy (for working days)
@@ -36,7 +36,7 @@ const generateMonthlySalary = async (month, year) => {
                      await LeavePolicy.findOne({ state: 'default', year });
       
       // Default to 26 working days if policy missing
-      const workingDaysInMonth = 26; 
+      const workingDaysInMonth = policy?.workingDays || 26; 
 
       // 3. Calculate Base Component
       const dailyRate = (user.basicSalary || 0) / workingDaysInMonth;
@@ -59,6 +59,10 @@ const generateMonthlySalary = async (month, year) => {
         { user: user._id, month, year },
         {
           baseSalary: user.basicSalary || 0,
+          workingDays: workingDaysInMonth,
+          presentDays,
+          halfDays,
+          leaveDays,
           incentives,
           netSalary,
           attendanceStats: {
@@ -66,7 +70,7 @@ const generateMonthlySalary = async (month, year) => {
             halfDay: halfDays,
             leave: leaveDays
           },
-          status: 'generated',
+          status: 'draft',
           generatedAt: new Date()
         },
         { upsert: true, new: true }

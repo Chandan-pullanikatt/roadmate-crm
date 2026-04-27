@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import GlobalModals from '../GlobalModals';
+import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
+import { useNotificationStore } from '../../store/useNotificationStore';
 
 const getIcon = (iconName) => {
   const props = { className: "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
@@ -65,7 +67,13 @@ const DashboardLayout = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
+
+  const { notifications, unreadCount, markAllRead, clearAll } = useNotificationStore();
+
+  // Initialize meeting alerts (polls in background if role is executive)
+  useMeetingAlerts(userRole);
 
   // Handle case where sections aren't provided but navItems are
   const effectiveSections = sections.length > 0 ? sections : [{ label: 'Main', items: navItems }];
@@ -213,10 +221,60 @@ const DashboardLayout = ({
               )}
 
               <div className="flex items-center gap-2 border-l border-border pl-4">
-                <button className="w-10 h-10 rounded-xl hover:bg-surface2 flex items-center justify-center relative group transition-colors">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted group-hover:text-text-primary"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-                  <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></div>
-                </button>
+                <div className="relative">
+                  <button 
+                    className="w-10 h-10 rounded-xl hover:bg-surface2 flex items-center justify-center relative group transition-colors"
+                    onClick={() => {
+                      setIsNotificationOpen(!isNotificationOpen);
+                      if (!isNotificationOpen) markAllRead();
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted group-hover:text-text-primary"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                    {unreadCount > 0 && (
+                      <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></div>
+                    )}
+                  </button>
+
+                  {isNotificationOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-border z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="p-4 border-b border-border flex items-center justify-between">
+                        <h3 className="font-bold text-sm">Notifications</h3>
+                        <div className="flex gap-2">
+                          <button onClick={clearAll} className="text-[10px] font-bold text-red hover:underline">Clear all</button>
+                          <button onClick={() => setIsNotificationOpen(false)} className="text-[10px] font-bold text-text-muted hover:underline">Close</button>
+                        </div>
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-8 text-center text-text-muted">
+                            <div className="text-2xl mb-2">🔔</div>
+                            <div className="text-xs font-bold">No notifications yet</div>
+                          </div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div key={n.id} className={`p-4 border-b border-border last:border-0 hover:bg-surface2/30 transition-colors ${!n.read ? 'bg-accent/5' : ''}`}>
+                              <div className="flex gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs
+                                  ${n.type?.includes('leave') ? 'bg-blue/10 text-blue' : 
+                                    n.type?.includes('meeting') ? 'bg-orange/10 text-orange' : 
+                                    n.type?.includes('lead') ? 'bg-green/10 text-green' : 'bg-accent/10 text-accent'}
+                                `}>
+                                  {n.type?.includes('leave') ? '📅' : n.type?.includes('meeting') ? '🤝' : n.type?.includes('lead') ? '👥' : '🔔'}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-xs font-bold text-text-primary">{n.title}</div>
+                                  <div className="text-[11px] text-text-muted mt-0.5 line-clamp-2">{n.message}</div>
+                                  <div className="text-[9px] text-text-muted mt-1 font-medium">{new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button className="w-10 h-10 rounded-xl hover:bg-surface2 flex items-center justify-center transition-colors">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted hover:text-text-primary"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>

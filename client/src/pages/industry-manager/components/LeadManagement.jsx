@@ -102,7 +102,10 @@ const LeadManagement = () => {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
             </div>
             <div className="h-8 w-px bg-border/60" />
-            <Button className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-purple/10">
+            <Button 
+                className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-purple/10"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}
+            >
                 + New Lead
             </Button>
         </div>

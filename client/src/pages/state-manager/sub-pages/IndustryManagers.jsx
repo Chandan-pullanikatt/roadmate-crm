@@ -5,7 +5,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 
-const IndustryManagers = ({ openModal }) => {
+const IndustryManagers = () => {
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState('Monthly');
 
@@ -46,7 +46,7 @@ const IndustryManagers = ({ openModal }) => {
           <div className="section-title">Industry State Managers · {user.state}</div>
           <div className="section-sub text-[13px]">All {stats.industryManagersCount || 0} industries - Full drill-in view</div>
         </div>
-        <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => openModal('create-ind-mgr')}>+ Create Industry Manager</Button>
+        <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'industry-manager' } }))}>+ Create Industry Manager</Button>
       </div>
 
       {/* STAT CARDS */}

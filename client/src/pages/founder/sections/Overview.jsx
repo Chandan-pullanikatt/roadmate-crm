@@ -139,7 +139,7 @@ const Overview = () => {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="bg-white">Bulk Upload</Button>
-          <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none">+ Add Lead</Button>
+          <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none" onClick={() => openModal('add-lead')}>+ Add Lead</Button>
         </div>
       </div>
 

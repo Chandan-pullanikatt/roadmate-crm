@@ -5,7 +5,7 @@ import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 
-const Overview = ({ openModal }) => {
+const Overview = () => {
   const queryClient = useQueryClient();
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
@@ -338,7 +338,10 @@ const Overview = ({ openModal }) => {
              <Button variant="outline" size="sm" className="font-bold text-[12px] border-border shadow-sm">
                 📊 1 Bulk Upload
              </Button>
-             <Button className="bg-blue hover:bg-blue-dark text-white font-bold text-[12px] border-none shadow-lg shadow-blue/20">
+             <Button 
+                className="bg-blue hover:bg-blue-dark text-white font-bold text-[12px] border-none shadow-lg shadow-blue/20"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}
+             >
                 + Add Lead
              </Button>
           </div>

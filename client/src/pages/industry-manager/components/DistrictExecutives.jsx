@@ -8,10 +8,9 @@ import {
   MemberRow
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
-import CreateExecutive from './CreateExecutive';
+
 
 const DistrictExecutives = () => {
-  const [showCreate, setShowCreate] = useState(false);
   const [activeDistrict, setActiveDistrict] = useState('All');
 
   const { data: dashData, isLoading } = useQuery({
@@ -38,10 +37,7 @@ const DistrictExecutives = () => {
     return `₹${val}`;
   };
 
-  // Conditional returns MUST come after all hooks
-  if (showCreate) {
-    return <CreateExecutive onCancel={() => setShowCreate(false)} onSuccess={() => setShowCreate(false)} />;
-  }
+
 
   if (isLoading) return (
     <div className="p-12 text-center">
@@ -82,7 +78,7 @@ const DistrictExecutives = () => {
         </div>
         <Button 
             className="bg-purple text-white border-none rounded-xl px-6 h-10 font-bold shadow-lg shadow-purple/10"
-            onClick={() => setShowCreate(true)}
+            onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}
         >
             + Create Executive
         </Button>

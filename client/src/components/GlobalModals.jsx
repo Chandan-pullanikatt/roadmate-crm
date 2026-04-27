@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
+import BulkUploadModal from './BulkUploadModal';
 
 const districtsByCountry = {
   'India': ['Hyderabad', 'Secunderabad', 'Warangal', 'Mumbai', 'Pune', 'Nagpur', 'Bengaluru', 'Mysuru', 'Chennai', 'Coimbatore', 'Ahmedabad', 'Surat', 'Delhi', 'Gurugram', 'Jaipur', 'Kochi'],
@@ -75,9 +76,15 @@ const GlobalModals = () => {
 
   useEffect(() => {
     const handleOpenModal = (e) => {
-      if (typeof e.detail === 'object' && e.detail.type === 'edit-incentive') {
-        setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
-        setActiveModal('edit-incentive');
+      if (typeof e.detail === 'object') {
+        if (e.detail.type === 'edit-incentive') {
+          setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
+          setActiveModal('edit-incentive');
+        } else if (e.detail.type === 'create-exec') {
+          setExecFormData({ ...execFormData, role: e.detail.role || 'industry-manager' });
+          setActiveModal('create-exec');
+          fetchUsers();
+        }
       } else {
         setActiveModal(e.detail);
         if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(e.detail)) fetchUsers();
@@ -140,8 +147,11 @@ const GlobalModals = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const role = execFormData.role === 'industry-manager' ? 'industry-manager' : 'executive';
-      await usersApi.createUser({ ...execFormData, role });
+      if (execFormData.role === 'industry-manager') {
+        await usersApi.createIndustryManager(execFormData);
+      } else {
+        await usersApi.createExecutive(execFormData);
+      }
       addToast('Account created successfully!', 'success');
       setActiveModal(null);
     } catch (err) {
@@ -370,41 +380,10 @@ const GlobalModals = () => {
       </Modal>
 
       {/* BULK UPLOAD MODAL */}
-      <Modal 
-        isOpen={activeModal === 'bulk-upload'} 
-        title="Bulk Lead Upload" 
+      <BulkUploadModal 
+        isOpen={activeModal === 'bulk-upload'}
         onClose={() => setActiveModal(null)}
-      >
-        <div className="space-y-6">
-          <div className="p-4 bg-blue-light/30 border border-blue/20 rounded-2xl flex gap-3 items-start">
-            <span className="text-blue text-lg">ℹ️</span>
-            <div className="text-xs text-text-secondary leading-relaxed">
-              Required columns: <span className="font-bold">Name, Company, Phone, Email, State, Industry</span>.
-              <br />
-              <a href="#" className="text-blue font-bold hover:underline">Download CSV Template</a>
-            </div>
-          </div>
-
-          <FileUpload 
-            onUpload={(file) => addToast(`File ${file.name} uploaded!`, 'success')}
-            accept=".csv,.xlsx"
-            label="Upload your lead database"
-          />
-
-          <div className="space-y-1">
-            <label className="form-label">Default Allocation</label>
-            <select className="select">
-              <option value="">Manually allocate after upload</option>
-              <option>Auto-distribute to available managers</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button variant="primary">Process Upload</Button>
-          </div>
-        </div>
-      </Modal>
+      />
 
       {/* CREATE STATE MANAGER MODAL */}
       <Modal 
@@ -882,6 +861,85 @@ const GlobalModals = () => {
             <Button variant="primary" type="submit" loading={loading} className="bg-orange border-orange">Submit Request</Button>
           </div>
         </form>
+      </Modal>
+      {/* LEAVE POLICY MODAL */}
+      <Modal 
+        isOpen={activeModal === 'leave-policy'} 
+        title="Leave Policy · RoadMate CRM" 
+        subtitle="Standard corporate policies for staff and management"
+        onClose={() => setActiveModal(null)}
+        className="modal-lg"
+      >
+        <div className="space-y-8 py-2">
+          <div className="grid grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center text-blue text-sm">01</div>
+                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Casual Leave (CL)</div>
+              </div>
+              <p className="text-xs text-text-muted leading-relaxed pl-11">
+                12 days per calendar year. Maximum 2 days at a time. Requests must be submitted at least 48 hours in advance for approval.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple/10 flex items-center justify-center text-purple text-sm">02</div>
+                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Sick Leave (SL)</div>
+              </div>
+              <p className="text-xs text-text-muted leading-relaxed pl-11">
+                8 days per calendar year. Medical certificate mandatory for any sick leave exceeding 2 consecutive days.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber/10 flex items-center justify-center text-amber text-sm">03</div>
+                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Optional Holidays</div>
+              </div>
+              <p className="text-xs text-text-muted leading-relaxed pl-11">
+                2 days per year from the approved list of religious/regional optional holidays. Subject to manager approval.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red/10 flex items-center justify-center text-red text-sm">04</div>
+                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Loss of Pay (LOP)</div>
+              </div>
+              <p className="text-xs text-text-muted leading-relaxed pl-11">
+                Unapproved absence or leave exceeding the annual limit will result in pro-rata salary deduction.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-5 bg-surface2/50 border border-border rounded-2xl">
+             <div className="flex items-start gap-4">
+                <div className="text-xl">💡</div>
+                <div className="space-y-2">
+                  <div className="text-sm font-bold text-text-primary">Approval Hierarchy</div>
+                  <ul className="space-y-1.5 text-xs text-text-muted">
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue"></span>
+                      <span className="font-bold text-text-secondary">Executives</span> leaves are approved by Industry Managers.
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple"></span>
+                      <span className="font-bold text-text-secondary">Industry Managers</span> leaves are approved by State Managers.
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange"></span>
+                      <span className="font-bold text-text-secondary">State Managers</span> leaves are approved directly by the Founder.
+                    </li>
+                  </ul>
+                </div>
+             </div>
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <Button variant="primary" onClick={() => setActiveModal(null)} className="px-8">I Understand</Button>
+          </div>
+        </div>
       </Modal>
     </>
   );

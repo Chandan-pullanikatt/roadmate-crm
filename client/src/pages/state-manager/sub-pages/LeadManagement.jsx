@@ -4,7 +4,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag, DataTable } from '../../../components/ui';
 
-const LeadManagement = ({ openModal }) => {
+const LeadManagement = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -81,8 +81,8 @@ const LeadManagement = ({ openModal }) => {
           <div className="section-sub">State-wide lead monitoring, allocation, and lifecycle tracking</div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => openModal('bulk-upload')}>⬆ Bulk Upload</Button>
-          <Button className="bg-purple text-white" size="sm" onClick={() => openModal('new-lead')}>+ New Lead</Button>
+          <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' }))}>⬆ Bulk Upload</Button>
+          <Button className="bg-purple text-white" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ New Lead</Button>
         </div>
       </div>
 

@@ -124,13 +124,23 @@ const attendanceService = {
     const completionPct = (completedLeadsCount / totalLeads) * 100;
     attendance.completionPct = completionPct;
 
-    // 3. Determine status
-    if (completionPct < 30) {
+    // Fetch dynamic rules from Config
+    const Config = require('../models/Config');
+    const configDoc = await Config.findOne({ key: 'working-hours' });
+    const rules = configDoc?.value?.rules || { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true };
+
+    // 3. Determine status based on dynamic thresholds
+    if (completionPct < rules.leaveThreshold) {
       attendance.status = 'leave'; // Counts as absent per prompt
-    } else if (completionPct < 70) {
+    } else if (completionPct < rules.halfDayThreshold) {
       attendance.status = 'half_day';
     } else {
-      attendance.status = 'present';
+      // Check if delayed login should force a half day
+      if (rules.delayedLoginHalfDay && attendance.note && attendance.note.includes('Late start')) {
+        attendance.status = 'half_day';
+      } else {
+        attendance.status = 'present';
+      }
     }
 
     await attendance.save();

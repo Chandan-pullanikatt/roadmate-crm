@@ -1507,10 +1507,8 @@ router.put('/salary/:id', async (req, res) => {
 
         salary.incentives = Number(incentives);
         salary.incentiveNote = incentiveNote;
-        // Recalculate net salary if needed, assuming netSalary includes incentives
-        // Simple logic: netSalary = base + incentives - deductions
-        // Since we don't have the full model here, we'll just update the field.
-        salary.netSalary = (salary.baseSalary || 0) + salary.incentives - (salary.deductions || 0);
+        // Recalculate net salary: grossSalary (based on attendance) + incentives - deductions
+        salary.netSalary = Math.round((salary.grossSalary || 0) + salary.incentives - (salary.deductions || 0));
 
         await salary.save();
         res.json(salary);

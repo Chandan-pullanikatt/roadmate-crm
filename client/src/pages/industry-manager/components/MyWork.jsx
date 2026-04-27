@@ -340,7 +340,13 @@ const MyWork = () => {
                             >{tab}</button>
                         ))}
                     </div>
-                    <Button size="sm" className="bg-purple text-white hover:bg-purple-dark rounded-xl px-5 h-9 font-bold">+ Add Lead</Button>
+                    <Button 
+                        size="sm" 
+                        className="bg-purple text-white hover:bg-purple-dark rounded-xl px-5 h-9 font-bold"
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}
+                    >
+                        + Add Lead
+                    </Button>
                 </div>
             </div>
 
