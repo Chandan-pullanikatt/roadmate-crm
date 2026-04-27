@@ -14,12 +14,13 @@ const Performance = () => {
   if (isLoading) return <div className="p-8 text-center text-text-muted">Analyzing team performance...</div>;
 
   const managers = dashData?.industryManagers || [];
+  const user = dashData?.user || {};
   
-  // Aggregate top performers (logic based on mock for now, but wired to dashData)
-  const topRevenue = managers.sort((a, b) => (b.revenue || 0) - (a.revenue || 0))[0];
-  const topCalls = managers.sort((a, b) => (b.callsToday || 0) - (a.callsToday || 0))[0];
-  const topConv = managers.sort((a, b) => (b.conversionsTotal || 0) - (a.conversionsTotal || 0))[0];
-  const topEfficiency = managers.sort((a, b) => (b.completionPct || 0) - (a.completionPct || 0))[0];
+  // Aggregate top performers
+  const topRevenue = [...managers].sort((a, b) => (b.revenue || 0) - (a.revenue || 0))[0];
+  const topCalls = [...managers].sort((a, b) => (b.calls || 0) - (a.calls || 0))[0];
+  const topConv = [...managers].sort((a, b) => (b.conversions || 0) - (a.conversions || 0))[0];
+  const topEfficiency = [...managers].sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0))[0];
 
   const columns = [
     {
@@ -33,18 +34,18 @@ const Performance = () => {
       )
     },
     {
-      header: 'Industry / District',
+      header: 'Industry / State',
       accessor: 'industry',
       render: (val, row) => (
         <div>
           <div className="text-[13px] font-medium">{val}</div>
-          <div className="text-[11px] text-text-muted">Kerala State</div>
+          <div className="text-[11px] text-text-muted">{user.state} State</div>
         </div>
       )
     },
     {
       header: 'Work Efficiency',
-      accessor: 'completionPct',
+      accessor: 'efficiency',
       render: (val) => (
         <div className="flex items-center gap-3">
           <div className="h-1.5 w-20 bg-surface2 rounded-full overflow-hidden border border-border">
@@ -54,8 +55,8 @@ const Performance = () => {
         </div>
       )
     },
-    { header: 'Calls', accessor: 'callsToday', render: (val) => <span className="mono text-[11px] font-bold text-blue">{val || 0}</span> },
-    { header: 'Conv', accessor: 'conversionsTotal', render: (val) => <span className="mono text-[11px] font-bold text-accent">{val || 0}</span> },
+    { header: 'Calls', accessor: 'calls', render: (val) => <span className="mono text-[11px] font-bold text-blue">{val || 0}</span> },
+    { header: 'Conv', accessor: 'conversions', render: (val) => <span className="mono text-[11px] font-bold text-accent">{val || 0}</span> },
     { 
       header: 'Revenue', 
       accessor: 'revenue', 
@@ -63,7 +64,7 @@ const Performance = () => {
     },
     {
       header: 'Status',
-      accessor: 'completionPct',
+      accessor: 'efficiency',
       render: (val) => (
         <Tag 
           variant={val >= 80 ? 'green' : val >= 50 ? 'amber' : 'red'} 
@@ -79,7 +80,7 @@ const Performance = () => {
       <div className="section-header">
         <div>
           <div className="section-title">Performance Analytics</div>
-          <div className="section-sub">Cross-industry performance comparison and leaderboard for {dashData?.user?.state}</div>
+          <div className="section-sub">Cross-industry performance comparison and leaderboard for {user.state}</div>
         </div>
         <div className="flex bg-surface2 p-1 rounded-xl border border-border">
           {['daily', 'weekly', 'monthly'].map(type => (
@@ -102,17 +103,17 @@ const Performance = () => {
         </div>
         <div className="stat-card">
           <div className="stat-label">Most Calls</div>
-          <div className="stat-value" style={{ color: 'var(--blue)' }}>{topCalls?.callsToday || 0}</div>
+          <div className="stat-value" style={{ color: 'var(--blue)' }}>{topCalls?.calls || 0}</div>
           <div className="stat-delta">{topCalls?.name || 'N/A'} · {topCalls?.industry}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Most Converted</div>
-          <div className="stat-value" style={{ color: 'var(--amber)' }}>{topConv?.conversionsTotal || 0}</div>
+          <div className="stat-value" style={{ color: 'var(--amber)' }}>{topConv?.conversions || 0}</div>
           <div className="stat-delta">{topConv?.name || 'N/A'} · {topConv?.industry}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Best Efficiency</div>
-          <div className="stat-value" style={{ color: 'var(--teal)' }}>{topEfficiency?.completionPct || 0}%</div>
+          <div className="stat-value" style={{ color: 'var(--teal)' }}>{topEfficiency?.efficiency || 0}%</div>
           <div className="stat-delta">{topEfficiency?.name || 'N/A'} · {topEfficiency?.industry}</div>
         </div>
       </div>
@@ -135,3 +136,4 @@ const Performance = () => {
 };
 
 export default Performance;
+

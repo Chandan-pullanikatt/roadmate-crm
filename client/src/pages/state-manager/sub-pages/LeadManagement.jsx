@@ -25,6 +25,7 @@ const LeadManagement = ({ openModal }) => {
   });
 
   const stats = dashData?.stats || {};
+  const pipelineData = dashData?.pipelineData || [];
   const leads = leadData?.leads || [];
 
   const tabs = [
@@ -46,7 +47,7 @@ const LeadManagement = ({ openModal }) => {
       accessor: 'company',
       render: (val, row) => (
         <div>
-          <div className="font-bold text-[13.5px]">{val}</div>
+          <div className="font-bold text-[13.5px]">{row.business || val}</div>
           <div className="text-[11px] text-text-muted mt-0.5">{row.name}</div>
         </div>
       )
@@ -93,18 +94,18 @@ const LeadManagement = ({ openModal }) => {
         </div>
         <div className="stat-card">
           <div className="stat-label">Hot Leads</div>
-          <div className="stat-value" style={{ color: 'var(--red)' }}>{stats.funnel?.find(f => f.label === 'Hot')?.val || 0}</div>
+          <div className="stat-value" style={{ color: 'var(--red)' }}>{pipelineData.find(f => f.status === 'hot')?.count || 0}</div>
           <div className="stat-delta">Priority contact</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Warm Leads</div>
-          <div className="stat-value" style={{ color: 'var(--amber)' }}>{stats.funnel?.find(f => f.label === 'Warm')?.val || 0}</div>
+          <div className="stat-value" style={{ color: 'var(--amber)' }}>{pipelineData.find(f => f.status === 'warm')?.count || 0}</div>
           <div className="stat-delta">Active follow-ups</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Converted</div>
-          <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats.conversions || 0}</div>
-          <div className="stat-delta">Successful state closures</div>
+          <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats.convertedThisMonth || 0}</div>
+          <div className="stat-delta text-accent">↑ This month</div>
         </div>
       </div>
 
@@ -124,7 +125,7 @@ const LeadManagement = ({ openModal }) => {
           <div className="flex gap-3 pb-4">
              <input 
                placeholder="Search business or manager..." 
-               className="bg-surface border border-border rounded-lg px-4 py-1 text-xs outline-none focus:border-purple w-64"
+               className="bg-surface border border-border rounded-lg px-4 py-1 text-xs outline-none focus:border-purple w-64 shadow-sm"
                value={searchTerm}
                onChange={e => setSearchTerm(e.target.value)}
              />
@@ -151,3 +152,4 @@ const LeadManagement = ({ openModal }) => {
 };
 
 export default LeadManagement;
+

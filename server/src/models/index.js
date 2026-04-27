@@ -5,6 +5,7 @@ const Attendance = require('./Attendance');
 const Leave = require('./Leave');
 const LeavePolicy = require('./LeavePolicy');
 const Salary = require('./Salary');
+const Holiday = require('./Holiday');
 
 module.exports = {
   User,
@@ -14,4 +15,5 @@ module.exports = {
   Leave,
   LeavePolicy,
   Salary,
+  Holiday,
 };

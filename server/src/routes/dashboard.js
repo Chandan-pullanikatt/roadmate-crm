@@ -71,13 +71,12 @@ const getLeaveBalance = async (user) => {
 };
 
 /**
- * GET /executive -> role: executive
+ * GET /executive -> personal execution dashboard for all roles
  */
 router.get('/executive', async (req, res) => {
   try {
-    if (req.user.role !== 'executive') {
-      return res.status(403).json({ message: 'Forbidden: Executive only' });
-    }
+    // Allow any role to see their OWN stats if they are assigned leads
+    const userId = req.user._id;
 
     const { start: todayStart, end: todayEnd } = getDateRange('today');
     const { start: monthStart } = getDateRange('monthly');
@@ -105,6 +104,7 @@ router.get('/executive', async (req, res) => {
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       converted: todayActivities.filter(a => a.action === 'converted').length,
+      completedLeads: [...new Set(todayActivities.map(a => a.lead.toString()))].length,
       completionPct: attendance ? attendance.completionPct : 0
     };
 
@@ -150,11 +150,33 @@ router.get('/executive', async (req, res) => {
     const leaveBalance = await getLeaveBalance(req.user);
 
     // 5. Performance Score
-    // (Conv Rate * 70%) + (Avg Completion % * 30%)
-    const convRate = monthlyStats.totalLeads > 0 ? (monthlyStats.converted / monthlyStats.totalLeads) * 100 : 0;
-    const performanceScore = (convRate * 0.7) + (todayStats.completionPct * 0.3);
+    const performanceScore = (monthlyStats.totalLeads > 0 ? (monthlyStats.converted / monthlyStats.totalLeads) : 0) * 100;
+
+    // 6. Lead Sources Breakdown
+    const myLeads = await Lead.find({ owner: userId });
+    const leadSources = myLeads.reduce((acc, lead) => {
+      const source = lead.source || 'Other';
+      acc[source] = (acc[source] || 0) + 1;
+      return acc;
+    }, {});
+
+    const sourcesFormatted = Object.entries(leadSources).map(([label, count]) => ({
+      label,
+      count,
+      icon: label === 'Industry Partner' ? '🏢' : label === 'Corporate Account' ? '🤝' : '🔗'
+    }));
+
+    // 7. Strategy Logs (Converted leads with notes)
+    const strategyLogs = await LeadActivity.find({
+      performedBy: userId,
+      action: 'converted'
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate('lead', 'company name');
 
     res.json({
+      user: { name: req.user.name, state: req.user.state },
       todayStats,
       monthlyStats,
       workStarted: !!attendance?.workStartedAt,
@@ -164,8 +186,13 @@ router.get('/executive', async (req, res) => {
         completionPct: attendance?.completionPct || 0
       },
       upcomingMeetings: meetingsFormatted,
-      leaveBalance,
-      performanceScore: Math.round(performanceScore * 100) / 100
+      leadSources: sourcesFormatted,
+      strategyLogs: strategyLogs.map(s => ({
+        leadName: s.lead?.company || s.lead?.name || 'Unknown',
+        strategy: s.note || 'No strategy logged',
+        date: s.createdAt
+      })),
+      performanceScore: Math.round(performanceScore * 10) / 10
     });
 
   } catch (err) {
@@ -299,101 +326,314 @@ router.get('/state-manager', async (req, res) => {
             return res.status(403).json({ message: 'Forbidden: State Manager only' });
         }
 
-        const { start: todayStart } = getDateRange('today');
+        const { start: todayStart, end: todayEnd } = getDateRange('today');
+        const { start: monthStart } = getDateRange('monthly');
+        const { start: weekStart } = getDateRange('weekly');
 
-        // 1. Industry Manager Summary
+        // 1. Industry Managers (Kerala)
         const managers = await User.find({ state: req.user.state, role: 'industry_manager' });
-        
-        const industryManagerSummary = await Promise.all(managers.map(async (m) => {
-            const team = await User.find({ industry: m.industry, role: 'executive' });
-            const teamIds = team.map(u => u._id);
-            const atts = await Attendance.find({ user: { $in: teamIds }, date: { $gte: todayStart } });
-            
-            const monthActs = await LeadActivity.find({ 
-                performedBy: { $in: teamIds }, 
-                action: 'converted',
-                createdAt: { $gte: getDateRange('monthly').start }
-            });
+        const managerIds = managers.map(m => m._id);
 
-            return {
-                user: { name: m.name, _id: m._id },
-                industry: m.industry,
-                teamSize: team.length,
-                avgWorkPct: atts.length > 0 ? (atts.reduce((sum, a) => sum + a.completionPct, 0) / atts.length) : 0,
-                leadsConverted: monthActs.length,
-                revenue: monthActs.reduce((sum, a) => sum + (a.metadata?.revenue || 0), 0)
-            };
-        }));
-
-        // 2. Team Overall
+        // 2. Executives & Teams
         const allExecutives = await User.find({ state: req.user.state, role: 'executive' });
         const executiveIds = allExecutives.map(u => u._id);
-        const activeToday = await Attendance.countDocuments({ user: { $in: executiveIds }, date: { $gte: todayStart }, workStartedAt: { $exists: true } });
+        const allTeamIds = [...managerIds, ...executiveIds];
 
-        const teamOverall = {
-            totalStaff: allExecutives.length + managers.length,
-            activeToday,
-            totalLeads: await Lead.countDocuments({ state: req.user.state }),
-            converted: await Lead.countDocuments({ state: req.user.state, status: 'converted' }),
-            revenue: await LeadActivity.aggregate([
-                { $match: { action: 'converted', createdAt: { $gte: getDateRange('monthly').start } } },
-                { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
-                { $unwind: '$lead_info' },
-                { $match: { 'lead_info.state': req.user.state } },
-                { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-            ]).then(res => res[0]?.total || 0)
+        // 3. Stats for Top Cards
+        const totalRevenue = await LeadActivity.aggregate([
+            { $match: { 
+                action: 'converted', 
+                createdAt: { $gte: monthStart }
+            }},
+            { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
+            { $unwind: '$lead_info' },
+            { $match: { 'lead_info.state': req.user.state } },
+            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
+        ]).then(res => res[0]?.total || 0);
+
+        const activeLeadsCount = await Lead.countDocuments({ 
+            state: req.user.state, 
+            status: { $nin: ['converted', 'lost', 'not_interested'] } 
+        });
+
+        const convertedThisMonth = await LeadActivity.countDocuments({ 
+            action: 'converted', 
+            createdAt: { $gte: monthStart },
+            performedBy: { $in: allTeamIds }
+        });
+
+        const pendingLeavesCount = await Leave.countDocuments({
+            user: { $in: managerIds },
+            status: 'pending'
+        });
+
+        const callsThisWeek = await LeadActivity.countDocuments({
+            action: 'called',
+            createdAt: { $gte: weekStart },
+            performedBy: { $in: executiveIds }
+        });
+
+        const meetingsScheduled = await Lead.countDocuments({
+            state: req.user.state,
+            status: 'meeting_scheduled',
+            meetingAt: { $gte: todayStart }
+        });
+
+        // 3a. District Executive Specific Stats
+        const todayAttendance = await Attendance.find({
+            user: { $in: executiveIds },
+            date: { $gte: todayStart }
+        });
+
+        const avgWorkPct = todayAttendance.length > 0 
+            ? Math.round(todayAttendance.reduce((sum, a) => sum + a.completionPct, 0) / todayAttendance.length) 
+            : 0;
+
+        const onLeaveToday = await Leave.countDocuments({
+            user: { $in: executiveIds },
+            status: 'approved',
+            fromDate: { $lte: todayEnd },
+            toDate: { $gte: todayStart }
+        });
+
+        const below30Work = todayAttendance.filter(a => a.completionPct < 30).length;
+
+        // 3b. Attendance Presence Stats
+        const presentToday = todayAttendance.filter(a => a.status === 'present' || a.status === 'half-day').length;
+        
+        const weekStart = getDateRange('weekly').start;
+        const halfDaysThisWeek = await Attendance.countDocuments({
+            user: { $in: executiveIds },
+            date: { $gte: weekStart },
+            status: 'half-day'
+        });
+
+        const monthStart = getDateRange('monthly').start;
+        const totalWorkDays = 25; // standard
+        const monthlyAttendanceRecords = await Attendance.countDocuments({
+            user: { $in: executiveIds },
+            date: { $gte: monthStart },
+            status: { $in: ['present', 'half-day'] }
+        });
+        const avgAttendanceMonth = Math.round((monthlyAttendanceRecords / (executiveIds.length * totalWorkDays || 1)) * 100);
+
+         // 10. Growth Metrics
+    const prevMonthStart = new Date(monthStart);
+    prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+    const prevMonthEnd = new Date(monthStart);
+
+    const prevMonthRevenue = await LeadActivity.aggregate([
+      { $match: { action: 'converted', createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd } } },
+      {
+        $lookup: {
+          from: 'leads',
+          localField: 'lead',
+          foreignField: '_id',
+          as: 'lead'
+        }
+      },
+      { $unwind: '$lead' },
+      { $match: { 'lead.state': req.user.state } },
+      { $group: { _id: null, total: { $sum: '$lead.expectedRevenue' } } }
+    ]);
+
+    const prevMonthLeads = await Lead.countDocuments({ state: req.user.state, createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd } });
+    const prevMonthConv = await Lead.countDocuments({ state: req.user.state, status: 'converted', convertedAt: { $gte: prevMonthStart, $lt: prevMonthEnd } });
+
+    const currentRevenue = totalRevenue || 0;
+    const oldRevenue = prevMonthRevenue[0]?.total || 0;
+    const revGrowth = oldRevenue > 0 ? ((currentRevenue - oldRevenue) / oldRevenue) * 100 : 0;
+
+    const currentConvRate = activeLeadsCount > 0 ? (convertedThisMonth / (activeLeadsCount + convertedThisMonth)) * 100 : 0;
+    const prevConvRate = prevMonthLeads > 0 ? (prevMonthConv / prevMonthLeads) * 100 : 0;
+    const convGrowth = currentConvRate - prevConvRate;
+
+        const stats = {
+            industryManagersCount: managers.length,
+            totalRevenue,
+            activeLeads: activeLeadsCount,
+            convertedThisMonth,
+            districtExecutivesCount: allExecutives.length,
+            pendingLeaves: pendingLeavesCount,
+            callsThisWeek,
+            meetingsScheduled,
+            revGrowth: Math.round(revGrowth * 10) / 10,
+            convRate: Math.round(currentConvRate * 10) / 10,
+            convGrowth: Math.round(convGrowth * 10) / 10,
+            avgWorkPct,
+            onLeaveToday,
+            below30Work,
+            presentToday,
+            halfDaysThisWeek,
+            avgAttendanceMonth
         };
 
-        // 3. Pending Leave Requests (only from industry managers)
-        const pendingLeaveRequests = await Leave.find({
-            user: { $in: managers.map(m => m._id) },
-            status: 'pending'
-        }).populate('user', 'name role');
-
-        // 4. Leads by Industry
-        const leadsByIndustry = await Lead.aggregate([
-            { $match: { state: req.user.state } },
-            { $group: {
-                _id: '$industry',
-                total: { $sum: 1 },
-                converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } },
-                lost: { $sum: { $cond: [{ $eq: ['$status', 'lost'] }, 1, 0] } },
-                rnr: { $sum: { $cond: [{ $eq: ['$status', 'rnr'] }, 1, 0] } }
-            }},
-            { $project: { industry: '$_id', total: 1, converted: 1, lost: 1, rnr: 1, _id: 0 } }
-        ]);
-
-        // 5. Performance by Industry
-        const performanceByIndustry = await Promise.all(leadsByIndustry.map(async (item) => {
-            const team = await User.find({ state: req.user.state, industry: item.industry, role: 'executive' });
+        // 4. Industry Manager List (Drill-in)
+        const industryManagerSummary = await Promise.all(managers.map(async (m) => {
+            const team = allExecutives.filter(e => e.industry === m.industry);
             const teamIds = team.map(u => u._id);
-            const atts = await Attendance.find({ user: { $in: teamIds }, date: { $gte: todayStart } });
             
-            const calls = await LeadActivity.countDocuments({ performedBy: { $in: teamIds }, action: 'called', createdAt: { $gte: todayStart } });
-            const rev = await LeadActivity.aggregate([
-                { $match: { performedBy: { $in: teamIds }, action: 'converted', createdAt: { $gte: getDateRange('monthly').start } } },
-                { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-            ]).then(res => res[0]?.total || 0);
+            const leads = await Lead.find({ industry: m.industry, state: req.user.state });
+            const leadIds = leads.map(l => l._id);
+
+            const calls = await LeadActivity.countDocuments({ 
+                performedBy: { $in: teamIds }, 
+                action: 'called',
+                createdAt: { $gte: monthStart }
+            });
+
+            const monthConvs = await LeadActivity.find({ 
+                performedBy: { $in: teamIds }, 
+                action: 'converted',
+                createdAt: { $gte: monthStart }
+            });
+
+            const rev = monthConvs.reduce((sum, a) => sum + (a.metadata?.revenue || 0), 0);
+            
+            // Efficiency based on work completion of team
+            const atts = await Attendance.find({ user: { $in: teamIds }, date: { $gte: todayStart } });
+            const avgWorkPctTeam = atts.length > 0 ? (atts.reduce((sum, a) => sum + a.completionPct, 0) / atts.length) : 0;
 
             return {
-                industry: item.industry,
-                avgWorkPct: atts.length > 0 ? (atts.reduce((sum, a) => sum + a.completionPct, 0) / atts.length) : 0,
-                totalCalls: calls,
-                meetings: await Lead.countDocuments({ state: req.user.state, industry: item.industry, status: { $regex: /meeting/ } }),
-                revenue: rev
+                _id: m._id,
+                name: m.name,
+                industry: m.industry,
+                leadsCount: leads.length,
+                efficiency: Math.round(avgWorkPctTeam),
+                calls,
+                conversions: monthConvs.length,
+                revenue: rev,
+                districts: [...new Set(team.map(e => e.district))].length
             };
         }));
 
-        // 6. Escalated Leads
-        const escalatedLeads = await Lead.find({ state: req.user.state, escalatedTo: req.user._id }).populate('owner', 'name');
+        // 4b. District Executive List
+        const executivePerformance = await Promise.all(allExecutives.map(async (e) => {
+            const att = todayAttendance.find(a => a.user.toString() === e._id.toString());
+            const calls = await LeadActivity.countDocuments({ performedBy: e._id, action: 'called', createdAt: { $gte: monthStart } });
+            const conversions = await LeadActivity.countDocuments({ performedBy: e._id, action: 'converted', createdAt: { $gte: monthStart } });
+            const leave = await Leave.findOne({ user: e._id, status: 'approved', fromDate: { $lte: todayEnd }, toDate: { $gte: todayStart } });
+
+            return {
+                _id: e._id,
+                name: e.name,
+                industry: e.industry,
+                district: e.district,
+                calls,
+                conversions,
+                completionPct: att ? att.completionPct : 0,
+                status: leave ? 'On Leave' : (att ? 'Active' : 'Not Started')
+            };
+        }));
+
+        // 5. Upcoming Events
+        // Meetings, Follow-ups
+        const upcomingLeads = await Lead.find({
+            state: req.user.state,
+            $or: [
+                { meetingAt: { $gte: todayStart } },
+                { nextActionAt: { $gte: todayStart } }
+            ]
+        })
+        .sort({ meetingAt: 1, nextActionAt: 1 })
+        .limit(5)
+        .populate('owner', 'name');
+
+        const upcomingEvents = upcomingLeads.map(l => ({
+            type: l.status.includes('meeting') ? 'meeting' : 'followup',
+            title: l.status.includes('meeting') ? `Meeting - ${l.company}` : `Follow-up - ${l.company}`,
+            subTitle: `${l.owner?.name} → ${l.name}`,
+            time: l.meetingAt || l.nextActionAt,
+            status: l.status
+        }));
+
+        // Approved Leaves for today/tomorrow
+        const upcomingLeaves = await Leave.find({
+            user: { $in: allTeamIds },
+            status: 'approved',
+            toDate: { $gte: todayStart }
+        }).populate('user', 'name role');
+
+        upcomingLeaves.forEach(l => {
+            upcomingEvents.push({
+                type: 'leave',
+                title: `Leave - ${l.user.name} (${l.user.role.replace('_', ' ')})`,
+                subTitle: `${l.reason} · ${l.days} days`,
+                time: l.fromDate,
+                status: 'upcoming'
+            });
+        });
+
+        // 6. Pipeline Data
+        const pipeline = [
+            { label: 'Hot', status: 'hot', color: '#EF4444' },
+            { label: 'Warm', status: 'warm', color: '#F59E0B' },
+            { label: 'Follow-up', status: 'followup', color: '#8B5CF6' },
+            { label: 'Meeting', status: 'meeting_scheduled', color: '#06B6D4' },
+            { label: 'Converted', status: 'converted', color: '#10B981' },
+            { label: 'Lost', status: 'lost', color: '#6B7280' }
+        ];
+
+        const pipelineData = await Promise.all(pipeline.map(async (p) => {
+            let count = 0;
+            if (p.status === 'hot' || p.status === 'warm') {
+                count = await Lead.countDocuments({ state: req.user.state, priority: p.status, status: { $nin: ['converted', 'lost'] } });
+            } else if (p.status === 'meeting_scheduled') {
+                count = await Lead.countDocuments({ state: req.user.state, status: { $regex: /meeting/i } });
+            } else {
+                count = await Lead.countDocuments({ state: req.user.state, status: p.status });
+            }
+            return { ...p, val: count };
+        }));
+
+        // 7. Expected Onboarding Leads
+        const expectedLeads = await Lead.find({
+            state: req.user.state,
+            status: { $nin: ['converted', 'lost', 'not_interested'] }
+        })
+        .sort({ updatedAt: -1 })
+        .limit(10)
+        .populate('owner', 'name');
+
+        const expectedOnboarding = expectedLeads.map(l => {
+            const age = Math.floor((new Date() - new Date(l.createdAt)) / (1000 * 60 * 60 * 24));
+            return {
+                leadId: l.leadId || `RM-${l._id.toString().slice(-4).toUpperCase()}`,
+                business: l.company || l.name,
+                contact: l.name,
+                industry: l.industry,
+                district: l.district,
+                manager: l.owner?.name || 'Unassigned',
+                status: l.status,
+                priority: l.priority,
+                revenue: l.expectedRevenue || 0,
+                age: `${age}d`
+            };
+        });
+
+        // 8. Pending Leave Requests (Industry Managers)
+        const leaveRequests = await Leave.find({
+            user: { $in: managerIds },
+            status: 'pending'
+        }).populate('user', 'name role industry');
+
+        // 9. Escalated Leads
+        const escalated = await Lead.find({
+            state: req.user.state,
+            escalatedTo: req.user._id,
+            status: { $nin: ['converted', 'lost'] }
+        }).populate('owner', 'name');
 
         res.json({
-            industryManagerSummary,
-            teamOverall,
-            pendingLeaveRequests,
-            leadsByIndustry,
-            performanceByIndustry,
-            escalatedLeads
+            user: { name: req.user.name, state: req.user.state },
+            stats,
+            industryManagers: industryManagerSummary,
+            executivePerformance,
+            upcomingEvents: upcomingEvents.sort((a,b) => new Date(a.time) - new Date(b.time)),
+            pipelineData,
+            leaveRequests,
+            expectedOnboarding,
+            escalated
         });
 
     } catch (err) {
@@ -938,8 +1178,37 @@ router.get('/reports/revenue', async (req, res) => {
             pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
             summary: {
                 totalRevenue: allResults.reduce((sum, r) => sum + r.totalRevenue, 0),
-                totalConversions: allResults.reduce((sum, r) => sum + r.count, 0)
+                totalConversions: allResults.reduce((sum, r) => sum + r.totalConversions, 0)
             }
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/dashboard/reports/leaves
+router.get('/reports/leaves', async (req, res) => {
+    try {
+        const { state, industry, page = 1, limit = 20 } = req.query;
+        const query = {};
+        if (state) query.state = state;
+        if (industry) query.industry = industry;
+        applyScope(req, query);
+
+        const users = await User.find(query).select('name role state industry');
+        const userIds = users.map(u => u._id);
+
+        const leaves = await Leave.find({ user: { $in: userIds } })
+            .populate('user', 'name role')
+            .sort({ fromDate: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
+
+        const total = await Leave.countDocuments({ user: { $in: userIds } });
+
+        res.json({
+            data: leaves,
+            pagination: { total, page: Number(page), pages: Math.ceil(total / limit) }
         });
     } catch (err) {
         res.status(500).json({ message: err.message });

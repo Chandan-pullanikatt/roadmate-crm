@@ -68,11 +68,14 @@ const DashboardSwitcher = () => {
   );
 };
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   const { isAuthenticated } = useAuth();
 
   return (
     <Router>
+      <Toaster position="top-right" reverseOrder={false} />
       <Suspense fallback={
         <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--accent)]"></div>

@@ -1,200 +1,403 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
+import { toast } from 'react-hot-toast';
 
 const Overview = ({ openModal }) => {
+  const queryClient = useQueryClient();
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
     queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: ({ id, status }) => {
+      if (status === 'approved') return leaveApi.approveLeave(id);
+      return leaveApi.rejectLeave(id, { approvalNote: 'Rejected by State Manager' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['dashboard', 'state-manager']);
+      toast.success('Leave request updated');
+    },
+    onError: (err) => toast.error(err.message)
   });
 
   if (isLoading) return <div className="p-8 text-center text-text-muted">Loading state metrics...</div>;
 
   const stats = dashData?.stats || {};
   const managers = dashData?.industryManagers || [];
-  const funnel = dashData?.funnel || [];
+  const pipeline = dashData?.pipelineData || [];
   const events = dashData?.upcomingEvents || [];
-  const leads = dashData?.latestLeads || [];
-  const escalations = dashData?.escalations || [];
+  const expectedOnboarding = dashData?.expectedOnboarding || [];
+  const leaveRequests = dashData?.leaveRequests || [];
+  const escalated = dashData?.escalated || [];
+  const user = dashData?.user || {};
+
+  const formatCurrency = (val) => {
+    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+    return `₹${val.toLocaleString()}`;
+  };
 
   return (
-    <div className="animate-in fade-in duration-500">
-      <div className="section-header">
+    <div className="animate-in fade-in duration-500 pb-10">
+      {/* Header Section */}
+      <div className="flex justify-between items-start mb-6">
         <div>
-          <div className="section-title">{dashData?.user?.state} State Overview</div>
-          <div className="section-sub">Comprehensive performance metrics across all industries in {dashData?.user?.state}</div>
+          <h1 className="text-[22px] font-bold text-text-primary">State Manager Dashboard</h1>
+          <p className="text-[13px] text-text-muted mt-0.5">
+            {user.state} · Full state overview · Industry managers & executives
+          </p>
         </div>
-        <div className="flex gap-2">
-           <Button variant="outline" size="sm">Download Stats</Button>
-           <Button className="bg-purple text-white" size="sm" onClick={() => openModal('bulk-upload')}>Bulk Upload Leads</Button>
+        <div className="flex items-center gap-3 bg-surface1 p-1 rounded-xl border border-border shadow-sm">
+          <div className="relative">
+             <input 
+               type="text" 
+               placeholder="Search leads, managers.." 
+               className="bg-surface2 border-none text-[12.5px] py-2 pl-9 pr-4 rounded-lg w-[240px] focus:ring-1 ring-purple/30 transition-all outline-none"
+             />
+             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">🔍</span>
+          </div>
+          <button className="p-2 hover:bg-surface2 rounded-lg relative text-text-secondary">
+             🔔 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red rounded-full border-2 border-surface1"></span>
+          </button>
+          <button className="p-2 hover:bg-surface2 rounded-lg text-text-secondary">👤</button>
         </div>
       </div>
 
-      {/* Escalation Banner */}
-      {escalations.length > 0 && (
-        <div className="bg-red-light border border-red/20 rounded-2xl p-4 flex items-center gap-4 shadow-sm mb-6">
-          <div className="w-10 h-10 rounded-full bg-red/20 flex items-center justify-center text-red text-xl shrink-0">🚨</div>
+      {/* Escalation Alert */}
+      {escalated.length > 0 && (
+        <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-2xl p-4 flex items-center gap-4 mb-6 animate-pulse-subtle shadow-sm">
+          <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center text-[#D97706] text-lg shrink-0">⚠️</div>
           <div className="flex-1">
-            <div className="font-bold text-[14px]">Escalated: {escalations[0].company}</div>
-            <div className="text-[12.5px] text-text-muted mt-0.5">By {escalations[0].owner?.name} · Needs manager decision</div>
+            <div className="text-[13.5px] font-bold text-[#92400E]">
+              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">from Industry Manager — {escalated[0].business} · {escalated[0].district} · {escalated[0].priority}</span>
+            </div>
           </div>
-          <Button size="sm" className="bg-red text-white">Review Now</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="bg-white border-[#FEF3C7] text-[#92400E] h-8 px-4 text-[12px] font-bold">Review</Button>
+            <Button size="sm" className="bg-[#D97706] hover:bg-[#B45309] text-white border-none h-8 px-4 text-[12px] font-bold">Escalate to Founder</Button>
+          </div>
         </div>
       )}
 
-      {/* 8 STAT CARDS GRID */}
-      <div className="stat-grid mb-6">
-        <div className="stat-card">
-          <div className="stat-label">Industry Managers</div>
-          <div className="stat-value">{managers.length}</div>
-          <div className="stat-delta">Managing {stats.totalIndustries || 0} industries</div>
+      {/* Stat Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Industry Managers</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">{stats.industryManagersCount}</div>
+          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
+             ↑ 1 added this month
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Executives</div>
-          <div className="stat-value">{stats.totalExecutives || 0}</div>
-          <div className="stat-delta">Field force team</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Total Revenue · {user.state}</div>
+          <div className="text-[28px] font-black text-teal mt-1">{formatCurrency(stats.totalRevenue)}</div>
+          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
+             ↑ 14% vs last month
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Today's Present</div>
-          <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats.todayAttendance || 0}</div>
-          <div className="stat-delta text-accent">↑ {stats.attendancePct || 0}% attendance</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-amber/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Active Leads</div>
+          <div className="text-[28px] font-black text-[#D97706] mt-1">{stats.activeLeads}</div>
+          <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
+             → {Math.floor(stats.activeLeads * 0.15)} follow-ups today
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Active Leads</div>
-          <div className="stat-value" style={{ color: 'var(--purple)' }}>{stats.activeLeads || 0}</div>
-          <div className="stat-delta">Total pipeline</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-green/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Converted This Month</div>
+          <div className="text-[28px] font-black text-green mt-1">{stats.convertedThisMonth}</div>
+          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
+             ↑ 9 vs last month
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">State Revenue</div>
-          <div className="stat-value" style={{ color: 'var(--teal)' }}>₹{stats.revenue?.toLocaleString() || '0'}</div>
-          <div className="stat-delta text-teal">↑ This month</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-purple/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">District Executives</div>
+          <div className="text-[28px] font-black text-purple mt-1">{stats.districtExecutivesCount}</div>
+          <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
+             Across 5 industries
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">State Conversions</div>
-          <div className="stat-value" style={{ color: 'var(--blue)' }}>{stats.conversions || 0}</div>
-          <div className="stat-delta">Successful closings</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-red/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Pending Leave Approvals</div>
+          <div className="text-[28px] font-black text-red mt-1">{stats.pendingLeaves}</div>
+          <div className="text-[11.5px] font-bold text-red mt-2 flex items-center gap-1">
+             ↑ Needs attention
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">On Leave</div>
-          <div className="stat-value" style={{ color: 'var(--red)' }}>{stats.onLeaveToday || 0}</div>
-          <div className="stat-delta">Approved leaves</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Calls This Week</div>
+          <div className="text-[28px] font-black text-teal mt-1">{stats.callsThisWeek}</div>
+          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
+             ↑ 18% vs last week
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Pending Requests</div>
-          <div className="stat-value" style={{ color: 'var(--amber)' }}>{stats.pendingLeaves || 0}</div>
-          <div className="stat-delta">Needs approval</div>
+
+        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#D97706]/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Meetings Scheduled</div>
+          <div className="text-[28px] font-black text-[#92400E] mt-1">{stats.meetingsScheduled}</div>
+          <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
+             → 4 virtual, 10 direct
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* INDUSTRY MANAGER SUMMARY */}
-        <div className="card">
-          <div className="card-header border-b border-border">
-            <div className="section-title">Industry Manager Summary</div>
-            <Button variant="outline" size="sm">View All</Button>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+        {/* Industry Managers List */}
+        <div className="lg:col-span-7 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-border flex justify-between items-center">
+            <div>
+              <h2 className="text-[15px] font-bold text-text-primary">Industry Managers · {user.state}</h2>
+              <p className="text-[12px] text-text-muted mt-0.5">Drill in for full details</p>
+            </div>
+            <Button variant="outline" size="sm" className="text-[12px] h-8 px-4 font-bold border-border">View All</Button>
           </div>
-          <div className="card-body p-0 max-h-[400px] overflow-y-auto">
+          <div className="divide-y divide-border">
             {managers.map((m, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-5 border-b last:border-0 hover:bg-surface2 transition-colors cursor-pointer">
+              <div key={idx} className="p-5 flex items-center gap-4 hover:bg-surface2/30 transition-colors cursor-pointer group">
                 <Avatar name={m.name} size="md" className={`av-${idx % 5}`} />
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="font-bold text-[14.5px]">{m.name}</div>
-                    <div className="text-[11px] font-bold text-blue mono">{m.completionPct || 0}% Efficiency</div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <div className="font-bold text-[14px] text-text-primary group-hover:text-blue transition-colors">{m.name}</div>
+                    <div className="text-[11px] font-black text-text-muted uppercase tracking-wider">{m.efficiency}%</div>
                   </div>
-                  <div className="text-[12px] text-text-muted mb-2">{m.industry} · {m.districtCount || 0} Districts</div>
-                  <div className="h-1.5 w-full bg-surface2 rounded-full overflow-hidden border border-border">
-                    <div className="h-full bg-blue transition-all" style={{ width: `${m.completionPct || 0}%` }}></div>
+                  <div className="text-[12px] text-text-muted mb-3">{m.industry} · {m.districts} Districts · {m.leadsCount} leads</div>
+                  <div className="h-1.5 w-full bg-surface2 rounded-full overflow-hidden border border-border/50">
+                    <div 
+                      className="h-full bg-blue transition-all duration-1000 ease-out" 
+                      style={{ width: `${m.efficiency}%` }}
+                    ></div>
                   </div>
                 </div>
-                <div className="flex gap-4 ml-2">
-                  <div className="text-center"><div className="text-sm font-bold text-blue mono">{m.callsToday || 0}</div><div className="text-[9px] text-text-muted uppercase font-bold">Calls</div></div>
-                  <div className="text-center"><div className="text-sm font-bold text-accent mono">{m.conversionsTotal || 0}</div><div className="text-[9px] text-text-muted uppercase font-bold">Conv.</div></div>
+                <div className="flex gap-6 ml-4">
+                  <div className="text-center">
+                    <div className="text-[14px] font-black text-text-primary">{m.calls}</div>
+                    <div className="text-[9px] text-text-muted uppercase font-black tracking-tighter">Calls</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[14px] font-black text-text-primary">{m.conversions}</div>
+                    <div className="text-[9px] text-text-muted uppercase font-black tracking-tighter">Conv.</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[14px] font-black text-teal">{formatCurrency(m.revenue)}</div>
+                    <div className="text-[9px] text-text-muted uppercase font-black tracking-tighter">Rev.</div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* PIPELINE & EVENTS */}
-        <div className="flex flex-col gap-6">
-          <div className="card">
-            <div className="card-header border-b border-border"><div className="section-title">State Pipeline</div></div>
-            <div className="card-body">
-              {funnel.map((s, i) => (
-                <div key={i} className="flex items-center gap-4 mb-4 last:mb-0">
-                  <div className="w-20 text-xs text-text-secondary font-bold uppercase">{s.label}</div>
-                  <div className="flex-1 h-2 bg-surface2 rounded-full overflow-hidden border border-border">
-                    <div className="h-full transition-all" style={{ width: `${(s.val / (stats.activeLeads || 1)) * 100}%`, background: s.color || 'var(--purple)' }}></div>
-                  </div>
-                  <div className="font-mono text-xs w-8 text-right font-bold">{s.val}</div>
-                </div>
-              ))}
+        {/* Upcoming Events */}
+        <div className="lg:col-span-5 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-border flex justify-between items-center">
+            <div>
+              <h2 className="text-[15px] font-bold text-text-primary">Upcoming Events</h2>
+              <p className="text-[12px] text-text-muted mt-0.5">Meetings, follow-ups, leave</p>
+            </div>
+            <div className="flex gap-1">
+               {['Today', 'Tomorrow'].map(t => (
+                 <button key={t} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${t === 'Today' ? 'bg-blue/10 text-blue' : 'text-text-muted hover:bg-surface2'}`}>
+                   {t}
+                 </button>
+               ))}
             </div>
           </div>
-
-          <div className="card">
-            <div className="card-header border-b border-border"><div className="section-title">Upcoming Team Events</div></div>
-            <div className="card-body p-0 max-h-[250px] overflow-y-auto">
-              {events.map((e, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 border-b last:border-0 hover:bg-surface2 transition-colors cursor-pointer">
-                  <div className="text-xl mt-0.5">{e.type === 'meeting_scheduled' ? '🎥' : '📞'}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13.5px] font-bold truncate">{e.name}</div>
-                    <div className="text-[12px] text-text-muted mt-0.5">{e.ownerName} → {e.company}</div>
-                    <div className="text-[12px] text-blue font-bold mt-1.5">{new Date(e.time).toLocaleString()}</div>
-                  </div>
-                  <Tag variant="blue" label={e.type} />
+          <div className="p-5 flex flex-col gap-5">
+            {events.map((e, i) => (
+              <div key={i} className="flex gap-4 group">
+                <div className="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform">
+                   {e.type === 'meeting' ? '📹' : e.type === 'followup' ? '📞' : '📅'}
                 </div>
-              ))}
-              {events.length === 0 && <div className="p-8 text-center text-text-muted text-xs italic">No upcoming events</div>}
+                <div className="flex-1 border-b border-border/50 pb-4 group-last:border-0 group-last:pb-0">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{e.title}</div>
+                      <div className="text-[11.5px] text-text-muted mt-0.5">{e.subTitle}</div>
+                      <div className="text-[11.5px] font-black text-blue mt-2 uppercase tracking-wide">
+                        {new Date(e.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {new Date(e.time).toLocaleDateString() === new Date().toLocaleDateString() ? 'Today' : ''}
+                      </div>
+                    </div>
+                    <Tag 
+                      variant={e.type === 'meeting' ? 'teal' : e.type === 'followup' ? 'purple' : 'amber'} 
+                      label={e.type} 
+                      className="text-[9px] px-2 py-0.5 uppercase font-black"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {events.length === 0 && <div className="py-10 text-center text-[12px] text-text-muted italic">No upcoming events scheduled</div>}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+        {/* Lead Pipeline Chart */}
+        <div className="lg:col-span-7 bg-surface1 rounded-2xl border border-border shadow-sm p-6">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-[15px] font-bold text-text-primary">Lead Pipeline · {user.state}</h2>
+              <p className="text-[12px] text-text-muted mt-0.5">All industries combined</p>
+            </div>
+            <div className="flex gap-1 bg-surface2 p-1 rounded-lg">
+               {['This Month', 'This Week'].map(t => (
+                 <button key={t} className={`px-4 py-1.5 text-[11px] font-black rounded-md transition-all ${t === 'This Month' ? 'bg-surface1 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}>
+                   {t}
+                 </button>
+               ))}
+            </div>
+          </div>
+          <div className="space-y-5">
+            {pipeline.map((p, i) => (
+              <div key={i} className="flex items-center gap-6">
+                <div className="w-[100px] text-[12px] font-bold text-text-secondary uppercase tracking-wider">{p.label}</div>
+                <div className="flex-1 h-2.5 bg-surface2 rounded-full overflow-hidden border border-border/50">
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out shadow-sm" 
+                    style={{ 
+                      width: `${(p.val / (stats.activeLeads || 1)) * 100}%`,
+                      backgroundColor: p.color
+                    }}
+                  ></div>
+                </div>
+                <div className="w-10 text-right font-black text-[13px] text-text-primary">{p.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Leave Requests */}
+        <div className="lg:col-span-5 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-border flex justify-between items-center">
+            <div>
+              <h2 className="text-[15px] font-bold text-text-primary">Leave Requests</h2>
+              <p className="text-[12px] text-text-muted mt-0.5">Industry Managers pending approval</p>
+            </div>
+            <Tag variant="amber" label={`${leaveRequests.length} Pending`} className="font-black text-[10px]" />
+          </div>
+          <div className="divide-y divide-border">
+            {leaveRequests.map((r, i) => (
+              <div key={i} className="p-5 flex items-center gap-4 group">
+                <Avatar name={r.user.name} size="md" className={`av-${i % 5}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[14px] text-text-primary">{r.user.name}</div>
+                  <div className="text-[11px] text-text-muted mt-0.5 truncate">
+                    Industry Mgr · {r.user.industry} · {new Date(r.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {r.reason}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                   <button 
+                     onClick={() => leaveMutation.mutate({ id: r._id, status: 'approved' })}
+                     className="px-3 py-1.5 bg-green/10 text-green text-[11px] font-black rounded-lg hover:bg-green hover:text-white transition-all border border-green/20"
+                   >
+                     Approve
+                   </button>
+                   <button 
+                     onClick={() => leaveMutation.mutate({ id: r._id, status: 'rejected' })}
+                     className="px-3 py-1.5 bg-red/10 text-red text-[11px] font-black rounded-lg hover:bg-red hover:text-white transition-all border border-red/20"
+                   >
+                     Reject
+                   </button>
+                </div>
+              </div>
+            ))}
+            {leaveRequests.length === 0 && (
+              <div className="p-10 text-center text-[12px] text-text-muted italic">No pending leave requests from managers</div>
+            )}
+            <div className="p-4 bg-surface2/30 border-t border-border">
+               <button className="w-full py-2 text-[12px] font-bold text-text-secondary hover:text-blue transition-colors">Manage All Requests</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header border-b border-border">
+      {/* Expected Onboarding Table */}
+      <div className="bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border flex justify-between items-center">
           <div>
-            <div className="section-title">Latest State Leads</div>
-            <div className="section-sub">Latest leads entered into the system across all industries</div>
+            <h2 className="text-[16px] font-bold text-text-primary">Expected Onboarding Leads · {user.state}</h2>
+            <p className="text-[13px] text-text-muted mt-0.5">Track & manage leads across industries</p>
           </div>
-          <Button variant="outline" size="sm">View All Leads</Button>
+          <div className="flex gap-3">
+             <Button variant="outline" size="sm" className="font-bold text-[12px] border-border shadow-sm">
+                📊 1 Bulk Upload
+             </Button>
+             <Button className="bg-blue hover:bg-blue-dark text-white font-bold text-[12px] border-none shadow-lg shadow-blue/20">
+                + Add Lead
+             </Button>
+          </div>
         </div>
-        <div className="table-scroll overflow-x-auto">
-          <table className="data-table">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface2/50 text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                <th className="p-4 text-left">Lead ID</th>
-                <th className="p-4 text-left">Business Name</th>
-                <th className="p-4 text-left">Industry</th>
-                <th className="p-4 text-left">District</th>
-                <th className="p-4 text-left">Owner</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-right">Action</th>
+              <tr className="bg-surface2/50 border-b border-border">
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider">Lead ID</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider">Business</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider">Industry</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider">District</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider">Manager</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider text-right">Revenue</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider text-center">Age</th>
+                <th className="px-6 py-4 text-[11px] font-black text-text-muted uppercase tracking-wider text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {leads.map((l, i) => (
-                <tr key={i} className="hover:bg-surface2/20 transition-colors">
-                  <td className="p-4 mono text-[11px] font-bold">{l.leadId}</td>
-                  <td className="p-4">
-                    <div className="font-bold text-[13.5px]">{l.company}</div>
-                    <div className="text-[11px] text-text-muted">{l.name}</div>
+              {expectedOnboarding.map((l, i) => (
+                <tr key={i} className="hover:bg-surface2/30 transition-colors group">
+                  <td className="px-6 py-4 font-mono text-[11.5px] font-black text-text-secondary">{l.leadId}</td>
+                  <td className="px-6 py-4">
+                    <div className="text-[14px] font-bold text-text-primary group-hover:text-blue transition-colors">{l.business}</div>
+                    <div className="text-[11.5px] text-text-muted mt-0.5">{l.contact}</div>
                   </td>
-                  <td className="p-4"><Tag variant="gray" label={l.industry} /></td>
-                  <td className="p-4 text-sm">{l.district}</td>
-                  <td className="p-4 font-medium text-sm">{l.owner?.name || 'Unassigned'}</td>
-                  <td className="p-4">
-                    <Tag variant={l.status === 'hot' ? 'red' : l.status === 'converted' ? 'green' : 'amber'} label={l.status.toUpperCase()} />
+                  <td className="px-6 py-4">
+                     <span className="px-3 py-1 bg-surface2 text-text-secondary text-[10px] font-black rounded-full uppercase tracking-wide border border-border/50">
+                        {l.industry}
+                     </span>
                   </td>
-                  <td className="p-4 text-right">
-                    <Button size="xs" variant="outline">Details</Button>
+                  <td className="px-6 py-4 text-[13px] font-bold text-text-secondary">{l.district}</td>
+                  <td className="px-6 py-4 text-[13px] font-bold text-text-primary">{l.manager}</td>
+                  <td className="px-6 py-4">
+                     <Tag 
+                       variant={l.priority === 'hot' ? 'red' : l.priority === 'warm' ? 'amber' : 'blue'} 
+                       label={l.status.toUpperCase()} 
+                       className="text-[10px] px-2 py-0.5 font-black uppercase"
+                     />
+                  </td>
+                  <td className="px-6 py-4 text-[13.5px] font-black text-text-primary text-right">
+                    {formatCurrency(l.revenue)}
+                  </td>
+                  <td className="px-6 py-4 text-[12px] font-bold text-text-muted text-center">{l.age}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="px-4 py-1.5 bg-surface2 hover:bg-border text-text-secondary text-[11px] font-bold rounded-lg transition-all border border-border">
+                       View
+                    </button>
                   </td>
                 </tr>
               ))}
-              {leads.length === 0 && <tr><td colSpan="7" className="p-12 text-center text-text-muted italic">No leads found</td></tr>}
+              {expectedOnboarding.length === 0 && (
+                <tr>
+                  <td colSpan="9" className="px-6 py-20 text-center text-[13px] text-text-muted italic">
+                    No leads found in current pipeline for onboarding
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -204,3 +407,4 @@ const Overview = ({ openModal }) => {
 };
 
 export default Overview;
+

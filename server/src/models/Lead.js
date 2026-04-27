@@ -46,6 +46,7 @@ const leadSchema = new mongoose.Schema({
   meetingInvitees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   escalatedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   escalationNote: { type: String },
+  expectedRevenue: { type: Number, default: 0 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Lead', leadSchema);

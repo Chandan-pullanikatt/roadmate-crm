@@ -121,6 +121,56 @@ router.get('/summary/:userId', async (req, res) => {
 /**
  * PUT /api/attendance/:id - Manager edit record
  */
+/**
+ * GET /api/attendance/team - Get team attendance for a date (State Manager view)
+ */
+router.get('/team', async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    // Get all users in the state
+    const { User } = require('../models');
+    const users = await User.find({ state: req.user.state, role: { $in: ['industry_manager', 'executive'] } });
+    const userIds = users.map(u => u._id);
+
+    const attendance = await Attendance.find({ 
+      user: { $in: userIds }, 
+      date: targetDate 
+    }).populate('user', 'name role industry');
+
+    // Also get leaves for that day
+    const Leave = require('../models/Leave');
+    const leaves = await Leave.find({
+      user: { $in: userIds },
+      status: 'approved',
+      fromDate: { $lte: targetDate },
+      toDate: { $gte: targetDate }
+    }).populate('user', 'name role industry');
+
+    // Combine: User + Attendance + Leave
+    const results = users.map(u => {
+      const att = attendance.find(a => a.user?._id.toString() === u._id.toString());
+      const leave = leaves.find(l => l.user?._id.toString() === u._id.toString());
+      
+      return {
+        _id: att?._id || `temp-${u._id}`,
+        user: u,
+        status: leave ? 'leave' : (att ? att.status : 'absent'),
+        startTime: att?.workStartedAt ? new Date(att.workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+        workPercentage: att?.workPercentage || 0,
+        completionPct: att?.completionPct || 0,
+        note: att?.note || (leave ? `On Leave: ${leave.reason}` : null)
+      };
+    });
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.put('/:id', async (req, res) => {
   try {
     if (req.user.role === 'executive') {
