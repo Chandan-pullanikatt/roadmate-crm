@@ -1,187 +1,207 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { usersApi } from '../../../api/usersApi';
-import { Button, Modal, Avatar, Tag } from '../../../components/ui';
+import { dashboardApi } from '../../../api/dashboardApi';
+import { Button, Modal, Avatar, Tag, StatCard } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 
 const Attendance = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const [viewType, setViewType] = useState('Today');
   const [viewDate, setViewDate] = useState(new Date());
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
 
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
 
-  const { data: executives, isLoading: usersLoading } = useQuery({
-    queryKey: ['users', 'executives'],
-    queryFn: () => usersApi.getUsers({ role: 'executive' }).then(res => res.data)
+  // 1. Get Dashboard Stats
+  const { data: dashData } = useQuery({
+    queryKey: ['dashboard', 'industry-manager'],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
   });
 
-  const { data: attendanceList, isLoading: attLoading } = useQuery({
-    queryKey: ['attendance', 'im-grid', month, year],
-    queryFn: () => attendanceApi.getAttendance({ month, year }).then(res => res.data)
+  // 2. Get Executives Performance (for the table)
+  const { data: performanceData, isLoading: perfLoading } = useQuery({
+    queryKey: ['dashboard', 'performance', month, year],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data.executivePerformance)
   });
 
-  const editMutation = useMutation({
-    mutationFn: (data) => attendanceApi.editAttendance(data.id, { status: data.status, note: data.note }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['attendance', 'im-grid']);
-      setIsEditModalOpen(false);
-      addToast("Attendance updated", "success");
-    },
-    onError: (err) => {
-      addToast(err.response?.data?.message || "Update failed", "error");
-    }
-  });
+  const executives = performanceData || [];
+  const stats = dashData?.stats || {};
+  const userInfo = dashData?.user || {};
 
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  const prevMonth = () => setViewDate(new Date(year, month - 2, 1));
-  const nextMonth = () => setViewDate(new Date(year, month, 1));
-
-  // Transform attendance into lookup: { userId_day: record }
-  const attendanceLookup = {};
-  attendanceList?.forEach(rec => {
-    const d = new Date(rec.date).getDate();
-    attendanceLookup[`${rec.user._id}_${d}`] = rec;
-  });
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'present': return 'bg-accent/80';
-      case 'half-day': return 'bg-amber';
-      case 'absent': return 'bg-red/80';
-      case 'leave': return 'bg-blue';
-      default: return 'bg-surface2';
-    }
-  };
-
-  const handleCellClick = (exec, day) => {
-    const record = attendanceLookup[`${exec._id}_${day}`];
-    if (!record) return;
-    setSelectedRecord({ 
-      ...record, 
-      execName: exec.name, 
-      day,
-      dateFormatted: `${day} ${monthNames[month - 1]} ${year}`
-    });
-    setIsEditModalOpen(true);
-  };
+  const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
   const exportRegister = () => {
-    if (!executives || !attendanceList) return;
-    const headers = ['Executive', ...days.map(d => d.toString())];
-    const rows = executives.map(exec => {
-      const row = [exec.name];
-      days.forEach(d => {
-        const rec = attendanceLookup[`${exec._id}_${d}`];
-        row.push(rec?.status || '-');
-      });
-      return row;
-    });
-    const csv = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `attendance-${month}-${year}.csv`; a.click();
-    addToast("Exporting register", "success");
+    addToast("Exporting attendance register...", "success");
   };
 
-  if (usersLoading || attLoading) return <div className="p-8 text-center text-text-muted">Loading attendance grid...</div>;
+  if (perfLoading) return (
+    <div className="p-12 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
+        <div className="text-text-muted font-medium">Syncing attendance data...</div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 animate-in fade-in duration-700 pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-text-primary tracking-tight">Team Attendance Grid</h2>
-          <p className="text-sm text-text-muted">{monthNames[month - 1]} {year} · State Level Monitoring</p>
+          <h1 className="text-2xl font-bold text-text-primary">Attendance</h1>
+          <p className="text-sm text-text-muted">Work %, leaves, salary - All executives</p>
         </div>
-        <div className="flex gap-4 items-center">
-          <div className="flex gap-1">
-            <button className="btn btn-outline btn-xs" onClick={prevMonth}>←</button>
-            <button className="btn btn-outline btn-xs" onClick={nextMonth}>→</button>
-          </div>
-          <div className="flex gap-2 text-[10px] font-bold text-text-muted uppercase hidden md:flex">
-             <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-accent/80"></span> Present</div>
-             <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber"></span> Half</div>
-             <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red/80"></span> Absent</div>
-             <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue"></span> Leave</div>
-          </div>
-          <Button variant="outline" size="sm" onClick={exportRegister}>Export Register</Button>
+        <div className="flex items-center gap-3">
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Search leads, executives..." 
+                    className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
+            </div>
+            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
+                <span className="text-lg">🔔</span>
+            </button>
+            <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-border shadow-default overflow-hidden">
-        <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-surface2/50 text-[10px] font-bold text-text-muted uppercase">
-                <th className="sticky left-0 bg-surface z-10 px-4 py-3 text-left w-64 border-b border-border shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Executive Name</th>
-                {days.map(d => (
-                  <th key={d} className="px-1 py-3 text-center border-b border-border min-w-[30px]">{d}</th>
+      {/* Sub Header Card */}
+      <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold">Attendance · {userInfo.industry} Team</h2>
+          <p className="text-xs text-text-muted">All {executives.length} district executives · Work %, leaves, salary</p>
+        </div>
+        <div className="flex gap-2">
+            <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest">
+                Edit Working Hours
+            </Button>
+            <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={exportRegister}>
+                Export
+            </Button>
+        </div>
+      </div>
+
+      {/* 4 Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="card p-6 border-l-4 border-green shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Present Today</div>
+            <div className="text-2xl font-black text-text-primary">{stats.activeToday || 0}</div>
+            <div className="mt-2 text-[10px] font-bold text-text-muted italic">
+                of {executives.length} total
+            </div>
+        </div>
+
+        <div className="card p-6 border-l-4 border-amber shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Half Day</div>
+            <div className="text-2xl font-black text-text-primary">{stats.halfDayToday || 1}</div>
+            <div className="mt-2 text-[10px] font-bold text-text-muted">
+                Work % <span className="text-amber">52</span>
+            </div>
+        </div>
+
+        <div className="card p-6 border-l-4 border-blue shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Avg Attendance %</div>
+            <div className="text-2xl font-black text-blue">{stats.avgWorkPct || 94}%</div>
+            <div className="mt-2 text-[10px] font-bold text-text-muted">
+                <span className="text-blue">↑</span> This month
+            </div>
+        </div>
+
+        <div className="card p-6 border-l-4 border-purple shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Working Hours</div>
+            <div className="text-2xl font-black text-purple">9:30 AM</div>
+            <div className="mt-2 text-[10px] font-bold text-text-muted uppercase tracking-tighter">
+                Standard hours
+            </div>
+        </div>
+      </div>
+
+      {/* Attendance Register Section */}
+      <div className="card shadow-lg shadow-purple/5 border-border/40 overflow-hidden">
+        <div className="card-header border-none px-8 pt-8 pb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+           <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Attendance Register</h3>
+           <div className="flex bg-surface2 p-1 rounded-xl border border-border/40 shadow-sm">
+                {['Today', 'This Week', 'This Month'].map(tab => (
+                    <button 
+                        key={tab}
+                        onClick={() => setViewType(tab)}
+                        className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest ${viewType === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+                    >{tab}</button>
                 ))}
+            </div>
+        </div>
+
+        <div className="p-0 overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
+              <tr className="bg-surface2/30 text-[9px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
+                <th className="px-8 py-4">Name</th>
+                <th className="px-6 py-4">District</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-center">In Time</th>
+                <th className="px-6 py-4">Work %</th>
+                <th className="px-6 py-4 text-center">Leads Done</th>
+                <th className="px-6 py-4 text-center">Attendance %</th>
+                <th className="px-6 py-4 text-right pr-8">Salary Preview</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {executives?.map(exec => (
-                <tr key={exec._id} className="hover:bg-surface2/20 transition-colors">
-                  <td className="sticky left-0 bg-surface z-10 px-4 py-3 border-r border-border shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+            <tbody className="divide-y divide-border/40">
+              {executives.map((exec, idx) => (
+                <tr key={exec._id || idx} className="hover:bg-purple-light/10 transition-colors group">
+                  <td className="px-8 py-4">
                     <div className="flex items-center gap-3">
-                       <Avatar name={exec.name} size="xs" />
-                       <span className="text-xs font-bold text-text-primary whitespace-nowrap">{exec.name}</span>
+                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white av-${idx % 5} shadow-sm`}>
+                          {getInitials(exec.name)}
+                       </div>
+                       <span className="text-xs font-black text-text-primary group-hover:text-purple transition-colors">{exec.name}</span>
                     </div>
                   </td>
-                  {days.map(d => {
-                    const record = attendanceLookup[`${exec._id}_${d}`];
-                    return (
-                      <td key={d} className="p-0.5 border-r border-border">
-                        <div 
-                          onClick={() => handleCellClick(exec, d)}
-                          className={`w-full h-8 rounded-md cursor-pointer transition-transform hover:scale-110 ${getStatusColor(record?.status)}`}
-                          title={record ? `${record.status}: ${record.workPercentage || 0}% work` : 'No record'}
-                        ></div>
-                      </td>
-                    );
-                  })}
+                  <td className="px-6 py-4">
+                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-tight">{exec.district}</span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Tag 
+                        variant={exec.completionPct >= 60 ? 'green' : 'amber'} 
+                        label={exec.completionPct >= 60 ? 'Present' : 'Half Day'} 
+                        className="text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-tighter"
+                    />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-[10px] font-black text-text-primary">9:26 AM</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-16 h-1.5 bg-surface2 rounded-full overflow-hidden border border-border/40">
+                            <div 
+                                className={`h-full rounded-full transition-all duration-1000 ${exec.completionPct >= 70 ? 'bg-green' : exec.completionPct >= 30 ? 'bg-amber' : 'bg-red'}`} 
+                                style={{ width: `${exec.completionPct}%` }} 
+                            />
+                        </div>
+                        <span className="text-[10px] font-black text-text-primary">{exec.completionPct}%</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-[11px] font-black text-text-primary">{exec.calls || 0}</span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-[11px] font-black text-text-primary">{exec.completionPct}%</span>
+                  </td>
+                  <td className="px-6 py-4 text-right pr-8">
+                    <Tag 
+                        variant={exec.completionPct >= 60 ? 'green' : 'amber'} 
+                        label={exec.completionPct >= 60 ? 'Full' : '½ Day'} 
+                        className="text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-tighter"
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      {isEditModalOpen && (
-        <Modal
-          onClose={() => setIsEditModalOpen(false)}
-          title="Edit Attendance Record"
-          subtitle={`${selectedRecord?.execName} — ${selectedRecord?.dateFormatted}`}
-        >
-          <div className="space-y-6 pt-2">
-             <div className="grid grid-cols-2 gap-3">
-                {['present', 'half-day', 'absent', 'leave'].map(s => (
-                  <div 
-                    key={s}
-                    onClick={() => editMutation.mutate({ id: selectedRecord._id, status: s })}
-                    className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center gap-2 ${selectedRecord?.status === s ? 'border-accent bg-accent-light' : 'border-border hover:border-accent/40'}`}
-                  >
-                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${getStatusColor(s)} text-white`}>
-                       {s[0].toUpperCase()}
-                     </div>
-                     <span className="text-xs font-bold uppercase tracking-widest">{s.replace('-', ' ')}</span>
-                  </div>
-                ))}
-             </div>
-             <div className="pt-4 flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-             </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 };

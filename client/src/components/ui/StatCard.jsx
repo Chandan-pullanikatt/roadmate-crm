@@ -1,6 +1,6 @@
 import React from 'react';
 
-const StatCard = ({ label, value, delta, deltaType, colorClass = 'accent' }) => {
+const StatCard = ({ label, value, delta, deltaType, deltaLabel = "vs last month", colorClass = 'accent' }) => {
   const isUp = deltaType === 'up';
   
   // Map color class to CSS variables
@@ -29,7 +29,9 @@ const StatCard = ({ label, value, delta, deltaType, colorClass = 'accent' }) => 
               <span className="text-[10px]">{isUp ? '▲' : '▼'}</span>
               <span>{delta}</span>
             </div>
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">vs last month</span>
+            {deltaLabel && (
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">{deltaLabel}</span>
+            )}
           </div>
         )}
       </div>

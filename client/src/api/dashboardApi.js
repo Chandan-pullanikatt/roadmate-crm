@@ -9,6 +9,7 @@ export const dashboardApi = {
   getAttendanceSummary: (params) => api.get('/dashboard/reports/attendance-summary', { params }),
   generateSalary: (data) => api.post('/dashboard/salary/generate', data),
   updateSalary: (id, data) => api.put(`/dashboard/salary/${id}`, data),
+  saveStrategy: (data) => api.post('/dashboard/strategy', data),
 };
 
 export default dashboardApi;

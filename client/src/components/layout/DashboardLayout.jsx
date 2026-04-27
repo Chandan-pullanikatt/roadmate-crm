@@ -54,6 +54,9 @@ const DashboardLayout = ({
   // Handle case where sections aren't provided but navItems are
   const effectiveSections = sections.length > 0 ? sections : [{ label: 'Main', items: navItems }];
 
+  const activePage = new URLSearchParams(location.search).get('page') || 'overview';
+  const shouldShowGlobalHeader = userRole !== 'industry_manager' || activePage === 'overview';
+
   return (
     <div className="flex min-h-screen">
       {/* Mobile Sidebar Overlay */}
@@ -65,7 +68,7 @@ const DashboardLayout = ({
       {/* SIDEBAR */}
       <aside className={`sidebar role-${userRole} ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <div className="logo-mark">{logoMarkText}</div>
+          <div className={`logo-mark ${userRole === 'industry_manager' ? 'bg-purple shadow-purple/20' : userRole === 'state_manager' ? 'bg-blue shadow-blue/20' : ''}`}>{logoMarkText}</div>
           <div style={{ flex: 1 }}>
             <div className="logo-text">RoadMate CRM</div>
             <div className="logo-sub">{logoSub}</div>
@@ -160,8 +163,9 @@ const DashboardLayout = ({
       </aside>
 
       {/* MAIN */}
-      <div className="main">
-        <header className="header">
+      <div className={`main role-${userRole}`}>
+        {shouldShowGlobalHeader && (
+          <header className="header">
           <button className={`hamburger ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(true)}>
             <span></span><span></span><span></span>
           </button>
@@ -201,6 +205,7 @@ const DashboardLayout = ({
             )}
           </div>
         </header>
+        )}
 
         <div className="content">
           {children}

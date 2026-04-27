@@ -1,13 +1,21 @@
 import React, { useState } from 'react';
-import { Button, Tag } from '../../../components/ui';
+import { Button, Tag, Avatar } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 const Reports = () => {
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
+
+  const { data: dashData } = useQuery({
+    queryKey: ['dashboard', 'industry-manager'],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+  });
+
+  const userInfo = dashData?.user || currentUser || {};
 
   const downloadCSV = (data, filename) => {
     if (!data || data.length === 0) {
@@ -76,6 +84,15 @@ const Reports = () => {
           Conversions: p.conversionsTotal || 0,
           Efficiency: `${p.completionPct || 0}%`
         }));
+      } else if (type === 'salary') {
+        filename = "Salary_Breakdown_Report";
+        formattedData = data.map(s => ({
+          Executive: s.name,
+          Basic: s.basic || 15000,
+          Incentives: s.incentives || 2500,
+          Leaves: s.leaves || 0,
+          Final_Salary: (s.basic || 15000) + (s.incentives || 2500)
+        }));
       }
 
       downloadCSV(formattedData, filename);
@@ -87,65 +104,65 @@ const Reports = () => {
     }
   };
 
+  const reportCards = [
+    { type: 'leads', title: 'Lead Report', sub: 'All leads · Status · Conversion', icon: '📊' },
+    { type: 'performance', title: 'Staff Performance', sub: 'Daily · Weekly · Monthly', icon: '📈' },
+    { type: 'revenue', title: 'Revenue Report', sub: 'By executive · By district', icon: '💰' },
+    { type: 'attendance', title: 'Attendance Report', sub: 'Work % · Half days · Leaves', icon: '📅' },
+    { type: 'salary', title: 'Salary Report', sub: 'Basic · Incentives · Leaves', icon: '💼' },
+    { type: 'rnr', title: 'RNR & Reallocation', sub: 'Auto-reallocation history', icon: '🔀' },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="bg-gradient-to-br from-purple to-purple-mid p-8 rounded-3xl text-white shadow-xl shadow-purple/20">
-         <h2 className="text-2xl font-bold tracking-tight mb-2">Team Analytics & Reports</h2>
-         <p className="text-purple-light/80 text-sm max-w-lg mb-6">Generate detailed CSV reports for leads, team attendance, and revenue metrics. Data is scoped to your industry and assigned districts.</p>
-         <div className="flex gap-4">
-            <Tag className="bg-white/20 text-white border-transparent backdrop-blur-md">Industry: {currentUser?.industry || 'N/A'}</Tag>
-            <Tag className="bg-white/20 text-white border-transparent backdrop-blur-md">State: {currentUser?.state || 'N/A'}</Tag>
-         </div>
+    <div className="space-y-6 animate-in fade-in duration-700 pb-12">
+       {/* Page Header */}
+       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
+          <p className="text-sm text-text-muted">Lead, performance, revenue, attendance, salary</p>
+        </div>
+        <div className="flex items-center gap-3">
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Search leads, executives..." 
+                    className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
+            </div>
+            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
+                <span className="text-lg">🔔</span>
+            </button>
+            <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         {/* Lead Report */}
-         <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col items-center text-center group hover:border-purple/30 transition-all">
-            <div className="w-14 h-14 rounded-2xl bg-purple-light text-purple flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">📊</div>
-            <h3 className="font-bold text-text-primary mb-2">Lead Lifecycle Report</h3>
-            <p className="text-xs text-text-muted mb-6 px-4 leading-relaxed">Full breakdown of all leads, current owner, status history, and conversion probability.</p>
-            <Button 
-               className="w-full bg-surface2 text-text-primary border border-border hover:bg-purple hover:text-white transition-all"
-               onClick={() => generateReport('leads')}
-               disabled={loading}
-            >
-               {loading ? 'Preparing...' : 'Download CSV'}
-            </Button>
-         </div>
-
-         {/* Attendance Report */}
-         <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col items-center text-center group hover:border-accent/30 transition-all">
-            <div className="w-14 h-14 rounded-2xl bg-accent-light text-accent flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">📅</div>
-            <h3 className="font-bold text-text-primary mb-2">Team Attendance Audit</h3>
-            <p className="text-xs text-text-muted mb-6 px-4 leading-relaxed">Daily logs, check-in/out times, and work percentage metrics for district executives.</p>
-            <Button 
-               className="w-full bg-surface2 text-text-primary border border-border hover:bg-accent hover:text-white transition-all"
-               onClick={() => generateReport('attendance')}
-               disabled={loading}
-            >
-               {loading ? 'Preparing...' : 'Download CSV'}
-            </Button>
-         </div>
-
-         {/* Revenue Report */}
-         <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col items-center text-center group hover:border-amber/30 transition-all">
-            <div className="w-14 h-14 rounded-2xl bg-amber-light text-amber flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">📈</div>
-            <h3 className="font-bold text-text-primary mb-2">Performance & Growth</h3>
-            <p className="text-xs text-text-muted mb-6 px-4 leading-relaxed">Consolidated performance data, executive contribution, and district rankings.</p>
-            <Button 
-               className="w-full bg-surface2 text-text-primary border border-border hover:bg-amber hover:text-white transition-all"
-               onClick={() => generateReport('performance')}
-               disabled={loading}
-            >
-               {loading ? 'Preparing...' : 'Download CSV'}
-            </Button>
-         </div>
+      {/* Sub Header Card */}
+      <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold">Reports · {userInfo.industry} · {userInfo.state}</h2>
+          <p className="text-xs text-text-muted">Lead, performance, revenue, attendance, salary</p>
+        </div>
+        <Button className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-widest shadow-lg shadow-purple/10">
+            Export All
+        </Button>
       </div>
 
-      <div className="p-10 border border-border border-dashed rounded-3xl bg-surface2/30 flex flex-col items-center text-center">
-         <div className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted mb-4 opacity-50 font-bold">?</div>
-         <h4 className="text-sm font-bold text-text-secondary mb-1">Need custom data filtering?</h4>
-         <p className="text-xs text-text-muted max-w-sm leading-relaxed">Advanced reporting filters are coming soon. For now, you can download full datasets and filter them locally using Excel or Sheets.</p>
+      {/* Reports Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+         {reportCards.map((card, idx) => (
+            <div 
+              key={idx} 
+              onClick={() => generateReport(card.type)}
+              className="card p-10 flex flex-col items-center text-center group hover:border-purple/30 transition-all shadow-lg shadow-purple/5 border-border/40 cursor-pointer"
+            >
+               <div className="w-16 h-16 rounded-3xl bg-surface2 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 group-hover:bg-purple-light/20 transition-all duration-500 shadow-inner">
+                  {card.icon}
+               </div>
+               <h3 className="text-lg font-black text-text-primary mb-2 uppercase tracking-tight group-hover:text-purple transition-colors">{card.title}</h3>
+               <p className="text-[11px] text-text-muted font-bold uppercase tracking-tighter opacity-60 leading-relaxed">{card.sub}</p>
+            </div>
+         ))}
       </div>
     </div>
   );

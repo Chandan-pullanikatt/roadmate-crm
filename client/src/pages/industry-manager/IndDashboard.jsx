@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 // Sub-components
 import Overview from './components/Overview';
 import MyWork from './components/MyWork';
-import MyTeam from './components/MyTeam';
+import DistrictExecutives from './components/DistrictExecutives';
 import LeadManagement from './components/LeadManagement';
 import LeadFlow from './components/LeadFlow';
 import Attendance from './components/Attendance';
@@ -28,7 +28,7 @@ const IndDashboard = () => {
     switch (activePage) {
       case 'overview': return <Overview />;
       case 'my-work': return <MyWork />;
-      case 'team': return <MyTeam />;
+      case 'team': return <DistrictExecutives />;
       case 'leads': return <LeadManagement />;
       case 'lead-flow': return <LeadFlow />;
       case 'attendance': return <Attendance />;
@@ -45,14 +45,16 @@ const IndDashboard = () => {
 
   return (
     <div className="pb-12">
-      {/* Page Header (Internal to Dashboard) */}
-      <div className="mb-8 border-b border-border/50 pb-6 hidden md:block">
-         <div className="flex items-center gap-3 text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">
-            <span>Industry Hub</span>
-            <span className="opacity-30">/</span>
-            <span className="text-purple">{activePage.replace('-', ' ')}</span>
-         </div>
-      </div>
+      {/* Page Header (Internal to Dashboard) - Only show for overview */}
+      {activePage === 'overview' && (
+        <div className="mb-8 border-b border-border/50 pb-6 hidden md:block">
+           <div className="flex items-center gap-3 text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">
+              <span>Industry Hub</span>
+              <span className="opacity-30">/</span>
+              <span className="text-purple">{activePage.replace('-', ' ')}</span>
+           </div>
+        </div>
+      )}
 
       {/* Main Page Area */}
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-400">

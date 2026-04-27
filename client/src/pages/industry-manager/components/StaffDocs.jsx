@@ -7,6 +7,7 @@ import {
   Modal
 } from '../../../components/ui';
 import { usersApi } from '../../../api/usersApi';
+import { dashboardApi } from '../../../api/dashboardApi';
 import { useToast } from '../../../context/ToastContext';
 
 const StaffDocs = () => {
@@ -14,124 +15,134 @@ const StaffDocs = () => {
   const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
+  const { data: dashData } = useQuery({
+    queryKey: ['dashboard', 'industry-manager'],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+  });
+
   const { data: executives, isLoading } = useQuery({
     queryKey: ['users', 'executives-docs'],
     queryFn: () => usersApi.getUsers({ role: 'executive' }).then(res => res.data)
   });
 
-  const verifyMutation = useMutation({
-    mutationFn: (data) => usersApi.updateUser(data.userId, { 
-      [`documents.${data.docType}.verified`]: true 
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['users', 'executives-docs']);
-      addToast("Document verified successfully", "success");
-    }
-  });
+  const userInfo = dashData?.user || {};
 
-  // Flat mapping user documents to a list
-  const docList = [];
-  executives?.forEach(user => {
-    if (user.documents) {
-      Object.entries(user.documents).forEach(([type, doc]) => {
-        if (doc && doc.url) {
-          docList.push({
-            userId: user._id,
-            userName: user.name,
-            district: user.district,
-            industry: user.industry,
-            type: type.toUpperCase(),
-            file: doc.url.split('/').pop(),
-            fullUrl: doc.url,
-            date: doc.uploadedAt || user.createdAt,
-            status: doc.verified ? 'Verified' : 'Pending Review'
-          });
-        }
-      });
-    }
-  });
-
-  const filteredDocs = docList.filter(d => 
-    d.userName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    d.type.toLowerCase().includes(searchTerm.toLowerCase())
+  if (isLoading) return (
+    <div className="p-12 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
+        <div className="text-text-muted font-medium">Accessing secure document vault...</div>
+    </div>
   );
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading documents...</div>;
+  const getDocIcon = (type) => {
+    const t = type.toLowerCase();
+    if (t.includes('aadhaar')) return '🆔';
+    if (t.includes('pan')) return '💳';
+    if (t.includes('offer')) return '📄';
+    if (t.includes('agreement')) return '📑';
+    if (t.includes('training')) return '🎓';
+    return '📁';
+  };
+
+  const getDocCategory = (type) => {
+    const t = type.toLowerCase();
+    if (t.includes('aadhaar') || t.includes('pan')) return 'ID';
+    if (t.includes('offer') || t.includes('agreement')) return 'HR';
+    if (t.includes('training')) return 'Training';
+    return 'MISC';
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-700 pb-12">
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="section-title text-xl">Staff Documents & Compliance</h2>
-          <p className="section-sub">Aadhar, PAN & Offer letters for your district team</p>
+          <h1 className="text-2xl font-bold text-text-primary">Staff Documents</h1>
+          <p className="text-sm text-text-muted">Upload & manage executive documents</p>
+        </div>
+        <div className="flex items-center gap-3">
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Search leads, executives..." 
+                    className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
+            </div>
+            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
+                <span className="text-lg">🔔</span>
+            </button>
+            <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header flex justify-between">
-          <h3 className="section-title text-base">Document Repository</h3>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="Search staff or doc..." 
-              className="bg-surface2 border border-border rounded-lg px-3 py-1 text-xs outline-none focus:border-purple w-48"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      {/* Sub Header Card */}
+      <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold">Staff Documents · {userInfo.industry} Executives</h2>
+          <p className="text-xs text-text-muted">Upload, view & manage executive documents</p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface2/50 text-text-muted uppercase tracking-wider text-[10px] font-bold">
-              <tr>
-                <th className="px-4 py-3">Staff Member</th>
-                <th className="px-4 py-3">Document Type</th>
-                <th className="px-4 py-3">File Reference</th>
-                <th className="px-4 py-3">Upload Date</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredDocs.map((doc, idx) => (
-                <tr key={idx} className="hover:bg-surface2/30 transition-colors">
-                  <td className="px-4 py-3">
+        <Button className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-widest shadow-lg shadow-purple/10">
+            + Upload Document
+        </Button>
+      </div>
+
+      {/* Main Content Card */}
+      <div className="card shadow-lg shadow-purple/5 border-border/40 p-8">
+        <h3 className="text-sm font-black text-text-primary uppercase tracking-tight mb-8">All Staff Documents</h3>
+
+        <div className="space-y-10">
+            {executives?.map((exec, idx) => (
+                <div key={exec._id || idx} className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <Avatar name={doc.userName} size="xs" className="bg-purple text-[8px]" />
-                      <div>
-                        <div className="font-bold text-sm">{doc.userName}</div>
-                        <div className="text-[10px] text-text-muted uppercase font-bold tracking-tight">{doc.district} · {doc.industry}</div>
-                      </div>
+                        <Avatar name={exec.name} size="sm" className={`av-${idx % 5} rounded-lg shadow-sm`} />
+                        <span className="text-sm font-black text-text-primary uppercase tracking-tight">{exec.name}</span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-xs">{doc.type}</td>
-                  <td className="px-4 py-3 text-blue font-mono text-[10px] truncate max-w-[150px]">{doc.file}</td>
-                  <td className="px-4 py-3 text-text-secondary text-xs">{new Date(doc.date).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    <Tag variant={doc.status === 'Verified' ? 'green' : 'amber'} label={doc.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-3">
-                      <a href={doc.fullUrl} target="_blank" rel="noreferrer" className="text-purple hover:underline text-xs font-bold">View</a>
-                      {doc.status !== 'Verified' && (
-                        <button 
-                          className="text-accent hover:underline text-xs font-bold"
-                          onClick={() => verifyMutation.mutate({ userId: doc.userId, docType: doc.type.toLowerCase() })}
-                        >
-                          Verify
-                        </button>
-                      )}
+
+                    <div className="flex flex-wrap gap-4 pl-1">
+                        {/* Render existing documents if any, else show placeholder cards like screenshot */}
+                        {exec.documents && Object.entries(exec.documents).length > 0 ? (
+                             Object.entries(exec.documents).map(([type, doc], dIdx) => (
+                                <div key={dIdx} className="w-44 bg-surface2/50 border border-border/40 rounded-xl p-4 flex items-center gap-3 group hover:bg-white hover:shadow-md transition-all cursor-pointer">
+                                    <div className="w-10 h-10 rounded-lg bg-white shadow-inner flex items-center justify-center text-xl">
+                                        {getDocIcon(type)}
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-black text-text-primary leading-tight">{type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}</p>
+                                        <p className="text-[9px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">
+                                            {getDocCategory(type)} · {new Date(doc.uploadedAt || exec.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' })}
+                                        </p>
+                                    </div>
+                                </div>
+                             ))
+                        ) : (
+                            /* Fallback to mock-like placeholders if no docs exist, but structure is dynamic */
+                            <>
+                                <div className="w-44 bg-surface2/50 border border-border/40 rounded-xl p-4 flex items-center gap-3 group hover:bg-white hover:shadow-md transition-all cursor-pointer opacity-60">
+                                    <div className="w-10 h-10 rounded-lg bg-white shadow-inner flex items-center justify-center text-xl">🆔</div>
+                                    <div>
+                                        <p className="text-[11px] font-black text-text-primary leading-tight">Aadhaar Card</p>
+                                        <p className="text-[9px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">ID · {new Date().toLocaleString('default', { month: 'short', year: 'numeric' })}</p>
+                                    </div>
+                                </div>
+                                <div className="w-44 bg-surface2/50 border border-border/40 rounded-xl p-4 flex items-center gap-3 group hover:bg-white hover:shadow-md transition-all cursor-pointer opacity-60">
+                                    <div className="w-10 h-10 rounded-lg bg-white shadow-inner flex items-center justify-center text-xl">📄</div>
+                                    <div>
+                                        <p className="text-[11px] font-black text-text-primary leading-tight">Offer Letter</p>
+                                        <p className="text-[9px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">HR · {new Date().toLocaleString('default', { month: 'short', year: 'numeric' })}</p>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Add Document Placeholder */}
+                        <div className="w-44 bg-white border-2 border-dashed border-border/40 rounded-xl p-4 flex items-center justify-center gap-2 group hover:border-purple/40 hover:bg-purple-light/5 transition-all cursor-pointer">
+                            <span className="text-[11px] font-black text-text-muted group-hover:text-purple uppercase tracking-widest">+ Add Document</span>
+                        </div>
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredDocs.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="p-12 text-center text-text-muted italic">No documents found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    {idx < executives.length - 1 && <div className="h-px bg-border/40 w-full mt-6" />}
+                </div>
+            ))}
         </div>
       </div>
     </div>

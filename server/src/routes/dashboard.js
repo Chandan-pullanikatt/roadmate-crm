@@ -80,6 +80,11 @@ router.get('/executive', async (req, res) => {
 
     const { start: todayStart, end: todayEnd } = getDateRange('today');
     const { start: monthStart } = getDateRange('monthly');
+    const { start: weekStart } = getDateRange('weekly');
+
+    const prevWeekStart = new Date(weekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const prevWeekEnd = new Date(weekStart);
 
     // 1. Today Stats from LeadActivity
     const todayActivities = await LeadActivity.find({
@@ -104,12 +109,25 @@ router.get('/executive', async (req, res) => {
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       converted: todayActivities.filter(a => a.action === 'converted').length,
-      completedLeads: [...new Set(todayActivities.map(a => a.lead.toString()))].length,
       completionPct: attendance ? attendance.completionPct : 0
     };
 
+    // 2. Weekly Stats for growth
+    const weeklyCalls = await LeadActivity.countDocuments({
+      performedBy: req.user._id,
+      action: 'called',
+      createdAt: { $gte: weekStart }
+    });
 
-    // 2. Monthly Stats
+    const prevWeeklyCalls = await LeadActivity.countDocuments({
+      performedBy: req.user._id,
+      action: 'called',
+      createdAt: { $gte: prevWeekStart, $lt: prevWeekEnd }
+    });
+
+    const callGrowth = prevWeeklyCalls > 0 ? weeklyCalls - prevWeeklyCalls : 0;
+
+    // 3. Monthly Stats
     const monthlyActivities = await LeadActivity.find({
       performedBy: req.user._id,
       createdAt: { $gte: monthStart }
@@ -130,43 +148,43 @@ router.get('/executive', async (req, res) => {
       })
     };
 
-    // 3. Upcoming Meetings
+    // 4. Upcoming Meetings
     const upcomingMeetings = await Lead.find({
       owner: req.user._id,
       meetingAt: { $gte: new Date() }
     })
     .sort({ meetingAt: 1 })
     .limit(3)
-    .select('name meetingAt status meetingLink');
+    .select('name meetingAt status meetingLink company');
 
     const meetingsFormatted = upcomingMeetings.map(m => ({
-      lead: m.name,
+      lead: m.company || m.name,
       meetingAt: m.meetingAt,
       type: m.status.includes('virtual') ? 'Virtual' : 'Direct',
       meetingLink: m.meetingLink
     }));
 
-    // 4. Leave Balance
+    // 5. Leave Balance
     const leaveBalance = await getLeaveBalance(req.user);
 
-    // 5. Performance Score
+    // 6. Performance Score
     const performanceScore = (monthlyStats.totalLeads > 0 ? (monthlyStats.converted / monthlyStats.totalLeads) : 0) * 100;
 
-    // 6. Lead Sources Breakdown
+    // 7. Lead Sources Breakdown
     const myLeads = await Lead.find({ owner: userId });
-    const leadSources = myLeads.reduce((acc, lead) => {
+    const leadSourcesMap = myLeads.reduce((acc, lead) => {
       const source = lead.source || 'Other';
       acc[source] = (acc[source] || 0) + 1;
       return acc;
     }, {});
 
-    const sourcesFormatted = Object.entries(leadSources).map(([label, count]) => ({
+    const sourcesFormatted = Object.entries(leadSourcesMap).map(([label, count]) => ({
       label,
       count,
       icon: label === 'Industry Partner' ? '🏢' : label === 'Corporate Account' ? '🤝' : '🔗'
     }));
 
-    // 7. Strategy Logs (Converted leads with notes)
+    // 8. Strategy Logs
     const strategyLogs = await LeadActivity.find({
       performedBy: userId,
       action: 'converted'
@@ -176,8 +194,12 @@ router.get('/executive', async (req, res) => {
     .populate('lead', 'company name');
 
     res.json({
-      user: { name: req.user.name, state: req.user.state },
+      user: { name: req.user.name, state: req.user.state, industry: req.user.industry },
       todayStats,
+      weeklyStats: {
+        calls: weeklyCalls,
+        callGrowth
+      },
       monthlyStats,
       workStarted: !!attendance?.workStartedAt,
       attendance: {
@@ -201,6 +223,27 @@ router.get('/executive', async (req, res) => {
 });
 
 /**
+ * POST /strategy -> Log a winning strategy
+ */
+router.post('/strategy', async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note) return res.status(400).json({ message: 'Strategy note is required' });
+
+    await LeadActivity.create({
+      performedBy: req.user._id,
+      action: 'strategy_logged',
+      note: note,
+      metadata: { type: 'personal_strategy' }
+    });
+
+    res.json({ message: 'Strategy logged successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
  * GET /industry-manager -> role: industry_manager
  */
 router.get('/industry-manager', async (req, res) => {
@@ -209,11 +252,20 @@ router.get('/industry-manager', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: Industry Manager only' });
     }
 
-    const { start: todayStart } = getDateRange('today');
+    const { start: todayStart, end: todayEnd } = getDateRange('today');
     const { start: weekStart } = getDateRange('weekly');
+    const { start: monthStart } = getDateRange('monthly');
+
+    const prevMonthStart = new Date(monthStart);
+    prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+    const prevMonthEnd = new Date(monthStart);
+
+    const prevWeekStart = new Date(weekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const prevWeekEnd = new Date(weekStart);
 
     // 1. Team Summary
-    const teamUsers = await User.find({ industry: req.user.industry, role: 'executive' });
+    const teamUsers = await User.find({ industry: req.user.industry, state: req.user.state, role: 'executive' });
     const teamIds = teamUsers.map(u => u._id);
 
     const activeAttendances = await Attendance.find({
@@ -222,94 +274,228 @@ router.get('/industry-manager', async (req, res) => {
       workStartedAt: { $exists: true }
     });
 
-    const teamSummary = {
-      totalExecutives: teamUsers.length,
-      activeToday: activeAttendances.length,
-      avgWorkPct: activeAttendances.length > 0 
-        ? activeAttendances.reduce((sum, a) => sum + a.completionPct, 0) / activeAttendances.length 
-        : 0,
-      totalLeadsToday: await Lead.countDocuments({ industry: req.user.industry, createdAt: { $gte: todayStart } })
+    // 2. Revenue & Growth
+    const revenueStats = await LeadActivity.aggregate([
+      { 
+        $match: { 
+          action: 'converted', 
+          performedBy: { $in: teamIds },
+          createdAt: { $gte: prevMonthStart }
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            isCurrent: { $gte: ['$createdAt', monthStart] }
+          },
+          total: { $sum: '$metadata.revenue' }
+        }
+      }
+    ]);
+
+    const currentRevenue = revenueStats.find(r => r._id.isCurrent)?.total || 0;
+    const prevRevenue = revenueStats.find(r => !r._id.isCurrent)?.total || 0;
+    const revGrowth = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+    // 3. Calls & Weekly Growth
+    const callStats = await LeadActivity.aggregate([
+      { 
+        $match: { 
+          action: 'called', 
+          performedBy: { $in: teamIds },
+          createdAt: { $gte: prevWeekStart }
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            isCurrent: { $gte: ['$createdAt', weekStart] }
+          },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const currentCalls = callStats.find(c => c._id.isCurrent)?.count || 0;
+    const prevCalls = callStats.find(c => !c._id.isCurrent)?.count || 0;
+    const callGrowth = prevCalls > 0 ? ((currentCalls - prevCalls) / prevCalls) * 100 : 0;
+
+    // 4. Meetings Breakdown
+    const meetingStats = await Lead.aggregate([
+      {
+        $match: {
+          industry: req.user.industry,
+          state: req.user.state,
+          meetingAt: { $gte: weekStart, $lte: todayEnd }
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const meetings = {
+      total: meetingStats.reduce((sum, s) => sum + s.count, 0),
+      virtual: meetingStats.find(s => s._id === 'meeting_scheduled' || s._id === 'virtual_meeting')?.count || 0,
+      direct: meetingStats.find(s => s._id === 'meeting_done' || s._id === 'direct_meeting')?.count || 0
     };
 
-    // 2. Executive Performance
-    const executivePerformance = await Promise.all(teamUsers.map(async (u) => {
-      const att = await Attendance.findOne({ user: u._id, date: { $gte: todayStart } });
-      const monthActs = await LeadActivity.find({ performedBy: u._id, createdAt: { $gte: getDateRange('monthly').start } });
-      
-      return {
-        user: { name: u.name, _id: u._id },
-        completionPct: att?.completionPct || 0,
-        calls: monthActs.filter(a => a.action === 'called').length,
-        meetings: monthActs.filter(a => a.action.startsWith('meeting')).length,
-        converted: monthActs.filter(a => a.action === 'converted').length,
-        revenue: monthActs.filter(a => a.action === 'converted').reduce((sum, a) => sum + (a.metadata?.revenue || 0), 0),
-        leaveDays: await Leave.countDocuments({ user: u._id, status: 'approved', fromDate: { $gte: getDateRange('monthly').start } })
-      };
-    }));
-
-    // 3. Pending Leave Requests
-    const pendingLeaveRequests = await Leave.find({
-      user: { $in: teamIds },
-      status: 'pending'
-    }).populate('user', 'name role');
-
-    // 4. Lead Stats
-    const leads = await Lead.find({ industry: req.user.industry });
+    // 5. Lead Stats & Funnel
+    const leads = await Lead.find({ industry: req.user.industry, state: req.user.state });
     const leadStats = {
       total: leads.length,
       new: leads.filter(l => l.status === 'new').length,
+      hot: leads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
+      warm: leads.filter(l => l.priority === 'warm' && !['converted', 'lost'].includes(l.status)).length,
       followup: leads.filter(l => l.status === 'followup').length,
       converted: leads.filter(l => l.status === 'converted').length,
       lost: leads.filter(l => l.status === 'lost').length,
       rnr: leads.filter(l => l.status === 'rnr').length,
     };
 
-    // 5. Upcoming Meetings
-    const upcomingMeetings = await Lead.find({
+    // 6. Executive Performance Details
+    const executivePerformance = await Promise.all(teamUsers.map(async (u) => {
+      const att = await Attendance.findOne({ user: u._id, date: { $gte: todayStart } });
+      const prevWeekAtt = await Attendance.find({ 
+        user: u._id, 
+        date: { $gte: prevWeekStart, $lt: prevWeekEnd } 
+      });
+      
+      const monthActs = await LeadActivity.find({ performedBy: u._id, createdAt: { $gte: monthStart } });
+      const activeLeads = await Lead.find({ owner: u._id, status: { $nin: ['converted', 'lost'] } });
+
+      const avgWorkPrevWeek = prevWeekAtt.length > 0 
+        ? prevWeekAtt.reduce((sum, a) => sum + a.completionPct, 0) / prevWeekAtt.length 
+        : 0;
+      
+      const workGrowth = (att?.completionPct || 0) - avgWorkPrevWeek;
+
+      return {
+        _id: u._id,
+        name: u.name,
+        district: u.district,
+        completionPct: att?.completionPct || 0,
+        workGrowth: Math.round(workGrowth),
+        calls: monthActs.filter(a => a.action === 'called').length,
+        meetings: monthActs.filter(a => a.action.startsWith('meeting')).length,
+        converted: monthActs.filter(a => a.action === 'converted').length,
+        revenue: monthActs
+          .filter(a => a.action === 'converted' && a.metadata?.revenue)
+          .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
+        rnrCount: activeLeads.reduce((sum, l) => sum + (l.rnrCount || 0), 0),
+        leadsCount: activeLeads.length,
+        followupsCount: activeLeads.filter(l => l.status === 'followup').length,
+        isWorking: !!att?.workStartedAt,
+        status: att?.workStartedAt ? 'Active' : 'Offline'
+      };
+    }));
+
+    // Calculate Average Work Growth for the whole team
+    const avgWorkPct = executivePerformance.length > 0
+        ? executivePerformance.reduce((sum, e) => sum + e.completionPct, 0) / executivePerformance.length
+        : 0;
+    
+    const avgWorkGrowth = executivePerformance.length > 0
+        ? executivePerformance.reduce((sum, e) => sum + e.workGrowth, 0) / executivePerformance.length
+        : 0;
+
+    const onLeaveCount = await Leave.countDocuments({
+        user: { $in: teamIds },
+        status: 'approved',
+        fromDate: { $lte: todayEnd },
+        toDate: { $gte: todayStart }
+    });
+
+    const below30Count = executivePerformance.filter(e => e.completionPct < 30 && e.isWorking).length;
+
+    // 7. Escalated Leads
+    const escalatedLeads = await Lead.find({
       industry: req.user.industry,
-      meetingAt: { $gte: new Date() }
+      state: req.user.state,
+      escalatedTo: req.user._id,
+      status: { $nin: ['converted', 'lost'] }
+    }).populate('owner', 'name');
+
+    // 8. Upcoming Events
+    const upcomingLeads = await Lead.find({
+      industry: req.user.industry,
+      state: req.user.state,
+      $or: [
+        { meetingAt: { $gte: todayStart } },
+        { nextActionAt: { $gte: todayStart } }
+      ]
     })
-    .sort({ meetingAt: 1 })
+    .sort({ meetingAt: 1, nextActionAt: 1 })
     .limit(10)
     .populate('owner', 'name');
 
-    const staffDocsMissing = teamUsers
-      .filter(u => !u.documents || u.documents.length === 0)
-      .map(u => ({ user: { name: u.name, _id: u._id }, missingDocs: true }));
+    const upcomingEvents = upcomingLeads.map(l => ({
+      type: l.status.includes('meeting') ? 'meeting' : 'followup',
+      name: l.status.includes('meeting') ? `Meeting - ${l.company || l.name}` : `Follow-up - ${l.company || l.name}`,
+      ownerName: l.owner?.name,
+      company: l.company || 'Private Client',
+      time: l.meetingAt || l.nextActionAt,
+      status: l.status
+    }));
 
-    // 6. Weekly Report
-    // This requires aggregation over days
-    const weeklyReport = { dailyWorkPct: [], conversions: [] };
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + i);
-        const nextD = new Date(d);
-        nextD.setHours(23, 59, 59, 999);
+    // 9. Leave Requests
+    const leaveRequests = await Leave.find({
+      user: { $in: teamIds },
+      status: 'pending'
+    }).populate('user', 'name role district');
 
-        const atts = await Attendance.find({ user: { $in: teamIds }, date: { $gte: d, $lte: nextD } });
-        const convs = await LeadActivity.countDocuments({ 
-            performedBy: { $in: teamIds }, 
-            action: 'converted', 
-            createdAt: { $gte: d, $lte: nextD } 
-        });
+    // 10. All Leads for Management Table
+    const allLeads = await Lead.find({ 
+      industry: req.user.industry, 
+      state: req.user.state 
+    })
+    .populate('owner', 'name')
+    .sort({ createdAt: -1 });
 
-        weeklyReport.dailyWorkPct.push(atts.length > 0 ? (atts.reduce((sum, a) => sum + a.completionPct, 0) / atts.length) : 0);
-        weeklyReport.conversions.push(convs);
-    }
+    const leadsFormatted = allLeads.map((l, idx) => ({
+      _id: l._id,
+      leadId: l.leadId || `RM-A${String(idx + 1).padStart(3, '0')}`,
+      company: l.company || 'Private Client',
+      name: l.name,
+      district: l.district,
+      owner: l.owner?.name || 'Unassigned',
+      status: l.status.toUpperCase(),
+      priority: l.priority,
+      rnrCount: l.rnrCount || 0,
+      revenue: l.expectedRevenue || 0,
+      createdAt: l.createdAt,
+      age: Math.floor((new Date() - new Date(l.createdAt)) / (1000 * 60 * 60 * 24))
+    }));
 
     res.json({
-      teamSummary,
+      user: { name: req.user.name, state: req.user.state, industry: req.user.industry },
+      stats: {
+        totalExecutives: teamUsers.length,
+        activeToday: activeAttendances.length,
+        avgWorkPct: Math.round(avgWorkPct),
+        avgWorkGrowth: Math.round(avgWorkGrowth),
+        onLeaveToday: onLeaveCount,
+        below30Work: below30Count,
+        revenue: currentRevenue,
+        revGrowth: Math.round(revGrowth),
+        totalLeads: leadStats.total,
+        hotLeads: leadStats.hot,
+        warmLeads: leadStats.warm,
+        convertedThisMonth: leadStats.converted,
+        callsThisWeek: currentCalls,
+        callGrowth: Math.round(callGrowth),
+        meetings: meetings,
+        rnrLeads: leadStats.rnr
+      },
       executivePerformance,
-      pendingLeaveRequests,
+      leads: leadsFormatted,
       leadStats,
-      upcomingMeetings: upcomingMeetings.map(m => ({
-        lead: m.name,
-        executive: m.owner?.name,
-        meetingAt: m.meetingAt,
-        type: m.status
-      })),
-      staffDocsMissing,
-      weeklyReport
+      escalatedLeads,
+      upcomingEvents,
+      leaveRequests
     });
 
   } catch (err) {

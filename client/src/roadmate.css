@@ -192,8 +192,8 @@ body {
 }
 
 .nav-item.active { 
-  background: #EFF6FF; 
-  color: #2563EB; 
+  background: var(--blue-light); 
+  color: var(--blue); 
 }
 
 .nav-item .icon {
@@ -202,16 +202,59 @@ body {
   flex-shrink: 0;
   opacity: 0.5;
   stroke-width: 1.5;
+  transition: all 0.2s;
 }
 
 .nav-item.active .icon {
   opacity: 1;
-  color: #2563EB;
+  color: var(--blue);
+}
+
+/* ROLE BASED THEMING */
+.role-industry_manager .nav-item.active {
+  background: var(--purple-light);
+  color: var(--purple);
+}
+.role-industry_manager .nav-item.active .icon {
+  color: var(--purple);
+}
+.role-industry_manager .nav-badge {
+  background: var(--purple);
+}
+
+.role-founder .nav-item.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.role-founder .nav-item.active .icon {
+  color: var(--accent);
+}
+.role-founder .nav-badge {
+  background: var(--accent);
+}
+
+.role-state_manager .nav-item.active {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.role-state_manager .nav-item.active .icon {
+  color: var(--blue);
+}
+
+.role-executive .nav-item.active {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+.role-executive .nav-item.active .icon {
+  color: var(--amber);
+}
+.role-executive .nav-badge {
+  background: var(--amber);
 }
 
 .nav-badge {
   margin-left: auto;
-  background: #2563EB;
+  background: var(--blue);
   color: white;
   font-size: 10px;
   font-weight: 800;

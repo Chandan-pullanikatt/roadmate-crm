@@ -1,20 +1,29 @@
 import React from 'react';
 
-const TaskStep = ({ step, title, subtitle, status = 'pending', onClick }) => {
+const TaskStep = ({ 
+  step, 
+  title, 
+  subtitle, 
+  status = 'pending', 
+  icon,
+  iconClass,
+  className = '',
+  onClick 
+}) => {
   const isDone = status === 'done';
   const isActive = status === 'active';
   
   return (
     <div 
       className={`flex items-start gap-3 p-3 border rounded-xl transition-all cursor-pointer ${
-        isActive ? 'border-purple bg-purple-light' : 'border-border hover:bg-surface2'
-      }`}
+        isActive ? 'border-purple bg-purple/5' : 'border-border/60 hover:bg-surface2'
+      } ${className}`}
       onClick={onClick}
     >
       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-        isDone ? 'bg-accent text-white' : isActive ? 'bg-purple text-white' : 'bg-border2 text-text-muted'
+        iconClass || (isDone ? 'bg-accent text-white' : isActive ? 'bg-purple text-white' : 'bg-border2 text-text-muted')
       }`}>
-        {isDone ? '✓' : step}
+        {icon || (isDone ? '✓' : step)}
       </div>
       <div>
         <div className={`text-sm font-semibold ${isActive ? 'text-purple' : isDone ? 'text-text-primary' : 'text-text-secondary'}`}>
