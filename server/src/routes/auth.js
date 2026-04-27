@@ -10,7 +10,8 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const formattedEmail = email ? email.trim().toLowerCase() : '';
+    const user = await User.findOne({ email: formattedEmail });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
