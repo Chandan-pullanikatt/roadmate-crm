@@ -401,14 +401,12 @@ router.get('/state-manager', async (req, res) => {
         // 3b. Attendance Presence Stats
         const presentToday = todayAttendance.filter(a => a.status === 'present' || a.status === 'half-day').length;
         
-        const weekStart = getDateRange('weekly').start;
         const halfDaysThisWeek = await Attendance.countDocuments({
             user: { $in: executiveIds },
             date: { $gte: weekStart },
             status: 'half-day'
         });
 
-        const monthStart = getDateRange('monthly').start;
         const totalWorkDays = 25; // standard
         const monthlyAttendanceRecords = await Attendance.countDocuments({
             user: { $in: executiveIds },
