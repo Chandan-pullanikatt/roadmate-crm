@@ -184,22 +184,79 @@ const attendanceService = {
   },
 
   /**
-   * List attendance with filters
+   * List attendance, leaves and holidays for a monthly matrix view
    */
   async listAttendance(filters) {
     const { userId, month, year } = filters;
-    const query = {};
-    if (userId) query.user = userId;
-    
-    if (month && year) {
-      const startOfMonth = new Date(year, month - 1, 1);
-      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-      query.date = { $gte: startOfMonth, $lte: endOfMonth };
-    }
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-    return await Attendance.find(query)
-      .populate('user', 'name role email')
-      .sort({ date: -1 });
+    const user = await User.findById(userId);
+    if (!user) throw new Error('User not found');
+
+    // 1. Fetch Attendance Records
+    const attendance = await Attendance.find({
+      user: userId,
+      date: { $gte: startOfMonth, $lte: endOfMonth }
+    }).lean();
+
+    // 2. Fetch Approved Leaves
+    const leaves = await Leave.find({
+      user: userId,
+      status: 'approved',
+      $or: [
+        { fromDate: { $gte: startOfMonth, $lte: endOfMonth } },
+        { toDate: { $gte: startOfMonth, $lte: endOfMonth } },
+        { $and: [{ fromDate: { $lte: startOfMonth } }, { toDate: { $gte: endOfMonth } }] }
+      ]
+    }).lean();
+
+    // 3. Fetch Holidays from Policy
+    const policy = await LeavePolicy.findOne({ state: user.state, year: year });
+    const holidays = policy ? policy.holidays.filter(h => 
+      h.date >= startOfMonth && h.date <= endOfMonth
+    ) : [];
+
+    // 4. Unified Event List
+    const events = [];
+    
+    // Add Attendance
+    attendance.forEach(a => {
+      events.push({
+        date: a.date,
+        type: 'attendance',
+        status: a.status,
+        label: a.status === 'present' ? 'Present' : a.status === 'half_day' ? 'Half Day' : 'Absent',
+        details: a.note
+      });
+    });
+
+    // Add Leaves
+    leaves.forEach(l => {
+      // For multi-day leaves, we could split them here or handle in frontend
+      // For now, let's just pass the leave object and let frontend iterate
+      events.push({
+        date: l.fromDate,
+        toDate: l.toDate,
+        type: 'leave',
+        status: 'on_leave',
+        label: l.leaveType || 'Leave',
+        details: l.reason
+      });
+    });
+
+    // Add Holidays
+    holidays.forEach(h => {
+      events.push({
+        date: h.date,
+        type: 'holiday',
+        status: 'holiday',
+        label: h.name,
+        details: h.type
+      });
+    });
+
+    return events;
   },
 
   /**

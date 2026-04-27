@@ -1,11 +1,24 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
+import { dashboardApi } from '../api/dashboardApi';
 import DashboardLayout from './layout/DashboardLayout';
 
 const Layout = ({ children, pageTitle, pageSubtitle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const isExecutiveUser = user?.role === 'executive';
+  
+  // Fetch counts for badges (District Executive only)
+  const { data: dashData } = useQuery({
+    queryKey: ['dashboard', 'executive'],
+    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
+    enabled: !!user && isExecutiveUser
+  });
+
+  const stats = dashData?.todayStats || {};
 
   // Role-specific configuration
   const roleConfigs = {
@@ -125,31 +138,36 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           ]
         }
       ]
-
     },
     executive: {
-      accentColor: 'var(--orange)',
-      logoSub: 'Executive Portal',
-      roleBadge: '⚡ District Executive',
-      roleBadgeClass: 'exec-badge',
-      logoMarkClass: 'orange',
-      logoMarkText: 'EX',
+      accentColor: '#B45309',
+      roleBadge: 'District Executive',
+      roleBadgeClass: 'exec-badge-v2',
+      logoMarkClass: 'brown',
+      logoMarkText: 'RM',
       avatarClass: 'av-exec',
       sections: [
         {
-          label: 'Work',
+          label: 'OPERATIONS',
           items: [
-            { label: 'Start My Work', path: '/dashboard?page=work', icon: 'calendar' },
-            { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads', badge: 38, badgeColor: 'amber' },
-            { label: 'Work Report', path: '/dashboard?page=performance', icon: 'reports' }
+            { label: 'Start My Work', path: '/dashboard?page=work', icon: 'work', special: true },
+            { label: 'Meetings', path: '/dashboard?page=meetings', icon: 'meetings', badge: stats.meetings || 0, badgeColor: 'blue' },
+            { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads-v2', badge: stats.totalLeads || 0, badgeColor: 'red' },
+            { label: 'Leave Calendar', path: '/dashboard?page=leave-calendar', icon: 'calendar-v2' }
           ]
         },
         {
-          label: 'HR',
+          label: 'INSIGHTS',
           items: [
-            { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
-            { label: 'Leave & Calendar', path: '/dashboard?page=leave', icon: 'calendar' },
-            { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' }
+            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' },
+            { label: 'Earnings & Payouts', path: '/dashboard?page=earnings', icon: 'earnings' }
+          ]
+        },
+        {
+          label: 'RESOURCES',
+          items: [
+            { label: 'Company Policies', path: '/dashboard?page=policies', icon: 'policies' },
+            { label: 'Hierarchy Status', path: '/dashboard?page=hierarchy', icon: 'hierarchy' }
           ]
         }
       ]
@@ -157,15 +175,28 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
   };
 
   const config = user ? roleConfigs[user.role] : roleConfigs.executive;
+  const isExecutive = (user?.role || 'executive') === 'executive';
 
   const handleLogout = () => {
     logout();
   };
 
+  const page = new URLSearchParams(window.location.search).get('page') || 'work';
+  const dynamicTitle = isExecutiveUser ? (
+    page === 'work' ? 'Start My Work' :
+    page === 'meetings' ? 'My Meetings' :
+    page === 'leads' ? 'My Leads' :
+    page === 'leave-calendar' ? 'Leave Calendar' :
+    page === 'reports-v2' ? 'Summary & Reports' : 
+    page === 'hierarchy' ? 'Hierarchy Status' :
+    page === 'earnings' ? 'Earnings & Payouts' : 'Dashboard'
+  ) : pageTitle || 'Dashboard';
+
   return (
     <DashboardLayout
-      userName={user?.name || 'Guest User'}
+      userName={isExecutive ? 'Mohan R.' : (user?.name || 'Guest User')}
       userRole={user?.role || 'executive'}
+      stateName={isExecutive ? 'Mumbai' : (user?.state || 'Kerala')}
       accentColor={config?.accentColor}
       logoSub={config?.logoSub}
       roleBadge={config?.roleBadge}
@@ -177,8 +208,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
       onLogout={handleLogout}
       extraContent={config?.extraContent}
       footerBranding={config?.footerBranding}
-      pageTitle={pageTitle}
-      pageSubtitle={pageSubtitle}
+      pageTitle={dynamicTitle}
+      pageSubtitle={isExecutiveUser ? '' : pageSubtitle}
     >
       {children}
     </DashboardLayout>

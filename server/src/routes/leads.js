@@ -17,8 +17,8 @@ router.get('/queue', async (req, res) => {
     if (req.user.role !== 'executive') {
       return res.status(403).json({ message: 'Forbidden: Executive only' });
     }
-    const queue = await leadService.getQueue(req.user._id);
-    res.json(queue);
+    const workflow = await leadService.getWorkflowData(req.user._id);
+    res.json(workflow);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -42,8 +42,17 @@ router.get('/suggested-dates', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { status, priority, owner, state, industry, page = 1, limit = 10 } = req.query;
+    const { status, priority, owner, state, industry, search, page = 1, limit = 10 } = req.query;
     const query = {};
+
+    // Search query
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { company: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
 
     // Scoping based on role
     if (req.user.role === 'executive') {
@@ -55,7 +64,13 @@ router.get('/', async (req, res) => {
     }
 
     // Filters
-    if (status) query.status = status;
+    if (status) {
+      if (status.includes(',')) {
+        query.status = { $in: status.split(',') };
+      } else {
+        query.status = status;
+      }
+    }
     if (priority) query.priority = priority;
     if (owner) query.owner = owner;
     if (state) query.state = state;

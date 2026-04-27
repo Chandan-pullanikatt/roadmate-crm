@@ -1,43 +1,33 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { attendanceApi } from '../../../api/attendanceApi';
-import { Tag } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 
 const Attendance = () => {
   const [viewDate, setViewDate] = useState(new Date());
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
 
-  // Fetch dashboard summary
-  const { data: dashboardData, isLoading: isDashLoading } = useQuery({
-    queryKey: ['dashboard', 'executive'],
-    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data)
-  });
+  const queryClient = useQueryClient();
 
-  // Fetch attendance for the selected month
-  const { data: attendanceList, isLoading: isAttLoading } = useQuery({
-    queryKey: ['attendance', 'list', month, year],
+  // Fetch unified attendance/leave events
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['attendance', 'matrix', month, year],
     queryFn: () => attendanceApi.getAttendance({ month, year }).then(res => res.data)
   });
 
-  const stats = dashboardData?.attendance || {
-    status: 'absent',
-    completionPct: 0
-  };
+  React.useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries(['attendance', 'matrix', month, year]);
+    };
+    window.addEventListener('refresh-matrix', handleRefresh);
+    return () => window.removeEventListener('refresh-matrix', handleRefresh);
+  }, [queryClient, month, year]);
 
-  const monthlyStats = dashboardData?.monthlyStats || {
-    leaveDays: 0,
-    totalLeads: 0,
-    converted: 0
-  };
-
-  // Calendar logic
-  const getDaysInMonth = (m, y) => new Date(y, m, 0).getDate();
-  const getFirstDayOfMonth = (m, y) => new Date(y, m - 1, 1).getDay();
-
-  const daysInMonth = getDaysInMonth(month, year);
-  const firstDay = getFirstDayOfMonth(month, year);
+  // Calendar Logic
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDay = new Date(year, month - 1, 1).getDay();
   const calendarDays = [];
   
   for (let i = 0; i < firstDay; i++) calendarDays.push(null);
@@ -46,112 +36,109 @@ const Attendance = () => {
   const prevMonth = () => setViewDate(new Date(year, month - 2, 1));
   const nextMonth = () => setViewDate(new Date(year, month, 1));
 
-  const getDayStatus = (day) => {
-    if (!day) return null;
+  const getDayEvents = (day) => {
+    if (!day) return [];
     const dateStr = new Date(year, month - 1, day).setHours(0,0,0,0);
-    const att = attendanceList?.find(a => new Date(a.date).setHours(0,0,0,0) === dateStr);
-    return att;
+    
+    return events.filter(ev => {
+      const evDate = new Date(ev.date).setHours(0,0,0,0);
+      if (ev.type === 'leave' && ev.toDate) {
+        const toDate = new Date(ev.toDate).setHours(0,0,0,0);
+        return dateStr >= evDate && dateStr <= toDate;
+      }
+      return evDate === dateStr;
+    });
+  };
+
+  const getStatusClass = (ev) => {
+    if (ev.type === 'holiday') return 'matrix-status-holiday';
+    if (ev.type === 'leave') return 'matrix-status-leave';
+    if (ev.status === 'present') return 'matrix-status-present';
+    if (ev.status === 'half_day') return 'matrix-status-half';
+    return 'matrix-status-absent';
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="section-header">
+    <div className="attendance-page animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Header Section */}
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <div className="section-title" style={{ fontSize: '20px' }}>My Attendance</div>
-          <div className="section-sub">{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })} · Work tracker & salary</div>
+          <h1 className="text-2xl font-extrabold tracking-tight">Leave Calendar</h1>
+          <p className="text-sm text-muted">Track your attendance, holidays and leave applications</p>
+        </div>
+        <div className="flex gap-3">
+          <div className="flex items-center gap-2 bg-surface p-1 rounded-lg border border-border">
+            <button className="icon-btn btn-xs" onClick={prevMonth}>←</button>
+            <span className="text-xs font-bold px-2">{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+            <button className="icon-btn btn-xs" onClick={nextMonth}>→</button>
+          </div>
+          <button className="btn btn-orange btn-sm font-bold shadow-md shadow-orange/10 px-5" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'apply-leave' }))}>Apply For Leave</button>
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="card full-col">
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)'}}>
-          <div className="att-stat"><div className="att-val" style={{color:'var(--accent)'}}>{attendanceList?.filter(a => a.status === 'present').length || 0}</div><div className="att-lbl">Present</div></div>
-          <div className="att-stat"><div className="att-val" style={{color:'var(--red)'}}>{attendanceList?.filter(a => a.status === 'absent').length || 0}</div><div className="att-lbl">Absent</div></div>
-          <div className="att-stat"><div className="att-val" style={{color:'var(--amber)'}}>{attendanceList?.filter(a => a.status === 'half-day').length || 0}</div><div className="att-lbl">Half Day</div></div>
-          <div className="att-stat"><div className="att-val" style={{color:'var(--blue)'}}>{monthlyStats.leaveDays || 0}</div><div className="att-lbl">Leave</div></div>
+      {/* Main Matrix Card */}
+      <div className="matrix-card-container bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div className="matrix-header p-5 border-b border-border bg-surface2/30 flex justify-between items-center">
+          <div className="text-sm font-extrabold">Attendance & Leave Matrix — {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
+          <div className="flex gap-4">
+            <span className="matrix-legend-item"><span className="legend-dot present"></span> Present</span>
+            <span className="matrix-legend-item"><span className="legend-dot leave"></span> Leave</span>
+            <span className="matrix-legend-item"><span className="legend-dot holiday"></span> Holiday</span>
+          </div>
         </div>
-      </div>
 
-      <div className="warn-box">
-        <i className="ri-information-line text-amber-600"></i>
-        <div style={{fontSize:'12.5px'}}>
-          <strong>Auto Rules:</strong> Work &lt;30% of allotted tasks = <strong>Leave</strong> · Work &lt;70% = <strong>Half Day</strong> · Delayed login = <strong>Half Day</strong>
-        </div>
-      </div>
-
-      <div className="two-col">
-        {/* Calendar Card */}
-        <div className="card">
-          <div className="card-header">
-            <div className="section-title" style={{ fontSize: '13px' }}>{viewDate.toLocaleString('default', { month: 'long' })} Attendance</div>
-            <div className="flex gap-2">
-              <button className="btn btn-outline btn-xs" onClick={prevMonth}>←</button>
-              <button className="btn btn-outline btn-xs" onClick={nextMonth}>→</button>
-            </div>
+        <div className="matrix-grid-wrapper">
+          <div className="matrix-days-header grid grid-cols-7 border-b border-border">
+            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+              <div key={d} className="p-3 text-[11px] font-black text-muted tracking-widest text-center">{d}</div>
+            ))}
           </div>
           
-          <div className="card-body">
-            <div className="cal-header">
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                <div key={d} className="cal-day-name">{d}</div>
-              ))}
-            </div>
-            <div className="cal-grid">
-              {calendarDays.map((day, idx) => {
-                const att = getDayStatus(day);
-                const isToday = day === new Date().getDate() && month === (new Date().getMonth() + 1);
-                
-                let dayClass = 'cal-day';
-                if (!day) dayClass += ' past';
-                if (isToday) dayClass += ' today';
-                if (att?.status === 'present') dayClass += ' present'; // We'll add this class to index.css
-                if (att?.status === 'absent' || att?.status === 'holiday') dayClass += ' holiday'; 
-                if (att?.status === 'half-day') dayClass += ' optional'; 
-                if (att?.status === 'leave') dayClass += ' leave'; 
+          <div className="matrix-days-grid grid grid-cols-7">
+            {calendarDays.map((day, idx) => {
+              const dayEvents = getDayEvents(day);
+              const isToday = day === new Date().getDate() && month === (new Date().getMonth() + 1) && year === new Date().getFullYear();
+              const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 
-                return (
-                  <div key={idx} className={dayClass}>
-                    {day}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-              <span style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'var(--accent-light)',border:'1px solid var(--accent)',display:'inline-block'}}></span>Today</span>
-              <span style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'#DCFCE7',display:'inline-block'}}></span>Present</span>
-              <span style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'var(--red-light)',display:'inline-block'}}></span>Absent/Leave</span>
-              <span style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'var(--amber-light)',display:'inline-block'}}></span>Half Day</span>
-            </div>
+              return (
+                <div key={idx} className={`matrix-cell ${!day ? 'empty' : ''} ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}`}>
+                  {day && (
+                    <>
+                      <div className="matrix-day-num">{day < 10 ? `0${day}` : day}</div>
+                      <div className="matrix-cell-content">
+                        {dayEvents.map((ev, eidx) => (
+                          <div key={eidx} className={`matrix-status-badge ${getStatusClass(ev)}`}>
+                            {ev.type === 'attendance' && ev.status === 'present' ? '✓ Present' : ev.label}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
 
-        {/* Salary Card */}
-        <div className="card">
-          <div className="card-header">
-            <div className="section-title" style={{ fontSize: '13px' }}>Salary Estimate — {viewDate.toLocaleString('default', { month: 'long' })}</div>
-            <Tag label="Real-time" variant="blue" />
-          </div>
-          
-          <div className="card-body">
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                <span style={{color:'var(--text-muted)'}}>Basic Salary</span>
-                <span className="mono">₹{dashboardData?.user?.basicSalary || 0}</span>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                <span style={{color:'var(--text-muted)'}}>Conversions This Month</span>
-                <span className="mono">{monthlyStats.converted}</span>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
-                <span style={{color:'var(--accent)'}}>Incentives (₹500/conv)</span>
-                <span className="mono" style={{color:'var(--accent)'}}>+ ₹{monthlyStats.converted * 500}</span>
-              </div>
-              <div style={{padding:'10px',background:'var(--surface2)',borderRadius:'4px',fontSize:11,color:'var(--text-muted)'}}>
-                Final salary will be generated on the 1st of next month based on verified attendance and manager approval.
-              </div>
-            </div>
-          </div>
+      {/* Stats Summary Footer */}
+      <div className="grid grid-cols-4 gap-4 mt-6">
+        <div className="side-card p-4">
+          <div className="text-[10px] font-bold text-muted uppercase">Working Days (Month)</div>
+          <div className="text-xl font-extrabold mt-1">{daysInMonth} Days</div>
+        </div>
+        <div className="side-card p-4">
+          <div className="text-[10px] font-bold text-muted uppercase text-green-600">Days Present</div>
+          <div className="text-xl font-extrabold mt-1 text-green-600">{events.filter(e => e.type === 'attendance' && e.status === 'present').length}</div>
+        </div>
+        <div className="side-card p-4">
+          <div className="text-[10px] font-bold text-muted uppercase text-red-600">Leaves Taken</div>
+          <div className="text-xl font-extrabold mt-1 text-red-600">{events.filter(e => e.type === 'leave').length}</div>
+        </div>
+        <div className="side-card p-4">
+          <div className="text-[10px] font-bold text-muted uppercase text-blue-600">Holidays</div>
+          <div className="text-xl font-extrabold mt-1 text-blue-600">{events.filter(e => e.type === 'holiday').length}</div>
         </div>
       </div>
     </div>

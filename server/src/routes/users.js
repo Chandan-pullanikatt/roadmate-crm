@@ -68,6 +68,55 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/users/hierarchy - Get hierarchy members related to the user
+ */
+router.get('/hierarchy', async (req, res) => {
+  try {
+    const { role, state, industry, reportingTo } = req.user;
+    const hierarchy = {
+      executives: [],
+      industryManagers: [],
+      stateManagers: []
+    };
+
+    if (role === 'executive') {
+      // 1. Fellow Executives in the same state and industry
+      hierarchy.executives = await User.find({
+        role: 'executive',
+        state,
+        industry
+      }).select('name role state industry avatar');
+
+      // 2. Reporting Industry Manager
+      if (reportingTo) {
+        const im = await User.findById(reportingTo).select('name role state industry avatar reportingTo');
+        if (im) {
+          hierarchy.industryManagers = [im];
+          
+          // 3. State Manager (Manager of the Industry Manager)
+          if (im.reportingTo) {
+            const sm = await User.findById(im.reportingTo).select('name role state industry avatar');
+            if (sm) hierarchy.stateManagers = [sm];
+          }
+        }
+      }
+    } else if (role === 'industry_manager') {
+       // Similar logic for IM
+       hierarchy.executives = await User.find({ reportingTo: req.user._id }).select('name role state industry avatar');
+       hierarchy.industryManagers = [req.user];
+       if (reportingTo) {
+         const sm = await User.findById(reportingTo).select('name role state industry avatar');
+         if (sm) hierarchy.stateManagers = [sm];
+       }
+    }
+
+    res.json(hierarchy);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
  * GET /api/users/:id
  */
 router.get('/:id', async (req, res) => {

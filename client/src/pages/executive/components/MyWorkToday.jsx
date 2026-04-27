@@ -1,390 +1,382 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Button, Tag, Avatar, Modal } from '../../../components/ui';
+import { Avatar, Button, Tag } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
-import FileUpload from '../../../components/ui/FileUpload';
 
 const MyWorkToday = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   
-  const [wfStep, setWfStep] = useState('action'); // action, feedback, followup-date, time-pref
-  const [selectedAction, setSelectedAction] = useState(null);
-  const [feedback, setFeedback] = useState('');
-  const [strategyNote, setStrategyNote] = useState('');
-  const [followUpDate, setFollowUpDate] = useState(null);
-  const [customDateReason, setCustomDateReason] = useState('');
-  const [selectedTime, setSelectedTime] = useState(null);
-  
-  const [showHistory, setShowHistory] = useState(false);
-  const [showAttach, setShowAttach] = useState(false);
-  const [historyData, setHistoryData] = useState([]);
-
-  // Fetch today's work state (attendance)
+  // 1. Fetch Today's Attendance
   const { data: attendanceData, refetch: refetchAttendance } = useQuery({
     queryKey: ['attendance', 'today'],
     queryFn: () => attendanceApi.getTodayAttendance().then(res => res.data)
   });
 
-  // Fetch dashboard summary for start screen counts
-  const { data: dashboardData } = useQuery({
+  // 2. Fetch Dashboard Metrics
+  const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'executive'],
-    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
-    enabled: !attendanceData?.workStartedAt
+    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data)
   });
 
-  // Fetch the current lead in queue
-  const { data: queueData, isLoading: isLeadLoading } = useQuery({
-    queryKey: ['leads', 'queue'],
+  // 3. Fetch Workflow Queue
+  const { data: workflow, isLoading } = useQuery({
+    queryKey: ['leads', 'workflow'],
     queryFn: () => leadsApi.getLeadQueue().then(res => res.data),
-    enabled: !!attendanceData?.workStartedAt && !attendanceData?.workCompletedAt
+    enabled: !!attendanceData?.attendance?.workStartedAt && !attendanceData?.attendance?.workCompletedAt,
+    refetchInterval: 30000
   });
 
-  // Fetch suggested follow-up dates
-  const { data: suggestedDates } = useQuery({
-    queryKey: ['leads', 'suggested-dates'],
-    queryFn: () => leadsApi.getSuggestedDates().then(res => res.data),
-    enabled: wfStep === 'followup-date'
-  });
-
-  // Start work mutation
+  // Mutations
   const startWorkMutation = useMutation({
     mutationFn: attendanceApi.startWork,
     onSuccess: () => {
-      addToast("Work session started! Good luck.", "success");
+      addToast("Workspace initialized. Let's make it count!", "success");
       refetchAttendance();
+      queryClient.invalidateQueries(['leads', 'workflow']);
     }
   });
 
-  // Complete work mutation
-  const completeWorkMutation = useMutation({
-    mutationFn: () => attendanceApi.completeWork(attendanceData?._id),
+  const transitionMutation = useMutation({
+    mutationFn: (data) => leadsApi.transitionLead(workflow?.currentLead?._id, data.action, data),
     onSuccess: () => {
-      addToast("Work day completed successfully!", "success");
-      refetchAttendance();
+      queryClient.invalidateQueries(['leads', 'workflow']);
+      queryClient.invalidateQueries(['dashboard', 'executive']);
+      addToast("Interaction logged successfully", "success");
     }
   });
 
-  // Transition lead mutation
-  const transitionLeadMutation = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(queueData?.currentLead?._id, data.action, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['leads', 'queue']);
-      queryClient.invalidateQueries(['attendance', 'today']);
-      setWfStep('action');
-      setSelectedAction(null);
-      setFeedback('');
-      setStrategyNote('');
-      setSelectedTime(null);
-      setFollowUpDate(null);
-      addToast("Lead updated successfully", "success");
-    },
-    onError: (err) => {
-      addToast(err.response?.data?.message || "Transition failed", "error");
-    }
-  });
+  // Derived Data
+  const lead = workflow?.currentLead;
+  const stats = dashData?.todayStats || {};
+  const activities = workflow?.activityFeed || [];
+  const meetings = workflow?.todayMeetings || [];
+  const tasks = workflow?.taskSequence || [];
 
-  const handleCallAction = (action) => {
-    setSelectedAction(action);
-    if (action === 'rnr' || action === 'not-reachable') {
-      transitionLeadMutation.mutate({ action });
-    } else if (action === 'call-done') {
-      setWfStep('feedback');
-    } else if (action === 'direct-meeting') {
-      window.dispatchEvent(new CustomEvent('open-modal', { detail: 'modal-strategy' }));
-    }
-  };
+  const isWorking = !!attendanceData?.attendance?.workStartedAt && !attendanceData?.attendance?.workCompletedAt;
 
-  const handleFeedbackSubmit = (nextAction) => {
-    setFeedback(nextAction);
-    if (nextAction === 'followup') {
-      setWfStep('followup-date');
-    } else if (nextAction === 'converted' || nextAction === 'not-interested' || nextAction === 'schedule-virtual') {
-      window.dispatchEvent(new CustomEvent('open-modal', { detail: 'modal-strategy' }));
-    }
-  };
-
-  const handleEscalate = async () => {
-    if (window.confirm("Are you sure you want to escalate this lead to your manager?")) {
-      transitionLeadMutation.mutate({ action: 'escalate' });
-    }
-  };
-
-  const viewHistory = async () => {
-    try {
-      const res = await leadsApi.getLeadActivity(queueData.currentLead._id);
-      setHistoryData(res.data);
-      setShowHistory(true);
-    } catch (err) {
-      addToast("Failed to fetch history", "error");
-    }
-  };
-
-  const onDocUpload = async (fileData) => {
-    try {
-      await leadsApi.addLeadDocument(queueData.currentLead._id, fileData);
-      addToast("Document attached successfully", "success");
-      setShowAttach(false);
-    } catch (err) {
-      addToast("Failed to save document metadata", "error");
-    }
-  };
-
-  if (!attendanceData?.workStartedAt) {
-    const stats = dashboardData?.todayStats || {};
+  if (!attendanceData?.attendance?.workStartedAt) {
     return (
-      <div id="start-screen">
-        <div className="start-screen">
-          <div className="start-icon">⚡</div>
-          <div className="start-title">Ready to start your day?</div>
-          <div className="start-sub">Your leads will come one by one. First up: Direct Meetings → Virtual Meetings → Follow-ups (Hot first) → New Leads.</div>
-
-          <div className="start-queue">
-            <div className="queue-item"><div className="queue-dot" style={{background: 'var(--teal)'}}></div><span>🤝 Direct Meetings today</span><span className="queue-count">{stats.meetings || 0}</span></div>
-            <div className="queue-item"><div className="queue-dot" style={{background: 'var(--blue)'}}></div><span>🎥 Scheduled Virtual Meetings</span><span className="queue-count">{stats.virtualMeetings || 0}</span></div>
-            <div className="queue-item"><div className="queue-dot" style={{background: 'var(--red)'}}></div><span>🔥 Hot follow-ups</span><span className="queue-count">{stats.hotFollowups || 0}</span></div>
-            <div className="queue-item"><div className="queue-dot" style={{background: 'var(--amber)'}}></div><span>🟡 Warm follow-ups</span><span className="queue-count">{stats.warmFollowups || 0}</span></div>
-            <div className="queue-item"><div className="queue-dot" style={{background: 'var(--text-muted)'}}></div><span>📞 Call back / RNR retry</span><span className="queue-count">{stats.rnrRetry || 0}</span></div>
-            <div className="queue-item"><div className="queue-dot" style={{background: 'var(--accent)'}}></div><span>🌱 New leads allotted</span><span className="queue-count">{stats.newLeads || 0}</span></div>
-          </div>
-
-          <button 
-            className="btn btn-orange" 
-            style={{fontSize: '15px', padding: '12px 36px', borderRadius: '10px'}} 
-            onClick={() => startWorkMutation.mutate()}
-            disabled={startWorkMutation.isLoading}
-          >
-            {startWorkMutation.isLoading ? "Starting..." : "▶ Start Today's Work"}
-          </button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-10 animate-in zoom-in duration-500">
+        <div className="w-24 h-24 bg-[#FEF3C7] rounded-3xl flex items-center justify-center text-5xl mb-8">💼</div>
+        <h1 className="text-4xl font-black tracking-tight mb-4">Good Morning, Mohan R.</h1>
+        <p className="text-muted max-w-lg mb-10">Your workspace is calibrated. High-value meetings and priority leads are ready for your outreach.</p>
+        
+        <div className="grid grid-cols-3 gap-6 mb-12 w-full max-w-2xl">
+          <StartSummaryCard icon="📅" label="Scheduled Meetings" count={stats.meetings || 0} color="#3B82F6" />
+          <StartSummaryCard icon="🔥" label="Hot Pipeline" count={stats.hotPipelineCount || 0} color="#EF4444" />
+          <StartSummaryCard icon="🌱" label="New Assignments" count={stats.totalLeads || 0} color="#10B981" />
         </div>
+
+        <button 
+          className="btn btn-primary bg-orange border-orange px-12 py-4 rounded-2xl font-black text-lg shadow-xl shadow-orange/20 hover:scale-105 transition-all"
+          onClick={() => startWorkMutation.mutate()}
+          disabled={startWorkMutation.isPending}
+        >
+          {startWorkMutation.isPending ? "INITIALIZING..." : "START MY WORK DAY"}
+        </button>
       </div>
     );
   }
 
-  if (attendanceData?.workCompletedAt || !queueData?.currentLead) {
+  if (attendanceData?.attendance?.workCompletedAt) {
     return (
-      <div id="done-screen">
-        <div className="start-screen">
-          <div className="start-icon">🎉</div>
-          <div className="start-title">All done for today!</div>
-          <div className="start-sub">Great work. You completed all {attendanceData?.totalLeads || 0} leads. Please mark your day as complete.</div>
-          {!attendanceData?.workCompletedAt && (
-            <button 
-              className="btn btn-primary" 
-              style={{fontSize: '15px', padding: '12px 36px', borderRadius: '10px'}} 
-              onClick={() => completeWorkMutation.mutate()}
-              disabled={completeWorkMutation.isLoading}
-            >
-              ✓ {completeWorkMutation.isLoading ? "Processing..." : "Mark Today Work Completed"}
-            </button>
-          )}
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-10 animate-in zoom-in duration-500">
+        <div className="w-24 h-24 bg-green-100 rounded-3xl flex items-center justify-center text-5xl mb-8">🏆</div>
+        <h1 className="text-4xl font-black tracking-tight mb-4">Great Work Today!</h1>
+        <p className="text-muted mb-10">Your targets for the day have been achieved. All logs are synchronized.</p>
+        <div className="bg-surface border border-border p-6 rounded-2xl">
+          <div className="text-sm font-bold text-muted uppercase mb-1">Points Earned Today</div>
+          <div className="text-4xl font-black text-green-600">{stats.points || 0} PTS</div>
         </div>
       </div>
     );
   }
-
-  const lead = queueData.currentLead;
-  const leadNum = attendanceData.leadsDone + 1;
-  const totalLeads = attendanceData.totalLeads;
 
   return (
-    <div className="workflow-screen active">
-      {/* History Modal */}
-      {showHistory && (
-        <Modal title={`Interaction History - ${lead.name}`} onClose={() => setShowHistory(false)}>
-          <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-            {historyData.map((act, idx) => (
-              <div key={idx} className="border-l-2 border-white/10 pl-4 py-1">
-                <div className="text-xs text-gray-500">{new Date(act.createdAt).toLocaleString()}</div>
-                <div className="text-sm font-medium text-gray-200">{act.action.toUpperCase()}</div>
-                <div className="text-xs text-gray-400">{act.note}</div>
-              </div>
-            ))}
-            {historyData.length === 0 && <div className="text-center text-gray-500 py-4">No history found</div>}
+    <div className="work-dashboard-container animate-in fade-in duration-700">
+      
+      {/* 1. Page Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">Start My Work</h1>
+          <div className="flex items-center gap-2 mt-1">
+             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+             <span className="text-xs font-bold text-muted">Session Active · {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
           </div>
-        </Modal>
-      )}
-
-      {/* Attach Doc Modal */}
-      {showAttach && (
-        <Modal title={`Attach Document - ${lead.name}`} onClose={() => setShowAttach(false)}>
-          <div className="p-6">
-            <FileUpload 
-              folder="leads" 
-              entityId={lead._id} 
-              onUploadComplete={onDocUpload} 
-              label="Upload Document (PDF, Image)"
-            />
-          </div>
-        </Modal>
-      )}
-
-      {/* Progress bar */}
-      <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap'}}>
-        <div className="wf-progress" style={{flex: 1}}>
-          {Array.from({length: Math.min(totalLeads, 15)}).map((_, i) => (
-            <div key={i} className={`wf-dot ${i + 1 < leadNum ? 'done' : i + 1 === leadNum ? 'active' : ''}`}></div>
-          ))}
-          <div className="wf-label">{totalLeads > 15 ? `+${totalLeads - 15} more` : ''}</div>
         </div>
-        <div style={{fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap'}}>Lead <span style={{fontWeight: 600, color: 'var(--orange)'}}>{leadNum}</span> of {totalLeads}</div>
+        <div className="flex gap-4">
+          <div className="relative">
+            <input type="text" placeholder="Search leads, tasks, meetings..." className="input pl-10 w-80" />
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 opacity-50">🔍</span>
+          </div>
+          <Button variant="primary" className="bg-orange border-orange font-black">+ New Lead</Button>
+        </div>
       </div>
 
-      {/* Current lead card */}
-      <div className="lead-wf-card">
-        <div className="lead-wf-header">
-          <Avatar name={lead.name} className="lead-wf-avatar" />
-          <div style={{flex: 1}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-              <div>
-                <div className="lead-wf-name">{lead.name}</div>
-                <div className="lead-wf-company">{lead.company} · {lead.industry}</div>
-              </div>
-              <Tag label={lead.priority.toUpperCase()} variant={lead.priority === 'hot' ? 'red' : lead.priority === 'warm' ? 'amber' : 'blue'} />
+      {/* 2. Top Metrics Grid */}
+      <div className="grid grid-cols-6 gap-4 mb-6">
+        <WorkMetricCard label="CONNECTED / TARGET" value={`${stats.completedLeads || 0}/${stats.totalLeads || 50}`} sub="44% progress" color="#3B82F6" />
+        <WorkMetricCard label="REVENUE TODAY" value={`₹${(stats.revenueToday / 100000).toFixed(2)}L`} sub="↑ ₹12k vs yesterday" color="#F59E0B" isCurrency />
+        <WorkMetricCard label="HOT PIPELINE" value={stats.hotPipelineCount || 18} sub="High chance conversion" color="#B45309" />
+        <WorkMetricCard label="CONVERSIONS" value={String(stats.converted || 0).padStart(2, '0')} sub={`Goal: ${stats.meetings || 5} today`} color="#8B5CF6" />
+        <WorkMetricCard label="ATTENDANCE" value={`${stats.completionPct || 42}%`} sub="Half-Day Payout" color="#EF4444" statusIcon="⚠️" />
+        <WorkMetricCard label="POINTS EARNED" value={stats.points || 840} sub="Next Tier: 1000" color="#D97706" />
+      </div>
+
+      {/* 3. Urgent Meeting Alert */}
+      {lead?.status === 'meeting_direct' && (
+        <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-2xl p-4 mb-4 flex items-center gap-4 animate-in slide-in-from-top-4 duration-500">
+          <div className="w-12 h-12 bg-orange/10 rounded-xl flex items-center justify-center text-2xl">🤝</div>
+          <div className="flex-1">
+            <div className="text-sm font-black text-[#92400E]">Direct Meeting — Confirm Today's Visit</div>
+            <div className="text-xs text-[#B45309] font-medium">
+              {lead.company} · Rahul Sharma · Today {new Date(lead.meetingAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} · {lead.city || 'Andheri East, Mumbai'}
             </div>
-            <div className="lead-wf-meta">
-              <div className="lead-wf-meta-item">📞 {lead.phone}</div>
-              <div className="lead-wf-meta-item">📍 {lead.city}, {lead.state}</div>
-              {lead.rnrCount > 0 && (
-                <div className={`rnr-badge count-${Math.min(lead.rnrCount, 3)}`}>📵 RNR: {lead.rnrCount} times</div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" className="bg-orange border-orange font-bold">Confirm Visit ✓</Button>
+            <Button size="sm" variant="outline" className="font-bold">Details</Button>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* 4. Main Work Area */}
+      <div className="work-main-layout">
+        
+        {/* Left Column: Active Task */}
+        <div className="space-y-6">
+          <div className="workflow-card-v3">
+            <div className="wf-header-v3">
+              <div className="flex items-center gap-4">
+                 <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                   {lead?.status === 'meeting_virtual' ? 'Virtual Meeting' : 'Active Prospect'}
+                 </div>
+                 <div className="text-[10px] font-bold text-muted uppercase tracking-widest">TASK 14 OF 42 (SEQ #104)</div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-black text-blue-600 animate-pulse">HAPPENING NOW</span>
+                <button className="text-[10px] font-bold text-muted flex items-center gap-1 hover:text-text-primary transition-colors">
+                  📄 Full History
+                </button>
+              </div>
+            </div>
+
+            <div className="wf-content-v3">
+              {lead ? (
+                <>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-3xl font-black tracking-tight mb-3">{lead.company || lead.name}</h2>
+                      <div className="flex gap-2">
+                        <Tag label="HOT LEAD" variant="red" />
+                        <Tag label={lead.industry?.toUpperCase() || 'GENERAL'} variant="neutral" />
+                        <Tag label={`REF: ${lead.leadSource?.toUpperCase() || 'PORTAL'}`} variant="neutral" />
+                        <Tag label={`VIRTUAL - ${new Date(lead.meetingAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`} variant="blue" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="client-brief-box">
+                    <div className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2">Lead Information & Notes</div>
+                    <p className="text-xs text-blue-900 font-medium leading-relaxed">
+                      {lead.notes || 'No notes available for this lead.'}
+                    </p>
+                  </div>
+
+                  <div className="bg-surface2/50 border border-border p-4 rounded-2xl mt-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-sm">👔</div>
+                      <div className="text-xs font-bold">Meeting also scheduled with State Manager — <span className="text-blue-600">Vikram Singh</span> on Apr 22</div>
+                    </div>
+                    <button className="text-[10px] font-black uppercase text-muted hover:text-text-primary">View Full History</button>
+                  </div>
+
+                  <div className="action-hub-v3">
+                    <button 
+                      className={`action-btn-v3 ${lead.status === 'meeting_virtual' ? 'active' : ''}`}
+                      onClick={() => lead.meetingLink && window.open(lead.meetingLink, '_blank')}
+                    >
+                      <span className="icon">🎥</span>
+                      <span className="label">Join Meeting</span>
+                      <span className="sub">{lead.meetingLink ? new URL(lead.meetingLink).hostname : 'No link set'}</span>
+                    </button>
+                    <button className="action-btn-v3" onClick={() => transitionMutation.mutate({ action: 'set_feedback', nextAction: 'followup' })}>
+                      <span className="icon">📝</span>
+                      <span className="label">Update Lead</span>
+                      <span className="sub">Edit & set status</span>
+                    </button>
+                    <button className="action-btn-v3" onClick={() => transitionMutation.mutate({ action: 'mark_rnr' })}>
+                      <span className="icon">📵</span>
+                      <span className="label">No Reach (RNR)</span>
+                      <span className="sub">Retry Logic #1</span>
+                    </button>
+                    <button className="action-btn-v3" onClick={() => transitionMutation.mutate({ action: 'escalate' })}>
+                      <span className="icon">⚠️</span>
+                      <span className="label">Escalate</span>
+                      <span className="sub">To Manager</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-20">
+                  <div className="text-5xl mb-4">✨</div>
+                  <h3 className="text-xl font-black">All Tasks Completed!</h3>
+                  <p className="text-muted">Take a break or check your long-term pipeline.</p>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Step content */}
-        <div className="step-body">
-          {wfStep === 'action' && (
-            <>
-              <div className="step-question">{lead.status === 'new' ? '🌱 New Lead — Call Now' : '📞 Follow-up Call'}</div>
-              <div className="step-hint">Call the lead and mark the outcome below. Next steps will appear automatically.</div>
-              <div className="action-grid">
-                <div className={`action-btn ${selectedAction === 'call-done' ? 'selected' : ''}`} onClick={() => handleCallAction('call-done')}>
-                  <div className="action-icon">✅</div>
-                  <div className="action-label">Call Completed</div>
-                  <div className="action-sub">Connected & spoke</div>
-                </div>
-                <div className="action-btn" onClick={() => handleCallAction('rnr')}>
-                  <div className="action-icon">📵</div>
-                  <div className="action-label">RNR</div>
-                  <div className="action-sub">No response</div>
-                </div>
-                <div className="action-btn" onClick={() => handleCallAction('not-reachable')}>
-                  <div className="action-icon">🚫</div>
-                  <div className="action-label">Not Reachable</div>
-                  <div className="action-sub">Invalid / Switched off</div>
-                </div>
-                <div className="action-btn" onClick={() => handleCallAction('direct-meeting')}>
-                  <div className="action-icon">🤝</div>
-                  <div className="action-label">Direct Meeting</div>
-                  <div className="action-sub">Visit in person</div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {wfStep === 'feedback' && (
-            <>
-              <div className="step-question">📝 Call Feedback</div>
-              <div className="step-hint">What was the lead's response? What's the next action?</div>
-              <div className="action-grid">
-                <div className="action-btn" onClick={() => handleFeedbackSubmit('followup')}>
-                  <div className="action-icon">🔄</div>
-                  <div className="action-label">Follow-up</div>
-                  <div className="action-sub">Set next call date</div>
-                </div>
-                <div className="action-btn" onClick={() => handleFeedbackSubmit('schedule-virtual')}>
-                  <div className="action-icon">🎥</div>
-                  <div className="action-label">Schedule Virtual Meeting</div>
-                  <div className="action-sub">Book online call</div>
-                </div>
-                <div className="action-btn" onClick={() => handleFeedbackSubmit('converted')}>
-                  <div className="action-icon">🎉</div>
-                  <div className="action-label">Converted!</div>
-                  <div className="action-sub">Lead onboarded</div>
-                </div>
-                <div className="action-btn" onClick={() => handleFeedbackSubmit('not-interested')}>
-                  <div className="action-icon">❌</div>
-                  <div className="action-label">Not Interested</div>
-                  <div className="action-sub">Mark as lost</div>
-                </div>
-              </div>
-              <div style={{marginTop: '14px'}}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setWfStep('action')}>← Back</button>
-              </div>
-            </>
-          )}
-
-          {wfStep === 'followup-date' && (
-            <>
-              <div className="step-question">📅 Set Follow-up Date</div>
-              <div className="step-hint">Select the nearest available date. Custom dates require a reason.</div>
-              <div className="date-grid">
-                {suggestedDates?.map(d => (
-                  <div 
-                    key={d.date} 
-                    className={`date-btn ${followUpDate === d.date ? 'selected' : ''}`}
-                    onClick={() => { setFollowUpDate(d.date); setWfStep('time-pref'); }}
-                  >
-                    <div style={{fontSize: '10px', color: 'var(--text-muted)'}}>{d.day}</div>
-                    <strong>{d.label}</strong>
+          {/* Interaction History Sidebar inside left column */}
+          <div className="bg-white border border-border rounded-24 p-6">
+             <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-6">Interaction History</div>
+             <div className="space-y-6">
+                {activities && activities.length > 0 ? activities.slice(0, 3).map((act, i) => (
+                  <div key={act._id || i} className="relative pl-6 border-l-2 border-border pb-2">
+                    <div className="absolute -left-[7px] top-0 w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+                    <div className="text-[11px] font-black mb-1">{new Date(act.createdAt || act.time).toLocaleString()}</div>
+                    <p className="text-xs text-muted font-medium leading-relaxed">
+                      {act.comment || act.note || (act.action === 'called' ? 'Pre-confirmation call logged.' : 'Interaction logged.')}
+                    </p>
                   </div>
-                ))}
-                <div className="date-btn custom" onClick={() => {
-                  const custom = window.prompt("Enter follow-up date (YYYY-MM-DD):");
-                  if (custom) {
-                    setFollowUpDate(custom);
-                    setWfStep('time-pref');
-                  }
-                }}>📅 Custom Date</div>
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setWfStep('feedback')}>← Back</button>
-            </>
-          )}
-
-          {wfStep === 'time-pref' && (
-            <>
-              <div className="step-question">⏰ Preferred Time?</div>
-              <div className="step-hint">Does the lead have a preferred time for the call?</div>
-              <div className="time-grid">
-                {['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '5:00 PM', 'Any Time'].map(t => (
-                  <div 
-                    key={t} 
-                    className={`time-btn ${selectedTime === t ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedTime(t);
-                      transitionLeadMutation.mutate({
-                        action: 'set_followup',
-                        followUpDate,
-                        followUpTime: t,
-                        notes: feedback
-                      });
-                    }}
-                  >
-                    {t}
-                  </div>
-                ))}
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setWfStep('followup-date')}>← Back</button>
-            </>
-          )}
-        </div>
-
-        {/* Bottom action bar */}
-        <div style={{padding: '14px 22px', background: 'var(--surface2)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'}}>
-          <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-            <button className="escalate-btn" onClick={handleEscalate}>↑ Escalate to Manager</button>
-            <button className="btn btn-ghost btn-sm" onClick={viewHistory}>📋 History</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowAttach(true)}>📎 Attach Doc</button>
+                )) : (
+                  <div className="text-xs text-muted font-medium italic">No recent activities found.</div>
+                )}
+             </div>
+             
+             <div className="mt-8 pt-6 border-t border-border">
+                <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-4">Lead Details</div>
+                <div className="space-y-3">
+                  <DetailRow label="Contact" value="Amit Jain (MD)" />
+                  <DetailRow label="Email" value={lead?.email || 'amit.j@arjunexports.in'} />
+                  <DetailRow label="Location" value={lead?.city || 'Worli, Mumbai'} />
+                  <DetailRow label="GST" value="27AAAC..." />
+                  <DetailRow label="Revenue Potential" value={`₹${(lead?.expectedRevenue / 100000).toFixed(1) || 3.2}L / Yr`} />
+                </div>
+                <button className="w-full mt-6 py-3 border border-border rounded-xl text-[10px] font-black uppercase hover:bg-surface transition-colors">
+                   📋 Meeting Details & Reschedule
+                </button>
+             </div>
           </div>
-          <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Last interaction: {lead.lastCallDate ? new Date(lead.lastCallDate).toLocaleDateString() : 'Never'}</div>
+        </div>
+
+        {/* Right Column: Sequences & Feed */}
+        <div className="space-y-6">
+          
+          {/* Daily Task Sequence */}
+          <div className="task-seq-card shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <div className="text-[11px] font-black tracking-widest uppercase">Daily Task Sequence</div>
+              <button className="text-[10px] font-bold text-blue-600 hover:underline">View All Meetings</button>
+            </div>
+            <div className="space-y-1">
+              {tasks.map((task, i) => (
+                <div key={task.id} className={`task-item-v3 ${i === 0 ? 'active' : ''}`}>
+                  <div className="task-idx-v3">{task.index}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-black tracking-tight">{task.name}</div>
+                    <div className="text-[10px] font-bold text-muted uppercase mt-0.5">{task.type} · {new Date(task.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                  </div>
+                  {i === 1 && <span className="text-[8px] font-black bg-orange/10 text-orange-700 px-1.5 py-0.5 rounded border border-orange/20">CONFIRM</span>}
+                  {i === 2 && <span className="text-[8px] font-black bg-blue/10 text-blue-700 px-1.5 py-0.5 rounded border border-blue/20">FRESH</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Today's Meetings */}
+          <div className="task-seq-card shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <div className="text-[11px] font-black tracking-widest uppercase">Today's Meetings</div>
+              <button className="text-[10px] font-bold text-blue-600 hover:underline">All →</button>
+            </div>
+            <div className="space-y-2">
+              {meetings.map(m => (
+                <div key={m.id} className="meeting-row-v3">
+                  <div className="meeting-time-v3">
+                    <span className="time">{new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}).split(' ')[0]}</span>
+                    <span className="period">{new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}).split(' ')[1]}</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-black tracking-tight">{m.name}</div>
+                    <div className="text-[9px] font-bold text-muted flex items-center gap-1 mt-0.5">
+                      {m.type === 'Virtual' ? '🎥' : '📍'} {m.type} · {m.location}
+                    </div>
+                  </div>
+                  <div className={`status-badge-v3 ${m.status.toLowerCase()}`}>{m.status}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Live Activity Feed */}
+          <div className="px-2">
+            <div className="text-[11px] font-black tracking-widest uppercase mb-6">Live Activity Feed</div>
+            <div className="space-y-6">
+              {activities.map(act => (
+                <div key={act.id} className="flex gap-4">
+                  <div className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-sm shadow-sm ${act.action === 'converted' ? 'bg-green-100 text-green-700' : act.action.includes('meeting') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {act.action === 'converted' ? '🤝' : act.action.includes('meeting') ? '📅' : '⚠️'}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold leading-snug">
+                      <span className="font-black">{act.action === 'converted' ? 'Converted!' : act.action === 'meeting_scheduled' ? 'Scheduled' : 'RNR:'}</span> {act.leadName} {act.action === 'converted' ? 'signed E-Agreement.' : act.action === 'meeting_scheduled' ? 'meet for Tomorrow 10am.' : 'ignored 3rd call attempt.'}
+                    </div>
+                    <div className="text-[10px] font-bold text-muted mt-1 uppercase tracking-tight">{new Date(act.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ago</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
   );
 };
+
+const StartSummaryCard = ({ icon, label, count, color }) => (
+  <div className="bg-surface border border-border p-5 rounded-2xl flex flex-col items-center">
+    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl mb-3" style={{ background: `${color}10`, color }}>{icon}</div>
+    <div className="text-[10px] font-black text-muted uppercase mb-1 tracking-widest">{label}</div>
+    <div className="text-2xl font-black">{count}</div>
+  </div>
+);
+
+const WorkMetricCard = ({ label, value, sub, color, isCurrency, statusIcon }) => (
+  <div className="bg-white border border-border p-4 rounded-2xl shadow-sm relative overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
+    <div className="text-[8px] font-black text-muted uppercase tracking-[0.15em] mb-2">{label}</div>
+    <div className="text-xl font-black tracking-tighter flex items-baseline gap-1">
+      {value}
+    </div>
+    <div className="text-[9px] font-bold mt-1.5 flex items-center gap-1" style={{ color: statusIcon ? '#EF4444' : color }}>
+      {statusIcon && <span>{statusIcon}</span>}
+      {sub}
+    </div>
+  </div>
+);
+
+const DetailRow = ({ label, value }) => (
+  <div className="flex justify-between items-center text-[11px] py-1">
+    <span className="font-bold text-muted">{label}:</span>
+    <span className="font-black text-right">{value}</span>
+  </div>
+);
+
+const DemoBtn = ({ icon, label, onClick }) => (
+  <button 
+    className="bg-white border border-border px-3 py-1.5 rounded-lg text-[10px] font-bold text-muted flex items-center gap-2 hover:border-accent hover:text-text-primary transition-all shadow-sm"
+    onClick={onClick}
+  >
+    <span>{icon}</span>
+    <span>{label}</span>
+  </button>
+);
 
 export default MyWorkToday;

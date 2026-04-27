@@ -1,160 +1,170 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
-import { Tag, Modal } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 
-const LeadList = ({ onWorkLead }) => {
+const LeadList = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // 1. Fetch leads for this executive
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ['leads', 'my-leads', activeFilter, searchTerm],
-    queryFn: () => leadsApi.getLeads({
-      status: activeFilter !== 'all' ? activeFilter : undefined,
-      search: searchTerm || undefined,
-      limit: 100 // Get more for the executive's list
-    }).then(res => res.data)
+    queryFn: () => {
+      let statusParams;
+      if (activeFilter === 'Fresh') statusParams = 'new';
+      else if (activeFilter === 'Hot Follow') statusParams = 'followup';
+      else if (activeFilter === 'Meetings') statusParams = 'meeting_virtual,meeting_direct';
+      else if (activeFilter === 'Converted') statusParams = 'converted';
+
+      return leadsApi.getLeads({
+        status: statusParams,
+        search: searchTerm || undefined,
+        limit: 100
+      }).then(res => res.data);
+    }
   });
 
   const leads = leadsData?.leads || [];
 
-  const escalateMutation = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(data.leadId, 'escalate', { notes: data.notes }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['leads', 'my-leads']);
-      addToast("Lead escalated to manager", "success");
-    }
-  });
+  // Helper: Format Relative Time
+  const formatLastContact = (dateStr) => {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    return `${diffDays} Days ago`;
+  };
 
-  const filters = [
-    { id: 'all', label: 'All' },
-    { id: 'new', label: '🆕 New' },
-    { id: 'followup', label: '🔄 Follow-up' },
-    { id: 'rnr', label: '📞 RNR' },
-    { id: 'meeting_scheduled', label: '🎥 Meeting' },
-    { id: 'converted', label: '✅ Converted' },
-    { id: 'lost', label: '❌ Lost' },
-  ];
+  // Helper: Get Lead Type Pill
+  const getTypePill = (status) => {
+    if (status === 'meeting_direct') return <span className="type-pill direct">DIRECT MEET</span>;
+    if (status === 'meeting_virtual') return <span className="type-pill virtual">VIRTUAL MEET</span>;
+    return <span className="type-pill fresh">FRESH LEAD</span>;
+  };
+
+  // Helper: Get Status Pill
+  const getStatusPill = (status) => {
+    switch (status.toLowerCase()) {
+      case 'converted': return <span className="status-pill closed">CLOSED</span>;
+      case 'followup': return <span className="status-pill hot">HOT FOLLOW</span>;
+      case 'meeting_scheduled': return <span className="status-pill blocking">BLOCKING RECEIVED</span>;
+      case 'new': return <span className="status-pill next-day">NEXT DAY ACTION</span>;
+      case 'not_interested': return <span className="status-pill not-interested">NOT INTERESTED</span>;
+      case 'rnr': return <span className="status-pill rnr">RNR</span>;
+      default: return <span className="status-pill">{status.toUpperCase()}</span>;
+    }
+  };
 
   const exportLeads = () => {
     if (leads.length === 0) return;
-    const headers = ['Name', 'Company', 'Phone', 'Status', 'Last Action'];
-    const rows = leads.map(l => [l.name, l.company, l.phone, l.status, l.lastCallDate || 'Never']);
+    const headers = ['Company', 'Decision Maker', 'Revenue', 'Type', 'Status'];
+    const rows = leads.map(l => [l.company, l.name, l.expectedRevenue, l.status, l.status]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `my-leads-${new Date().toLocaleDateString()}.csv`;
+    a.download = `mapped-leads-${new Date().toLocaleDateString()}.csv`;
     a.click();
     addToast("Exporting leads as CSV", "success");
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="section-header">
+    <div className="leads-page animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* 1. Header Section */}
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <div className="section-title">My Leads</div>
-          <div className="section-sub">All your assigned leads · View only your mapped leads</div>
+          <h1 className="text-2xl font-extrabold tracking-tight">My Leads</h1>
+          <p className="text-sm text-muted">Manage and track all your mapped opportunities</p>
         </div>
-        <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-          <button className="btn btn-outline btn-sm" onClick={exportLeads}>Export</button>
-          <button className="btn btn-orange btn-sm" onClick={() => onWorkLead()}>▶ Continue Work</button>
+        <div className="flex gap-3">
+          <div className="search-bar" style={{ width: '320px', background: 'var(--surface)' }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="4" stroke="var(--text-muted)" strokeWidth="1.5"/>
+              <path d="M11 11l2.5 2.5" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input 
+              placeholder="Search leads, tasks, meetings..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <button className="btn btn-orange btn-sm shadow-orange/10 font-bold px-5" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ New Lead</button>
         </div>
       </div>
 
-      {/* Filter chips */}
-      <div style={{display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap'}}>
-        {filters.map(f => (
-          <button 
-            key={f.id}
-            className={`btn btn-sm ${activeFilter === f.id ? 'btn-orange-light' : 'btn-outline'}`}
-            style={activeFilter === f.id ? {background: 'var(--orange-light)', color: 'var(--orange)', borderColor: '#FED7AA'} : {}}
-            onClick={() => setActiveFilter(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* 2. Total Mapped Leads & Filters */}
+      <div className="flex justify-between items-center mb-6 bg-surface p-4 rounded-xl border border-border shadow-sm">
+        <div className="text-sm font-extrabold text-primary">
+          Total Mapped Leads ({leadsData?.totalLeads || leads.length})
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2 items-center">
+            <span className="text-[11px] font-black text-muted uppercase tracking-widest mr-2">Filter:</span>
+            {['All', 'Fresh', 'Hot Follow', 'Meetings', 'Converted'].map(f => (
+              <button 
+                key={f}
+                className={`filter-chip-v2 ${activeFilter === f ? 'active' : ''}`}
+                onClick={() => setActiveFilter(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 border-l border-border pl-4">
+            <button className="btn btn-ghost btn-sm font-bold text-xs" onClick={exportLeads}>Export CSV</button>
+            <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ Add Lead</button>
+          </div>
+        </div>
       </div>
 
-      <div className="card full-col">
-        <div className="card-header">
-          <div className="section-title" style={{fontSize: '13px'}}>Lead List — My Mapped Leads Only</div>
-          <input 
-            className="form-input" 
-            type="text" 
-            placeholder="Search…" 
-            style={{width: '180px', padding: '5px 10px', fontSize: '12px'}}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Lead Name</th>
-                <th>Company</th>
-                <th className="hide-mobile">Phone</th>
-                <th>Status</th>
-                <th className="hide-mobile">Last Action</th>
-                <th className="hide-mobile">Next Follow-up</th>
-                <th>Action</th>
+      {/* 3. Lead Table */}
+      <div className="table-container">
+        <table className="lead-list-table">
+          <thead>
+            <tr>
+              <th>Company Name</th>
+              <th>Decision Maker</th>
+              <th>Revenue Potential</th>
+              <th>Lead Type</th>
+              <th>Last Contact</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan="7" className="text-center py-12 text-muted">Fetching leads...</td></tr>
+            ) : leads.length === 0 ? (
+              <tr><td colSpan="7" className="text-center py-12 text-muted">No leads found for this filter</td></tr>
+            ) : leads.map(lead => (
+              <tr key={lead._id}>
+                <td><span className="font-bold">{lead.company || lead.name}</span></td>
+                <td>{lead.name}</td>
+                <td><span className="font-bold">₹{(lead.expectedRevenue / 100000).toFixed(1)}L / Yr</span></td>
+                <td>{getTypePill(lead.status)}</td>
+                <td>{formatLastContact(lead.lastCallAt)}</td>
+                <td>{getStatusPill(lead.status)}</td>
+                <td>
+                  <div className="flex gap-2">
+                    <button className="btn btn-ghost btn-xs font-bold">Update</button>
+                    <button className="btn btn-ghost btn-xs font-bold">History</button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan="7" className="text-center py-8 text-text-muted">Loading leads...</td></tr>
-              ) : leads.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-8 text-text-muted">No leads found.</td></tr>
-              ) : leads.map(lead => (
-                <tr key={lead._id}>
-                  <td>
-                    <div className="flex flex-col">
-                      <span className="font-bold">{lead.name}</span>
-                      <span className="text-[10px] text-text-muted uppercase">{lead.industry}</span>
-                    </div>
-                  </td>
-                  <td>{lead.company}</td>
-                  <td className="hide-mobile">{lead.phone}</td>
-                  <td>
-                    <Tag 
-                      label={lead.status.toUpperCase()} 
-                      variant={lead.status === 'converted' ? 'green' : (lead.status === 'lost' ? 'red' : 'amber')} 
-                    />
-                  </td>
-                  <td className="hide-mobile text-xs text-text-secondary">
-                    {lead.lastCallDate ? new Date(lead.lastCallDate).toLocaleDateString() : 'Never'}
-                  </td>
-                  <td className="hide-mobile">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold">{lead.nextActionAt ? new Date(lead.nextActionAt).toLocaleDateString() : '-'}</span>
-                      <span className="text-[10px] text-text-muted">{lead.nextActionAt ? new Date(lead.nextActionAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button className="btn btn-orange btn-xs" onClick={() => onWorkLead(lead)}>Work</button>
-                      <button 
-                        className="btn btn-outline btn-xs" 
-                        style={{color: 'var(--purple)', borderColor: 'var(--purple)'}} 
-                        onClick={() => {
-                          if (window.confirm("Escalate this lead to manager?")) {
-                            escalateMutation.mutate({ leadId: lead._id, notes: 'Escalated from lead list' });
-                          }
-                        }}
-                      >Escalate</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
+
     </div>
   );
 };

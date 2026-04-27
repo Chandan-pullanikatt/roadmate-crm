@@ -9,6 +9,7 @@ export const usersApi = {
   updateUser: (id, data) => api.put(`/users/${id}`, data),
   deleteUser: (id) => api.delete(`/users/${id}`),
   addUserDocument: (id, metadata) => api.post(`/users/${id}/documents`, metadata),
+  getHierarchy: () => api.get('/users/hierarchy'),
 };
 
 export default usersApi;

@@ -232,6 +232,68 @@ const leadService = {
    */
   async getSuggestedDates(state) {
     return await getNextWorkingDays(4, state);
+  },
+  
+  /**
+   * Comprehensive workflow data for "Start My Work"
+   */
+  async getWorkflowData(userId) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const fullQueue = await this.getQueue(userId);
+    
+    // 1. Current Lead
+    const currentLead = fullQueue[0] || null;
+
+    // 2. Task Sequence (Next 5)
+    const taskSequence = fullQueue.slice(0, 8).map((l, i) => ({
+      id: l._id,
+      index: i + 1,
+      name: l.company || l.name,
+      type: l.status.includes('meeting') ? 'Meeting' : l.status === 'new' ? 'New Lead' : 'Follow-up',
+      time: l.meetingAt || l.nextActionAt,
+      priority: l.priority
+    }));
+
+    // 3. Today's Meetings
+    const todayMeetings = await Lead.find({
+      owner: userId,
+      meetingAt: { $gte: todayStart, $lte: todayEnd }
+    }).sort({ meetingAt: 1 });
+
+    const meetingsFormatted = todayMeetings.map(m => ({
+      id: m._id,
+      name: m.company || m.name,
+      time: m.meetingAt,
+      type: m.status === 'meeting_virtual' ? 'Virtual' : 'Direct',
+      status: m.status === 'meeting_done' ? 'DONE' : (new Date(m.meetingAt) < new Date() ? 'NOW' : 'CONFIRM'),
+      location: m.city || m.address || 'Online'
+    }));
+
+    // 4. Live Activity Feed
+    const activityFeed = await LeadActivity.find({ performedBy: userId })
+      .populate('lead', 'name company')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    const feedFormatted = activityFeed.map(a => ({
+      id: a._id,
+      action: a.action,
+      leadName: a.lead?.company || a.lead?.name || 'Unknown',
+      time: a.createdAt,
+      note: a.note
+    }));
+
+    return {
+      currentLead,
+      taskSequence,
+      todayMeetings: meetingsFormatted,
+      activityFeed: feedFormatted,
+      queueLength: fullQueue.length
+    };
   }
 };
 

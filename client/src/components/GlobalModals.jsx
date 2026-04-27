@@ -53,6 +53,26 @@ const GlobalModals = () => {
     rules: { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true }
   });
 
+  const [leaveFormData, setLeaveFormData] = useState({
+    leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: ''
+  });
+
+  const handleLeaveSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await leaveApi.applyLeave(leaveFormData);
+      addToast('Leave application submitted!', 'success');
+      setActiveModal(null);
+      setLeaveFormData({ leaveType: 'Sick Leave', fromDate: '', toDate: '', reason: '' });
+      window.dispatchEvent(new CustomEvent('refresh-matrix'));
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Error submitting leave', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const handleOpenModal = (e) => {
       if (typeof e.detail === 'object' && e.detail.type === 'edit-incentive') {
@@ -60,7 +80,7 @@ const GlobalModals = () => {
         setActiveModal('edit-incentive');
       } else {
         setActiveModal(e.detail);
-        if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval'].includes(e.detail)) fetchUsers();
+        if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(e.detail)) fetchUsers();
         if (e.detail === 'work-time') fetchWorkingHours();
       }
     };
@@ -786,6 +806,80 @@ const GlobalModals = () => {
             <button type="submit" className="btn btn-primary px-10 bg-[#0f766e] border-[#0f766e]" disabled={loading}>
               {loading ? 'Saving...' : 'Save Working Hours'}
             </button>
+          </div>
+        </form>
+      </Modal>
+      {/* APPLY LEAVE MODAL */}
+      <Modal 
+        isOpen={activeModal === 'apply-leave'} 
+        title="Apply For Leave" 
+        subtitle="Submit a leave request for manager approval"
+        onClose={() => setActiveModal(null)}
+      >
+        <form onSubmit={handleLeaveSubmit} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="form-label">Leave Type</label>
+              <select 
+                className="select" 
+                value={leaveFormData.leaveType}
+                onChange={(e) => setLeaveFormData({...leaveFormData, leaveType: e.target.value})}
+                required
+              >
+                <option>Sick Leave</option>
+                <option>Casual Leave</option>
+                <option>Emergency Leave</option>
+                <option>Personal Work</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="form-label">Duration</label>
+              <div className="flex items-center h-10 px-3 bg-surface2 rounded-lg border border-border text-xs font-bold text-muted">
+                {leaveFormData.fromDate && leaveFormData.toDate ? 
+                  `${Math.ceil((new Date(leaveFormData.toDate) - new Date(leaveFormData.fromDate)) / (1000 * 60 * 60 * 24)) + 1} Days` : 
+                  'Select dates'
+                }
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="form-label">From Date</label>
+              <input 
+                type="date" 
+                className="input" 
+                value={leaveFormData.fromDate}
+                onChange={(e) => setLeaveFormData({...leaveFormData, fromDate: e.target.value})}
+                required 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="form-label">To Date</label>
+              <input 
+                type="date" 
+                className="input" 
+                value={leaveFormData.toDate}
+                onChange={(e) => setLeaveFormData({...leaveFormData, toDate: e.target.value})}
+                required 
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="form-label">Reason</label>
+            <textarea 
+              className="textarea h-24" 
+              placeholder="Provide a brief reason for your leave..."
+              value={leaveFormData.reason}
+              onChange={(e) => setLeaveFormData({...leaveFormData, reason: e.target.value})}
+              required
+            ></textarea>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
+            <Button variant="primary" type="submit" loading={loading} className="bg-orange border-orange">Submit Request</Button>
           </div>
         </form>
       </Modal>

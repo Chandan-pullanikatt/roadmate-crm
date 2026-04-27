@@ -109,6 +109,17 @@ router.get('/executive', async (req, res) => {
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       converted: todayActivities.filter(a => a.action === 'converted').length,
+      revenueToday: todayActivities
+        .filter(a => a.action === 'converted' && a.metadata?.revenue)
+        .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
+      hotPipelineCount: await Lead.countDocuments({
+        owner: req.user._id,
+        priority: 'hot',
+        status: { $nin: ['converted', 'lost'] }
+      }),
+      points: (todayActivities.filter(a => a.action === 'called').length * 10) +
+              (todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length * 50) +
+              (todayActivities.filter(a => a.action === 'converted').length * 200),
       completionPct: attendance ? attendance.completionPct : 0
     };
 
@@ -215,6 +226,67 @@ router.get('/executive', async (req, res) => {
         date: s.createdAt
       })),
       performanceScore: Math.round(performanceScore * 10) / 10
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * GET /meetings -> detailed meeting management for executive
+ */
+router.get('/meetings', async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { start: todayStart, end: todayEnd } = getDateRange('today');
+    const { start: monthStart } = getDateRange('monthly');
+
+    // 1. All relevant leads with meetings
+    const meetingLeads = await Lead.find({
+      owner: userId,
+      meetingAt: { $exists: true }
+    }).sort({ meetingAt: 1 });
+
+    // 2. Filter categorized lists
+    const directMeetings = meetingLeads.filter(l => l.status === 'meeting_direct' || l.status === 'direct_meeting');
+    const virtualMeetings = meetingLeads.filter(l => l.status === 'meeting_virtual' || l.status === 'virtual_meeting');
+
+    // 3. Metrics
+    const metrics = {
+      directCount: directMeetings.length,
+      pendingConfirm: directMeetings.filter(l => !l.meetingConfirmed).length,
+      virtualCount: virtualMeetings.length,
+      happeningToday: meetingLeads.filter(l => l.meetingAt >= todayStart && l.meetingAt <= todayEnd).length,
+      completedMonth: await LeadActivity.countDocuments({
+        performedBy: userId,
+        action: 'meeting_done',
+        createdAt: { $gte: monthStart }
+      }),
+      rnrCancelled: meetingLeads.filter(l => l.status === 'rnr' || l.status === 'cancelled').length
+    };
+
+    // 4. Format for UI
+    const formatMeeting = (l) => ({
+      id: l._id,
+      company: l.company || l.name,
+      contactName: l.name,
+      contactRole: l.role || 'Managing Director',
+      time: l.meetingAt,
+      location: l.city || l.address || 'Mumbai',
+      link: l.meetingLink,
+      revenuePotential: l.expectedRevenue || 0,
+      status: l.status.toUpperCase(),
+      priority: l.priority,
+      rnrCount: l.rnrCount || 0,
+      isConfirmed: l.meetingConfirmed || false,
+      lastInteraction: l.updatedAt
+    });
+
+    res.json({
+      metrics,
+      directMeetings: directMeetings.map(formatMeeting),
+      virtualMeetings: virtualMeetings.map(formatMeeting)
     });
 
   } catch (err) {
@@ -1431,6 +1503,115 @@ router.put('/salary/:id', async (req, res) => {
  * POST /api/dashboard/salary/generate
  * Founder only: Manually trigger salary generation
  */
+/**
+ * GET /performance - Comprehensive performance summary for executives
+ */
+router.get('/performance', async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { month, year } = req.query;
+    
+    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+
+    const start = new Date(targetYear, targetMonth - 1, 1);
+    const end = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
+
+    const prevStart = new Date(targetYear, targetMonth - 2, 1);
+    const prevEnd = new Date(targetYear, targetMonth - 1, 0, 23, 59, 59, 999);
+
+    // 1. Current Month Aggregates
+    const currentActivities = await LeadActivity.find({
+      performedBy: userId,
+      createdAt: { $gte: start, $lte: end }
+    });
+
+    const currentLeads = await Lead.find({
+      owner: userId,
+      $or: [
+        { createdAt: { $gte: start, $lte: end } },
+        { updatedAt: { $gte: start, $lte: end } }
+      ]
+    });
+
+    // 2. Previous Month Aggregates (for comparison)
+    const prevActivitiesCount = await LeadActivity.countDocuments({
+      performedBy: userId,
+      action: 'called',
+      createdAt: { $gte: prevStart, $lte: prevEnd }
+    });
+
+    const prevConversionsCount = await LeadActivity.countDocuments({
+      performedBy: userId,
+      action: 'converted',
+      createdAt: { $gte: prevStart, $lte: prevEnd }
+    });
+
+    const prevRevenueData = await Lead.aggregate([
+      { $match: { owner: userId, status: 'converted', updatedAt: { $gte: prevStart, $lte: prevEnd } } },
+      { $group: { _id: null, total: { $sum: "$expectedRevenue" } } }
+    ]);
+    const prevRevenue = prevRevenueData[0]?.total || 0;
+
+    // 3. Process Metrics
+    const totalCalls = currentActivities.filter(a => a.action === 'called').length;
+    const conversions = currentActivities.filter(a => a.action === 'converted').length;
+    const meetings = currentActivities.filter(a => a.action === 'meeting_done' || a.action === 'meeting_scheduled').length;
+    
+    const revenue = currentLeads
+      .filter(l => l.status === 'converted')
+      .reduce((sum, l) => sum + (l.expectedRevenue || 0), 0);
+
+    const rnrLeads = currentActivities.filter(a => a.action === 'rnr').length;
+    const freshLeads = currentLeads.filter(l => l.status === 'new').length;
+    
+    const conversionRate = totalCalls > 0 ? ((conversions / totalCalls) * 100).toFixed(1) : 0;
+    const prevConversionRate = prevActivitiesCount > 0 ? ((prevConversionsCount / prevActivitiesCount) * 100).toFixed(1) : 0;
+
+    // 4. Status Breakdown (Lifetime/Current context)
+    const allLeads = await Lead.find({ owner: userId });
+    const statusBreakdown = {
+      fresh: allLeads.filter(l => l.status === 'new').length,
+      hot: allLeads.filter(l => l.status === 'followup' || l.priority === 'Hot 🔥').length,
+      converted: allLeads.filter(l => l.status === 'converted').length,
+      rnr: allLeads.filter(l => l.status === 'rnr').length,
+      notInterested: allLeads.filter(l => l.status === 'not_interested').length
+    };
+
+    // 5. Weekly Conversion Trends (for Bar Chart)
+    const weeklyTrends = [];
+    for (let i = 0; i < 4; i++) {
+      const wStart = new Date(start);
+      wStart.setDate(start.getDate() + (i * 7));
+      const wEnd = new Date(wStart);
+      wEnd.setDate(wStart.getDate() + 6);
+      
+      const wCount = currentActivities.filter(a => 
+        a.action === 'converted' && a.createdAt >= wStart && a.createdAt <= wEnd
+      ).length;
+      
+      weeklyTrends.push({ name: `W${i+1}`, conversions: wCount });
+    }
+
+    res.json({
+      metrics: {
+        totalCalls: { value: totalCalls, growth: prevActivitiesCount > 0 ? Math.round(((totalCalls - prevActivitiesCount) / prevActivitiesCount) * 100) : 0 },
+        conversions: { value: conversions, growth: prevConversionsCount > 0 ? Math.round(((conversions - prevConversionsCount) / prevConversionsCount) * 100) : 0 },
+        revenue: { value: (revenue / 100000).toFixed(1), growth: prevRevenue > 0 ? ((revenue - prevRevenue) / 100000).toFixed(1) : 0 },
+        meetings: { value: meetings, growth: 0 }, // Simplified growth for meetings
+        freshLeads: { value: freshLeads, growth: 0 },
+        rnrLeads: { value: rnrLeads, growth: 0 },
+        conversionRate: { value: conversionRate, growth: (conversionRate - prevConversionRate).toFixed(1) },
+        points: { value: (conversions * 100 + meetings * 20), tier: 'Gold Tier' }
+      },
+      statusBreakdown,
+      weeklyTrends
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.post('/salary/generate', async (req, res) => {
     try {
         if (req.user.role !== 'founder') {
