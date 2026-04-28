@@ -257,13 +257,32 @@ router.post('/create-industry-manager', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { id } = req.params;
+    const targetUser = await User.findById(id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    // Permissions check
+    if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
+      return res.status(403).json({ message: 'Forbidden: You can only edit users in your state' });
+    }
+    
+    if (req.user.role === 'industry_manager' && targetUser.reportingTo?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Forbidden: You can only edit your direct reports' });
+    }
+
+    // Prevent security sensitive field changes
+    const updateData = { ...req.body };
+    delete updateData.role;
+    delete updateData.password;
+    delete updateData.email; // Usually email should be immutable or handled via specific flow
+
+    const user = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
     res.json(user);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
+
 
 /**
  * POST /api/users/create-state-manager
@@ -321,15 +340,40 @@ router.post('/create-state-manager', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
+    const { id } = req.params;
+    
+    // Only Founder and State Manager can delete
     if (req.user.role !== 'founder' && req.user.role !== 'state_manager') {
-      return res.status(403).json({ message: 'Forbidden' });
+      return res.status(403).json({ message: 'Forbidden: Only Founder or State Manager can delete accounts' });
     }
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User deleted successfully' });
+
+    const targetUser = await User.findById(id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    // Rule: Must verify the target user is an executive
+    if (targetUser.role !== 'executive') {
+      return res.status(400).json({ message: 'Only Executive accounts can be deleted via this flow' });
+    }
+
+    // State Manager restriction
+    if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
+      return res.status(403).json({ message: 'Forbidden: You can only delete executives in your state' });
+    }
+
+    // Check for assigned leads (Warning only, deletion proceeds)
+    const leadCount = await Lead.countDocuments({ owner: id });
+    
+    await User.findByIdAndDelete(id);
+    
+    res.json({ 
+      message: 'Executive deleted successfully',
+      leadCount: leadCount,
+      warning: leadCount > 0 ? `${leadCount} leads are now unassigned.` : null
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 module.exports = router;

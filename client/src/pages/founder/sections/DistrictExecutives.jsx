@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
+
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const DistrictExecutives = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [viewType, setViewType] = useState('monthly');
   const [filterState, setFilterState] = useState('All');
+
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', viewType],
@@ -27,6 +30,20 @@ const DistrictExecutives = () => {
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
   };
+
+  const handleDelete = async (m) => {
+    const warning = m.leads > 0 ? `\n\nWarning: This executive has ${m.leads} assigned leads that will become unallocated.` : '';
+    if (window.confirm(`Are you sure you want to delete ${m.name}?${warning}`)) {
+      try {
+        const { usersApi } = await import('../../../api/usersApi');
+        await usersApi.deleteUser(m._id);
+        queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+      } catch (err) {
+        alert(err.response?.data?.message || 'Error deleting executive');
+      }
+    }
+  };
+
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -178,11 +195,32 @@ const DistrictExecutives = () => {
                   <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.leaves || 0}</td>
                   <td className="p-4 text-right pr-6">
                     <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3 py-1">View</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 py-1 font-bold">Edit</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] shadow-sm px-3 py-1 font-bold">Delete</Button>
+                      <Button 
+                        size="xs" 
+                        className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3 py-1"
+                        onClick={() => navigate(`/dashboard/executives/${m._id}`)}
+                      >
+                        View
+                      </Button>
+                      <Button 
+                        size="xs" 
+                        variant="outline" 
+                        className="bg-white border-border shadow-sm text-text-primary px-3 py-1 font-bold"
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m } }))}
+                      >
+                        Edit
+                      </Button>
+                      <Button 
+                        size="xs" 
+                        variant="outline" 
+                        className="bg-white border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] shadow-sm px-3 py-1 font-bold"
+                        onClick={() => handleDelete(m)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </td>
+
                 </tr>
               ))}
               {filteredExecs.length === 0 && (

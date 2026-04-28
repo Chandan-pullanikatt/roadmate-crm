@@ -93,10 +93,25 @@ const GlobalModals = () => {
         setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
         setActiveModal('edit-incentive');
       } else if (e.detail.type === 'create-exec') {
-        setExecFormData(prev => ({ ...prev, role: e.detail.role || 'industry-manager' }));
+        if (e.detail.editData) {
+          setExecFormData({
+            ...e.detail.editData,
+            dateOfJoining: e.detail.editData.dateOfJoining ? new Date(e.detail.editData.dateOfJoining).toISOString().split('T')[0] : '',
+            role: e.detail.editData.role === 'industry_manager' ? 'industry-manager' : e.detail.editData.role
+          });
+        } else {
+          setExecFormData(prev => ({ 
+            ...prev, 
+            _id: undefined,
+            role: e.detail.role || 'industry-manager',
+            name: '', email: '', phone: '', state: '', industry: '', 
+            dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
+          }));
+        }
         setActiveModal('create-exec');
         fetchUsers();
       } else if (e.detail.type === 'leave-approval') {
+
         setLeaveAction({ id: e.detail.id, reason: '' });
         setActiveModal('leave-approval');
         fetchPendingLeaves();
@@ -197,12 +212,18 @@ const GlobalModals = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (execFormData.role === 'industry-manager') {
-        await usersApi.createIndustryManager(execFormData);
+      const isEdit = !!execFormData._id;
+      if (isEdit) {
+        await usersApi.updateUser(execFormData._id, execFormData);
+        addToast('Account updated successfully!', 'success');
       } else {
-        await usersApi.createExecutive(execFormData);
+        if (execFormData.role === 'industry-manager') {
+          await usersApi.createIndustryManager(execFormData);
+        } else {
+          await usersApi.createExecutive(execFormData);
+        }
+        addToast('Account created successfully!', 'success');
       }
-      addToast('Account created successfully!', 'success');
       setActiveModal(null);
       setExecFormData({
         role: 'industry-manager', 
@@ -219,12 +240,14 @@ const GlobalModals = () => {
         documents: []
       });
       window.dispatchEvent(new CustomEvent('refresh-users'));
+      window.dispatchEvent(new CustomEvent('refresh-matrix')); // For attendance/overview
     } catch (err) {
-      addToast(err.response?.data?.message || 'Error creating account', 'error');
+      addToast(err.response?.data?.message || 'Error saving account', 'error');
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleLeaveAction = async (id, status) => {
     try {
@@ -584,11 +607,12 @@ const GlobalModals = () => {
       {/* CREATE EXECUTIVE MODAL */}
       <Modal 
         isOpen={activeModal === 'create-exec'} 
-        title="Create Executive / Industry Manager" 
-        subtitle="Add new staff account with role assignment"
+        title={execFormData._id ? "Edit Account" : "Create Executive / Industry Manager"} 
+        subtitle={execFormData._id ? "Update staff account information" : "Add new staff account with role assignment"}
         onClose={handleCloseModal}
         className="modal-lg"
       >
+
         <form onSubmit={handleExecSubmit} className="space-y-8 py-2">
           <div className="grid grid-cols-2 gap-x-10 gap-y-6">
             {/* Role */}
@@ -700,9 +724,10 @@ const GlobalModals = () => {
           <div className="flex justify-end gap-4 pt-6 border-t border-border mt-10">
             <Button variant="outline" className="px-10" onClick={() => setActiveModal(null)}>Cancel</Button>
             <Button type="submit" className="px-10 bg-[#0f766e] border-[#0f766e]" loading={loading}>
-              Create Account
+              {execFormData._id ? "Save Changes" : "Create Account"}
             </Button>
           </div>
+
         </form>
       </Modal>
 

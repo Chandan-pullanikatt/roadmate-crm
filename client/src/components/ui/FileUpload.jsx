@@ -12,6 +12,7 @@ const FileUpload = ({
   subtitle
 }) => {
   const [uploading, setUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
@@ -29,6 +30,7 @@ const FileUpload = ({
     setUploading(true);
     setProgress(0);
     setError(null);
+    setUploadedFile(null);
 
     try {
       // 1. Get Presigned URL
@@ -56,6 +58,7 @@ const FileUpload = ({
       if (onUploadComplete) onUploadComplete(uploadResult);
       if (onUpload) onUpload(uploadResult);
       
+      setUploadedFile(file.name);
       setUploading(false);
     } catch (err) {
       console.error('Upload failed:', err);
@@ -78,7 +81,8 @@ const FileUpload = ({
         onClick={() => !uploading && fileInputRef.current.click()}
         className={`
           relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
-          ${uploading ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 hover:border-white/20 hover:bg-white/5'}
+          ${uploading ? 'border-blue-500/50 bg-blue-500/5' : 
+            uploadedFile ? 'border-green-500/50 bg-green-500/5' : 'border-white/10 hover:border-white/20 hover:bg-white/5'}
           ${error ? 'border-red-500/50 bg-red-500/5' : ''}
         `}
       >
@@ -91,6 +95,12 @@ const FileUpload = ({
               />
             </div>
             <span className="text-sm text-blue-400 font-medium">{progress}% Uploading...</span>
+          </div>
+        ) : uploadedFile ? (
+          <div className="flex flex-col items-center gap-2">
+            <i className="ri-checkbox-circle-fill text-2xl text-green-500"></i>
+            <span className="text-sm font-bold text-green-400 truncate max-w-full px-2">{uploadedFile}</span>
+            <span className="text-[10px] text-green-500/60 uppercase font-black tracking-widest">Upload Complete</span>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">

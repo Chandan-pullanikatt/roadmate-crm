@@ -19,6 +19,8 @@ const attendanceRouter = require('./routes/attendance');
 const leaveRouter = require('./routes/leave');
 const dashboardRouter = require('./routes/dashboard');
 const usersRouter = require('./routes/users');
+const statsRouter = require('./routes/stats');
+
 
 const initCronJobs = require('./scripts/cronJobs');
 
@@ -88,7 +90,9 @@ app.use('/api/attendance', attendanceRouter);
 app.use('/api/leave', leaveRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/stats', statsRouter);
 app.use('/api/search', require('./routes/search'));
+
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/config', require('./routes/config'));
 

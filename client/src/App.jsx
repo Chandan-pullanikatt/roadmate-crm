@@ -8,7 +8,9 @@ const FounderDashboard = lazy(() => import('./pages/founder/FounderDashboard'));
 const StateDashboard = lazy(() => import('./pages/state-manager/StateDashboard'));
 const IndDashboard = lazy(() => import('./pages/industry-manager/IndDashboard'));
 const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboard'));
+const ExecutiveDetail = lazy(() => import('./pages/executive/ExecutiveDetail'));
 const Login = lazy(() => import('./pages/Login'));
+
 
 const Forbidden = () => (
   <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-center p-8">
@@ -107,6 +109,16 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route 
+              path="/dashboard/executives/:id" 
+              element={
+                <ProtectedRoute>
+                  <Layout><ExecutiveDetail /></Layout>
+                </ProtectedRoute>
+              } 
+            />
+
 
             <Route path="/" element={<Navigate to="/dashboard" />} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
