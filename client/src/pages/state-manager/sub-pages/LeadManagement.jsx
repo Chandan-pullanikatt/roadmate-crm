@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
@@ -8,7 +8,17 @@ import { Button, Tag, DataTable } from '../../../components/ui';
 const LeadManagement = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1); // Reset to first page on search
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
@@ -17,11 +27,11 @@ const LeadManagement = () => {
     placeholderData: keepPreviousData
   });
 
-  const { data: leadData, isLoading } = useQuery({
-    queryKey: ['leads', 'state-list', activeTab, searchTerm, page],
+  const { data: leadData, isLoading, isFetching } = useQuery({
+    queryKey: ['leads', 'state-list', activeTab, debouncedSearch, page],
     queryFn: () => leadsApi.getLeads({ 
       status: activeTab === 'all' ? undefined : activeTab, 
-      search: searchTerm,
+      search: debouncedSearch,
       page,
       limit: 10
     }).then(res => res.data),
@@ -143,7 +153,8 @@ const LeadManagement = () => {
           columns={columns}
           data={leads}
           isLoading={isLoading}
-          emptyMessage="No leads found in this category"
+          className={isFetching ? 'opacity-50 transition-opacity' : 'transition-opacity'}
+          emptyMessage={debouncedSearch ? "No leads found for your search" : "No leads found in this category"}
         />
 
         <div className="flex justify-between items-center p-5 border-t border-border">

@@ -63,7 +63,7 @@ const Performance = () => {
     { 
       header: 'Revenue', 
       accessor: 'revenue', 
-      render: (val) => <span className="mono text-[11px] font-bold text-teal">₹{val?.toLocaleString() || '0'}</span> 
+      render: (val) => <span className="mono text-[11px] font-bold text-teal">{"\u20B9"}{val?.toLocaleString() || '0'}</span> 
     },
     {
       header: 'Status',
@@ -101,23 +101,23 @@ const Performance = () => {
       <div className="stat-grid mb-6">
         <div className="stat-card">
           <div className="stat-label">Top Revenue</div>
-          <div className="stat-value" style={{ color: 'var(--accent)' }}>₹{topRevenue?.revenue?.toLocaleString() || '0'}</div>
-          <div className="stat-delta">{topRevenue?.name || 'N/A'} · {topRevenue?.industry}</div>
+          <div className="stat-value" style={{ color: 'var(--accent)' }}>{"\u20B9"}{topRevenue?.revenue?.toLocaleString() || '0'}</div>
+          <div className="stat-delta">{topRevenue?.name || 'N/A'} {"\u00B7"} {topRevenue?.industry}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Most Calls</div>
           <div className="stat-value" style={{ color: 'var(--blue)' }}>{topCalls?.calls || 0}</div>
-          <div className="stat-delta">{topCalls?.name || 'N/A'} · {topCalls?.industry}</div>
+          <div className="stat-delta">{topCalls?.name || 'N/A'} {"\u00B7"} {topCalls?.industry}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Most Converted</div>
           <div className="stat-value" style={{ color: 'var(--amber)' }}>{topConv?.conversions || 0}</div>
-          <div className="stat-delta">{topConv?.name || 'N/A'} · {topConv?.industry}</div>
+          <div className="stat-delta">{topConv?.name || 'N/A'} {"\u00B7"} {topConv?.industry}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Best Efficiency</div>
           <div className="stat-value" style={{ color: 'var(--teal)' }}>{topEfficiency?.efficiency || 0}%</div>
-          <div className="stat-delta">{topEfficiency?.name || 'N/A'} · {topEfficiency?.industry}</div>
+          <div className="stat-delta">{topEfficiency?.name || 'N/A'} {"\u00B7"} {topEfficiency?.industry}</div>
         </div>
       </div>
 

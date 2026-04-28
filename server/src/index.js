@@ -88,6 +88,7 @@ app.use('/api/attendance', attendanceRouter);
 app.use('/api/leave', leaveRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/search', require('./routes/search'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/config', require('./routes/config'));
 

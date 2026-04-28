@@ -100,7 +100,7 @@ const Overview = () => {
       <div className="section-header">
         <div>
           <div className="section-title">Founder Summary</div>
-          <div className="section-sub">Enterprise overview â€” all states, industries & staff</div>
+          <div className="section-sub">Enterprise overview {"\u2014"} all states, industries & staff</div>
         </div>
         <div className="flex bg-surface2 p-1 rounded-xl border border-border">
           {['today', 'week', 'month', 'year'].map(t => (
@@ -124,35 +124,35 @@ const Overview = () => {
             </div>
           </div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.totalLeads?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">â†‘ {stats.leadsToday || 0} new today</div>
+          <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.leadsToday || 0} new today</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
           <div className="stat-label mb-2 mt-1">Expected Onboarding</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.expectedOnboarding?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">â†‘ This week pipeline</div>
+          <div className="text-[12px] font-medium text-teal">{"\u2191"} This week pipeline</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #f59e0b' }}>
           <div className="stat-label mb-2 mt-1">Conversions</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.converted?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">â†‘ {stats.convertedThisMonth || 0} this month</div>
+          <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.convertedThisMonth || 0} this month</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #0891b2' }}>
           <div className="stat-label mb-2 mt-1">Revenue Generated</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">
-             â‚¹{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
+             {"\u20B9"}{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
           </div>
-          <div className="text-[12px] font-medium text-teal">â†‘ 18.4% MoM</div>
+          <div className="text-[12px] font-medium text-teal">{"\u2191"} 18.4% MoM</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #8b5cf6' }}>
           <div className="stat-label mb-2 mt-1">State Managers</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.stateManagers?.total || 0}</div>
           <div className="text-[12px] font-medium flex gap-2">
-            <span className="text-teal">â€¢ {stats.stateManagers?.working || 0} Working</span>
-            <span className="text-red">â€¢ {stats.stateManagers?.onLeave || 0} On Leave</span>
+            <span className="text-teal">{"\u2022"} {stats.stateManagers?.working || 0} Working</span>
+            <span className="text-red">{"\u2022"} {stats.stateManagers?.onLeave || 0} On Leave</span>
           </div>
         </div>
 
@@ -160,8 +160,8 @@ const Overview = () => {
           <div className="stat-label mb-2 mt-1">Industry Managers</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.industryManagers?.total || 0}</div>
           <div className="text-[12px] font-medium flex gap-2">
-            <span className="text-teal">â€¢ {stats.industryManagers?.working || 0} Working</span>
-            <span className="text-red">â€¢ {stats.industryManagers?.onLeave || 0} On Leave</span>
+            <span className="text-teal">{"\u2022"} {stats.industryManagers?.working || 0} Working</span>
+            <span className="text-red">{"\u2022"} {stats.industryManagers?.onLeave || 0} On Leave</span>
           </div>
         </div>
 
@@ -169,8 +169,8 @@ const Overview = () => {
           <div className="stat-label mb-2 mt-1">Sales Staff</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.salesStaff?.total || 0}</div>
           <div className="text-[12px] font-medium flex gap-2">
-            <span className="text-teal">â€¢ {stats.salesStaff?.working || 0} Working</span>
-            <span className="text-red">â€¢ {stats.salesStaff?.onLeave || 0} On Leave</span>
+            <span className="text-teal">{"\u2022"} {stats.salesStaff?.working || 0} Working</span>
+            <span className="text-red">{"\u2022"} {stats.salesStaff?.onLeave || 0} On Leave</span>
           </div>
         </div>
 
@@ -232,7 +232,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week Â· Requires allocation</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week {"\u00B7"} Requires allocation</div>
         </div>
         <Button size="sm" variant="outline" className="bg-white">Allocate Leads</Button>
       </div>
@@ -313,7 +313,7 @@ const Overview = () => {
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
                     <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                      {managerData.state} Â· State Manager
+                      {managerData.state} {"\u00B7"} State Manager
                     </div>
                   </div>
                 </div>
@@ -329,7 +329,7 @@ const Overview = () => {
                   </div>
                   <div className="text-center w-20">
                     <div className="text-[15px] font-bold text-teal font-mono">
-                       â‚¹{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
+                       {"\u20B9"}{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
                     </div>
                     <div className="text-[10px] text-text-muted uppercase tracking-wider">Revenue</div>
                   </div>
@@ -366,7 +366,7 @@ const Overview = () => {
           <div className="text-[12px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
         </div>
         <div className="bg-amber/10 border border-amber/20 text-amber text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
-           âš  {pendingLeaves.length} Pending
+           {"\u26A0"} {pendingLeaves.length} Pending
         </div>
       </div>
 
@@ -391,7 +391,7 @@ const Overview = () => {
                   <div>
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
                     <div className="text-[11px] text-text-muted mt-0.5">
-                      {roleDisplay}, {stateDisplay} Â· {typeDisplay} Â· {l.days} day(s) Â· <span className="italic">{l.reason}</span>
+                      {roleDisplay}, {stateDisplay} {"\u00B7"} {typeDisplay} {"\u00B7"} {l.days} day(s) {"\u00B7"} <span className="italic">{l.reason}</span>
                     </div>
                   </div>
                 </div>

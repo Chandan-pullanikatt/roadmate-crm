@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
@@ -9,6 +9,15 @@ const LeadManagement = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [filterState, setFilterState] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'founder'],
@@ -17,12 +26,12 @@ const LeadManagement = () => {
     placeholderData: keepPreviousData
   });
 
-  const { data: leadData, isLoading } = useQuery({
-    queryKey: ['leads', 'global', activeTab, filterState, searchTerm],
+  const { data: leadData, isLoading, isFetching } = useQuery({
+    queryKey: ['leads', 'global', activeTab, filterState, debouncedSearch],
     queryFn: () => leadsApi.getLeads({ 
       status: activeTab === 'all' ? undefined : activeTab, 
       state: filterState === 'All' ? undefined : filterState,
-      search: searchTerm,
+      search: debouncedSearch,
       limit: 15
     }).then(res => res.data),
     staleTime: 5 * 60 * 1000,

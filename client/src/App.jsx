@@ -50,7 +50,7 @@ const DashboardSwitcher = () => {
   const renderDashboard = () => {
     switch (user.role) {
       case 'founder': return <Layout><FounderDashboard /></Layout>;
-      case 'state_manager': return <StateDashboard />;
+      case 'state_manager': return <Layout><StateDashboard /></Layout>;
       case 'industry_manager': return <Layout><IndDashboard /></Layout>;
       case 'executive': return <Layout><ExecutiveDashboard /></Layout>;
       default: return <Navigate to="/login" />;

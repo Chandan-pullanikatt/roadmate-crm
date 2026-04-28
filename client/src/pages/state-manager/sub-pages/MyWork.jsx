@@ -99,7 +99,7 @@ const MyWork = () => {
           <div className="stat-label">My Leads Today</div>
           <div className="stat-value text-blue">{myLeads.length}</div>
           <div className="stat-delta text-[11px] font-medium opacity-70">
-             → {todayStats.meetings || 0} direct meeting, {todayStats.followups || 0} follow-ups, {todayStats.new || 0} new
+             {"\u2192"} {todayStats.meetings || 0} direct meeting, {todayStats.followups || 0} follow-ups, {todayStats.new || 0} new
           </div>
         </div>
         <div className="stat-card border-l-4 border-green">
@@ -112,7 +112,7 @@ const MyWork = () => {
         <div className="stat-card border-l-4 border-purple">
           <div className="stat-label">My Calls This Week</div>
           <div className="stat-value text-purple">{monthlyStats.totalCalls || 0}</div>
-          <div className="stat-delta text-purple">↑ 3 vs last week</div>
+          <div className="stat-delta text-purple">{"\u2191"} 3 vs last week</div>
         </div>
         <div className="stat-card border-l-4 border-amber">
           <div className="stat-label">My Conversions</div>
@@ -195,7 +195,7 @@ const MyWork = () => {
            <div className="card flex-1">
               <div className="card-header border-b border-border bg-surface2/5">
                  <div className="section-title text-sm">Today's Queue · My Leads</div>
-                 <div className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">Meetings → Follow-ups → New</div>
+                 <div className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">Meetings {"\u2192"} Follow-ups {"\u2192"} New</div>
               </div>
               <div className="divide-y divide-border">
                  {myLeads.map((l, i) => (
@@ -258,12 +258,12 @@ const MyWork = () => {
         <DataTable 
           columns={[
             { header: 'ID', accessor: 'leadId', render: (val) => <span className="mono text-[11px] font-bold">{val || 'SM-01'}</span> },
-            { header: 'PARTNER / ORGANISATION', accessor: 'company', render: (val, row) => <div><div className="font-bold text-[13px]">{val || row.business}</div><div className="text-[11px] text-text-muted">{row.name} · {row.phone}</div></div> },
+            { header: 'PARTNER / ORGANISATION', accessor: 'company', render: (val, row) => <div><div className="font-bold text-[13px]">{val || row.business}</div><div className="text-[11px] text-text-muted">{row.name} {"\u00B7"} {row.phone}</div></div> },
             { header: 'DISTRICT', accessor: 'district' },
             { header: 'SOURCE', accessor: 'leadSource', render: (val) => <Tag variant="gray" label={val || 'Industry Partner'} /> },
             { header: 'STATUS', accessor: 'priority', render: (val) => <Tag variant={val === 'hot' ? 'red' : val === 'warm' ? 'amber' : 'blue'} label={(val || 'COLD').toUpperCase()} /> },
             { header: 'RNR', accessor: 'rnrCount', render: (val) => <span className="mono text-[11px] font-bold text-amber">{val ? `${val}x RNR` : '--'}</span> },
-            { header: 'REVENUE', accessor: 'expectedRevenue', render: (val) => <span className="mono font-bold text-[13px]">₹{(val / 100000).toFixed(1)}L</span> },
+            { header: 'REVENUE', accessor: 'expectedRevenue', render: (val) => <span className="mono font-bold text-[13px]">{"\u20B9"}{(val / 100000).toFixed(1)}L</span> },
             { header: 'ACTION', accessor: '_id', render: (id, row, idx) => <Button size="xs" variant="blue" onClick={() => { setCurrentLeadIdx(idx); }}>Work Lead</Button>, align: 'right' }
           ]}
           data={myLeads}
@@ -274,7 +274,7 @@ const MyWork = () => {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-12">
         <div className="lg:col-span-3 card">
            <div className="card-header border-b border-border">
-              <div className="section-title text-sm">My Performance · This Month</div>
+              <div className="section-title text-sm">My Performance {"\u00B7"} This Month</div>
            </div>
            <div className="card-body">
               <div className="grid grid-cols-2 gap-4 mb-8">
@@ -292,7 +292,7 @@ const MyWork = () => {
                  </div>
                  <div className="p-6 bg-surface2 rounded-2xl border border-border text-center">
                     <div className="text-[13px] font-bold text-text-muted mb-1">Revenue Closed</div>
-                    <div className="text-3xl font-black text-accent">₹{(monthlyStats.revenue / 100000).toFixed(1)}L</div>
+                    <div className="text-3xl font-black text-accent">{"\u20B9"}{(monthlyStats.revenue / 100000).toFixed(1)}L</div>
                  </div>
               </div>
               <div className="px-2">

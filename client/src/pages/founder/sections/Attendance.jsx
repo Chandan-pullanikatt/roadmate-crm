@@ -131,7 +131,7 @@ const Attendance = () => {
         <div className="p-6 border-b border-border flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-text-primary">Attendance</h2>
-            <p className="text-xs text-text-muted mt-0.5">All staff attendance · Work %, half-days, leaves · Auto-calculated</p>
+            <p className="text-xs text-text-muted mt-0.5">All staff attendance {"\u00B7"} Work %, half-days, leaves {"\u00B7"} Auto-calculated</p>
           </div>
           <div className="flex gap-3">
              <select 
@@ -241,7 +241,7 @@ const Attendance = () => {
         <div className="p-6">
           <div className="border border-border rounded-xl overflow-hidden table-responsive">
             <div className="p-4 bg-surface2/30 border-b border-border flex justify-between items-center">
-               <h3 className="text-sm font-bold text-text-primary">Salary Sheet — {getMonthName(month)} {year}</h3>
+               <h3 className="text-sm font-bold text-text-primary">Salary Sheet {"\u2014"} {getMonthName(month)} {year}</h3>
                <div className="flex gap-2">
                  <span className="bg-orange-light text-orange px-3 py-1 rounded-full text-[10px] font-bold border border-orange/20">Incentive correction: Manual</span>
                  <Button variant="outline" size="xs" className="bg-white" onClick={handleExportSalary}>Export</Button>
@@ -267,12 +267,12 @@ const Attendance = () => {
                       <div className="font-bold text-[14px] text-text-primary">{row.user.name}</div>
                       <div className="text-[11px] text-text-muted">{getRoleLabel(row.user.role)}</div>
                     </td>
-                    <td className="p-4 font-medium text-[13px]">₹{row.baseSalary?.toLocaleString()}</td>
+                    <td className="p-4 font-medium text-[13px]">{"\u20B9"}{row.baseSalary?.toLocaleString()}</td>
                     <td className="p-4 text-center font-medium text-[13px]">{row.workingDays}</td>
                     <td className="p-4 text-center font-medium text-[13px] text-blue">{row.leaveDays || '0'}</td>
-                    <td className="p-4 text-center font-medium text-[13px] text-red">-{row.deductions > 0 ? `₹${row.deductions.toLocaleString()}` : '₹0'}</td>
-                    <td className="p-4 text-center font-medium text-[13px] text-[#0f766e]">+{row.incentives > 0 ? `₹${row.incentives.toLocaleString()}` : '₹0'}</td>
-                    <td className="p-4 text-center font-bold text-[14px] text-text-primary">₹{row.netSalary?.toLocaleString()}</td>
+                    <td className="p-4 text-center font-medium text-[13px] text-red">-{row.deductions > 0 ? `\u20B9${row.deductions.toLocaleString()}` : '\u20B90'}</td>
+                    <td className="p-4 text-center font-medium text-[13px] text-[#0f766e]">+{row.incentives > 0 ? `\u20B9${row.incentives.toLocaleString()}` : '\u20B90'}</td>
+                    <td className="p-4 text-center font-bold text-[14px] text-text-primary">{"\u20B9"}{row.netSalary?.toLocaleString()}</td>
                     <td className="p-4 text-right">
                       <button 
                         className="bg-white border border-border text-text-secondary px-3 py-1 rounded-lg text-[11px] font-bold hover:bg-surface2 transition-all"

@@ -21,16 +21,16 @@ const Performance = () => {
   const statusBreakdown = data?.statusBreakdown || {};
   const weeklyTrends = data?.weeklyTrends || [];
 
-  const MetricCard = ({ title, value, unit = '', growth, growthPrefix = '↑', isCurrency = false }) => (
+  const MetricCard = ({ title, value, unit = '', growth, growthPrefix = '\u2191', isCurrency = false }) => (
     <div className="report-metric-card bg-surface border border-border p-5 rounded-2xl shadow-sm">
       <div className="flex justify-between items-start mb-4">
         <div className="text-3xl font-black tracking-tight">
-          {isCurrency && '₹'}{value}{unit}
+          {isCurrency && '\u20B9'}{value}{unit}
         </div>
       </div>
       <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">{title}</div>
       <div className={`text-[11px] font-bold ${growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-        {growth >= 0 ? '↑' : '↓'} {Math.abs(growth)}{isCurrency ? 'L' : '%'} <span className="text-muted font-medium">vs prev month</span>
+        {growth >= 0 ? '\u2191' : '\u2193'} {Math.abs(growth)}{isCurrency ? 'L' : '%'} <span className="text-muted font-medium">vs prev month</span>
       </div>
     </div>
   );
@@ -42,7 +42,7 @@ const Performance = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Summary & Reports</h1>
-          <p className="text-sm text-muted">Performance Summary · District Executive · Mohan R. · Mumbai</p>
+          <p className="text-sm text-muted">Performance Summary {"\u00B7"} District Executive {"\u00B7"} Mohan R. {"\u00B7"} Mumbai</p>
         </div>
         <div className="flex bg-surface border border-border rounded-lg p-1">
           {['Week', 'Month', 'Quarter', 'Year'].map(f => (
@@ -81,7 +81,7 @@ const Performance = () => {
         
         {/* Daily Conversions Chart */}
         <div className="col-span-2 bg-surface border border-border rounded-2xl p-6 shadow-sm">
-          <div className="text-sm font-extrabold mb-8">Daily Conversions — {now.toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
+          <div className="text-sm font-extrabold mb-8">Daily Conversions {"\u2014"} {now.toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
               <BarChart data={weeklyTrends}>

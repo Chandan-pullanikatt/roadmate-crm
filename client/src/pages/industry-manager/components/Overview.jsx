@@ -51,9 +51,9 @@ const Overview = () => {
   const userInfo = dashData?.user || {};
 
   const formatCurrency = (val) => {
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}K`;
-    return `₹${val}`;
+    if (val >= 100000) return `\u20B9${(val / 100000).toFixed(1)}L`;
+    if (val >= 1000) return `\u20B9${(val / 1000).toFixed(1)}K`;
+    return `\u20B9${val}`;
   };
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
@@ -120,7 +120,7 @@ const Overview = () => {
         <StatCard 
             label="Total Leads" 
             value={stats.totalLeads || 0} 
-            delta={`↑ ${leadStats.new || 0} new this week`}
+            delta={`\u2191 ${leadStats.new || 0} new this week`}
             deltaType="up"
             deltaLabel=""
             colorClass="amber" 
@@ -128,7 +128,7 @@ const Overview = () => {
         <StatCard 
             label="Average Growth" 
             value={`${stats.avgWorkPct || 0}%`} 
-            delta={`${stats.avgWorkGrowth >= 0 ? '↑' : '↓'} ${Math.abs(stats.avgWorkGrowth || 0)}%`}
+            delta={`${stats.avgWorkGrowth >= 0 ? '\u2191' : '\u2193'} ${Math.abs(stats.avgWorkGrowth || 0)}%`}
             deltaType={stats.avgWorkGrowth >= 0 ? 'up' : 'down'}
             deltaLabel="this week"
             colorClass="blue" 
@@ -172,7 +172,7 @@ const Overview = () => {
                             <div className="flex items-center gap-2 mb-1.5">
                                 <span className={`text-[11px] font-bold ${exec.completionPct >= 70 ? 'text-green' : exec.completionPct >= 30 ? 'text-amber' : 'text-red'}`}>{exec.completionPct}%</span>
                                 <span className={`text-[9px] font-bold ${exec.workGrowth >= 0 ? 'text-green' : 'text-red'}`}>
-                                    {exec.workGrowth >= 0 ? '↑' : '↓'}{Math.abs(exec.workGrowth)}%
+                                    {exec.workGrowth >= 0 ? '\u2191' : '\u2193'}{Math.abs(exec.workGrowth)}%
                                 </span>
                             </div>
                             <div className="w-20 h-1.5 bg-surface2 rounded-full overflow-hidden border border-border/40">
@@ -274,7 +274,7 @@ const Overview = () => {
                             {ev.name}
                         </div>
                         <div className="text-[11px] text-text-muted font-medium mt-0.5">
-                            {ev.ownerName} <span className="mx-1">→</span> {ev.company}
+                            {ev.ownerName} <span className="mx-1">{"\u2192"}</span> {ev.company}
                         </div>
                         <div className="flex items-center gap-2 mt-2">
                              <div className="px-2 py-0.5 rounded-lg bg-surface2 text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:bg-purple/5 group-hover:text-purple">
@@ -293,7 +293,7 @@ const Overview = () => {
                     <div className="col-span-full py-16 text-center">
                         <div className="text-4xl mb-4">📅</div>
                         <div className="text-text-muted font-medium">No events scheduled for the rest of today.</div>
-                        <button className="mt-4 text-purple text-sm font-bold hover:underline">View Tomorrow's Schedule →</button>
+                        <button className="mt-4 text-purple text-sm font-bold hover:underline">View Tomorrow's Schedule {"\u2192"}</button>
                     </div>
                 )}
             </div>

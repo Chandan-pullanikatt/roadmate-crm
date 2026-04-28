@@ -6,6 +6,7 @@ import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Executives = () => {
   const [filterIndustry, setFilterIndustry] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
@@ -21,7 +22,11 @@ const Executives = () => {
   const executives = dashData?.executivePerformance || [];
   
   const filteredExecs = executives.filter(e => {
-    return filterIndustry === 'All' || e.industry === filterIndustry;
+    const matchesIndustry = filterIndustry === 'All' || e.industry === filterIndustry;
+    const matchesSearch = !searchTerm || 
+      e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (e.district && e.district.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesIndustry && matchesSearch;
   });
 
   const getIndustryColor = (industry) => {
@@ -74,16 +79,28 @@ const Executives = () => {
       <div className="card">
         <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center px-6 py-4">
           <div className="section-title text-[15px]">All Executives</div>
-          <div className="flex bg-surface2 p-1 rounded-lg border border-border">
-             {['All', 'Automobile', 'Healthcare', 'FMCG'].map(t => (
-               <button 
-                 key={t} 
-                 className={`px-4 py-1 text-[11px] font-bold uppercase rounded-md transition-all ${filterIndustry === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}
-                 onClick={() => setFilterIndustry(t)}
-               >
-                 {t}
-               </button>
-             ))}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
+              <input 
+                type="text"
+                placeholder="Search name or district..."
+                className="pl-9 pr-4 py-1.5 bg-surface2 border border-border rounded-lg text-[11px] font-bold focus:ring-2 focus:ring-blue/10 outline-none w-64 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex bg-surface2 p-1 rounded-lg border border-border">
+               {['All', 'Automobile', 'Healthcare', 'FMCG'].map(t => (
+                 <button 
+                   key={t} 
+                   className={`px-4 py-1 text-[11px] font-bold uppercase rounded-md transition-all ${filterIndustry === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}
+                   onClick={() => setFilterIndustry(t)}
+                 >
+                   {t}
+                 </button>
+               ))}
+            </div>
           </div>
         </div>
         <div className="card-body p-0">

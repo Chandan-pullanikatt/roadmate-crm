@@ -1,20 +1,20 @@
 /* ══════════════ FOUNDER DASHBOARD MOCK DATA ══════════════ */
 
 export const stateMgrs = [
-  { id: 1, name: 'Rahul Sharma', state: 'Maharashtra', av: 'RS', avClass: 'fd-av-state', leads: 224, converted: 48, revenue: '₹82.4L', workPct: 78, calls: 312, meetings: 28, status: 'Active' },
-  { id: 2, name: 'Srinivas Reddy', state: 'Telangana', av: 'SR', avClass: 'fd-av-state', leads: 198, converted: 44, revenue: '₹74.1L', workPct: 82, calls: 286, meetings: 32, status: 'Active' },
-  { id: 3, name: 'Karthik Nair', state: 'Karnataka', av: 'KN', avClass: 'fd-av-state', leads: 176, converted: 38, revenue: '₹68.8L', workPct: 74, calls: 244, meetings: 22, status: 'Active' },
-  { id: 4, name: 'Meena Iyer', state: 'Tamil Nadu', av: 'MI', avClass: 'fd-av-state', leads: 162, converted: 35, revenue: '₹61.3L', workPct: 71, calls: 218, meetings: 19, status: 'Active' },
-  { id: 5, name: 'Nikhil Patel', state: 'Gujarat', av: 'NP', avClass: 'fd-av-state', leads: 148, converted: 30, revenue: '₹55.7L', workPct: 68, calls: 196, meetings: 16, status: 'Active' },
+  { id: 1, name: 'Rahul Sharma', state: 'Maharashtra', av: 'RS', avClass: 'fd-av-state', leads: 224, converted: 48, revenue: '\u20B982.4L', workPct: 78, calls: 312, meetings: 28, status: 'Active' },
+  { id: 2, name: 'Srinivas Reddy', state: 'Telangana', av: 'SR', avClass: 'fd-av-state', leads: 198, converted: 44, revenue: '\u20B974.1L', workPct: 82, calls: 286, meetings: 32, status: 'Active' },
+  { id: 3, name: 'Karthik Nair', state: 'Karnataka', av: 'KN', avClass: 'fd-av-state', leads: 176, converted: 38, revenue: '\u20B968.8L', workPct: 74, calls: 244, meetings: 22, status: 'Active' },
+  { id: 4, name: 'Meena Iyer', state: 'Tamil Nadu', av: 'MI', avClass: 'fd-av-state', leads: 162, converted: 35, revenue: '\u20B961.3L', workPct: 71, calls: 218, meetings: 19, status: 'Active' },
+  { id: 5, name: 'Nikhil Patel', state: 'Gujarat', av: 'NP', avClass: 'fd-av-state', leads: 148, converted: 30, revenue: '\u20B955.7L', workPct: 68, calls: 196, meetings: 16, status: 'Active' },
 ];
 
 export const executives = [
-  { name: 'Anjali Kumar', state: 'TG', industry: 'Auto', handling: 42, connected: 28, followup: 12, converted: 8, revenue: '₹4.2L', workPct: 84, leaves: 1 },
-  { name: 'Mohan Reddy', state: 'MH', industry: 'Electronics', handling: 38, connected: 24, followup: 10, converted: 6, revenue: '₹3.6L', workPct: 76, leaves: 2 },
-  { name: 'Priya Sharma', state: 'KA', industry: 'FMCG', handling: 35, connected: 22, followup: 9, converted: 7, revenue: '₹3.9L', workPct: 81, leaves: 0 },
-  { name: 'Vasu Krishnan', state: 'TN', industry: 'Pharma', handling: 31, connected: 19, followup: 8, converted: 5, revenue: '₹3.1L', workPct: 72, leaves: 3 },
-  { name: 'Ravi Mehra', state: 'GJ', industry: 'Agri', handling: 28, connected: 16, followup: 7, converted: 4, revenue: '₹2.8L', workPct: 67, leaves: 1 },
-  { name: 'Deepa Nair', state: 'TG', industry: 'Auto', handling: 40, connected: 26, followup: 11, converted: 9, revenue: '₹4.8L', workPct: 88, leaves: 0 },
+  { name: 'Anjali Kumar', state: 'TG', industry: 'Auto', handling: 42, connected: 28, followup: 12, converted: 8, revenue: '\u20B94.2L', workPct: 84, leaves: 1 },
+  { name: 'Mohan Reddy', state: 'MH', industry: 'Electronics', handling: 38, connected: 24, followup: 10, converted: 6, revenue: '\u20B93.6L', workPct: 76, leaves: 2 },
+  { name: 'Priya Sharma', state: 'KA', industry: 'FMCG', handling: 35, connected: 22, followup: 9, converted: 7, revenue: '\u20B93.9L', workPct: 81, leaves: 0 },
+  { name: 'Vasu Krishnan', state: 'TN', industry: 'Pharma', handling: 31, connected: 19, followup: 8, converted: 5, revenue: '\u20B93.1L', workPct: 72, leaves: 3 },
+  { name: 'Ravi Mehra', state: 'GJ', industry: 'Agri', handling: 28, connected: 16, followup: 7, converted: 4, revenue: '\u20B92.8L', workPct: 67, leaves: 1 },
+  { name: 'Deepa Nair', state: 'TG', industry: 'Auto', handling: 40, connected: 26, followup: 11, converted: 9, revenue: '\u20B94.8L', workPct: 88, leaves: 0 },
 ];
 
 export const leaveRequests = [
@@ -66,14 +66,14 @@ export const upcomingEvents = [
 ];
 
 export const indMgrPerf = [
-  { name: 'Kavitha Nair', state: 'TG', industry: 'Electronics', workPct: 82, calls: 98, meetings: 11, followups: 34, revenue: '₹14.8L', leaves: 0 },
-  { name: 'Vijay Reddy', state: 'TG', industry: 'Automobile', workPct: 78, calls: 112, meetings: 14, followups: 42, revenue: '₹22.4L', leaves: 1 },
-  { name: 'Sunita Prasad', state: 'MH', industry: 'FMCG', workPct: 68, calls: 76, meetings: 8, followups: 28, revenue: '₹9.6L', leaves: 2 },
-  { name: 'Dr. Prasad', state: 'MH', industry: 'Pharma', workPct: 84, calls: 88, meetings: 10, followups: 32, revenue: '₹11.2L', leaves: 0 },
-  { name: 'Ramesh Goud', state: 'KA', industry: 'Agriculture', workPct: 71, calls: 64, meetings: 7, followups: 24, revenue: '₹7.4L', leaves: 1 },
+  { name: 'Kavitha Nair', state: 'TG', industry: 'Electronics', workPct: 82, calls: 98, meetings: 11, followups: 34, revenue: '\u20B914.8L', leaves: 0 },
+  { name: 'Vijay Reddy', state: 'TG', industry: 'Automobile', workPct: 78, calls: 112, meetings: 14, followups: 42, revenue: '\u20B922.4L', leaves: 1 },
+  { name: 'Sunita Prasad', state: 'MH', industry: 'FMCG', workPct: 68, calls: 76, meetings: 8, followups: 28, revenue: '\u20B99.6L', leaves: 2 },
+  { name: 'Dr. Prasad', state: 'MH', industry: 'Pharma', workPct: 84, calls: 88, meetings: 10, followups: 32, revenue: '\u20B911.2L', leaves: 0 },
+  { name: 'Ramesh Goud', state: 'KA', industry: 'Agriculture', workPct: 71, calls: 64, meetings: 7, followups: 24, revenue: '\u20B97.4L', leaves: 1 },
 ];
 
-export const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN');
+export const fmt = (n) => '\u20B9' + Number(n).toLocaleString('en-IN');
 
 export const statusMap = { hot: 'fd-ls-hot', warm: 'fd-ls-warm', cold: 'fd-ls-cold', rnr: 'fd-ls-rnr', converted: 'fd-ls-converted', lost: 'fd-ls-lost', followup: 'fd-ls-followup', meeting: 'fd-ls-meeting' };
 

@@ -9,16 +9,28 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const isExecutiveUser = user?.role === 'executive';
-  
-  // Fetch counts for badges (District Executive only)
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'executive'],
-    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
-    enabled: !!user && isExecutiveUser
+  // Fetch counts for badges based on role
+  const { data: dashData, isLoading, isError } = useQuery({
+    queryKey: ['dashboard', user?.role],
+    queryFn: () => {
+      switch (user?.role) {
+        case 'founder': return dashboardApi.getFounderDashboard().then(res => res.data);
+        case 'state_manager': return dashboardApi.getStateManagerDashboard().then(res => res.data);
+        case 'industry_manager': return dashboardApi.getIndustryManagerDashboard().then(res => res.data);
+        case 'executive': return dashboardApi.getExecutiveDashboard().then(res => res.data);
+        default: return null;
+      }
+    },
+    enabled: !!user && ['founder', 'state_manager', 'industry_manager', 'executive'].includes(user.role)
   });
 
-  const stats = dashData?.todayStats || {};
+  const getBadge = (value) => {
+    if (isLoading || isError) return null;
+    const num = parseInt(value);
+    return !isNaN(num) && num > 0 ? num : null;
+  };
+
+  const stats = dashData?.stats || dashData?.todayStats || {};
 
   // Role-specific configuration
   const roleConfigs = {
@@ -43,17 +55,17 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'Leads',
           items: [
-            { label: 'All Leads', path: '/dashboard?page=leads', icon: 'leads', badge: 124, badgeColor: 'green' },
+            { label: 'All Leads', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads), badgeColor: 'green' },
             { label: 'Add Lead', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' })), icon: 'add-lead' },
             { label: 'Bulk Upload', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' })), icon: 'bulk-upload' },
-            { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: 18, badgeColor: 'red' }
+            { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: getBadge(stats.expectedOnboarding), badgeColor: 'red' }
           ]
         },
         {
           label: 'HR & Team',
           items: [
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
-            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'leave', badge: 3, badgeColor: 'red' },
+            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'leave', badge: getBadge(stats.pendingLeavesCount), badgeColor: 'red' },
             { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' },
             { label: 'Working Hours', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' })), icon: 'working-hours', badge: '9:30 AM', badgeColor: 'green' }
           ]
@@ -79,17 +91,17 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Main',
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', badge: '4', badgeColor: 'blue', special: true },
-            { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: '5', badgeColor: 'blue' },
+            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', badge: getBadge(stats.myWorkCount), badgeColor: 'blue', special: true },
+            { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'blue' },
             { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' },
-            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: '8' }
+            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) }
           ]
         },
         {
           label: 'Team',
           items: [
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
-            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: '3', badgeColor: 'red' },
+            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(stats.pendingLeaves), badgeColor: 'red' },
             { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' }
           ]
         },
@@ -115,9 +127,9 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Main',
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', badge: 5, badgeColor: 'purple', special: true },
-            { label: 'District Executives', path: '/dashboard?page=team', icon: 'executives', badge: 6, badgeColor: 'purple' },
-            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: 12 },
+            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', badge: getBadge(stats.myWorkCount), badgeColor: 'purple', special: true },
+            { label: 'District Executives', path: '/dashboard?page=team', icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'purple' },
+            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads) },
             { label: 'Lead Task Flow', path: '/dashboard?page=lead-flow', icon: 'leads' }
           ]
         },
@@ -126,7 +138,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Staff Performance', path: '/dashboard?page=performance', icon: 'performance' },
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
-            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: 4 },
+            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(dashData?.leaveRequests?.length) },
             { label: 'Staff Documents', path: '/dashboard?page=staff-docs', icon: 'reports' }
           ]
         },
@@ -151,8 +163,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'OPERATIONS',
           items: [
             { label: 'Start My Work', path: '/dashboard?page=work', icon: 'work', special: true },
-            { label: 'Meetings', path: '/dashboard?page=meetings', icon: 'meetings', badge: stats.meetings || 0, badgeColor: 'blue' },
-            { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads-v2', badge: stats.totalLeads || 0, badgeColor: 'red' },
+            { label: 'Meetings', path: '/dashboard?page=meetings', icon: 'meetings', badge: getBadge(stats.meetings), badgeColor: 'blue' },
+            { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads-v2', badge: getBadge(stats.totalLeads), badgeColor: 'red' },
             { label: 'Leave Calendar', path: '/dashboard?page=leave-calendar', icon: 'calendar-v2' }
           ]
         },
@@ -181,8 +193,11 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     logout();
   };
 
-  const page = new URLSearchParams(window.location.search).get('page') || 'work';
-  const dynamicTitle = isExecutiveUser ? (
+  const page = new URLSearchParams(window.location.search).get('page') || (user?.role === 'executive' ? 'work' : 'overview');
+  
+  const getDisplayPage = (p) => p.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+  const dynamicTitle = isExecutive ? (
     page === 'work' ? 'Start My Work' :
     page === 'meetings' ? 'My Meetings' :
     page === 'leads' ? 'My Leads' :
@@ -190,7 +205,9 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     page === 'reports-v2' ? 'Summary & Reports' : 
     page === 'hierarchy' ? 'Hierarchy Status' :
     page === 'earnings' ? 'Earnings & Payouts' : 'Dashboard'
-  ) : pageTitle || 'Dashboard';
+  ) : (pageTitle || (user?.role?.replace('_', ' ')?.toUpperCase() + ' Dashboard'));
+
+  const dynamicSubtitle = isExecutive ? '' : (pageSubtitle || `${getDisplayPage(page)} · ${user?.state || 'Kerala'} · Management Portal`);
 
   return (
     <DashboardLayout
@@ -209,7 +226,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
       extraContent={config?.extraContent}
       footerBranding={config?.footerBranding}
       pageTitle={dynamicTitle}
-      pageSubtitle={isExecutiveUser ? '' : pageSubtitle}
+      pageSubtitle={dynamicSubtitle}
     >
       {children}
     </DashboardLayout>

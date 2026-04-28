@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   StatCard, 
@@ -17,6 +17,15 @@ const LeadManagement = () => {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
@@ -39,15 +48,15 @@ const LeadManagement = () => {
             result = result.filter(l => l.status.toLowerCase() === tab);
         }
     }
-    if (searchTerm) {
+    if (debouncedSearch) {
         result = result.filter(l => 
-            l.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            l.leadId.toLowerCase().includes(searchTerm.toLowerCase())
+            l.company.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+            l.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            l.leadId.toLowerCase().includes(debouncedSearch.toLowerCase())
         );
     }
     return result;
-  }, [leads, activeTab, searchTerm]);
+  }, [leads, activeTab, debouncedSearch]);
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;

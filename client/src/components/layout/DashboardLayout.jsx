@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { dashboardApi } from '../../api/dashboardApi';
 import { usersApi } from '../../api/usersApi';
 import { leadsApi } from '../../api/leadsApi';
+import { searchApi } from '../../api/searchApi';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
 import { useNotificationStore } from '../../store/useNotificationStore';
 
@@ -72,7 +73,59 @@ const DashboardLayout = ({
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Global Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState({ leads: [], staff: [] });
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchRef = useRef(null);
+
+  // Debounce Search
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults({ leads: [], staff: [] });
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await searchApi.globalSearch(searchQuery);
+        setSearchResults(res.data);
+        setShowSearchDropdown(true);
+      } catch (err) {
+        console.error('Search failed:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Click Outside & Escape Key
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setShowSearchDropdown(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const handlePrefetch = (item) => {
     if (!item.path || item.path === '#') return;
@@ -242,16 +295,90 @@ const DashboardLayout = ({
             </div>
             
             {/* Center: Search Bar */}
-            <div className="flex-1 max-w-xl px-12">
+            <div className="flex-1 max-w-xl px-12" ref={searchRef}>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-orange transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  {isSearching ? (
+                    <div className="w-4 h-4 border-2 border-orange/30 border-t-orange rounded-full animate-spin"></div>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  )}
                 </div>
                 <input 
                   type="text" 
                   placeholder="Search leads, tasks, meetings..." 
                   className="w-full bg-surface2 border border-border rounded-xl py-2.5 pl-12 pr-4 text-xs font-bold focus:bg-white focus:ring-4 focus:ring-orange/5 focus:border-orange outline-none transition-all"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery.length >= 2 && setShowSearchDropdown(true)}
                 />
+
+                {/* Search Dropdown */}
+                {showSearchDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-border overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="max-h-[320px] overflow-y-auto">
+                      {searchResults.leads.length === 0 && searchResults.staff.length === 0 ? (
+                        <div className="p-8 text-center text-text-muted">
+                          <div className="text-xl mb-1">🔍</div>
+                          <div className="text-xs font-bold">No results found for "{searchQuery}"</div>
+                        </div>
+                      ) : (
+                        <>
+                          {searchResults.leads.length > 0 && (
+                            <div className="p-2">
+                              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-muted">Leads</div>
+                              {searchResults.leads.map(lead => (
+                                <div 
+                                  key={lead._id}
+                                  className="flex items-center justify-between p-3 rounded-xl hover:bg-surface2 cursor-pointer transition-colors group"
+                                  onClick={() => {
+                                    // Map routes based on role or detail view
+                                    navigate(`/leads/${lead._id}`);
+                                    setShowSearchDropdown(false);
+                                    setSearchQuery('');
+                                  }}
+                                >
+                                  <div>
+                                    <div className="text-[13px] font-bold group-hover:text-orange transition-colors">{lead.name}</div>
+                                    <div className="text-[11px] text-text-muted font-medium">{lead.company}</div>
+                                  </div>
+                                  <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${lead.status === 'converted' ? 'bg-green/10 text-green' : 'bg-orange/10 text-orange'}`}>
+                                    {lead.status}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {searchResults.staff.length > 0 && (
+                            <div className="p-2 border-t border-border/50">
+                              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-muted">Staff</div>
+                              {searchResults.staff.map(member => (
+                                <div 
+                                  key={member._id}
+                                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface2 cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    navigate(`/staff/${member._id}`);
+                                    setShowSearchDropdown(false);
+                                    setSearchQuery('');
+                                  }}
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-blue/10 text-blue flex items-center justify-center font-bold text-xs">
+                                    {member.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="text-[13px] font-bold">{member.name}</div>
+                                    <div className="text-[11px] text-text-muted font-medium capitalize">{member.role.replace('_', ' ')}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

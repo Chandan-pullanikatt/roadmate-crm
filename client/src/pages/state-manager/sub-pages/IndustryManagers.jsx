@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 const IndustryManagers = () => {
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState('Monthly');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
@@ -35,8 +36,13 @@ const IndustryManagers = () => {
 
   const stats = dashData?.stats || {};
   const escalations = dashData?.escalated || [];
-  const industryManagers = dashData?.industryManagers || [];
   const user = dashData?.user || {};
+
+  const filteredManagers = industryManagers.filter(m => {
+    return !searchTerm || 
+      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.industry.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -80,22 +86,34 @@ const IndustryManagers = () => {
 
       {/* PERFORMANCE LIST */}
       <div className="card mb-8">
-        <div className="card-header border-b border-border bg-surface2/5">
+        <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center">
           <div className="section-title text-[15px]">Industry Manager Performance</div>
-          <div className="flex bg-surface2 p-1 rounded-lg border border-border">
-             {['Monthly', 'Weekly', 'Daily'].map(t => (
-               <button 
-                 key={t} 
-                 className={`px-4 py-1 text-[11px] font-bold uppercase rounded-md transition-all ${period === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}
-                 onClick={() => setPeriod(t)}
-               >
-                 {t}
-               </button>
-             ))}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
+              <input 
+                type="text"
+                placeholder="Search name or industry..."
+                className="pl-9 pr-4 py-1.5 bg-surface2 border border-border rounded-lg text-[11px] font-bold focus:ring-2 focus:ring-blue/10 outline-none w-64 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex bg-surface2 p-1 rounded-lg border border-border">
+               {['Monthly', 'Weekly', 'Daily'].map(t => (
+                 <button 
+                   key={t} 
+                   className={`px-4 py-1 text-[11px] font-bold uppercase rounded-md transition-all ${period === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}
+                   onClick={() => setPeriod(t)}
+                 >
+                   {t}
+                 </button>
+               ))}
+            </div>
           </div>
         </div>
         <div className="card-body p-0">
-          {industryManagers.map((m, idx) => (
+          {filteredManagers.map((m, idx) => (
             <div key={m._id} className="flex items-center gap-6 p-5 border-b last:border-0 hover:bg-surface2 transition-all group">
               <Avatar name={m.name} size="lg" className={`av-${idx % 5}`} />
               <div className="flex-1 min-w-0">
@@ -135,7 +153,7 @@ const IndustryManagers = () => {
             <Button size="xs" variant="outline" className="text-[10px] uppercase tracking-widest font-bold">Manage Mapping</Button>
           </div>
           <div className="card-body p-2">
-            {industryManagers.map((m, i) => (
+            {filteredManagers.map((m, i) => (
               <div key={m._id} className="flex items-center gap-4 p-4 bg-surface2/50 rounded-xl mb-2 last:mb-0 border border-border/30 group hover:border-blue/30 transition-all">
                 <Avatar name={m.name} size="sm" className={`av-${i % 5}`} />
                 <div className="flex-1">

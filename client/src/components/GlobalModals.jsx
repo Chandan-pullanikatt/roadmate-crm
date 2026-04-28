@@ -444,7 +444,7 @@ const GlobalModals = () => {
                 <input className="input" type="date" value={managerFormData.doj} onChange={(e)=>setManagerFormData({...managerFormData, doj: e.target.value})} required />
               </div>
               <div className="space-y-1">
-                <label className="form-label">Basic Salary (₹)</label>
+                <label className="form-label">Basic Salary ({"\u20B9"})</label>
                 <input className="input" type="number" value={managerFormData.basicSalary} onChange={(e)=>setManagerFormData({...managerFormData, basicSalary: e.target.value})} placeholder="e.g. 35000" required />
               </div>
             </div>
@@ -727,7 +727,7 @@ const GlobalModals = () => {
         <form onSubmit={handleIncentiveSubmit} className="space-y-6">
           <div className="space-y-4">
              <div className="space-y-1">
-                <label className="form-label">Incentive Amount (₹)</label>
+                <label className="form-label">Incentive Amount ({"\u20B9"})</label>
                 <input 
                   type="number" 
                   className="input" 

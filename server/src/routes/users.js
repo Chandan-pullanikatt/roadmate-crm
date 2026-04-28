@@ -70,7 +70,15 @@ router.post('/create-executive', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const query = {};
-    const { role } = req.query;
+    const { role, search } = req.query;
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
     
     if (req.user.role === 'industry_manager') {
       query.reportingTo = req.user._id;

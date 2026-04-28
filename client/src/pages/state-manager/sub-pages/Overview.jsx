@@ -39,8 +39,8 @@ const Overview = () => {
   const user = dashData?.user || {};
 
   const formatCurrency = (val) => {
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    return `₹${val.toLocaleString()}`;
+    if (val >= 100000) return `\u20B9${(val / 100000).toFixed(1)}L`;
+    return `\u20B9${val.toLocaleString()}`;
   };
 
   return (
@@ -72,10 +72,10 @@ const Overview = () => {
       {/* Escalation Alert */}
       {escalated.length > 0 && (
         <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-2xl p-4 flex items-center gap-4 mb-6 animate-pulse-subtle shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center text-[#D97706] text-lg shrink-0">⚠️</div>
+          <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center text-[#D97706] text-lg shrink-0">{"\u26A0"}</div>
           <div className="flex-1">
             <div className="text-[13.5px] font-bold text-[#92400E]">
-              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">from Industry Manager — {escalated[0].business} · {escalated[0].district} · {escalated[0].priority}</span>
+              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">from Industry Manager {"\u2014"} {escalated[0].business} {"\u00B7"} {escalated[0].district} {"\u00B7"} {escalated[0].priority}</span>
             </div>
           </div>
           <div className="flex gap-2">
@@ -92,7 +92,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Industry Managers</div>
           <div className="text-[28px] font-black text-text-primary mt-1">{stats.industryManagersCount}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             ↑ 1 added this month
+             {"\u2191"} 1 added this month
           </div>
         </div>
 
@@ -101,7 +101,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Total Revenue · {user.state}</div>
           <div className="text-[28px] font-black text-teal mt-1">{formatCurrency(stats.totalRevenue)}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             ↑ 14% vs last month
+             {"\u2191"} 14% vs last month
           </div>
         </div>
 
@@ -110,7 +110,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Active Leads</div>
           <div className="text-[28px] font-black text-[#D97706] mt-1">{stats.activeLeads}</div>
           <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             → {Math.floor(stats.activeLeads * 0.15)} follow-ups today
+             {"\u2192"} {Math.floor(stats.activeLeads * 0.15)} follow-ups today
           </div>
         </div>
 
@@ -119,7 +119,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Converted This Month</div>
           <div className="text-[28px] font-black text-green mt-1">{stats.convertedThisMonth}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             ↑ 9 vs last month
+             {"\u2191"} 9 vs last month
           </div>
         </div>
 
@@ -137,7 +137,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Pending Leave Approvals</div>
           <div className="text-[28px] font-black text-red mt-1">{stats.pendingLeaves}</div>
           <div className="text-[11.5px] font-bold text-red mt-2 flex items-center gap-1">
-             ↑ Needs attention
+             {"\u2191"} Needs attention
           </div>
         </div>
 
@@ -146,7 +146,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Calls This Week</div>
           <div className="text-[28px] font-black text-teal mt-1">{stats.callsThisWeek}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             ↑ 18% vs last week
+             {"\u2191"} 18% vs last week
           </div>
         </div>
 
@@ -155,7 +155,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Meetings Scheduled</div>
           <div className="text-[28px] font-black text-[#92400E] mt-1">{stats.meetingsScheduled}</div>
           <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             → 4 virtual, 10 direct
+             {"\u2192"} 4 virtual, 10 direct
           </div>
         </div>
       </div>
@@ -165,7 +165,7 @@ const Overview = () => {
         <div className="lg:col-span-7 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="p-5 border-b border-border flex justify-between items-center">
             <div>
-              <h2 className="text-[15px] font-bold text-text-primary">Industry Managers · {user.state}</h2>
+              <h2 className="text-[15px] font-bold text-text-primary">Industry Managers {"\u00B7"} {user.state}</h2>
               <p className="text-[12px] text-text-muted mt-0.5">Drill in for full details</p>
             </div>
             <Button variant="outline" size="sm" className="text-[12px] h-8 px-4 font-bold border-border">View All</Button>
@@ -179,7 +179,7 @@ const Overview = () => {
                     <div className="font-bold text-[14px] text-text-primary group-hover:text-blue transition-colors">{m.name}</div>
                     <div className="text-[11px] font-black text-text-muted uppercase tracking-wider">{m.efficiency}%</div>
                   </div>
-                  <div className="text-[12px] text-text-muted mb-3">{m.industry} · {m.districts} Districts · {m.leadsCount} leads</div>
+                  <div className="text-[12px] text-text-muted mb-3">{m.industry} {"\u00B7"} {m.districts} Districts {"\u00B7"} {m.leadsCount} leads</div>
                   <div className="h-1.5 w-full bg-surface2 rounded-full overflow-hidden border border-border/50">
                     <div 
                       className="h-full bg-blue transition-all duration-1000 ease-out" 
@@ -255,7 +255,7 @@ const Overview = () => {
         <div className="lg:col-span-7 bg-surface1 rounded-2xl border border-border shadow-sm p-6">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h2 className="text-[15px] font-bold text-text-primary">Lead Pipeline · {user.state}</h2>
+              <h2 className="text-[15px] font-bold text-text-primary">Lead Pipeline {"\u00B7"} {user.state}</h2>
               <p className="text-[12px] text-text-muted mt-0.5">All industries combined</p>
             </div>
             <div className="flex gap-1 bg-surface2 p-1 rounded-lg">
@@ -301,7 +301,7 @@ const Overview = () => {
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-[14px] text-text-primary">{r.user.name}</div>
                   <div className="text-[11px] text-text-muted mt-0.5 truncate">
-                    Industry Mgr · {r.user.industry} · {new Date(r.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {r.reason}
+                    Industry Mgr {"\u00B7"} {r.user.industry} {"\u00B7"} {new Date(r.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {"\u00B7"} {r.reason}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -334,7 +334,7 @@ const Overview = () => {
       <div className="bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="p-6 border-b border-border flex justify-between items-center">
           <div>
-            <h2 className="text-[16px] font-bold text-text-primary">Expected Onboarding Leads · {user.state}</h2>
+            <h2 className="text-[16px] font-bold text-text-primary">Expected Onboarding Leads {"\u00B7"} {user.state}</h2>
             <p className="text-[13px] text-text-muted mt-0.5">Track & manage leads across industries</p>
           </div>
           <div className="flex gap-3">

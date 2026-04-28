@@ -95,9 +95,9 @@ const MyWork = () => {
   }, [allLeadsData, tableFilter]);
 
   const formatCurrency = (val) => {
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}K`;
-    return `₹${val}`;
+    if (val >= 100000) return `\u20B9${(val / 100000).toFixed(1)}L`;
+    if (val >= 1000) return `\u20B9${(val / 1000).toFixed(1)}K`;
+    return `\u20B9${val}`;
   };
 
   const handleNext = (action, payload = {}) => {
@@ -138,8 +138,8 @@ const MyWork = () => {
       {/* Sub Header / Work Status */}
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold">My Work - {dashData?.user?.name} · {dashData?.user?.industry}</h2>
-          <p className="text-xs text-text-muted">Your personal lead queue · District Partner leads · One-by-one execution</p>
+          <h2 className="text-lg font-bold">My Work {"\u2014"} {dashData?.user?.name} {"\u00B7"} {dashData?.user?.industry}</h2>
+          <p className="text-xs text-text-muted">Your personal lead queue {"\u00B7"} District Partner leads {"\u00B7"} One-by-one execution</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber/10 rounded-lg">
@@ -160,7 +160,7 @@ const MyWork = () => {
         <StatCard 
             label="My Leads Today" 
             value={todayStats.totalLeads || 0} 
-            delta={`→ ${todayStats.followups || 0} follow-ups, ${todayStats.totalLeads - todayStats.followups} new`} 
+            delta={`\u2192 ${todayStats.followups || 0} follow-ups, ${todayStats.totalLeads - todayStats.followups} new`} 
             deltaType="up"
             deltaLabel=""
             colorClass="purple" 
@@ -176,7 +176,7 @@ const MyWork = () => {
         <StatCard 
             label="My Calls This Week" 
             value={weeklyStats.calls || 0} 
-            delta={`↑ ${weeklyStats.callGrowth || 0}`}
+            delta={`\u2191 ${weeklyStats.callGrowth || 0}`}
             deltaType="up"
             deltaLabel="vs last week"
             colorClass="blue" 
@@ -271,8 +271,8 @@ const MyWork = () => {
         {/* Today's Queue List */}
         <div className="card overflow-hidden">
             <div className="card-header border-none">
-                <h3 className="section-title text-base font-bold">Today's Queue · My Leads</h3>
-                <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">Direct meetings → Follow-ups → New leads</p>
+                <h3 className="section-title text-base font-bold">Today's Queue {"\u00B7"} My Leads</h3>
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">Direct meetings {"\u2192"} Follow-ups {"\u2192"} New leads</p>
             </div>
             <div className="divide-y divide-border/50 max-h-[420px] overflow-y-auto">
                 {myQueue.map((lead, idx) => (
@@ -284,7 +284,7 @@ const MyWork = () => {
                         <div className="text-[10px] font-bold text-text-muted w-4">{idx + 1}</div>
                         <div className="flex-1 min-width-0">
                             <div className="text-sm font-bold text-text-primary truncate">{lead.company || lead.name}</div>
-                            <div className="text-[11px] text-text-muted truncate">{lead.district} · {lead.name}</div>
+                            <div className="text-[11px] text-text-muted truncate">{lead.district} {"\u00B7"} {lead.name}</div>
                         </div>
                         <div className="text-right shrink-0">
                             <div className="text-[10px] font-bold text-text-muted">9:30 AM</div>
@@ -334,7 +334,7 @@ const MyWork = () => {
           <div className="lg:col-span-3 card">
             <div className="card-header border-none pb-4">
                 <div>
-                    <h3 className="section-title text-base font-bold">My All Leads · {dashData?.user?.industry} · {dashData?.user?.state}</h3>
+                    <h3 className="section-title text-base font-bold">My All Leads {"\u00B7"} {dashData?.user?.industry} {"\u00B7"} {dashData?.user?.state}</h3>
                     <p className="section-sub">Leads assigned to me from district partners across all districts</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -377,7 +377,7 @@ const MyWork = () => {
                                 <td className="px-6 py-4 text-[10px] font-bold text-text-muted">MN-{idx+1 < 10 ? `0${idx+1}` : idx+1}</td>
                                 <td className="px-6 py-4">
                                     <div className="text-xs font-bold text-text-primary">{lead.company || lead.name}</div>
-                                    <div className="text-[10px] text-text-muted mt-0.5">{lead.name} · {lead.phone}</div>
+                                    <div className="text-[10px] text-text-muted mt-0.5">{lead.name} {"\u00B7"} {lead.phone}</div>
                                 </td>
                                 <td className="px-6 py-4 text-xs text-text-secondary">{lead.district}</td>
                                 <td className="px-6 py-4">
@@ -392,7 +392,7 @@ const MyWork = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`text-[10px] font-bold ${lead.rnrCount > 0 ? 'text-amber' : 'text-text-muted opacity-40'}`}>
-                                        {lead.rnrCount > 0 ? `${lead.rnrCount}x RNR` : '—'}
+                                        {lead.rnrCount > 0 ? `${lead.rnrCount}x RNR` : '\u2014'}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 font-mono text-xs font-bold text-text-primary">
@@ -414,7 +414,7 @@ const MyWork = () => {
           {/* Performance Summary */}
           <div className="lg:col-span-3 card">
               <div className="card-header border-none">
-                  <h3 className="section-title text-base font-bold">My Performance · This Month</h3>
+                  <h3 className="section-title text-base font-bold">My Performance {"\u00B7"} This Month</h3>
               </div>
               <div className="card-body">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
