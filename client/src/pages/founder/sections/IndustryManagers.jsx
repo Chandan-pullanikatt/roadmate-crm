@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
@@ -11,19 +12,23 @@ const IndustryManagers = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: managers, isLoading } = useQuery({
     queryKey: ['users', 'industry-managers-global'],
-    queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
   };
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading industry performance...</div>;
+  if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const filteredManagers = managers?.filter(m => {

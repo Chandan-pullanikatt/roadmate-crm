@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
@@ -9,14 +10,16 @@ const DistrictExecutives = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', viewType],
-    queryFn: () => dashboardApi.getFounderDashboard({ period: viewType }).then(res => res.data)
+    queryFn: () => dashboardApi.getFounderDashboard({ period: viewType }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
   };
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Analyzing field team performance...</div>;
+  if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const executives = dashData?.executivesPerformance || [];

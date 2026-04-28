@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Button, Modal, Avatar, Tag, StatCard } from '../../../components/ui';
+import { Button, Modal, Avatar, Tag, StatCard, DashboardSkeleton } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 
 const Attendance = () => {
@@ -16,15 +16,19 @@ const Attendance = () => {
   const year = viewDate.getFullYear();
 
   // 1. Get Dashboard Stats
-  const { data: dashData } = useQuery({
+  const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // 2. Get Executives Performance (for the table)
   const { data: performanceData, isLoading: perfLoading } = useQuery({
     queryKey: ['dashboard', 'performance', month, year],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data.executivePerformance)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data.executivePerformance),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const executives = performanceData || [];
@@ -37,12 +41,7 @@ const Attendance = () => {
     addToast("Exporting attendance register...", "success");
   };
 
-  if (perfLoading) return (
-    <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Syncing attendance data...</div>
-    </div>
-  );
+  if ((dashLoading || perfLoading) && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-12">

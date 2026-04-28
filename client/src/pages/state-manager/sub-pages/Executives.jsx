@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
@@ -8,10 +9,12 @@ const Executives = () => {
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
-  if (dashLoading) return <div className="p-8 text-center text-text-muted italic">Syncing district executive performance...</div>;
+  if (dashLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const user = dashData?.user || {};

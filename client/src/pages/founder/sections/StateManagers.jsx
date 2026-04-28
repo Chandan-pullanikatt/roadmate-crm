@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
@@ -11,12 +12,16 @@ const StateManagers = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: managers, isLoading } = useQuery({
     queryKey: ['users', 'state-managers'],
-    queryFn: () => usersApi.getUsers({ role: 'state_manager' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'state_manager' }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   useEffect(() => {
@@ -33,7 +38,7 @@ const StateManagers = () => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
   };
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading global management data...</div>;
+  if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const filteredManagers = managers?.filter(m => filterState === 'All' || m.state === filterState);

@@ -970,9 +970,9 @@ router.get('/founder', async (req, res) => {
             totalLeads,
             leadsToday,
             expectedOnboarding,
-            totalConversions,
+            converted: totalConversions,
             convertedThisMonth,
-            totalRevenue,
+            revenue: totalRevenue,
             totalCalls,
             reachRate: Math.round(reachRate * 10) / 10,
             conversionRate: Math.round(conversionRate * 10) / 10,
@@ -1083,6 +1083,40 @@ router.get('/founder', async (req, res) => {
             .populate('performedBy', 'name role')
             .populate('lead', 'name');
 
+        const upcomingMeetings = await Lead.find({
+            meetingAt: { $gte: new Date() },
+            status: { $in: ['meeting_virtual', 'meeting_direct'] }
+        })
+            .sort({ meetingAt: 1 })
+            .limit(5)
+            .populate('owner', 'name role state industry')
+            .populate('meetingInvitees', 'name role');
+
+        const formattedUpcomingMeetings = upcomingMeetings.map((meeting) => {
+            const inviteeNames = (meeting.meetingInvitees || [])
+                .map((invitee) => invitee?.name)
+                .filter(Boolean);
+
+            return {
+                _id: meeting._id,
+                leadName: meeting.name,
+                company: meeting.company || '',
+                meetingAt: meeting.meetingAt,
+                meetingLink: meeting.meetingLink || '',
+                type: meeting.status === 'meeting_virtual' ? 'Virtual' : 'Direct',
+                owner: meeting.owner ? {
+                    _id: meeting.owner._id,
+                    name: meeting.owner.name,
+                    role: meeting.owner.role,
+                    state: meeting.owner.state,
+                    industry: meeting.owner.industry
+                } : null,
+                inviteeSummary: inviteeNames.length > 0
+                    ? inviteeNames.slice(0, 2).join(', ') + (inviteeNames.length > 2 ? ` +${inviteeNames.length - 2}` : '')
+                    : ''
+            };
+        });
+
         // 6. Performance Summary
         const topExecutive = await LeadActivity.aggregate([
             { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
@@ -1163,6 +1197,27 @@ router.get('/founder', async (req, res) => {
         const industryManagersPerformance = getPerformanceData('industry_manager');
         const executivesPerformance = getPerformanceData('executive');
 
+        const expectedOnboardingListLeads = await Lead.find({
+            status: { $nin: ['converted', 'lost', 'not_interested'] }
+        })
+        .sort({ updatedAt: -1 })
+        .limit(10)
+        .populate('owner', 'name');
+
+        const expectedOnboardingList = expectedOnboardingListLeads.map(l => {
+            const age = Math.floor((new Date() - new Date(l.createdAt)) / (1000 * 60 * 60 * 24));
+            return {
+                leadId: l.leadId || `RM-${l._id.toString().slice(-4).toUpperCase()}`,
+                name: l.name,
+                company: l.company || l.name,
+                state: l.state,
+                assignedTo: l.owner?.name || 'Unassigned',
+                priority: l.priority,
+                expectedDate: l.nextActionAt ? new Date(l.nextActionAt).toLocaleDateString() : 'TBD',
+                age: `${age}d`
+            };
+        });
+
         res.json({
             stats,
             pipelineStats,
@@ -1172,10 +1227,10 @@ router.get('/founder', async (req, res) => {
             overallSummary,
             byState,
             byIndustry,
-            pendingLeaveRequests,
+            pendingLeaves: pendingLeaveRequests,
             expectedOnboardingLeads: expectedOnboarding,
             recentActivity,
-            upcomingMeetings: [],
+            upcomingMeetings: formattedUpcomingMeetings,
             performanceSummary: {
                 topExecutive,
                 topState: byState.sort((a,b) => b.revenue - a.revenue)[0]?.state,

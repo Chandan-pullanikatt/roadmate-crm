@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
@@ -13,17 +14,23 @@ const LeaveCalendar = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: teamLeaves, isLoading: leavesLoading } = useQuery({
     queryKey: ['leaves', 'global-team', currentMonth, currentYear],
-    queryFn: () => leaveApi.getTeamLeaves(currentMonth + 1, currentYear).then(res => res.data)
+    queryFn: () => leaveApi.getTeamLeaves(currentMonth + 1, currentYear).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: pendingLeaves, isLoading: pendingLoading } = useQuery({
     queryKey: ['leaves', 'pending-global'],
-    queryFn: () => leaveApi.getPendingLeaves().then(res => res.data)
+    queryFn: () => leaveApi.getPendingLeaves().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const updateStatusMutation = useMutation({
@@ -38,7 +45,7 @@ const LeaveCalendar = () => {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const holidays = [14, 22, 28]; // Platform holidays
 
-  if (leavesLoading || pendingLoading) return <div className="p-8 text-center text-text-muted">Syncing enterprise calendar...</div>;
+  if (leavesLoading || pendingLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
 

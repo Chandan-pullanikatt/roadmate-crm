@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
@@ -8,14 +9,16 @@ const Overview = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', summaryTab],
-    queryFn: () => dashboardApi.getFounderDashboard(summaryTab).then(res => res.data)
+    queryFn: () => dashboardApi.getFounderDashboard(summaryTab).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
   };
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Calculating enterprise metrics...</div>;
+  if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const pipelineStats = dashData?.pipelineStats || [];
@@ -23,32 +26,81 @@ const Overview = () => {
   const managers = dashData?.stateManagers || [];
   const pendingLeaves = dashData?.pendingLeaves || [];
   const recentLeads = dashData?.recentLeads || [];
+  const upcomingMeetings = dashData?.upcomingMeetings || [];
+  const nextMeeting = upcomingMeetings[0];
+
+  const formatMeetingLead = (meeting) => meeting?.company || meeting?.leadName || 'Upcoming Meeting';
+
+  const formatMeetingCountdown = (meetingAt) => {
+    if (!meetingAt) return 'Upcoming Meeting';
+
+    const diffMs = new Date(meetingAt).getTime() - Date.now();
+    const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
+
+    if (diffMinutes < 60) return `Meeting in ${diffMinutes} min`;
+
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+
+    if (hours < 24) return `Meeting in ${hours}h${minutes ? ` ${minutes}m` : ''}`;
+
+    const days = Math.floor(hours / 24);
+    return `Meeting in ${days} day${days > 1 ? 's' : ''}`;
+  };
+
+  const formatMeetingSubtitle = (meeting) => {
+    if (!meeting) return '';
+
+    const timeLabel = new Date(meeting.meetingAt).toLocaleString([], {
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+
+    const participantLabel = meeting.inviteeSummary || meeting.owner?.name || 'Assigned staff';
+
+    return [
+      timeLabel,
+      participantLabel,
+      `${meeting.type} Meeting`,
+      meeting.meetingLink ? 'Link Ready' : null
+    ].filter(Boolean).join(' · ');
+  };
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* UPCOMING MEETING ALERT */}
-      <div className="meeting-alert mb-6 bg-accent-light/10 border border-accent/20 p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-accent-light/20 transition-all">
-        <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-accent/20">
-          <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="white" strokeWidth="1.4" />
-            <path d="M2 7h12M5 2v2M11 2v2" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
-            <circle cx="8" cy="11" r="1.5" fill="white" />
-          </svg>
+      {nextMeeting ? (
+        <div className="meeting-alert mb-6 bg-accent-light/10 border border-accent/20 p-4 rounded-2xl flex items-center gap-4 hover:bg-accent-light/20 transition-all">
+          <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-accent/20">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="white" strokeWidth="1.4" />
+              <path d="M2 7h12M5 2v2M11 2v2" stroke="white" strokeWidth="1.3" strokeLinecap="round" />
+              <circle cx="8" cy="11" r="1.5" fill="white" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <div className="text-[13.5px] font-bold text-accent">{formatMeetingCountdown(nextMeeting.meetingAt)} - {formatMeetingLead(nextMeeting)}</div>
+            <div className="text-[11.5px] text-accent/70 mt-0.5">{formatMeetingSubtitle(nextMeeting)}</div>
+          </div>
+          {nextMeeting.meetingLink ? (
+            <div className="flex gap-2">
+              <Button
+                size="xs"
+                className="bg-accent text-white border-none"
+                onClick={() => window.open(nextMeeting.meetingLink, '_blank', 'noopener,noreferrer')}
+              >
+                Join Now
+              </Button>
+            </div>
+          ) : null}
         </div>
-        <div className="flex-1">
-          <div className="text-[13.5px] font-bold text-accent">Board Meeting in 45 min — Q1 Revenue Review</div>
-          <div className="text-[11.5px] text-accent/70 mt-0.5">3:30 PM · All State Managers · Zoom Link Ready</div>
-        </div>
-        <div className="flex gap-2">
-          <Button size="xs" className="bg-accent text-white border-none">Join Now</Button>
-          <Button size="xs" variant="outline" className="border-accent/20 text-accent" onClick={() => openModal('all-meetings')}>All Meetings</Button>
-        </div>
-      </div>
+      ) : null}
 
       <div className="section-header">
         <div>
           <div className="section-title">Founder Summary</div>
-          <div className="section-sub">Enterprise overview — all states, industries & staff</div>
+          <div className="section-sub">Enterprise overview â€” all states, industries & staff</div>
         </div>
         <div className="flex bg-surface2 p-1 rounded-xl border border-border">
           {['today', 'week', 'month', 'year'].map(t => (
@@ -72,35 +124,35 @@ const Overview = () => {
             </div>
           </div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.totalLeads?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">↑ {stats.leadsToday || 0} new today</div>
+          <div className="text-[12px] font-medium text-teal">â†‘ {stats.leadsToday || 0} new today</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
           <div className="stat-label mb-2 mt-1">Expected Onboarding</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.expectedOnboarding?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">↑ This week pipeline</div>
+          <div className="text-[12px] font-medium text-teal">â†‘ This week pipeline</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #f59e0b' }}>
           <div className="stat-label mb-2 mt-1">Conversions</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.converted?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">↑ {stats.convertedThisMonth || 0} this month</div>
+          <div className="text-[12px] font-medium text-teal">â†‘ {stats.convertedThisMonth || 0} this month</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #0891b2' }}>
           <div className="stat-label mb-2 mt-1">Revenue Generated</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">
-             ₹{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
+             â‚¹{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
           </div>
-          <div className="text-[12px] font-medium text-teal">↑ 18.4% MoM</div>
+          <div className="text-[12px] font-medium text-teal">â†‘ 18.4% MoM</div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #8b5cf6' }}>
           <div className="stat-label mb-2 mt-1">State Managers</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.stateManagers?.total || 0}</div>
           <div className="text-[12px] font-medium flex gap-2">
-            <span className="text-teal">• {stats.stateManagers?.working || 0} Working</span>
-            <span className="text-red">• {stats.stateManagers?.onLeave || 0} On Leave</span>
+            <span className="text-teal">â€¢ {stats.stateManagers?.working || 0} Working</span>
+            <span className="text-red">â€¢ {stats.stateManagers?.onLeave || 0} On Leave</span>
           </div>
         </div>
 
@@ -108,8 +160,8 @@ const Overview = () => {
           <div className="stat-label mb-2 mt-1">Industry Managers</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.industryManagers?.total || 0}</div>
           <div className="text-[12px] font-medium flex gap-2">
-            <span className="text-teal">• {stats.industryManagers?.working || 0} Working</span>
-            <span className="text-red">• {stats.industryManagers?.onLeave || 0} On Leave</span>
+            <span className="text-teal">â€¢ {stats.industryManagers?.working || 0} Working</span>
+            <span className="text-red">â€¢ {stats.industryManagers?.onLeave || 0} On Leave</span>
           </div>
         </div>
 
@@ -117,8 +169,8 @@ const Overview = () => {
           <div className="stat-label mb-2 mt-1">Sales Staff</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.salesStaff?.total || 0}</div>
           <div className="text-[12px] font-medium flex gap-2">
-            <span className="text-teal">• {stats.salesStaff?.working || 0} Working</span>
-            <span className="text-red">• {stats.salesStaff?.onLeave || 0} On Leave</span>
+            <span className="text-teal">â€¢ {stats.salesStaff?.working || 0} Working</span>
+            <span className="text-red">â€¢ {stats.salesStaff?.onLeave || 0} On Leave</span>
           </div>
         </div>
 
@@ -180,7 +232,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week · Requires allocation</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week Â· Requires allocation</div>
         </div>
         <Button size="sm" variant="outline" className="bg-white">Allocate Leads</Button>
       </div>
@@ -261,7 +313,7 @@ const Overview = () => {
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
                     <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                      {managerData.state} · State Manager
+                      {managerData.state} Â· State Manager
                     </div>
                   </div>
                 </div>
@@ -277,7 +329,7 @@ const Overview = () => {
                   </div>
                   <div className="text-center w-20">
                     <div className="text-[15px] font-bold text-teal font-mono">
-                       ₹{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
+                       â‚¹{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
                     </div>
                     <div className="text-[10px] text-text-muted uppercase tracking-wider">Revenue</div>
                   </div>
@@ -314,7 +366,7 @@ const Overview = () => {
           <div className="text-[12px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
         </div>
         <div className="bg-amber/10 border border-amber/20 text-amber text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
-           ⚠ {pendingLeaves.length} Pending
+           âš  {pendingLeaves.length} Pending
         </div>
       </div>
 
@@ -339,7 +391,7 @@ const Overview = () => {
                   <div>
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
                     <div className="text-[11px] text-text-muted mt-0.5">
-                      {roleDisplay}, {stateDisplay} · {typeDisplay} · {l.days} day(s) · <span className="italic">{l.reason}</span>
+                      {roleDisplay}, {stateDisplay} Â· {typeDisplay} Â· {l.days} day(s) Â· <span className="italic">{l.reason}</span>
                     </div>
                   </div>
                 </div>

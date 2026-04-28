@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
-import { Button, Avatar, Tag, Modal } from '../../../components/ui';
+import { Button, Avatar, Tag, Modal, DashboardSkeleton } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 
 const LeaveApprovals = () => {
@@ -13,7 +13,9 @@ const LeaveApprovals = () => {
 
   const { data: leaves, isLoading } = useQuery({
     queryKey: ['leaves', 'im-approvals'],
-    queryFn: () => leaveApi.getLeaves().then(res => res.data)
+    queryFn: () => leaveApi.getLeaves().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // Filter only pending leaves from subordinates
@@ -43,7 +45,7 @@ const LeaveApprovals = () => {
     }
   });
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading leave requests...</div>;
+  if (isLoading && !leaves) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

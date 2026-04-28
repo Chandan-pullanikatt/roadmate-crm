@@ -6,7 +6,8 @@ import {
   Button, 
   Tag, 
   LeadFunnel,
-  MemberRow
+  MemberRow,
+  DashboardSkeleton
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
@@ -19,7 +20,9 @@ const Overview = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const approveMutation = useMutation({
@@ -38,12 +41,7 @@ const Overview = () => {
     }
   });
 
-  if (isLoading) return (
-    <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Loading premium industry metrics...</div>
-    </div>
-  );
+  if (isLoading && !dashData) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const team = dashData?.executivePerformance || [];

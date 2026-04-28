@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Tag, Button, Avatar } from '../../../components/ui';
+import { Tag, Button, Avatar, DashboardSkeleton } from '../../../components/ui';
 import FileUpload from '../../../components/ui/FileUpload';
 import { usersApi } from '../../../api/usersApi';
 import { uploadApi } from '../../../api/uploadApi';
@@ -13,14 +13,18 @@ const StaffDocs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeUploadUserId, setActiveUploadUserId] = useState(null);
 
-  const { data: dashData } = useQuery({
+  const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then((res) => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
-  const { data: executives, isLoading } = useQuery({
+  const { data: executives, isLoading: execsLoading } = useQuery({
     queryKey: ['users', 'executives-docs'],
-    queryFn: () => usersApi.getUsers({ role: 'executive' }).then((res) => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'executive' }).then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const uploadMutation = useMutation({
@@ -63,14 +67,7 @@ const StaffDocs = () => {
     });
   }, [executives, searchTerm]);
 
-  if (isLoading) {
-    return (
-      <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Accessing secure document vault...</div>
-      </div>
-    );
-  }
+  if ((dashLoading || execsLoading) && !executives) return <DashboardSkeleton />;
 
   const getDocIcon = (name = '') => {
     const t = name.toLowerCase();

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -15,12 +16,16 @@ const MyWork = () => {
 
   const { data: queueData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'my-queue'],
-    queryFn: () => leadsApi.getQueue().then(res => res.data)
+    queryFn: () => leadsApi.getQueue().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: personalDash, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'personal'],
-    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const startWorkMutation = useMutation({
@@ -63,7 +68,7 @@ const MyWork = () => {
     transitionMutation.mutate({ id: currentLead._id, action, payload });
   };
 
-  if (queueLoading || dashLoading) return <div className="p-8 text-center text-text-muted">Loading your workspace...</div>;
+  if (queueLoading || dashLoading) return <DashboardSkeleton />;
 
   return (
     <div className="animate-in fade-in duration-500">

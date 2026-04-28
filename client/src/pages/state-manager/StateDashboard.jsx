@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import StateModals from './StateModals';
+import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 
 // Lazy loading sub-pages
 const Overview = lazy(() => import('./sub-pages/Overview'));
@@ -104,14 +105,7 @@ const StateDashboard = () => {
       onLogout={handleLogout}
     >
       <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <Suspense fallback={
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="flex flex-col items-center gap-4">
-               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue"></div>
-               <p className="text-xs font-bold text-text-muted uppercase tracking-widest animate-pulse">Loading {getPageTitle()}...</p>
-            </div>
-          </div>
-        }>
+        <Suspense fallback={<DashboardSkeleton />}>
           {renderPage()}
         </Suspense>
       </div>

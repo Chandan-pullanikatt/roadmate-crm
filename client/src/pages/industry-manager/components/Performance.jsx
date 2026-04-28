@@ -4,7 +4,8 @@ import {
   StatCard, 
   Avatar, 
   Tag,
-  DataTable
+  DataTable,
+  DashboardSkeleton
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 
@@ -13,7 +14,9 @@ const Performance = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const executives = useMemo(() => dashData?.executivePerformance || [], [dashData]);
@@ -48,12 +51,7 @@ const Performance = () => {
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
-  if (isLoading) return (
-    <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Analyzing team performance metrics...</div>
-    </div>
-  );
+  if (isLoading && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-12">

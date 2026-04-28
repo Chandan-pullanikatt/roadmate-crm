@@ -5,7 +5,8 @@ import {
   Tag, 
   Button,
   Avatar,
-  TaskStep
+  TaskStep,
+  DashboardSkeleton
 } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
@@ -15,22 +16,28 @@ const LeadFlow = () => {
   const [selectedExecId, setSelectedExecId] = useState('');
 
   // 1. Get Industry Manager Profile
-  const { data: dashData } = useQuery({
+  const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // 2. Get Executives for monitoring
-  const { data: executives } = useQuery({
+  const { data: executives, isLoading: execsLoading } = useQuery({
     queryKey: ['users', 'executives-monitoring'],
-    queryFn: () => usersApi.getUsers({ role: 'executive' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'executive' }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // 3. Get Selected Executive's Queue & Activity
-  const { data: queueData, isLoading } = useQuery({
+  const { data: queueData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'monitoring-queue', selectedExecId],
     queryFn: () => leadsApi.getQueue(selectedExecId).then(res => res.data),
-    enabled: !!selectedExecId
+    enabled: !!selectedExecId,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const activeLead = queueData?.[0];
@@ -38,6 +45,8 @@ const LeadFlow = () => {
   const userInfo = dashData?.user || {};
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+
+  if ((dashLoading || execsLoading) && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">

@@ -5,7 +5,8 @@ import {
   Button, 
   Tag, 
   Avatar,
-  DataTable
+  DataTable,
+  DashboardSkeleton
 } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
 import { attendanceApi } from '../../../api/attendanceApi';
@@ -25,19 +26,25 @@ const MyWork = () => {
   // 1. Fetch Personal Stats
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'executive'],
-    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // 2. Fetch Lead Queue
   const { data: queueData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'my-queue'],
-    queryFn: () => leadsApi.getQueue().then(res => res.data)
+    queryFn: () => leadsApi.getQueue().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // 3. Fetch All My Leads for the table
   const { data: allLeadsData } = useQuery({
     queryKey: ['leads', 'personal-list'],
-    queryFn: () => leadsApi.getLeads({ owner: currentUser?._id, limit: 100 }).then(res => res.data)
+    queryFn: () => leadsApi.getLeads({ owner: currentUser?._id, limit: 100 }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const startWorkMutation = useMutation({
@@ -98,7 +105,7 @@ const MyWork = () => {
     transitionMutation.mutate({ id: activeLead._id, action, payload });
   };
 
-  if (dashLoading || queueLoading) return <div className="p-12 text-center text-text-muted">Loading your personal workspace...</div>;
+  if ((dashLoading || queueLoading) && !dashData) return <DashboardSkeleton />;
 
   const todayStats = dashData?.todayStats || {};
   const weeklyStats = dashData?.weeklyStats || {};

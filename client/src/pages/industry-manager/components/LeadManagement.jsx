@@ -5,7 +5,8 @@ import {
   Button, 
   Avatar, 
   Tag, 
-  Modal 
+  Modal,
+  DashboardSkeleton 
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leadsApi } from '../../../api/leadsApi';
@@ -19,7 +20,9 @@ const LeadManagement = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const leads = useMemo(() => dashData?.leads || [], [dashData]);
@@ -63,12 +66,7 @@ const LeadManagement = () => {
     return 'blue';
   };
 
-  if (isLoading) return (
-    <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Loading premium lead database...</div>
-    </div>
-  );
+  if (isLoading && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">

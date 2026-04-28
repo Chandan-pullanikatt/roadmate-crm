@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
@@ -10,12 +11,16 @@ const Attendance = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: attendanceRecords, isLoading } = useQuery({
     queryKey: ['attendance', 'state-team', selectedDate],
-    queryFn: () => attendanceApi.getTeamAttendance(selectedDate).then(res => res.data)
+    queryFn: () => attendanceApi.getTeamAttendance(selectedDate).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const stats = dashData?.stats || {};
@@ -35,6 +40,8 @@ const Attendance = () => {
     a.download = `Attendance_Kerala_${selectedDate}.csv`;
     a.click();
   };
+
+  if (isLoading) return <DashboardSkeleton />;
 
   return (
     <div className="animate-in fade-in duration-500">

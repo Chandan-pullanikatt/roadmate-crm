@@ -5,7 +5,8 @@ import {
   Button, 
   Avatar, 
   Tag, 
-  MemberRow
+  MemberRow,
+  DashboardSkeleton
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 
@@ -15,7 +16,9 @@ const DistrictExecutives = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const executives = dashData?.executivePerformance || [];
@@ -39,12 +42,7 @@ const DistrictExecutives = () => {
 
 
 
-  if (isLoading) return (
-    <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Loading premium executive metrics...</div>
-    </div>
-  );
+  if (isLoading && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">

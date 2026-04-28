@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Tag, Button, Avatar, Modal } from '../../../components/ui';
+import { Tag, Button, Avatar, Modal, DashboardSkeleton } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 
@@ -26,21 +26,27 @@ const LeaveCalendar = () => {
   const { data: calendarData, isLoading: calLoading } = useQuery({
     queryKey: ['leaves', 'im-calendar', currentUser?.state, month, year],
     queryFn: () => leaveApi.getLeaveCalendar(currentUser?.state, { month, year }).then(res => res.data),
-    enabled: !!currentUser?.state
+    enabled: !!currentUser?.state,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   // 2. Get Executive Leave Requests (Pending)
   const { data: allLeaves, isLoading: leavesLoading } = useQuery({
     queryKey: ['leaves', 'im-approvals'],
-    queryFn: () => leaveApi.getLeaves().then(res => res.data)
+    queryFn: () => leaveApi.getLeaves().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const pendingLeaves = useMemo(() => allLeaves?.filter(l => l.status === 'pending') || [], [allLeaves]);
 
   // 3. Get Dashboard Profile
-  const { data: dashData } = useQuery({
+  const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
 
   const userInfo = dashData?.user || currentUser || {};
@@ -82,12 +88,7 @@ const LeaveCalendar = () => {
     return calendarData?.filter(item => new Date(item.date).setHours(0,0,0,0) === dateStr) || [];
   };
 
-  if (calLoading || leavesLoading) return (
-    <div className="p-12 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple mx-auto mb-4"></div>
-        <div className="text-text-muted font-medium">Loading leave and calendar data...</div>
-    </div>
-  );
+  if ((calLoading || leavesLoading || dashLoading) && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-12">

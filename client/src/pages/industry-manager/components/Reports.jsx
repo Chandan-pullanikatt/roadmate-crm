@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Tag, Avatar } from '../../../components/ui';
+import { Button, Tag, Avatar, DashboardSkeleton } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -10,10 +10,14 @@ const Reports = () => {
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
 
-  const { data: dashData } = useQuery({
+  const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
   });
+
+  if (isLoading && !dashData) return <DashboardSkeleton />;
 
   const userInfo = dashData?.user || currentUser || {};
 

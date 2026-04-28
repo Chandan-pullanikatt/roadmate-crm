@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
@@ -11,7 +12,9 @@ const ExpectedOnboarding = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: leadData, isLoading } = useQuery({
@@ -21,8 +24,12 @@ const ExpectedOnboarding = () => {
       state: filterState === 'All' ? undefined : filterState,
       search: searchTerm,
       limit: 15
-    }).then(res => res.data)
+    }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
+
+  if (isLoading) return <DashboardSkeleton />;
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));

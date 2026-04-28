@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 
@@ -8,10 +9,12 @@ const Performance = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager', viewType],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Analyzing team performance...</div>;
+  if (isLoading) return <DashboardSkeleton />;
 
   const managers = dashData?.industryManagers || [];
   const user = dashData?.user || {};

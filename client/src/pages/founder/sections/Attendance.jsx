@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
 import { exportToCSV } from '../../../utils/exportUtils';
@@ -17,7 +18,9 @@ const Attendance = () => {
       month, 
       year, 
       role: roleFilter === 'All' ? undefined : roleFilter.toLowerCase().replace(' ', '_') 
-    }).then(res => res.data)
+    }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   // Fetch Salary Data
@@ -26,7 +29,9 @@ const Attendance = () => {
     queryFn: () => dashboardApi.getReport('salary', { 
       month, 
       year 
-    }).then(res => res.data)
+    }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   // Run Payroll Mutation
@@ -92,6 +97,8 @@ const Attendance = () => {
     if (role === 'executive') return 'Executive';
     return role;
   };
+
+  if (loadingAttendance || loadingSalary) return <DashboardSkeleton />;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8 pb-20">

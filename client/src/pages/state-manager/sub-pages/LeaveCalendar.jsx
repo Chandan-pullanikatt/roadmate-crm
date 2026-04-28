@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
@@ -22,18 +23,24 @@ const LeaveCalendar = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: teamLeaves, isLoading: leavesLoading } = useQuery({
     queryKey: ['leaves', 'state-team', currentMonth, currentYear],
     queryFn: () => leaveApi.getLeaveCalendar(dashData?.user?.state, { month: currentMonth + 1, year: currentYear }).then(res => res.data),
-    enabled: !!dashData?.user?.state
+    enabled: !!dashData?.user?.state,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: pendingLeaves, isLoading: pendingLoading } = useQuery({
     queryKey: ['leaves', 'pending-state'],
-    queryFn: () => leaveApi.getLeaves().then(res => res.data)
+    queryFn: () => leaveApi.getLeaves().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const approvalMutation = useMutation({
@@ -66,7 +73,7 @@ const LeaveCalendar = () => {
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
 
-  if (leavesLoading || pendingLoading) return <div className="p-8 text-center text-text-muted italic">Syncing regional holiday & leave data...</div>;
+  if (leavesLoading || pendingLoading) return <DashboardSkeleton />;
 
   const user = dashData?.user || {};
 

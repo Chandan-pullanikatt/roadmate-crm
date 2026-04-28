@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { dashboardApi } from '../../api/dashboardApi';
+import { usersApi } from '../../api/usersApi';
+import { leadsApi } from '../../api/leadsApi';
 import GlobalModals from '../GlobalModals';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
 import { useNotificationStore } from '../../store/useNotificationStore';
@@ -69,6 +73,45 @@ const DashboardLayout = ({
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
+  const queryClient = useQueryClient();
+
+  const handlePrefetch = (item) => {
+    if (!item.path || item.path === '#') return;
+    
+    const params = new URLSearchParams(item.path.split('?')[1]);
+    const page = params.get('page') || 'overview';
+    
+    if (page === 'overview') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard', userRole],
+        queryFn: () => {
+          if (userRole === 'founder') return dashboardApi.getFounderDashboard().then(res => res.data);
+          if (userRole === 'state_manager') return dashboardApi.getStateManagerDashboard().then(res => res.data);
+          if (userRole === 'executive') return dashboardApi.getExecutiveDashboard().then(res => res.data);
+          return null;
+        },
+        staleTime: 5 * 60 * 1000
+      });
+    } else if (page === 'state-managers') {
+      queryClient.prefetchQuery({
+        queryKey: ['users', 'state-managers-global'],
+        queryFn: () => usersApi.getUsers({ role: 'state_manager' }).then(res => res.data),
+        staleTime: 5 * 60 * 1000
+      });
+    } else if (page === 'industry-managers') {
+      queryClient.prefetchQuery({
+        queryKey: ['users', 'industry-managers-global'],
+        queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data),
+        staleTime: 5 * 60 * 1000
+      });
+    } else if (page === 'leads') {
+      queryClient.prefetchQuery({
+        queryKey: ['leads', 'global', 'all', 'All', ''],
+        queryFn: () => leadsApi.getLeads({ limit: 15 }).then(res => res.data),
+        staleTime: 5 * 60 * 1000
+      });
+    }
+  };
 
   const { notifications, unreadCount, markAllRead, clearAll } = useNotificationStore();
 
@@ -115,6 +158,7 @@ const DashboardLayout = ({
                     key={iidx}
                     to={item.path}
                     className={`nav-item ${isActive ? 'active' : ''} ${item.special ? 'special-item' : ''}`}
+                    onMouseEnter={() => handlePrefetch(item)}
                     onClick={(e) => {
                       if (item.onClick) {
                         e.preventDefault();

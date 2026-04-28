@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
@@ -9,7 +10,9 @@ const Reports = () => {
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const downloadCSV = (data, filename) => {
@@ -123,6 +126,8 @@ const Reports = () => {
   ];
 
   const user = dashData?.user || {};
+
+  if (!dashData) return <DashboardSkeleton />;
 
   return (
     <div className="animate-in fade-in duration-500">

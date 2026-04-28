@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
@@ -11,12 +12,16 @@ const IndustryManagers = () => {
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const { data: managersRaw, isLoading: managersLoading } = useQuery({
     queryKey: ['users', 'industry-managers'],
-    queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data)
+    queryFn: () => usersApi.getUsers({ role: 'industry_manager' }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const escalateMutation = useMutation({
@@ -26,7 +31,7 @@ const IndustryManagers = () => {
     }
   });
 
-  if (dashLoading || managersLoading) return <div className="p-8 text-center text-text-muted">Loading industry portfolio...</div>;
+  if (dashLoading || managersLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const escalations = dashData?.escalated || [];

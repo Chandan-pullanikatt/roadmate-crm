@@ -1,5 +1,6 @@
 import React from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
@@ -9,7 +10,9 @@ const Overview = () => {
   const queryClient = useQueryClient();
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data)
+    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
   });
 
   const leaveMutation = useMutation({
@@ -24,7 +27,7 @@ const Overview = () => {
     onError: (err) => toast.error(err.message)
   });
 
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading state metrics...</div>;
+  if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const managers = dashData?.industryManagers || [];
