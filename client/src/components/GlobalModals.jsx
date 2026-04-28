@@ -86,6 +86,8 @@ const GlobalModals = () => {
   }, []);
 
   const handleOpenModal = useCallback((e) => {
+    console.log('Open modal event received:', e.detail);
+    
     if (typeof e.detail === 'object') {
       if (e.detail.type === 'edit-incentive') {
         setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
@@ -95,16 +97,32 @@ const GlobalModals = () => {
         setActiveModal('create-exec');
         fetchUsers();
       } else if (e.detail.type === 'leave-approval') {
-        // Fix Gap 2: Set dynamic leaveId from event detail
         setLeaveAction({ id: e.detail.id, reason: '' });
         setActiveModal('leave-approval');
         fetchPendingLeaves();
+      } else {
+        setActiveModal(e.detail.type);
       }
     } else {
-      setActiveModal(e.detail);
-      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(e.detail)) fetchUsers();
-      if (e.detail === 'leave-approval') fetchPendingLeaves();
-      if (e.detail === 'work-time') fetchWorkingHours();
+      // Handle string aliases
+      let type = e.detail;
+      if (type === 'create-industry-manager') {
+        setExecFormData(prev => ({ ...prev, role: 'industry-manager' }));
+        type = 'create-exec';
+      } else if (type === 'create-executive') {
+        setExecFormData(prev => ({ ...prev, role: 'executive' }));
+        type = 'create-exec';
+      } else if (type === 'create-exec') {
+        // Keep default role from state
+        setExecFormData(prev => ({ ...prev, role: 'executive' }));
+      }
+
+      setActiveModal(type);
+      
+      // Data fetching
+      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(type)) fetchUsers();
+      if (type === 'leave-approval') fetchPendingLeaves();
+      if (type === 'work-time') fetchWorkingHours();
     }
   }, []);
 
@@ -113,11 +131,15 @@ const GlobalModals = () => {
     return () => window.removeEventListener('open-modal', handleOpenModal);
   }, [handleOpenModal]);
 
+  const [industryManagers, setIndustryManagers] = useState([]);
+
   const fetchUsers = async () => {
     try {
       const res = await usersApi.getUsers();
-      setManagers(res.data.filter(u => u.role === 'state_manager'));
-      setExecutives(res.data.filter(u => u.role === 'executive'));
+      const allUsers = res.data || [];
+      setManagers(allUsers.filter(u => u.role === 'state_manager'));
+      setIndustryManagers(allUsers.filter(u => u.role === 'industry_manager'));
+      setExecutives(allUsers.filter(u => u.role === 'executive'));
     } catch (err) {
       addToast('Error fetching users', 'error');
     }
@@ -578,12 +600,16 @@ const GlobalModals = () => {
               </select>
             </div>
 
-            {/* Reports To */}
             <div className="space-y-2">
               <label className="form-label">Reports To</label>
               <select className="select" value={execFormData.reportingTo} onChange={(e) => setExecFormData({...execFormData, reportingTo: e.target.value})}>
                 <option value="">Select Manager</option>
-                {managers.map(m => <option key={m._id} value={m._id}>{m.name} (State, {m.state})</option>)}
+                <optgroup label="State Managers">
+                  {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
+                </optgroup>
+                <optgroup label="Industry Managers">
+                  {industryManagers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry} · {m.state})</option>)}
+                </optgroup>
               </select>
             </div>
 

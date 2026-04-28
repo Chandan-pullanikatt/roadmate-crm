@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const DistrictExecutives = () => {
+  const queryClient = useQueryClient();
   const [viewType, setViewType] = useState('monthly');
   const [filterState, setFilterState] = useState('All');
 
@@ -14,6 +15,14 @@ const DistrictExecutives = () => {
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
+
+  React.useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+    };
+    window.addEventListener('refresh-users', handleRefresh);
+    return () => window.removeEventListener('refresh-users', handleRefresh);
+  }, [queryClient]);
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
@@ -45,7 +54,7 @@ const DistrictExecutives = () => {
             variant="outline" 
             size="sm" 
             className="bg-white border-border shadow-sm font-semibold text-[13px]"
-            onClick={() => openModal('create-executive')}
+            onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}
           >
             + Create Executive
           </Button>
