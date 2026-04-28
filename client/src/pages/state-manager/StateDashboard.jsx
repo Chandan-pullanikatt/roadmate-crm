@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import StateModals from './StateModals';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 
 // Lazy loading sub-pages

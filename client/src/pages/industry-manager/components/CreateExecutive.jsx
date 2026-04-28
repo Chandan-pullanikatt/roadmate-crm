@@ -4,6 +4,7 @@ import { usersApi } from '../../../api/usersApi';
 import { Button, Tag } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
+import LocationSelector from '../../../components/common/LocationSelector';
 
 const CreateExecutive = ({ onCancel, onSuccess }) => {
   const { addToast } = useToast();
@@ -121,20 +122,21 @@ const CreateExecutive = ({ onCancel, onSuccess }) => {
 
           {/* Section 2: Roles & Placement */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-border/40">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Assigned District</label>
-              <select 
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                className="w-full bg-surface2/50 border border-border/60 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-purple focus:ring-2 focus:ring-purple/10 transition-all appearance-none"
+            <div className="col-span-2">
+              <LocationSelector 
+                value={{ 
+                  country: formData.country || 'India', 
+                  state: formData.state || currentUser?.state || '', 
+                  district: formData.district 
+                }}
+                onChange={(loc) => setFormData({ 
+                  ...formData, 
+                  country: loc.country, 
+                  state: loc.state, 
+                  district: loc.district 
+                })}
                 required
-              >
-                <option value="">Select District</option>
-                {['Ernakulam', 'Thrissur', 'Kozhikode', 'Thiruvananthapuram', 'Kollam', 'Alappuzha', 'Idukki', 'Kottayam', 'Palakkad', 'Malappuram', 'Wayanad', 'Kannur', 'Kasaragod', 'Pathanamthitta'].map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Joining Date</label>

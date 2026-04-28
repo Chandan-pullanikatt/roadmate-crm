@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { dashboardApi } from '../../api/dashboardApi';
 import { usersApi } from '../../api/usersApi';
 import { leadsApi } from '../../api/leadsApi';
-import GlobalModals from '../GlobalModals';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
 import { useNotificationStore } from '../../store/useNotificationStore';
 
@@ -210,11 +209,14 @@ const DashboardLayout = ({
                   </svg>
                   My Profile
                 </div>
-                <div className="dropdown-item" onClick={() => setIsUserDropdownOpen(false)}>
+                <div className="dropdown-item" onClick={() => { 
+                  window.dispatchEvent(new CustomEvent('open-modal', { detail: 'change-password' }));
+                  setIsUserDropdownOpen(false); 
+                }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M8 2v12M2 8h12" strokeLinecap="round"/>
+                    <path d="M4 7V5a4 4 0 0 1 8 0v2M5 7h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  Settings
+                  Change Password
                 </div>
                 <div className="dropdown-divider"></div>
                 <div className="dropdown-item text-red" onClick={() => { onLogout(); setIsUserDropdownOpen(false); }}>
@@ -331,7 +333,6 @@ const DashboardLayout = ({
           {children}
         </div>
       </div>
-      <GlobalModals />
     </div>
   );
 };

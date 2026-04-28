@@ -1,23 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Tag, FileUpload, Avatar } from './ui';
 import { useToast } from '../context/ToastContext';
 import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
 import BulkUploadModal from './BulkUploadModal';
+import ChangePasswordModal from './modals/ChangePasswordModal';
+import LocationSelector from './common/LocationSelector';
 
-const districtsByCountry = {
-  'India': ['Hyderabad', 'Secunderabad', 'Warangal', 'Mumbai', 'Pune', 'Nagpur', 'Bengaluru', 'Mysuru', 'Chennai', 'Coimbatore', 'Ahmedabad', 'Surat', 'Delhi', 'Gurugram', 'Jaipur', 'Kochi'],
-  'UAE': ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Fujairah', 'Ras Al Khaimah'],
-  'Saudi Arabia': ['Riyadh', 'Jeddah', 'Mecca', 'Medina', 'Dammam', 'Khobar'],
-  'Singapore': ['Central Region', 'North Region', 'East Region', 'West Region', 'North-East Region'],
-  'USA': ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia'],
-  'UK': ['London', 'Birmingham', 'Manchester', 'Leeds', 'Glasgow', 'Liverpool'],
-  'Australia': ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide'],
-  'Malaysia': ['Kuala Lumpur', 'Johor Bahru', 'Penang', 'Ipoh', 'Petaling Jaya'],
-  'Germany': ['Berlin', 'Hamburg', 'Munich', 'Cologne', 'Frankfurt'],
-  'Other': ['City / Region']
-};
+
 
 const GlobalModals = () => {
   const { addToast } = useToast();
@@ -80,27 +71,37 @@ const GlobalModals = () => {
     }
   };
 
-  useEffect(() => {
-    const handleOpenModal = (e) => {
-      if (typeof e.detail === 'object') {
-        if (e.detail.type === 'edit-incentive') {
-          setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
-          setActiveModal('edit-incentive');
-        } else if (e.detail.type === 'create-exec') {
-          setExecFormData({ ...execFormData, role: e.detail.role || 'industry-manager' });
-          setActiveModal('create-exec');
-          fetchUsers();
-        }
-      } else {
-        setActiveModal(e.detail);
-        if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(e.detail)) fetchUsers();
-        if (e.detail === 'leave-approval') fetchPendingLeaves();
-        if (e.detail === 'work-time') fetchWorkingHours();
+  const handleCloseModal = useCallback(() => {
+    setActiveModal(null);
+  }, []);
+
+  const handleOpenModal = useCallback((e) => {
+    if (typeof e.detail === 'object') {
+      if (e.detail.type === 'edit-incentive') {
+        setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
+        setActiveModal('edit-incentive');
+      } else if (e.detail.type === 'create-exec') {
+        setExecFormData(prev => ({ ...prev, role: e.detail.role || 'industry-manager' }));
+        setActiveModal('create-exec');
+        fetchUsers();
+      } else if (e.detail.type === 'leave-approval') {
+        // Fix Gap 2: Set dynamic leaveId from event detail
+        setLeaveAction({ id: e.detail.id, reason: '' });
+        setActiveModal('leave-approval');
+        fetchPendingLeaves();
       }
-    };
+    } else {
+      setActiveModal(e.detail);
+      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(e.detail)) fetchUsers();
+      if (e.detail === 'leave-approval') fetchPendingLeaves();
+      if (e.detail === 'work-time') fetchWorkingHours();
+    }
+  }, []);
+
+  useEffect(() => {
     window.addEventListener('open-modal', handleOpenModal);
     return () => window.removeEventListener('open-modal', handleOpenModal);
-  }, []);
+  }, [handleOpenModal]);
 
   const fetchUsers = async () => {
     try {
@@ -244,7 +245,7 @@ const GlobalModals = () => {
         isOpen={activeModal === 'add-lead'} 
         title="Add Lead" 
         subtitle="Enter a new lead into the CRM"
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
         className="modal-lg"
       >
         <form onSubmit={handleLeadSubmit} className="space-y-10 py-2">
@@ -283,32 +284,21 @@ const GlobalModals = () => {
                 <input className="input" type="email" value={leadFormData.email} onChange={(e)=>setLeadFormData({...leadFormData, email: e.target.value})} placeholder="email@example.com" />
               </div>
 
-              <div className="space-y-2">
-                <label className="form-label">Country</label>
-                <select className="select" value={leadFormData.country} onChange={(e)=>setLeadFormData({...leadFormData, country: e.target.value, district: ''})}>
-                  <option value="">Select Country</option>
-                  {Object.keys(districtsByCountry).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="form-label">District</label>
-                <select className="select" value={leadFormData.district} onChange={(e)=>setLeadFormData({...leadFormData, district: e.target.value})}>
-                  <option value="">Select District</option>
-                  {(districtsByCountry[leadFormData.country] || []).map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="form-label">State</label>
-                <select className="select" value={leadFormData.state} onChange={(e)=>setLeadFormData({...leadFormData, state: e.target.value})}>
-                  <option value="">Select State</option>
-                  <option>Kerala</option>
-                  <option>Telangana</option>
-                  <option>Maharashtra</option>
-                  <option>Karnataka</option>
-                  <option>Tamil Nadu</option>
-                  <option>Dubai</option>
-                </select>
+              <div className="col-span-2">
+                <LocationSelector 
+                  value={{ 
+                    country: leadFormData.country, 
+                    state: leadFormData.state, 
+                    district: leadFormData.district 
+                  }}
+                  onChange={(loc) => setLeadFormData({ 
+                    ...leadFormData, 
+                    country: loc.country, 
+                    state: loc.state, 
+                    district: loc.district 
+                  })}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <label className="form-label">Industry</label>
@@ -403,14 +393,14 @@ const GlobalModals = () => {
       {/* BULK UPLOAD MODAL */}
       <BulkUploadModal 
         isOpen={activeModal === 'bulk-upload'}
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       />
 
       {/* CREATE STATE MANAGER MODAL */}
       <Modal 
         isOpen={activeModal === 'create-state-manager'} 
         title="Create State Manager" 
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <form onSubmit={handleManagerSubmit} className="space-y-6">
           <div className="space-y-4">
@@ -426,20 +416,26 @@ const GlobalModals = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="form-label">Email</label>
-                <input className="input" type="email" value={managerFormData.email} onChange={(e)=>setManagerFormData({...managerFormData, email: e.target.value})} placeholder="manager@company.com" required />
-              </div>
-              <div className="space-y-1">
-                <label className="form-label">State Jurisdiction</label>
-                <select className="select" value={managerFormData.state} onChange={(e)=>setManagerFormData({...managerFormData, state: e.target.value})} required>
-                  <option value="">Select State</option>
-                  <option>Telangana</option>
-                  <option>Maharashtra</option>
-                  <option>Karnataka</option>
-                </select>
-              </div>
+            <div className="space-y-1">
+              <label className="form-label">Email</label>
+              <input className="input" type="email" value={managerFormData.email} onChange={(e)=>setManagerFormData({...managerFormData, email: e.target.value})} placeholder="manager@company.com" required />
+            </div>
+
+            <div className="pt-2">
+              <LocationSelector 
+                value={{ 
+                  country: managerFormData.country || 'India', 
+                  state: managerFormData.state, 
+                  district: managerFormData.district 
+                }}
+                onChange={(loc) => setManagerFormData({ 
+                  ...managerFormData, 
+                  country: loc.country, 
+                  state: loc.state, 
+                  district: loc.district 
+                })}
+                required
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -483,7 +479,7 @@ const GlobalModals = () => {
       <Modal 
         isOpen={activeModal === 'allocate-lead'} 
         title="Allocate Leads" 
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <div className="space-y-6">
           <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-2xl flex gap-3 items-start">
@@ -543,7 +539,7 @@ const GlobalModals = () => {
       <Modal 
         isOpen={activeModal === 'create-exec'} 
         title="Create Staff Account" 
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <form onSubmit={handleExecSubmit} className="space-y-6">
           <div className="space-y-4">
@@ -576,15 +572,22 @@ const GlobalModals = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="form-label">Primary State</label>
-                <select className="select" value={execFormData.state} onChange={(e) => setExecFormData({...execFormData, state: e.target.value})} required>
-                  <option value="">Select State</option>
-                  <option>Telangana</option>
-                  <option>Maharashtra</option>
-                </select>
-              </div>
+            <div className="space-y-4">
+              <LocationSelector 
+                value={{ 
+                  country: execFormData.country || 'India', 
+                  state: execFormData.state, 
+                  district: execFormData.district 
+                }}
+                onChange={(loc) => setExecFormData({ 
+                  ...execFormData, 
+                  country: loc.country, 
+                  state: loc.state, 
+                  district: loc.district 
+                })}
+                required
+              />
+            </div>
               <div className="space-y-1">
                 <label className="form-label">Vertical / Industry</label>
                 <select className="select" value={execFormData.industry} onChange={(e) => setExecFormData({...execFormData, industry: e.target.value})} required>
@@ -593,7 +596,6 @@ const GlobalModals = () => {
                   <option>Electronics</option>
                 </select>
               </div>
-            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -618,7 +620,7 @@ const GlobalModals = () => {
       <Modal 
         isOpen={activeModal === 'leave-approval-legacy'} 
         title="Leave Approvals" 
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <div className="space-y-4">
           <div className="text-xs font-bold text-accent uppercase tracking-widest mb-2">Pending Requests</div>
@@ -664,7 +666,7 @@ const GlobalModals = () => {
       <Modal
         isOpen={activeModal === 'leave-approval'}
         title="Leave Approvals"
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <div className="space-y-4">
           <div className="text-xs font-bold text-accent uppercase tracking-widest mb-2">Pending Requests</div>
@@ -720,7 +722,7 @@ const GlobalModals = () => {
         isOpen={activeModal === 'edit-incentive'}
         title="Edit Incentive"
         subtitle="Adjust performance incentives and add notes"
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <form onSubmit={handleIncentiveSubmit} className="space-y-6">
           <div className="space-y-4">
@@ -757,7 +759,7 @@ const GlobalModals = () => {
         isOpen={activeModal === 'work-time'}
         title="Working Hours Configuration"
         subtitle="Set normal and Ramadan start times · Affects attendance auto-marking"
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
         className="modal-lg"
       >
         <form onSubmit={handleWorkingHoursSubmit} className="space-y-8 py-2">
@@ -870,7 +872,7 @@ const GlobalModals = () => {
         isOpen={activeModal === 'apply-leave'} 
         title="Apply For Leave" 
         subtitle="Submit a leave request for manager approval"
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
       >
         <form onSubmit={handleLeaveSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -944,7 +946,7 @@ const GlobalModals = () => {
         isOpen={activeModal === 'leave-policy'} 
         title="Leave Policy · RoadMate CRM" 
         subtitle="Standard corporate policies for staff and management"
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
         className="modal-lg"
       >
         <div className="space-y-8 py-2">
@@ -1014,10 +1016,14 @@ const GlobalModals = () => {
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button variant="primary" onClick={() => setActiveModal(null)} className="px-8">I Understand</Button>
+            <Button variant="primary" onClick={handleCloseModal} className="px-8">I Understand</Button>
           </div>
         </div>
       </Modal>
+      <ChangePasswordModal 
+        isOpen={activeModal === 'change-password'} 
+        onClose={handleCloseModal} 
+      />
     </>
   );
 };
