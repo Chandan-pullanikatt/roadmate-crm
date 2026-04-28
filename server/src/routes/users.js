@@ -26,6 +26,9 @@ router.post('/create-executive', async (req, res) => {
       basicSalary,
       employeeId,
       reportingTo,
+      aadhaarNumber,
+      panNumber,
+      dateOfJoining,
       documents = []
     } = req.body;
 
@@ -49,6 +52,9 @@ router.post('/create-executive', async (req, res) => {
       probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
       basicSalary: basicSalary || 0,
       employeeId: employeeId || `EXEC-${Date.now().toString().slice(-6)}`,
+      aadhaarNumber,
+      panNumber,
+      dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : null,
       documents
     });
 
@@ -207,6 +213,9 @@ router.post('/create-industry-manager', async (req, res) => {
       employeeId,
       reportingTo,
       state,
+      aadhaarNumber,
+      panNumber,
+      dateOfJoining,
       documents = []
     } = req.body;
     const existingUser = await User.findOne({ email });
@@ -227,6 +236,9 @@ router.post('/create-industry-manager', async (req, res) => {
       workingHours: workingHours || { start: '09:30', end: '18:30' },
       basicSalary: basicSalary || 0,
       employeeId: employeeId || `IM-${Date.now().toString().slice(-6)}`,
+      aadhaarNumber,
+      panNumber,
+      dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : null,
       documents
     });
 

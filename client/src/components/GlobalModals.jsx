@@ -7,6 +7,7 @@ import { leaveApi } from '../api/leaveApi';
 import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
 import LocationSelector from './common/LocationSelector';
+import { State } from 'country-state-city';
 
 
 
@@ -31,9 +32,18 @@ const GlobalModals = () => {
   });
 
   const [execFormData, setExecFormData] = useState({
-    role: 'industry-manager', reportingTo: '', name: '', phone: '',
-    state: '', industry: '', doj: '', basicSalary: '',
-    aadhaar: '', pan: '', documents: []
+    role: 'industry-manager', 
+    reportingTo: '', 
+    name: '', 
+    email: '',
+    phone: '',
+    state: '', 
+    industry: '', 
+    dateOfJoining: '', 
+    basicSalary: '',
+    aadhaarNumber: '', 
+    panNumber: '', 
+    documents: []
   });
 
   const [pendingLeaves, setPendingLeaves] = useState([]);
@@ -172,6 +182,20 @@ const GlobalModals = () => {
       }
       addToast('Account created successfully!', 'success');
       setActiveModal(null);
+      setExecFormData({
+        role: 'industry-manager', 
+        reportingTo: '', 
+        name: '', 
+        email: '',
+        phone: '',
+        state: '', 
+        industry: '', 
+        dateOfJoining: '', 
+        basicSalary: '',
+        aadhaarNumber: '', 
+        panNumber: '', 
+        documents: []
+      });
       window.dispatchEvent(new CustomEvent('refresh-users'));
     } catch (err) {
       addToast(err.response?.data?.message || 'Error creating account', 'error');
@@ -538,80 +562,120 @@ const GlobalModals = () => {
       {/* CREATE EXECUTIVE MODAL */}
       <Modal 
         isOpen={activeModal === 'create-exec'} 
-        title="Create Staff Account" 
+        title="Create Executive / Industry Manager" 
+        subtitle="Add new staff account with role assignment"
         onClose={handleCloseModal}
+        className="modal-lg"
       >
-        <form onSubmit={handleExecSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div className="text-xs font-bold text-accent uppercase tracking-widest">Role & Assignment</div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="form-label">Designation</label>
-                <select className="select" value={execFormData.role} onChange={(e) => setExecFormData({...execFormData, role: e.target.value})}>
-                  <option value="industry-manager">Industry Manager</option>
-                  <option value="executive">District Executive</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="form-label">Reporting To</label>
-                <select className="select" value={execFormData.reportingTo} onChange={(e) => setExecFormData({...execFormData, reportingTo: e.target.value})}>
-                  <option value="">Select Manager</option>
-                  {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
-                </select>
-              </div>
+        <form onSubmit={handleExecSubmit} className="space-y-8 py-2">
+          <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+            {/* Role */}
+            <div className="space-y-2">
+              <label className="form-label">Role <span className="text-red">*</span></label>
+              <select className="select" value={execFormData.role} onChange={(e) => setExecFormData({...execFormData, role: e.target.value})} required>
+                <option value="industry-manager">Industry State Manager</option>
+                <option value="executive">District Executive</option>
+              </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="form-label">Full Name</label>
-                <input className="input" type="text" placeholder="Staff name" value={execFormData.name} onChange={(e) => setExecFormData({...execFormData, name: e.target.value})} required />
-              </div>
-              <div className="space-y-1">
-                <label className="form-label">Phone Number</label>
-                <input className="input" type="tel" placeholder="+91 XXXXX XXXXX" value={execFormData.phone} onChange={(e) => setExecFormData({...execFormData, phone: e.target.value})} required />
-              </div>
+            {/* Reports To */}
+            <div className="space-y-2">
+              <label className="form-label">Reports To</label>
+              <select className="select" value={execFormData.reportingTo} onChange={(e) => setExecFormData({...execFormData, reportingTo: e.target.value})}>
+                <option value="">Select Manager</option>
+                {managers.map(m => <option key={m._id} value={m._id}>{m.name} (State, {m.state})</option>)}
+              </select>
             </div>
 
-            <div className="space-y-4">
-              <LocationSelector 
-                value={{ 
-                  country: execFormData.country || 'India', 
-                  state: execFormData.state, 
-                  district: execFormData.district 
-                }}
-                onChange={(loc) => setExecFormData({ 
-                  ...execFormData, 
-                  country: loc.country, 
-                  state: loc.state, 
-                  district: loc.district 
-                })}
-                required
+            {/* Full Name */}
+            <div className="space-y-2">
+              <label className="form-label">Full Name <span className="text-red">*</span></label>
+              <input className="input" type="text" placeholder="Full name" value={execFormData.name} onChange={(e) => setExecFormData({...execFormData, name: e.target.value})} required />
+            </div>
+
+            {/* Phone */}
+            <div className="space-y-2">
+              <label className="form-label">Phone <span className="text-red">*</span></label>
+              <input className="input" type="tel" placeholder="+91 XXXXX XXXXX" value={execFormData.phone} onChange={(e) => setExecFormData({...execFormData, phone: e.target.value})} required />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <label className="form-label">Email <span className="text-red">*</span></label>
+              <input className="input" type="email" placeholder="email@company.com" value={execFormData.email} onChange={(e) => setExecFormData({...execFormData, email: e.target.value})} required />
+            </div>
+
+            {/* State */}
+            <div className="space-y-2">
+              <label className="form-label">State <span className="text-red">*</span></label>
+              <select className="select" value={execFormData.state} onChange={(e) => setExecFormData({...execFormData, state: e.target.value})} required>
+                <option value="">Select State</option>
+                {State.getStatesOfCountry('IN').map(s => (
+                  <option key={s.isoCode} value={s.name}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Industry */}
+            <div className="space-y-2">
+              <label className="form-label">Industry <span className="text-red">*</span></label>
+              <select className="select" value={execFormData.industry} onChange={(e) => setExecFormData({...execFormData, industry: e.target.value})} required>
+                <option value="">Select Industry</option>
+                <option>Automobile</option>
+                <option>Electronics</option>
+                <option>Real Estate</option>
+                <option>Technology</option>
+                <option>Finance</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            {/* Date of Joining */}
+            <div className="space-y-2">
+              <label className="form-label">Date of Joining</label>
+              <input className="input" type="date" value={execFormData.dateOfJoining} onChange={(e) => setExecFormData({...execFormData, dateOfJoining: e.target.value})} />
+            </div>
+
+            {/* Basic Salary */}
+            <div className="space-y-2">
+              <label className="form-label">Basic Salary (₹/month)</label>
+              <input className="input" type="number" placeholder="e.g. 22000" value={execFormData.basicSalary} onChange={(e) => setExecFormData({...execFormData, basicSalary: e.target.value})} />
+            </div>
+
+            {/* Aadhaar Number */}
+            <div className="space-y-2">
+              <label className="form-label">Aadhaar Number <span className="text-red">*</span></label>
+              <input className="input" type="text" placeholder="XXXX XXXX XXXX" value={execFormData.aadhaarNumber} onChange={(e) => setExecFormData({...execFormData, aadhaarNumber: e.target.value})} required />
+            </div>
+
+            {/* PAN Number */}
+            <div className="space-y-2">
+              <label className="form-label">PAN Number <span className="text-red">*</span></label>
+              <input className="input uppercase" type="text" placeholder="ABCDE1234F" value={execFormData.panNumber} onChange={(e) => setExecFormData({...execFormData, panNumber: e.target.value})} required />
+            </div>
+
+            {/* Document Uploads */}
+            <div className="col-span-2 grid grid-cols-2 gap-6">
+              <FileUpload 
+                folder="staff-docs"
+                entityId={execFormData.email || 'exec-aadhaar'}
+                onUploadComplete={(file) => setExecFormData(prev => ({...prev, documents: [...prev.documents, {...file, name: 'Aadhaar Card'}]}))}
+                label="Upload Aadhaar"
               />
-            </div>
-              <div className="space-y-1">
-                <label className="form-label">Vertical / Industry</label>
-                <select className="select" value={execFormData.industry} onChange={(e) => setExecFormData({...execFormData, industry: e.target.value})} required>
-                  <option value="">Select Industry</option>
-                  <option>Automobile</option>
-                  <option>Electronics</option>
-                </select>
-              </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="form-label">Aadhaar Number</label>
-                <input className="input" type="text" placeholder="XXXX XXXX XXXX" value={execFormData.aadhaar} onChange={(e) => setExecFormData({...execFormData, aadhaar: e.target.value})} required />
-              </div>
-              <div className="space-y-1">
-                <label className="form-label">PAN Number</label>
-                <input className="input uppercase" type="text" placeholder="ABCDE1234F" value={execFormData.pan} onChange={(e) => setExecFormData({...execFormData, pan: e.target.value})} required />
-              </div>
+              <FileUpload 
+                folder="staff-docs"
+                entityId={execFormData.email || 'exec-pan'}
+                onUploadComplete={(file) => setExecFormData(prev => ({...prev, documents: [...prev.documents, {...file, name: 'PAN Card'}]}))}
+                label="Upload PAN Card"
+              />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={loading}>Create Account</Button>
+          <div className="flex justify-end gap-4 pt-6 border-t border-border mt-10">
+            <Button variant="outline" className="px-10" onClick={() => setActiveModal(null)}>Cancel</Button>
+            <Button type="submit" className="px-10 bg-[#0f766e] border-[#0f766e]" loading={loading}>
+              Create Account
+            </Button>
           </div>
         </form>
       </Modal>

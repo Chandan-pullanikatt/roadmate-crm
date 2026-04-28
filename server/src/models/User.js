@@ -39,6 +39,9 @@ const userSchema = new mongoose.Schema({
     uploadedAt: { type: Date, default: Date.now } 
   }],
   probationEndDate: { type: Date, default: null },
+  aadhaarNumber: { type: String, trim: true },
+  panNumber: { type: String, trim: true },
+  dateOfJoining: { type: Date, default: null },
 }, { timestamps: true });
 
 // Hash password before saving
