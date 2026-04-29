@@ -262,12 +262,14 @@ router.put('/:id', async (req, res) => {
     if (!targetUser) return res.status(404).json({ message: 'User not found' });
 
     // Permissions check
-    if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
-      return res.status(403).json({ message: 'Forbidden: You can only edit users in your state' });
-    }
-    
-    if (req.user.role === 'industry_manager' && targetUser.reportingTo?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Forbidden: You can only edit your direct reports' });
+    if (req.user.role !== 'founder') {
+      if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
+        return res.status(403).json({ message: 'Forbidden: You can only edit users in your state' });
+      }
+      
+      if (req.user.role === 'industry_manager' && targetUser.reportingTo?.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Forbidden: You can only edit your direct reports' });
+      }
     }
 
     // Prevent security sensitive field changes
@@ -350,14 +352,23 @@ router.delete('/:id', async (req, res) => {
     const targetUser = await User.findById(id);
     if (!targetUser) return res.status(404).json({ message: 'User not found' });
 
-    // Rule: Must verify the target user is an executive
-    if (targetUser.role !== 'executive') {
-      return res.status(400).json({ message: 'Only Executive accounts can be deleted via this flow' });
+    // Permissions/Role checks
+    if (req.user.role !== 'founder') {
+      if (targetUser.role !== 'executive') {
+        return res.status(400).json({ message: 'Only Executive accounts can be deleted via this flow' });
+      }
+
+      if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
+        return res.status(403).json({ message: 'Forbidden: You can only delete executives in your state' });
+      }
     }
 
-    // State Manager restriction
-    if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
-      return res.status(403).json({ message: 'Forbidden: You can only delete executives in your state' });
+    // Check for subordinates (Staff reporting to this user)
+    const subordinateCount = await User.countDocuments({ reportingTo: id });
+    if (subordinateCount > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete user: ${subordinateCount} staff members report to this account. Reassign them first.` 
+      });
     }
 
     // Check for assigned leads (Warning only, deletion proceeds)
@@ -366,7 +377,7 @@ router.delete('/:id', async (req, res) => {
     await User.findByIdAndDelete(id);
     
     res.json({ 
-      message: 'Executive deleted successfully',
+      message: `${targetUser.role.replace('_', ' ')} deleted successfully`,
       leadCount: leadCount,
       warning: leadCount > 0 ? `${leadCount} leads are now unassigned.` : null
     });

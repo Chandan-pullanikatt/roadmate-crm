@@ -75,6 +75,12 @@ const LeadList = () => {
     addToast("Exporting leads as CSV", "success");
   };
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   return (
     <div className="leads-page animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -96,7 +102,7 @@ const LeadList = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="btn btn-orange btn-sm shadow-orange/10 font-bold px-5" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ New Lead</button>
+          <button className="btn btn-orange btn-sm shadow-orange/10 font-bold px-5" onClick={() => openModal('add-lead')}>+ New Lead</button>
         </div>
       </div>
 
@@ -121,7 +127,7 @@ const LeadList = () => {
           </div>
           <div className="flex gap-2 border-l border-border pl-4">
             <button className="btn btn-ghost btn-sm font-bold text-xs" onClick={exportLeads}>Export CSV</button>
-            <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ Add Lead</button>
+            <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => openModal('add-lead')}>+ Add Lead</button>
           </div>
         </div>
       </div>
@@ -155,8 +161,8 @@ const LeadList = () => {
                 <td>{getStatusPill(lead.status)}</td>
                 <td>
                   <div className="flex gap-2">
-                    <button className="btn btn-ghost btn-xs font-bold">Update</button>
-                    <button className="btn btn-ghost btn-xs font-bold">History</button>
+                    <button className="btn btn-ghost btn-xs font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</button>
+                    <button className="btn btn-ghost btn-xs font-bold text-purple" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</button>
                   </div>
                 </td>
               </tr>

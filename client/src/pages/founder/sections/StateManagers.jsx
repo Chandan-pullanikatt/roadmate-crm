@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
@@ -7,6 +8,7 @@ import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 
 const StateManagers = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [detailMgr, setDetailMgr] = useState(null);
   const [filterState, setFilterState] = useState('All');
 
@@ -34,8 +36,21 @@ const StateManagers = () => {
     return () => window.removeEventListener('refresh-users', handleRefreshUsers);
   }, [queryClient]);
 
-  const openModal = (id) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
+      try {
+        await usersApi.deleteUser(id);
+        window.dispatchEvent(new CustomEvent('refresh-users'));
+      } catch (err) {
+        alert(err.response?.data?.message || 'Error deleting manager');
+      }
+    }
   };
 
   if (isLoading) return <DashboardSkeleton />;
@@ -163,10 +178,27 @@ const StateManagers = () => {
                     </div>
 
                     <div className="flex items-center justify-end gap-2 ml-10 w-[240px]">
-                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4 font-bold" onClick={(e) => { e.stopPropagation(); setDetailMgr(m); }}>View</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={(e) => e.stopPropagation()}>Edit</Button>
-                      <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={(e) => { e.stopPropagation(); openModal('leave-approval'); }}>Leave</Button>
-                      <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={(e) => e.stopPropagation()}>Delete</Button>
+                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4 font-bold" onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (m.stateManagerId) navigate(`/dashboard/state-managers/${m.stateManagerId}`);
+                      }}>View</Button>
+                      
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={(e) => {
+                        e.stopPropagation();
+                        const userObj = managers?.find(u => u._id === m.stateManagerId);
+                        if (userObj) openModal('create-state-manager', { editData: userObj });
+                      }}>Edit</Button>
+                      
+                      <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={(e) => { 
+                        e.stopPropagation(); 
+                        const userObj = managers?.find(u => u._id === m.stateManagerId);
+                        if (userObj) openModal('leave-history', { user: userObj });
+                      }}>Leave</Button>
+                      
+                      <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(m.stateManagerId, m.stateManager);
+                      }}>Delete</Button>
                     </div>
                   </div>
                 );

@@ -81,6 +81,12 @@ const MyWork = () => {
     }
   });
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   const workStarted = dashData?.workStarted || false;
   const myQueue = queueData || [];
   const activeLead = myQueue[currentLeadIdx];
@@ -223,7 +229,7 @@ const MyWork = () => {
                         <p className="text-sm text-text-muted">You've worked through all your tasks for now.</p>
                     </div>
                 ) : isLastLead ? (
-                     <div className="space-y-4">
+                    <div className="space-y-4">
                         <div className="text-5xl">🙌</div>
                         <h4 className="text-xl font-bold">End of Queue</h4>
                         <Button variant="outline" onClick={() => setCurrentLeadIdx(0)}>Restart Queue</Button>
@@ -350,7 +356,7 @@ const MyWork = () => {
                     <Button 
                         size="sm" 
                         className="bg-purple text-white hover:bg-purple-dark rounded-xl px-5 h-9 font-bold"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}
+                        onClick={() => openModal('add-lead')}
                     >
                         + Add Lead
                     </Button>
@@ -399,7 +405,10 @@ const MyWork = () => {
                                     {lead.expectedRevenue ? formatCurrency(lead.expectedRevenue) : '—'}
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button className="px-4 py-1.5 rounded-lg bg-purple text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">Work Lead</button>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button size="xs" variant="outline" className="font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
+                                        <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

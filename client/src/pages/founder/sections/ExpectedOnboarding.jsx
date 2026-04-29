@@ -48,8 +48,10 @@ const ExpectedOnboarding = () => {
     placeholderData: keepPreviousData
   });
 
-  const openModal = (id) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
   };
 
   const pipelineStats = dashData?.pipelineStats || [];
@@ -225,8 +227,8 @@ const ExpectedOnboarding = () => {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('add-lead')}>Update</button>
-                      <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead')}>Allocate</button>
+                      <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
+                      <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>
                       <button className="bg-white border border-red/20 text-red px-3 py-1 rounded-md text-[11px] font-bold hover:bg-red-light transition-all">Delete</button>
                     </div>
                   </td>

@@ -75,6 +75,12 @@ const LeadManagement = () => {
     return 'blue';
   };
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   if (isLoading && !dashData) return <DashboardSkeleton />;
 
   return (
@@ -111,7 +117,7 @@ const LeadManagement = () => {
             <div className="h-8 w-px bg-border/60" />
             <Button 
                 className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-purple/10"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}
+                onClick={() => openModal('add-lead')}
             >
                 + New Lead
             </Button>
@@ -165,7 +171,7 @@ const LeadManagement = () => {
             ))}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest">
+            <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest" onClick={() => openModal('bulk-upload')}>
                 Bulk Upload
             </Button>
             <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest">
@@ -229,9 +235,9 @@ const LeadManagement = () => {
                     <span className="text-[11px] font-bold text-text-muted">{lead.age}d</span>
                   </td>
                   <td className="px-6 py-4 text-right pr-8">
-                    <div className="flex items-center justify-end gap-3">
-                        <button className="text-[9px] font-black text-text-muted hover:text-purple uppercase tracking-widest px-2 transition-colors">Details</button>
-                        <button className="text-[9px] font-black text-amber hover:text-white hover:bg-amber border border-amber/30 rounded-lg px-4 py-1.5 uppercase tracking-widest bg-amber/5 transition-all shadow-sm">Escalate</button>
+                    <div className="flex items-center justify-end gap-2">
+                        <Button size="xs" variant="outline" className="font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
+                        <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
                     </div>
                   </td>
                 </tr>

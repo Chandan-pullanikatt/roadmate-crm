@@ -38,6 +38,12 @@ const LeadManagement = () => {
     placeholderData: keepPreviousData
   });
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
@@ -71,10 +77,10 @@ const LeadManagement = () => {
     {
       header: 'Actions',
       accessor: '_id',
-      render: (id) => (
+      render: (id, row) => (
         <div className="flex gap-2">
-          <Button size="xs" variant="outline" onClick={() => openModal('add-lead')}>Update</Button>
-          <Button size="xs" variant="outline" className="text-purple border-purple/10" onClick={() => openModal('allocate-lead')}>Allocate</Button>
+          <Button size="xs" variant="outline" onClick={() => openModal('update-lead', { leadData: row })}>Update</Button>
+          <Button size="xs" variant="outline" className="text-purple border-purple/10" onClick={() => openModal('allocate-lead', { leadData: row })}>Allocate</Button>
         </div>
       ),
       align: 'right'
@@ -179,9 +185,9 @@ const LeadManagement = () => {
                   </td>
                   <td className="p-4 text-center text-[11px] text-text-muted font-mono">{new Date(l.updatedAt).toLocaleDateString()}</td>
                   <td className="p-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('add-lead')}>Update</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead')}>Allocate</Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('update-lead', { leadData: l })}>Update</Button>
+                      <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
                     </div>
                   </td>
                 </tr>

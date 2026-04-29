@@ -121,9 +121,19 @@ router.post('/request', verifyToken, async (req, res, next) => {
 router.get('/', verifyToken, async (req, res, next) => {
   try {
     const { role, _id } = req.user;
+    const { userId } = req.query;
     let query = {};
 
-    if (role === 'executive') {
+    if (userId) {
+      // Permission check: Founder can see all, managers can see their subordinates
+      if (role !== 'founder') {
+        const isSubordinate = await User.findOne({ _id: userId, reportingTo: _id });
+        if (!isSubordinate && userId.toString() !== _id.toString()) {
+          return res.status(403).json({ message: 'Forbidden: You can only view leave history for yourself or your subordinates' });
+        }
+      }
+      query = { user: userId };
+    } else if (role === 'executive') {
       query = { user: _id };
     } else if (role === 'industry_manager') {
       // "leaves for their executives + their own pending to state manager"

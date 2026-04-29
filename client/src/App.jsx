@@ -9,6 +9,7 @@ const StateDashboard = lazy(() => import('./pages/state-manager/StateDashboard')
 const IndDashboard = lazy(() => import('./pages/industry-manager/IndDashboard'));
 const ExecutiveDashboard = lazy(() => import('./pages/executive/ExecutiveDashboard'));
 const ExecutiveDetail = lazy(() => import('./pages/executive/ExecutiveDetail'));
+const StateManagerDetail = lazy(() => import('./pages/stateManagers/StateManagerDetail'));
 const Login = lazy(() => import('./pages/Login'));
 
 
@@ -119,6 +120,15 @@ function App() {
               } 
             />
 
+
+            <Route 
+              path="/dashboard/state-managers/:id" 
+              element={
+                <ProtectedRoute>
+                  <Layout><StateManagerDetail /></Layout>
+                </ProtectedRoute>
+              } 
+            />
 
             <Route path="/" element={<Navigate to="/dashboard" />} />
             <Route path="*" element={<Navigate to="/dashboard" />} />

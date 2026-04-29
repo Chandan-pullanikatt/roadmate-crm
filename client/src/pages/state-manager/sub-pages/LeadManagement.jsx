@@ -51,18 +51,24 @@ const LeadManagement = () => {
     { id: 'lost', label: 'Lost' }
   ];
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   const columns = [
     {
       header: 'Lead ID',
       accessor: 'leadId',
-      render: (val) => <span className="mono text-[10px] font-bold">{val}</span>
+      render: (val, row) => <span className="mono text-[10px] font-bold">{row.leadId || row._id.substring(0,8).toUpperCase()}</span>
     },
     {
       header: 'Business Name',
       accessor: 'company',
       render: (val, row) => (
         <div>
-          <div className="font-bold text-[13.5px]">{row.business || val}</div>
+          <div className="font-bold text-[13.5px]">{row.company || row.business || val}</div>
           <div className="text-[11px] text-text-muted mt-0.5">{row.name}</div>
         </div>
       )
@@ -83,7 +89,12 @@ const LeadManagement = () => {
     {
       header: 'Action',
       accessor: '_id',
-      render: (id) => <Button size="xs" variant="outline" onClick={() => {}}>Details</Button>,
+      render: (id, row) => (
+        <div className="flex gap-2">
+          <Button size="xs" variant="outline" className="font-bold px-3" onClick={() => openModal('update-lead', { leadData: row })}>Update</Button>
+          <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: row })}>Allocate</Button>
+        </div>
+      ),
       align: 'right'
     }
   ];

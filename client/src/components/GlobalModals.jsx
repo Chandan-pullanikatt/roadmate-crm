@@ -8,6 +8,9 @@ import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
 import LocationSelector from './common/LocationSelector';
 import { State } from 'country-state-city';
+import LeaveHistoryModal from './modals/LeaveHistoryModal';
+import UpdateLeadModal from './modals/UpdateLeadModal';
+import AllocateLeadModal from './modals/AllocateLeadModal';
 
 
 
@@ -17,6 +20,8 @@ const GlobalModals = () => {
   const [managers, setManagers] = useState([]);
   const [executives, setExecutives] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [leaveHistoryUser, setLeaveHistoryUser] = useState(null);
+  const [selectedLead, setSelectedLead] = useState(null);
   
   const [leadFormData, setLeadFormData] = useState({
     name: '', company: '', countryCode: '+91', phone: '', email: '',
@@ -110,6 +115,39 @@ const GlobalModals = () => {
         }
         setActiveModal('create-exec');
         fetchUsers();
+      } else if (e.detail.type === 'create-state-manager') {
+        if (e.detail.editData) {
+          setManagerFormData({
+            ...e.detail.editData,
+            doj: e.detail.editData.dateOfJoining ? new Date(e.detail.editData.dateOfJoining).toISOString().split('T')[0] : '',
+            aadhaar: e.detail.editData.aadhaarNumber,
+            pan: e.detail.editData.panNumber,
+            documents: e.detail.editData.documents || []
+          });
+        } else {
+          setManagerFormData({
+            name: '', email: '', phone: '', state: '', employmentType: 'Full Time',
+            doj: '', basicSalary: '', normalStart: '09:30', ramadanStart: '09:00',
+            aadhaar: '', pan: '', documents: []
+          });
+        }
+        setActiveModal('create-state-manager');
+        fetchUsers();
+      } else if (e.detail.type === 'leave-history') {
+        setLeaveHistoryUser(e.detail.user);
+        setActiveModal('leave-history');
+      } else if (e.detail.type === 'update-lead') {
+        setSelectedLead(e.detail.leadData);
+        setActiveModal('update-lead');
+      } else if (e.detail.type === 'allocate-lead') {
+        if (e.detail.leadData) {
+          setSelectedLead(e.detail.leadData);
+          setActiveModal('allocate-single-lead');
+        } else {
+          setSelectedLead(null);
+          setActiveModal('allocate-lead');
+          fetchUsers();
+        }
       } else if (e.detail.type === 'leave-approval') {
 
         setLeaveAction({ id: e.detail.id, reason: '' });
@@ -197,12 +235,17 @@ const GlobalModals = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await usersApi.createStateManager(managerFormData);
-      addToast('State Manager created successfully!', 'success');
+      if (managerFormData._id) {
+        await usersApi.updateUser(managerFormData._id, managerFormData);
+        addToast('State Manager updated successfully!', 'success');
+      } else {
+        await usersApi.createStateManager(managerFormData);
+        addToast('State Manager created successfully!', 'success');
+      }
       setActiveModal(null);
       window.dispatchEvent(new CustomEvent('refresh-users'));
     } catch (err) {
-      addToast(err.response?.data?.message || 'Error creating manager', 'error');
+      addToast(err.response?.data?.message || 'Error saving manager', 'error');
     } finally {
       setLoading(false);
     }
@@ -468,7 +511,8 @@ const GlobalModals = () => {
       {/* CREATE STATE MANAGER MODAL */}
       <Modal 
         isOpen={activeModal === 'create-state-manager'} 
-        title="Create State Manager" 
+        title={managerFormData._id ? "Edit State Manager" : "Create State Manager"} 
+        subtitle={managerFormData._id ? "Update regional head profile information" : "Add a new state regional manager"}
         onClose={handleCloseModal}
       >
         <form onSubmit={handleManagerSubmit} className="space-y-6">
@@ -539,7 +583,9 @@ const GlobalModals = () => {
 
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={loading}>Create Manager</Button>
+            <Button variant="primary" type="submit" loading={loading}>
+              {managerFormData._id ? "Save Changes" : "Create Manager"}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -1138,6 +1184,21 @@ const GlobalModals = () => {
       <ChangePasswordModal 
         isOpen={activeModal === 'change-password'} 
         onClose={handleCloseModal} 
+      />
+      <LeaveHistoryModal 
+        isOpen={activeModal === 'leave-history'} 
+        onClose={handleCloseModal} 
+        user={leaveHistoryUser}
+      />
+      <UpdateLeadModal 
+        isOpen={activeModal === 'update-lead'} 
+        onClose={handleCloseModal} 
+        lead={selectedLead}
+      />
+      <AllocateLeadModal 
+        isOpen={activeModal === 'allocate-single-lead'} 
+        onClose={handleCloseModal} 
+        lead={selectedLead}
       />
     </>
   );
