@@ -2,155 +2,212 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
-import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 
 const LeaveCalendar = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData
-  });
-
-  const { data: teamLeaves, isLoading: leavesLoading } = useQuery({
-    queryKey: ['leaves', 'global-team', currentMonth, currentYear],
-    queryFn: () => leaveApi.getTeamLeaves(currentMonth + 1, currentYear).then(res => res.data),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData
-  });
-
+  // Section 1: Pending Approvals
   const { data: pendingLeaves, isLoading: pendingLoading } = useQuery({
-    queryKey: ['leaves', 'pending-global'],
+    queryKey: ['leaves', 'pending'],
     queryFn: () => leaveApi.getPendingLeaves().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Section 2: All Team Leaves (for calendar/history)
+  const { data: allLeaves, isLoading: leavesLoading } = useQuery({
+    queryKey: ['leaves', { month: selectedMonth }],
+    queryFn: () => leaveApi.getLeaves({ month: selectedMonth }).then(res => res.data),
+    staleTime: 2 * 60 * 1000,
     placeholderData: keepPreviousData
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: (data) => leaveApi.updateLeaveStatus(data.id, data.status, data.reason),
+  const approveMutation = useMutation({
+    mutationFn: (id) => leaveApi.approveLeave(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['leaves']);
-      addToast("Leave status updated", "success");
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      addToast("Leave request approved", "success");
+    },
+    onError: (err) => {
+      addToast(err.response?.data?.message || "Failed to approve leave", "error");
     }
   });
 
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const holidays = [14, 22, 28]; // Platform holidays
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }) => leaveApi.rejectLeave(id, { approvalNote: reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      addToast("Leave request rejected", "success");
+    },
+    onError: (err) => {
+      addToast(err.response?.data?.message || "Failed to reject leave", "error");
+    }
+  });
 
-  if (leavesLoading || pendingLoading) return <DashboardSkeleton />;
+  if (pendingLoading || leavesLoading) return <DashboardSkeleton />;
 
-  const stats = dashData?.stats || {};
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 space-y-8">
       <div className="section-header">
         <div>
-          <div className="section-title">Leave & Policy Management</div>
-          <div className="section-sub">Enterprise leave tracking · National holidays · Organizational policies</div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">Mark National Holiday</Button>
-          <Button className="bg-purple text-white" size="sm">Manage Policy</Button>
+          <div className="section-title">Leave Management</div>
+          <div className="section-sub">Approve team requests and track attendance across the organization</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="card">
-          <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Button size="xs" variant="outline" onClick={() => setCurrentMonth(m => m === 0 ? 11 : m - 1)}>&lt;</Button>
-              <div className="section-title text-sm">{new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
-              <Button size="xs" variant="outline" onClick={() => setCurrentMonth(m => m === 11 ? 0 : m + 1)}>&gt;</Button>
-            </div>
-            <div className="flex gap-3 text-[9px] font-bold uppercase tracking-tight">
-               <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red"></span> Holiday</span>
-               <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue"></span> Leave</span>
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                <div key={d} className="text-[10px] font-bold text-text-muted py-2 uppercase tracking-wider">{d}</div>
-              ))}
-              {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`b-${i}`} className="h-14"></div>)}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                 const day = i + 1;
-                 const isToday = new Date().getDate() === day && new Date().getMonth() === currentMonth;
-                 const isHoliday = holidays.includes(day);
-                 const dayLeaves = teamLeaves?.filter(l => {
-                    const start = new Date(l.startDate).getDate();
-                    const end = new Date(l.endDate).getDate();
-                    return day >= start && day <= end;
-                 });
-
-                 return (
-                   <div key={day} className={`h-14 border border-border/30 rounded-xl flex flex-col items-center justify-center relative cursor-pointer hover:bg-surface2 transition-all group
-                     ${isToday ? 'bg-purple text-white shadow-md' : ''}
-                     ${isHoliday ? 'bg-red-light/20' : ''}
-                   `}>
-                     <span className="text-sm font-bold">{day}</span>
-                     <div className="flex gap-0.5 mt-0.5">
-                       {isHoliday && <span className="w-1 h-1 rounded-full bg-red"></span>}
-                       {dayLeaves?.length > 0 && <span className="w-1 h-1 rounded-full bg-blue"></span>}
-                     </div>
-                   </div>
-                 );
-              })}
-            </div>
+      {/* SECTION 1: PENDING APPROVALS */}
+      <div className="card">
+        <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center px-6 py-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-bold">Pending Approvals</h3>
+            <Tag variant="amber" label={`${pendingLeaves?.length || 0} Pending`} />
           </div>
         </div>
-
-        <div className="flex flex-col gap-6">
-           <div className="card">
-             <div className="card-header border-b border-border bg-surface2/10">
-               <div className="section-title text-sm">Critical Pending Approvals</div>
-               <Tag variant="amber" label={`${pendingLeaves?.length || 0} Requests`} />
-             </div>
-             <div className="divide-y divide-border max-h-[350px] overflow-y-auto">
-               {pendingLeaves?.map(l => (
-                 <div key={l._id} className="flex items-center gap-4 p-4 hover:bg-surface2 transition-colors">
-                   <Avatar name={l.user?.name} size="sm" className="av-state" />
-                   <div className="flex-1 min-w-0">
-                     <div className="text-[13px] font-bold">{l.user?.name}</div>
-                     <div className="text-[10px] text-text-muted capitalize">{l.user?.role?.replace('-', ' ')} · {l.type}</div>
-                     <div className="text-[11px] text-text-secondary mt-1 italic">"{l.reason}"</div>
-                   </div>
-                   <div className="flex gap-2">
-                     <Button size="xs" className="bg-accent text-white" onClick={() => updateStatusMutation.mutate({ id: l._id, status: 'approved' })}>Approve</Button>
-                     <Button size="xs" variant="outline" className="text-red border-red/10" onClick={() => updateStatusMutation.mutate({ id: l._id, status: 'rejected' })}>Reject</Button>
-                   </div>
-                 </div>
-               ))}
-               {pendingLeaves?.length === 0 && <div className="p-12 text-center text-text-muted text-xs italic">No pending leave requests</div>}
-             </div>
-           </div>
-
-           <div className="card">
-              <div className="card-header border-b border-border bg-surface2/10"><div className="section-title text-sm">Enterprise Leave Rules</div></div>
-              <div className="card-body">
-                 <div className="flex flex-col gap-3">
-                    {[
-                      { lbl: 'Paid Leave', val: '1.5 Days/Month (Standard)' },
-                      { lbl: 'Probation', val: '0 Paid Leaves' },
-                      { lbl: 'Delayed Start', val: 'Half Day Loss' },
-                      { lbl: 'Unapproved', val: 'Lead Reallocation' }
-                    ].map((p, i) => (
-                      <div key={i} className="flex justify-between items-center p-3 bg-surface2 rounded-xl border border-border/50">
-                        <span className="text-xs font-bold">{p.lbl}</span>
-                        <span className="text-xs text-text-muted font-medium">{p.val}</span>
+        <div className="divide-y divide-border overflow-x-auto">
+          {pendingLeaves?.length > 0 ? (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-surface2/50 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                  <th className="px-6 py-3">Employee</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Dates</th>
+                  <th className="px-6 py-3 text-center">Days</th>
+                  <th className="px-6 py-3">Reason</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pendingLeaves.map(leave => (
+                  <tr key={leave._id} className="hover:bg-surface2/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={leave.user?.name} size="xs" />
+                        <div>
+                          <div className="text-xs font-bold">{leave.user?.name}</div>
+                          <div className="text-[10px] text-text-muted capitalize">{leave.user?.role?.replace('_', ' ')}</div>
+                        </div>
                       </div>
-                    ))}
-                 </div>
-              </div>
-           </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Tag variant={leave.type === 'paid' ? 'blue' : 'gray'} label={leave.type} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-xs font-medium">
+                        {new Date(leave.fromDate).toLocaleDateString()} - {new Date(leave.toDate).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-xs font-bold bg-surface2 px-2 py-1 rounded-lg">{leave.days}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-[11px] text-text-secondary italic max-w-[200px] truncate" title={leave.reason}>
+                        "{leave.reason}"
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          size="xs" 
+                          className="bg-green text-white"
+                          onClick={() => approveMutation.mutate(leave._id)}
+                          loading={approveMutation.isPending}
+                        >
+                          Approve
+                        </Button>
+                        <Button 
+                          size="xs" 
+                          variant="outline" 
+                          className="text-red border-red/10 hover:bg-red/5"
+                          onClick={() => {
+                            const reason = prompt("Enter rejection reason:");
+                            if (reason) rejectMutation.mutate({ id: leave._id, reason });
+                          }}
+                          loading={rejectMutation.isPending}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-12 text-center text-text-muted text-xs italic">
+              No pending leave requests
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 2: LEAVE CALENDAR / HISTORY */}
+      <div className="card">
+        <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center px-6 py-4">
+          <h3 className="text-sm font-bold">Leave Calendar / History</h3>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-black uppercase text-text-muted">Month:</label>
+            <select 
+              className="bg-surface2 border border-border rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:border-accent transition-all"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            >
+              {months.map((m, i) => (
+                <option key={i} value={i + 1}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="divide-y divide-border overflow-x-auto">
+          {allLeaves?.length > 0 ? (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-surface2/50 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                  <th className="px-6 py-3">Employee</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">From</th>
+                  <th className="px-6 py-3">To</th>
+                  <th className="px-6 py-3 text-center">Days</th>
+                  <th className="px-6 py-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {allLeaves.map(leave => (
+                  <tr key={leave._id} className="hover:bg-surface2/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={leave.user?.name} size="xs" />
+                        <div className="text-xs font-bold">{leave.user?.name}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs capitalize">{leave.type}</td>
+                    <td className="px-6 py-4 text-xs">{new Date(leave.fromDate).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-xs">{new Date(leave.toDate).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-xs font-medium">{leave.days}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Tag 
+                        variant={leave.status === 'approved' ? 'success' : leave.status === 'rejected' ? 'red' : 'amber'} 
+                        label={leave.status} 
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-12 text-center text-text-muted text-xs italic">
+              No leave records for this month
+            </div>
+          )}
         </div>
       </div>
     </div>

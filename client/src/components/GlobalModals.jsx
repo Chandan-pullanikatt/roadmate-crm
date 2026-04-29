@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Tag, FileUpload, Avatar } from './ui';
 import { useToast } from '../context/ToastContext';
 import { leadsApi } from '../api/leadsApi';
@@ -15,6 +16,7 @@ import AllocateLeadModal from './modals/AllocateLeadModal';
 
 
 const GlobalModals = () => {
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [activeModal, setActiveModal] = useState(null);
   const [managers, setManagers] = useState([]);
@@ -64,12 +66,16 @@ const GlobalModals = () => {
   const [leaveFormData, setLeaveFormData] = useState({
     leaveType: 'sick', fromDate: '', toDate: '', reason: ''
   });
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [targetExecutiveId, setTargetExecutiveId] = useState('');
+  const [bulkAllocateStep, setBulkAllocateStep] = useState(1);
+  const [unassignedLeads, setUnassignedLeads] = useState([]);
 
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await leaveApi.applyLeave({
+      await leaveApi.createLeave({
         type: leaveFormData.leaveType,
         fromDate: leaveFormData.fromDate,
         toDate: leaveFormData.toDate,
@@ -78,6 +84,7 @@ const GlobalModals = () => {
       addToast('Leave application submitted!', 'success');
       setActiveModal(null);
       setLeaveFormData({ leaveType: 'sick', fromDate: '', toDate: '', reason: '' });
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
       window.dispatchEvent(new CustomEvent('refresh-matrix'));
     } catch (err) {
       addToast(err.response?.data?.message || 'Error submitting leave', 'error');
@@ -153,6 +160,13 @@ const GlobalModals = () => {
         setLeaveAction({ id: e.detail.id, reason: '' });
         setActiveModal('leave-approval');
         fetchPendingLeaves();
+      } else if (e.detail.type === 'bulk-allocate') {
+        setSelectedLeadIds([]);
+        setTargetExecutiveId('');
+        setBulkAllocateStep(1);
+        setActiveModal('bulk-allocate');
+        fetchUnassignedLeads();
+        fetchUsers();
       } else {
         setActiveModal(e.detail.type);
       }
@@ -204,6 +218,39 @@ const GlobalModals = () => {
       setPendingLeaves((res.data || []).filter((leave) => leave.status === 'pending'));
     } catch (err) {
       addToast('Error fetching leave requests', 'error');
+    }
+  };
+
+  const fetchUnassignedLeads = async () => {
+    setLoading(true);
+    try {
+      const res = await leadsApi.getLeads({ owner: 'unassigned', limit: 100 });
+      setUnassignedLeads(res.data.leads || []);
+    } catch (err) {
+      addToast('Error fetching unassigned leads', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkAllocate = async () => {
+    if (!targetExecutiveId) return addToast('Please select an executive', 'warning');
+    setLoading(true);
+    try {
+      await leadsApi.bulkAllocate({
+        leadIds: selectedLeadIds,
+        assignedTo: targetExecutiveId
+      });
+      addToast(`${selectedLeadIds.length} leads allocated successfully!`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setActiveModal(null);
+      setSelectedLeadIds([]);
+      setTargetExecutiveId('');
+      setBulkAllocateStep(1);
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Error in bulk allocation', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -298,6 +345,7 @@ const GlobalModals = () => {
       else await leaveApi.rejectLeave(id, { approvalNote: leaveAction.reason });
       addToast(`Leave ${status}d successfully!`, 'success');
       setLeaveAction({ id: '', reason: '' });
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
       await fetchPendingLeaves();
     } catch (err) {
       addToast('Error updating leave', 'error');
@@ -590,63 +638,119 @@ const GlobalModals = () => {
         </form>
       </Modal>
 
-      {/* ALLOCATE LEAD MODAL */}
+      {/* BULK ALLOCATE LEAD MODAL */}
       <Modal 
-        isOpen={activeModal === 'allocate-lead'} 
-        title="Allocate Leads" 
+        isOpen={activeModal === 'bulk-allocate'} 
+        title="Bulk Allocate Leads" 
+        subtitle={bulkAllocateStep === 1 ? "Select leads to allocate" : "Select target executive"}
         onClose={handleCloseModal}
+        className="modal-lg"
       >
         <div className="space-y-6">
-          <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-2xl flex gap-3 items-start">
-            <span className="text-amber text-lg">⚠️</span>
-            <div className="text-xs text-text-secondary leading-relaxed">
-              <span className="font-bold text-amber">26 leads</span> are currently unallocated. 
-              Assign them now to prevent auto-expiry or stagnation.
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="form-label">Filter by State</label>
-              <select className="select">
-                <option>All States</option>
-                <option>Telangana</option>
-                <option>Maharashtra</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="form-label">Assign To</label>
-              <select className="select">
-                <option value="">Select Staff</option>
-                {managers.map(m => <option key={m._id} value={m._id}>{m.name} (Manager, {m.state})</option>)}
-                {executives.map(e => <option key={e._id} value={e._id}>{e.name} (Exec, {e.state})</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="form-label">Select Leads (26 available)</label>
-            <div className="border border-border rounded-2xl overflow-hidden max-h-48 overflow-y-auto bg-surface2/30">
-              <div className="p-3 border-b border-border bg-surface flex items-center gap-3">
-                <input type="checkbox" className="w-4 h-4 rounded accent-accent" />
-                <span className="text-xs font-bold">Select All Unallocated</span>
-              </div>
-              {[1, 2, 3].map(i => (
-                <div key={i} className="p-3 border-b border-border/50 flex items-center gap-3 hover:bg-white transition-colors cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded accent-accent" />
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-text-primary">Sample Lead {i}</div>
-                    <div className="text-[10px] text-text-muted">Tech Corp · Industry · State</div>
-                  </div>
+          {bulkAllocateStep === 1 ? (
+            <>
+              <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-2xl flex gap-3 items-start">
+                <span className="text-amber text-lg">⚠️</span>
+                <div className="text-xs text-text-secondary leading-relaxed">
+                  <span className="font-bold text-amber">{unassignedLeads.length} leads</span> are currently unallocated. 
+                  Select the leads you want to assign to an executive.
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button variant="primary">Allocate Selected</Button>
-          </div>
+              <div className="border border-border rounded-2xl overflow-hidden bg-surface2/30">
+                <div className="p-3 border-b border-border bg-surface flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded accent-[#0f766e]" 
+                      checked={unassignedLeads.length > 0 && selectedLeadIds.length === unassignedLeads.length}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedLeadIds(unassignedLeads.map(l => l._id));
+                        else setSelectedLeadIds([]);
+                      }}
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider">Select All Unallocated</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-text-muted">{selectedLeadIds.length} Selected</span>
+                </div>
+                <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
+                  {unassignedLeads.map(lead => (
+                    <div 
+                      key={lead._id} 
+                      className={`p-3 flex items-center gap-3 transition-colors cursor-pointer hover:bg-white ${selectedLeadIds.includes(lead._id) ? 'bg-white' : ''}`}
+                      onClick={() => {
+                        if (selectedLeadIds.includes(lead._id)) setSelectedLeadIds(selectedLeadIds.filter(id => id !== lead._id));
+                        else setSelectedLeadIds([...selectedLeadIds, lead._id]);
+                      }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded accent-[#0f766e]" 
+                        checked={selectedLeadIds.includes(lead._id)}
+                        onChange={() => {}} // Handled by div onClick
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-bold text-text-primary">{lead.company || lead.name}</div>
+                        <div className="text-[10px] text-text-muted">{lead.name} · {lead.industry} · {lead.state}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {unassignedLeads.length === 0 && (
+                    <div className="p-8 text-center text-text-muted italic">No unallocated leads found.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+                <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
+                <Button 
+                  variant="primary" 
+                  disabled={selectedLeadIds.length === 0} 
+                  onClick={() => setBulkAllocateStep(2)}
+                  className="bg-[#0f766e]"
+                >
+                  Next: Select Executive →
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="p-4 bg-blue/5 border border-blue/10 rounded-2xl">
+                <div className="text-[11px] font-bold text-blue uppercase tracking-widest mb-1">Allocation Summary</div>
+                <div className="text-sm font-medium">Allocating <span className="font-bold text-blue">{selectedLeadIds.length}</span> selected leads.</div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="form-label">Assign To Executive</label>
+                <select 
+                  className="select" 
+                  value={targetExecutiveId} 
+                  onChange={(e) => setTargetExecutiveId(e.target.value)}
+                >
+                  <option value="">Select Staff</option>
+                  <optgroup label="Executives">
+                    {executives.map(e => <option key={e._id} value={e._id}>{e.name} ({e.state})</option>)}
+                  </optgroup>
+                  <optgroup label="Industry Managers">
+                    {industryManagers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>)}
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+                <Button variant="outline" onClick={() => setBulkAllocateStep(1)}>← Back to Selection</Button>
+                <Button 
+                  variant="primary" 
+                  loading={loading} 
+                  disabled={!targetExecutiveId} 
+                  onClick={handleBulkAllocate}
+                  className="bg-[#0f766e]"
+                >
+                  Confirm & Allocate
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 

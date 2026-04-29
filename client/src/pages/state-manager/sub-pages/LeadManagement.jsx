@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag, DataTable } from '../../../components/ui';
+import { useToast } from '../../../context/ToastContext';
 
 const LeadManagement = () => {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -20,11 +24,10 @@ const LeadManagement = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData
+  const { data: counts } = useQuery({
+    queryKey: ['leads', 'counts'],
+    queryFn: () => leadsApi.getCounts().then(res => res.data),
+    staleTime: 5 * 60 * 1000
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
@@ -33,22 +36,67 @@ const LeadManagement = () => {
       status: activeTab === 'all' ? undefined : activeTab, 
       search: debouncedSearch,
       page,
-      limit: 10
+      limit: 20
     }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
 
-  const stats = dashData?.stats || {};
-  const pipelineData = dashData?.pipelineData || [];
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await leadsApi.getLeads({
+        status: activeTab === 'all' ? undefined : activeTab,
+        search: debouncedSearch,
+        limit: 9999
+      });
+      const leads = res.data.leads || [];
+      
+      if (leads.length === 0) {
+        addToast('No leads to export', 'warning');
+        return;
+      }
+
+      const headers = ['Lead ID', 'Lead Name', 'Company', 'Phone', 'Email', 'Status', 'Assigned To', 'Last Updated'];
+      const rows = leads.map(l => [
+        l.leadId || (l._id ?? '').substring(0,8).toUpperCase(),
+        l.name,
+        l.company || 'N/A',
+        l.phone,
+        l.email || 'N/A',
+        l.status?.toUpperCase(),
+        l.owner?.name || 'Unassigned',
+        new Date(l.updatedAt).toLocaleDateString()
+      ]);
+
+      const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `state-leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Export successful', 'success');
+    } catch (err) {
+      addToast('Export failed', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const leads = leadData?.leads || [];
+  const total = leadData?.total || 0;
+  const totalPages = leadData?.totalPages || 1;
 
   const tabs = [
-    { id: 'all', label: 'All Leads' },
-    { id: 'hot', label: 'Hot' },
-    { id: 'converted', label: 'Converted' },
-    { id: 'rnr', label: 'RNR' },
-    { id: 'lost', label: 'Lost' }
+    { id: 'all', label: 'All', count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
+    { id: 'new', label: 'New', count: counts?.new || 0 },
+    { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
+    { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
+    { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
+    { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
+    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
   ];
 
   const openModal = (type, data = null) => {
@@ -61,7 +109,7 @@ const LeadManagement = () => {
     {
       header: 'Lead ID',
       accessor: 'leadId',
-      render: (val, row) => <span className="mono text-[10px] font-bold">{row.leadId || row._id.substring(0,8).toUpperCase()}</span>
+      render: (val, row) => <span className="mono text-[10px] font-bold">{row.leadId || (row._id ?? '').substring(0,8).toUpperCase()}</span>
     },
     {
       header: 'Business Name',
@@ -79,7 +127,7 @@ const LeadManagement = () => {
     { 
       header: 'Status', 
       accessor: 'status', 
-      render: (val) => <Tag variant={val === 'hot' ? 'red' : val === 'converted' ? 'green' : val === 'warm' ? 'amber' : 'gray'} label={val.toUpperCase()} /> 
+      render: (val) => <Tag variant={val === 'converted' ? 'green' : (val === 'meeting_virtual' || val === 'meeting_direct') ? 'blue' : (val === 'followup' || val === 'new') ? 'amber' : 'red'} label={val?.toUpperCase() ?? 'UNKNOWN'} /> 
     },
     {
       header: 'Age',
@@ -109,44 +157,23 @@ const LeadManagement = () => {
           <div className="section-sub">State-wide lead monitoring, allocation, and lifecycle tracking</div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' }))}>⬆ Bulk Upload</Button>
-          <Button className="bg-purple text-white" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ New Lead</Button>
-        </div>
-      </div>
-
-      <div className="stat-grid mb-6">
-        <div className="stat-card">
-          <div className="stat-label">Total Leads</div>
-          <div className="stat-value" style={{ color: 'var(--blue)' }}>{stats.activeLeads || 0}</div>
-          <div className="stat-delta">Across state pipeline</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Hot Leads</div>
-          <div className="stat-value" style={{ color: 'var(--red)' }}>{pipelineData.find(f => f.status === 'hot')?.count || 0}</div>
-          <div className="stat-delta">Priority contact</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Warm Leads</div>
-          <div className="stat-value" style={{ color: 'var(--amber)' }}>{pipelineData.find(f => f.status === 'warm')?.count || 0}</div>
-          <div className="stat-delta">Active follow-ups</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Converted</div>
-          <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats.convertedThisMonth || 0}</div>
-          <div className="stat-delta text-accent">↑ This month</div>
+          <Button variant="outline" size="sm" onClick={() => openModal('bulk-upload')}>⬆ Bulk Upload</Button>
+          <Button variant="outline" size="sm" className="border-purple/20 text-purple font-bold" onClick={() => openModal('bulk-allocate')}>Bulk Allocate</Button>
+          <Button variant="outline" size="sm" loading={isExporting} onClick={handleExport}>Export CSV</Button>
+          <Button className="bg-[#0f766e] text-white" size="sm" onClick={() => openModal('add-lead')}>+ New Lead</Button>
         </div>
       </div>
 
       <div className="card">
         <div className="card-header border-b border-border flex justify-between items-center bg-surface2/10">
-          <div className="flex gap-4">
+          <div className="flex gap-4 overflow-x-auto">
             {tabs.map(t => (
               <button 
                 key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`text-xs font-bold uppercase tracking-wider pb-4 transition-all border-b-2 ${activeTab === t.id ? 'border-purple text-purple' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+                onClick={() => { setActiveTab(t.id); setPage(1); }}
+                className={`text-[10px] font-bold uppercase tracking-wider pb-4 transition-all border-b-2 whitespace-nowrap ${activeTab === t.id ? 'border-purple text-purple' : 'border-transparent text-text-muted hover:text-text-primary'}`}
               >
-                {t.label}
+                {t.label} <span className="ml-1 opacity-50">{t.count}</span>
               </button>
             ))}
           </div>
@@ -169,10 +196,12 @@ const LeadManagement = () => {
         />
 
         <div className="flex justify-between items-center p-5 border-t border-border">
-          <div className="text-xs text-text-muted font-bold">Showing {leads.length} of {leadData?.total || 0} state leads</div>
+          <div className="text-xs text-text-muted font-bold uppercase tracking-tight">
+             Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} of {total} state leads
+          </div>
           <div className="flex gap-2">
             <Button size="xs" variant="outline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
-            <Button size="xs" variant="outline" disabled={leads.length < 10} onClick={() => setPage(p => p + 1)}>Next</Button>
+            <Button size="xs" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
           </div>
         </div>
       </div>
@@ -181,4 +210,3 @@ const LeadManagement = () => {
 };
 
 export default LeadManagement;
-

@@ -53,10 +53,26 @@ const LeaveCalendar = () => {
 
   // Mutations
   const requestMutation = useMutation({
-    mutationFn: leaveApi.requestLeave,
+    mutationFn: (data) => {
+      const typeMap = {
+        'Casual Leave': 'paid',
+        'Sick Leave': 'sick',
+        'Earned Leave': 'paid',
+        'Optional Holiday': 'optional_holiday',
+        'Unpaid Leave': 'unpaid'
+      };
+      return leaveApi.applyLeave({
+        ...data,
+        type: typeMap[data.type] || 'unpaid'
+      });
+    },
     onSuccess: () => {
       addToast("Leave request submitted to State Manager", "success");
       setLeaveForm({ type: 'Casual Leave', fromDate: '', toDate: '', reason: '' });
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+    },
+    onError: (err) => {
+      addToast(err.response?.data?.message || "Error submitting leave request", "error");
     }
   });
 
@@ -223,9 +239,11 @@ const LeaveCalendar = () => {
                             value={leaveForm.type}
                             onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}
                         >
-                            <option>Casual Leave</option>
-                            <option>Sick Leave</option>
-                            <option>Earned Leave</option>
+                            <option value="Casual Leave">Casual Leave</option>
+                            <option value="Sick Leave">Sick Leave</option>
+                            <option value="Earned Leave">Earned Leave</option>
+                            <option value="Unpaid Leave">Unpaid Leave</option>
+                            <option value="Optional Holiday">Optional Holiday</option>
                         </select>
                     </div>
 

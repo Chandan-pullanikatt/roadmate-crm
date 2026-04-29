@@ -30,9 +30,21 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await leadsApi.updateLead(lead._id, formData);
+      // Use the payload requested in the fix
+      const payload = {
+        status: formData.status,
+        nextActionAt: formData.nextActionAt,
+        convertedAt: formData.expectedOnboarding,
+        notes: formData.notes
+      };
+      
+      await leadsApi.updateLead(lead._id, payload);
       addToast('Lead updated successfully', 'success');
+      
+      // Invalidate both leads and counts
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads', 'counts'] });
+      
       onClose();
     } catch (err) {
       addToast(err.response?.data?.message || 'Error updating lead', 'error');
@@ -54,22 +66,40 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
             onChange={(e) => setFormData({...formData, status: e.target.value})}
           >
             <option value="new">New</option>
-            <option value="follow-up">Follow-up</option>
-            <option value="meeting">Meeting</option>
-            <option value="negotiation">Negotiation</option>
+            <option value="followup">Follow-up</option>
+            <option value="meeting_virtual">Meeting</option>
+            <option value="rnr">RNR</option>
             <option value="converted">Converted</option>
             <option value="lost">Lost</option>
           </select>
         </div>
-        <div className="space-y-1">
-          <label className="form-label">Next Follow-up Date</label>
-          <input 
-            type="date" 
-            className="input" 
-            value={formData.nextActionAt} 
-            onChange={(e) => setFormData({...formData, nextActionAt: e.target.value})} 
-          />
-        </div>
+
+        {(formData.status === 'followup' || formData.status === 'rnr') && (
+          <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+            <label className="form-label">Next Follow-up Date</label>
+            <input 
+              type="date" 
+              className="input" 
+              value={formData.nextActionAt} 
+              onChange={(e) => setFormData({...formData, nextActionAt: e.target.value})} 
+              required
+            />
+          </div>
+        )}
+
+        {formData.status === 'converted' && (
+          <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+            <label className="form-label">Expected Onboarding Date</label>
+            <input 
+              type="date" 
+              className="input" 
+              value={formData.expectedOnboarding} 
+              onChange={(e) => setFormData({...formData, expectedOnboarding: e.target.value})} 
+              required
+            />
+          </div>
+        )}
+
         <div className="space-y-1">
           <label className="form-label">Notes / Last Action</label>
           <textarea 
@@ -77,17 +107,10 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
             placeholder="Describe the last interaction..." 
             value={formData.notes} 
             onChange={(e) => setFormData({...formData, notes: e.target.value})}
+            required
           />
         </div>
-        <div className="space-y-1">
-          <label className="form-label">Expected Onboarding Date (Optional)</label>
-          <input 
-            type="date" 
-            className="input" 
-            value={formData.expectedOnboarding} 
-            onChange={(e) => setFormData({...formData, expectedOnboarding: e.target.value})} 
-          />
-        </div>
+
         <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button variant="primary" type="submit" loading={loading} className="bg-[#0f766e]">Update Lead</Button>

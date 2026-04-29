@@ -16,22 +16,71 @@ router.use(verifyToken);
 /**
  * Helper: Get Date Ranges
  */
-const getDateRange = (type) => {
+/**
+ * Helper: Get Date Ranges
+ */
+const getDateRange = (type, value) => {
   const now = new Date();
-  const start = new Date(now);
-  const end = new Date(now);
+  let start = new Date(now);
+  let end = new Date(now);
 
-  if (type === 'today') {
+  const normalizeType = (t) => {
+    if (t === 'day') return 'today';
+    if (t === 'week') return 'weekly';
+    if (t === 'month') return 'monthly';
+    if (t === 'year') return 'yearly';
+    return t;
+  };
+
+  const period = normalizeType(type);
+
+  if (period === 'today') {
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
-  } else if (type === 'monthly') {
+  } else if (period === 'weekly') {
+    if (value && value.startsWith('Week ')) {
+      const weekNum = parseInt(value.split(' ')[1]);
+      // Approximate week start by day of month (1, 8, 15, 22, 29)
+      start.setDate(1 + (weekNum - 1) * 7);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      if (weekNum === 4 || weekNum === 5) {
+        // Last week goes to end of month
+        end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+      } else {
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+      }
+    } else {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    }
+  } else if (period === 'monthly') {
+    if (value) {
+      const monthMap = { 'January': 0, 'February': 1, 'March': 2, 'April': 3, 'May': 4, 'June': 5, 'July': 6, 'August': 7, 'September': 8, 'October': 9, 'November': 10, 'December': 11 };
+      const monthIdx = monthMap[value];
+      if (monthIdx !== undefined) start.setMonth(monthIdx);
+    }
     start.setDate(1);
     start.setHours(0, 0, 0, 0);
-  } else if (type === 'weekly') {
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-    start.setDate(diff);
+    end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+  } else if (period === 'quarter') {
+    const qMap = { 'Q1': 0, 'Q2': 3, 'Q3': 6, 'Q4': 9 };
+    const qMonth = qMap[value] !== undefined ? qMap[value] : Math.floor(now.getMonth() / 3) * 3;
+    start.setMonth(qMonth, 1);
     start.setHours(0, 0, 0, 0);
+    end = new Date(start.getFullYear(), qMonth + 3, 0, 23, 59, 59, 999);
+  } else if (period === 'yearly') {
+    if (value) {
+      const yr = parseInt(value);
+      if (!isNaN(yr)) start.setFullYear(yr);
+    }
+    start.setMonth(0, 1);
+    start.setHours(0, 0, 0, 0);
+    end = new Date(start.getFullYear(), 11, 31, 23, 59, 59, 999);
   }
 
   return { start, end };
@@ -48,25 +97,18 @@ const getLeaveBalance = async (user) => {
   const approvedLeaves = await Leave.find({
     user: user._id,
     status: 'approved',
-    fromDate: { $gte: new Date(year, 0, 1) }
+    fromDate: { $gte: new Date(year, 0, 1) },
+    toDate: { $lte: new Date(year, 11, 31) }
   });
 
-  const paidUsed = approvedLeaves
-    .filter(l => l.type === 'paid')
-    .reduce((sum, l) => sum + l.days, 0);
-
-  const optionalUsed = approvedLeaves
-    .filter(l => l.type === 'optional_holiday')
-    .reduce((sum, l) => sum + l.days, 0);
-
-  // Simple formula: quota - used
-  // paidLeavesPerMonth is 1, so 12 per year
-  const totalPaidQuota = (policy.paidLeavesPerMonth || 1) * 12;
-  const optionalQuota = policy.optionalHolidayQuota || 0.5;
+  const used = approvedLeaves.reduce((acc, l) => {
+    acc[l.type] = (acc[l.type] || 0) + l.days;
+    return acc;
+  }, {});
 
   return {
-    paid: Math.max(0, totalPaidQuota - paidUsed),
-    optionalHoliday: Math.max(0, optionalQuota - optionalUsed)
+    paid: (policy.paidLeave || 0) - (used.paid || 0),
+    optionalHoliday: (policy.optionalHolidays || 0) - (used.optional_holiday || 0)
   };
 };
 
@@ -910,9 +952,10 @@ router.get('/founder', async (req, res) => {
             return res.status(403).json({ message: 'Forbidden: Founder only' });
         }
 
-        const period = req.query.period || 'monthly';
-        const getEffectivePeriod = (p) => p === 'daily' ? 'today' : p;
-        const { start: periodStart } = getDateRange(getEffectivePeriod(period));
+        const period = req.query.period || 'weekly';
+        const periodValue = req.query.value;
+        const { start: periodStart, end: periodEnd } = getDateRange(period, periodValue);
+        
         const { start: todayStart } = getDateRange('today');
         const { start: monthStart } = getDateRange('monthly');
 
@@ -920,8 +963,9 @@ router.get('/founder', async (req, res) => {
         const totalLeads = await Lead.countDocuments();
         const leadsToday = await Lead.countDocuments({ createdAt: { $gte: todayStart } });
         
-        // Expected Onboarding (active pipeline)
-        const expectedOnboarding = await Lead.countDocuments({ status: { $in: ['new', 'followup', 'meeting_scheduled', 'meeting_done'] } });
+        // Expected Onboarding (active pipeline) - Gap 1: Align with dedicated page filter
+        const onboardingFilter = { status: { $nin: ['converted', 'lost', 'not_interested'] } };
+        const expectedOnboarding = await Lead.countDocuments(onboardingFilter);
 
         const totalConversions = await Lead.countDocuments({ status: 'converted' });
         const convertedThisMonth = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: monthStart } });
@@ -1008,18 +1052,18 @@ router.get('/founder', async (req, res) => {
                 }}
             ]),
             LeadActivity.aggregate([
-                { $match: { action: { $in: ['called', 'converted', 'meeting_scheduled', 'meeting_done'] } } },
+                { $match: { action: { $in: ['called', 'converted', 'meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'] }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
                 { $unwind: '$lead' },
                 { $group: {
                     _id: '$lead.state',
                     calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
-                    meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done']] }, 1, 0] } },
-                    revenue: { $sum: { $cond: [{ $and: [{ $eq: ['$action', 'converted'] }, { $gte: ['$createdAt', monthStart] }] }, '$metadata.revenue', 0] } }
+                    meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
+                    revenue: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, '$metadata.revenue', 0] } }
                 }}
             ]),
             Attendance.aggregate([
-                { $match: { date: { $gte: todayStart } } },
+                { $match: { date: { $gte: periodStart, $lte: periodEnd } } },
                 { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
                 { $unwind: '$user' },
                 { $group: { _id: '$user.state', avgWorkPct: { $avg: '$completionPct' } } }
@@ -1052,7 +1096,7 @@ router.get('/founder', async (req, res) => {
                 { $group: { _id: '$industry', leads: { $sum: 1 }, converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } } } }
             ]),
             LeadActivity.aggregate([
-                { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
+                { $match: { action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
                 { $unwind: '$lead' },
                 { $group: { _id: '$lead.industry', revenue: { $sum: '$metadata.revenue' } } }
@@ -1074,7 +1118,13 @@ router.get('/founder', async (req, res) => {
         // 4. Pending Leave
         const pendingLeaveRequests = await Leave.find({
             status: 'pending'
-        }).populate('user', 'name role state industry');
+        })
+        .populate({
+            path: 'user',
+            select: 'name role state industry',
+            match: { role: 'state_manager' } // Focus on SM for founder
+        })
+        .then(leaves => leaves.filter(l => l.user)); // Remove leaves from non-SM users
 
         // 5. Recent Activity
         const recentActivity = await LeadActivity.find()
@@ -1119,7 +1169,7 @@ router.get('/founder', async (req, res) => {
 
         // 6. Performance Summary
         const topExecutive = await LeadActivity.aggregate([
-            { $match: { action: 'converted', createdAt: { $gte: monthStart } } },
+            { $match: { action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } } },
             { $group: { _id: '$performedBy', count: { $sum: 1 } } },
             { $sort: { count: -1 } },
             { $limit: 1 },
@@ -1141,7 +1191,7 @@ router.get('/founder', async (req, res) => {
             { label: 'All', count: totalLeads, color: 'blue' },
             { label: 'New', count: getPipelineCount('new'), color: 'blue' },
             { label: 'Follow-up', count: getPipelineCount(['called', 'followup']), color: 'purple' },
-            { label: 'Meeting', count: pipelineStatsRaw.filter(p => p._id?.includes('meeting')).reduce((sum, p) => sum + p.count, 0), color: 'teal' },
+            { label: 'Meeting', count: getPipelineCount(['meeting_virtual', 'meeting_direct']), color: 'teal' },
             { label: 'Hot', count: await Lead.countDocuments({ priority: 'hot', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'red' },
             { label: 'Warm', count: await Lead.countDocuments({ priority: 'warm', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'orange' },
             { label: 'RNR', count: getPipelineCount('rnr'), color: 'gray' },
@@ -1154,13 +1204,13 @@ router.get('/founder', async (req, res) => {
         const allPerfUserIds = allPerformanceUsers.map(u => u._id);
 
         const [perfAttendance, perfActivities, perfLeadsCount] = await Promise.all([
-            Attendance.find({ user: { $in: allPerfUserIds }, date: { $gte: todayStart } }),
+            Attendance.find({ user: { $in: allPerfUserIds }, date: { $gte: periodStart, $lte: periodEnd } }),
             LeadActivity.aggregate([
-                { $match: { performedBy: { $in: allPerfUserIds }, createdAt: { $gte: periodStart } } },
+                { $match: { performedBy: { $in: allPerfUserIds }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $group: {
                     _id: '$performedBy',
                     calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
-                    meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done']] }, 1, 0] } },
+                    meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
                     followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] }, 1, 0] } },
                     conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
                     revenue: { $sum: '$metadata.revenue' }
@@ -1197,9 +1247,7 @@ router.get('/founder', async (req, res) => {
         const industryManagersPerformance = getPerformanceData('industry_manager');
         const executivesPerformance = getPerformanceData('executive');
 
-        const expectedOnboardingListLeads = await Lead.find({
-            status: { $nin: ['converted', 'lost', 'not_interested'] }
-        })
+        const expectedOnboardingListLeads = await Lead.find(onboardingFilter)
         .sort({ updatedAt: -1 })
         .limit(10)
         .populate('owner', 'name');
@@ -1233,8 +1281,8 @@ router.get('/founder', async (req, res) => {
             upcomingMeetings: formattedUpcomingMeetings,
             performanceSummary: {
                 topExecutive,
-                topState: byState.sort((a,b) => b.revenue - a.revenue)[0]?.state,
-                topIndustry: byIndustry.sort((a,b) => b.revenue - a.revenue)[0]?.industry
+                topState: [...byState].sort((a,b) => b.revenue - a.revenue)[0]?.state,
+                topIndustry: [...byIndustry].sort((a,b) => b.revenue - a.revenue)[0]?.industry
             }
         });
 

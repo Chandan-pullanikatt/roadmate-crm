@@ -1,35 +1,106 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
+import { Button, Tag } from '../../../components/ui';
 
 const LeadList = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [activeFilter, setActiveFilter] = useState('All');
+  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // 1. Fetch leads for this executive
-  const { data: leadsData, isLoading } = useQuery({
-    queryKey: ['leads', 'my-leads', activeFilter, searchTerm],
-    queryFn: () => {
-      let statusParams;
-      if (activeFilter === 'Fresh') statusParams = 'new';
-      else if (activeFilter === 'Hot Follow') statusParams = 'followup';
-      else if (activeFilter === 'Meetings') statusParams = 'meeting_virtual,meeting_direct';
-      else if (activeFilter === 'Converted') statusParams = 'converted';
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-      return leadsApi.getLeads({
-        status: statusParams,
-        search: searchTerm || undefined,
-        limit: 100
-      }).then(res => res.data);
-    }
+  const { data: counts } = useQuery({
+    queryKey: ['leads', 'counts'],
+    queryFn: () => leadsApi.getCounts().then(res => res.data),
+    staleTime: 5 * 60 * 1000
   });
 
-  const leads = leadsData?.leads || [];
+  const { data: leadData, isLoading, isFetching } = useQuery({
+    queryKey: ['leads', 'my-leads', activeTab, debouncedSearch, page],
+    queryFn: () => leadsApi.getLeads({ 
+      status: activeTab === 'all' ? undefined : activeTab, 
+      search: debouncedSearch,
+      page,
+      limit: 20
+    }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
+  });
 
-  // Helper: Format Relative Time
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await leadsApi.getLeads({
+        status: activeTab === 'all' ? undefined : activeTab,
+        search: debouncedSearch,
+        limit: 9999
+      });
+      const leads = res.data.leads || [];
+      
+      if (leads.length === 0) {
+        addToast('No leads to export', 'warning');
+        return;
+      }
+
+      const headers = ['Company', 'Lead Name', 'Phone', 'Email', 'Status', 'Last Contact'];
+      const rows = leads.map(l => [
+        l.company || 'N/A',
+        l.name,
+        l.phone,
+        l.email || 'N/A',
+        l.status?.toUpperCase(),
+        new Date(l.updatedAt).toLocaleDateString()
+      ]);
+
+      const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `my-leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Export successful', 'success');
+    } catch (err) {
+      addToast('Export failed', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const leads = leadData?.leads || [];
+  const total = leadData?.total || 0;
+  const totalPages = leadData?.totalPages || 1;
+
+  const tabs = [
+    { id: 'all', label: 'All', count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
+    { id: 'new', label: 'New', count: counts?.new || 0 },
+    { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
+    { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
+    { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
+    { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
+    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
+  ];
+
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   const formatLastContact = (dateStr) => {
     if (!dateStr) return 'Never';
     const date = new Date(dateStr);
@@ -38,47 +109,7 @@ const LeadList = () => {
     
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
-    return `${diffDays} Days ago`;
-  };
-
-  // Helper: Get Lead Type Pill
-  const getTypePill = (status) => {
-    if (status === 'meeting_direct') return <span className="type-pill direct">DIRECT MEET</span>;
-    if (status === 'meeting_virtual') return <span className="type-pill virtual">VIRTUAL MEET</span>;
-    return <span className="type-pill fresh">FRESH LEAD</span>;
-  };
-
-  // Helper: Get Status Pill
-  const getStatusPill = (status) => {
-    switch (status.toLowerCase()) {
-      case 'converted': return <span className="status-pill closed">CLOSED</span>;
-      case 'followup': return <span className="status-pill hot">HOT FOLLOW</span>;
-      case 'meeting_scheduled': return <span className="status-pill blocking">BLOCKING RECEIVED</span>;
-      case 'new': return <span className="status-pill next-day">NEXT DAY ACTION</span>;
-      case 'not_interested': return <span className="status-pill not-interested">NOT INTERESTED</span>;
-      case 'rnr': return <span className="status-pill rnr">RNR</span>;
-      default: return <span className="status-pill">{status.toUpperCase()}</span>;
-    }
-  };
-
-  const exportLeads = () => {
-    if (leads.length === 0) return;
-    const headers = ['Company', 'Decision Maker', 'Revenue', 'Type', 'Status'];
-    const rows = leads.map(l => [l.company, l.name, l.expectedRevenue, l.status, l.status]);
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mapped-leads-${new Date().toLocaleDateString()}.csv`;
-    a.click();
-    addToast("Exporting leads as CSV", "success");
-  };
-
-  const openModal = (type, data = null) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { 
-      detail: typeof type === 'string' ? { type, ...data } : type 
-    }));
+    return `${diffDays}d ago`;
   };
 
   return (
@@ -108,67 +139,75 @@ const LeadList = () => {
 
       {/* 2. Total Mapped Leads & Filters */}
       <div className="flex justify-between items-center mb-6 bg-surface p-4 rounded-xl border border-border shadow-sm">
-        <div className="text-sm font-extrabold text-primary">
-          Total Mapped Leads ({leadsData?.totalLeads || leads.length})
+        <div className="flex gap-3 overflow-x-auto">
+          {tabs.map(tab => (
+            <button 
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setPage(1); }}
+              className={`filter-chip-v2 ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex gap-2 items-center">
-            <span className="text-[11px] font-black text-muted uppercase tracking-widest mr-2">Filter:</span>
-            {['All', 'Fresh', 'Hot Follow', 'Meetings', 'Converted'].map(f => (
-              <button 
-                key={f}
-                className={`filter-chip-v2 ${activeFilter === f ? 'active' : ''}`}
-                onClick={() => setActiveFilter(f)}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 border-l border-border pl-4">
-            <button className="btn btn-ghost btn-sm font-bold text-xs" onClick={exportLeads}>Export CSV</button>
-            <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => openModal('add-lead')}>+ Add Lead</button>
-          </div>
+        <div className="flex items-center gap-2 border-l border-border pl-4">
+          <button className="btn btn-ghost btn-sm font-bold text-xs" onClick={handleExport} disabled={isExporting}>Export CSV</button>
+          <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => openModal('add-lead')}>+ Add Lead</button>
         </div>
       </div>
 
       {/* 3. Lead Table */}
-      <div className="table-container">
-        <table className="lead-list-table">
+      <div className="table-container shadow-sm border border-border rounded-xl overflow-hidden">
+        <table className="lead-list-table w-full">
           <thead>
-            <tr>
-              <th>Company Name</th>
-              <th>Decision Maker</th>
-              <th>Revenue Potential</th>
-              <th>Lead Type</th>
-              <th>Last Contact</th>
-              <th>Status</th>
-              <th>Actions</th>
+            <tr className="bg-surface2/50 border-b border-border text-[10px] font-black uppercase tracking-widest text-text-muted">
+              <th className="p-4 text-left">Company / Name</th>
+              <th className="p-4 text-left">Phone</th>
+              <th className="p-4 text-center">Status</th>
+              <th className="p-4 text-center">Last Contact</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {isLoading ? (
-              <tr><td colSpan="7" className="text-center py-12 text-muted">Fetching leads...</td></tr>
+              <tr><td colSpan="5" className="text-center py-12 text-muted">Fetching leads...</td></tr>
             ) : leads.length === 0 ? (
-              <tr><td colSpan="7" className="text-center py-12 text-muted">No leads found for this filter</td></tr>
+              <tr><td colSpan="5" className="text-center py-12 text-muted italic">No leads found matching your criteria</td></tr>
             ) : leads.map(lead => (
-              <tr key={lead._id}>
-                <td><span className="font-bold">{lead.company || lead.name}</span></td>
-                <td>{lead.name}</td>
-                <td><span className="font-bold">₹{(lead.expectedRevenue / 100000).toFixed(1)}L / Yr</span></td>
-                <td>{getTypePill(lead.status)}</td>
-                <td>{formatLastContact(lead.lastCallAt)}</td>
-                <td>{getStatusPill(lead.status)}</td>
-                <td>
-                  <div className="flex gap-2">
-                    <button className="btn btn-ghost btn-xs font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</button>
-                    <button className="btn btn-ghost btn-xs font-bold text-purple" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</button>
+              <tr key={lead._id} className="hover:bg-surface transition-colors group">
+                <td className="p-4">
+                  <div className="font-bold text-sm text-text-primary group-hover:text-orange transition-colors">{lead.company || lead.name}</div>
+                  <div className="text-[10px] text-text-muted">{lead.name}</div>
+                </td>
+                <td className="p-4 text-xs font-medium text-text-secondary">{lead.phone}</td>
+                <td className="p-4 text-center">
+                  <Tag 
+                    variant={lead.status === 'converted' ? 'green' : (lead.status === 'meeting_virtual' || lead.status === 'meeting_direct') ? 'blue' : (lead.status === 'followup' || lead.status === 'new') ? 'amber' : 'red'} 
+                    label={lead.status?.toUpperCase() ?? 'NEW'} 
+                  />
+                </td>
+                <td className="p-4 text-center text-xs text-text-muted font-bold">{formatLastContact(lead.updatedAt)}</td>
+                <td className="p-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button size="xs" variant="outline" className="font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
+                    <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex justify-between items-center mt-6 p-4 bg-surface rounded-xl border border-border shadow-sm">
+        <div className="text-[11px] font-black text-text-muted uppercase tracking-widest">
+           Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} of {total} leads
+        </div>
+        <div className="flex gap-2">
+          <Button size="xs" variant="outline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
+          <Button size="xs" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+        </div>
       </div>
 
     </div>

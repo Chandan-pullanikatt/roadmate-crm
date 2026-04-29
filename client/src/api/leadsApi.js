@@ -13,6 +13,8 @@ export const leadsApi = {
   getLeadActivity: (id) => api.get(`/leads/${id}/activity`),
   allocateLead: (id, ownerId) => api.put(`/leads/${id}/allocate`, { ownerId }),
   addLeadDocument: (id, metadata) => api.post(`/leads/${id}/documents`, metadata),
+  getCounts: (params) => api.get('/leads/counts', { params }),
+  bulkAllocate: (data) => api.patch('/leads/bulk-allocate', data),
 };
 
 export default leadsApi;

@@ -18,10 +18,29 @@ const getDatesInRange = (startDate, endDate) => {
   return dates;
 };
 
-// POST /request
-router.post('/request', verifyToken, async (req, res, next) => {
+// Authorization Helper: Approver must be superior or Founder
+const checkSuperior = async (requesterId, approver) => {
+  if (approver.role === 'founder') return true;
+
+  const requester = await User.findById(requesterId);
+  if (!requester) return false;
+
+  // Executive's leave -> Industry Manager
+  if (requester.role === 'executive' && requester.reportingTo?.toString() === approver._id.toString()) return true;
+
+  // Industry Manager's leave -> State Manager
+  if (requester.role === 'industry_manager' && requester.reportingTo?.toString() === approver._id.toString()) return true;
+
+  // State Manager's leave -> Founder (already handled by role === 'founder' check)
+  
+  return false;
+};
+
+// POST / (Create Leave)
+router.post('/', verifyToken, async (req, res, next) => {
   try {
-    const { type, fromDate, toDate, reason } = req.body;
+    const { leaveType, fromDate, toDate, reason, type: legacyType } = req.body;
+    const type = leaveType || legacyType; // Handle both field names
     const userId = req.user._id;
 
     const start = new Date(fromDate);
@@ -42,25 +61,29 @@ router.post('/request', verifyToken, async (req, res, next) => {
     }
 
     const user = await User.findById(userId);
-    const policy = await LeavePolicy.findOne({ state: user.state, year: new Date().getFullYear() });
+    let policy = await LeavePolicy.findOne({ state: user.state, year: new Date().getFullYear() });
 
+    // FIX 3: Safe defaults if policy is missing
     if (!policy) {
-      return res.status(400).json({ message: 'Leave policy not found for your state' });
+      policy = {
+        paidLeavesPerMonth: 1.25, // 15 per year
+        optionalHolidayQuota: 0.5,
+        holidays: []
+      };
     }
 
-    // 2. Check balance
+    // 2. Check balance (if paid)
     if (type === 'paid') {
       const isProbation = user.probationEndDate && new Date() < new Date(user.probationEndDate);
       if (isProbation) {
         return res.status(400).json({ message: 'Paid leaves are not allowed during probation' });
       }
 
-      // Calculate total earned leaves (1 per month)
+      // Calculate total earned leaves
       const joinDate = user.createdAt;
       const monthsServed = Math.floor((new Date() - joinDate) / (1000 * 60 * 60 * 24 * 30.44));
       const totalEarned = monthsServed * policy.paidLeavesPerMonth;
 
-      // Get count of approved/pending paid leaves
       const usedPaid = await Leave.aggregate([
         { $match: { user: userId, type: 'paid', status: { $in: ['approved', 'pending'] } } },
         { $group: { _id: null, total: { $sum: '$days' } } }
@@ -68,29 +91,13 @@ router.post('/request', verifyToken, async (req, res, next) => {
       const usedCount = usedPaid.length > 0 ? usedPaid[0].total : 0;
 
       if (usedCount + days > totalEarned) {
-        return res.status(400).json({ message: `Insufficient paid leave balance. Earned: ${totalEarned}, Used/Pending: ${usedCount}` });
-      }
-    }
-
-    // 3. Check Optional Holiday Quota
-    if (type === 'optional_holiday') {
-      const optionalHolidays = policy.holidays.filter(h => h.type === 'optional').length;
-      const maxAllowed = Math.ceil(optionalHolidays * policy.optionalHolidayQuota);
-
-      const usedOptional = await Leave.aggregate([
-        { $match: { user: userId, type: 'optional_holiday', status: { $in: ['approved', 'pending'] } } },
-        { $group: { _id: null, total: { $sum: '$days' } } }
-      ]);
-      const usedCount = usedOptional.length > 0 ? usedOptional[0].total : 0;
-
-      if (usedCount + days > maxAllowed) {
-        return res.status(400).json({ message: `Optional holiday quota exceeded. Max: ${maxAllowed}, Used/Pending: ${usedCount}` });
+        return res.status(400).json({ message: `Insufficient paid leave balance. Earned: ${totalEarned.toFixed(1)}, Used/Pending: ${usedCount}` });
       }
     }
 
     const leaveRequest = new Leave({
       user: userId,
-      type,
+      type: type || 'unpaid',
       fromDate: start,
       toDate: end,
       days,
@@ -103,12 +110,14 @@ router.post('/request', verifyToken, async (req, res, next) => {
     // Emit socket event to manager
     if (user.reportingTo) {
       const io = req.app.get('io');
-      io.to(user.reportingTo.toString()).emit('leave:requested', {
-        leaveId: leaveRequest._id,
-        requesterName: user.name,
-        type,
-        days
-      });
+      if (io) {
+        io.to(user.reportingTo.toString()).emit('leave:requested', {
+          leaveId: leaveRequest._id,
+          requesterName: user.name,
+          type: type || 'unpaid',
+          days
+        });
+      }
     }
 
     res.status(201).json(leaveRequest);
@@ -117,51 +126,64 @@ router.post('/request', verifyToken, async (req, res, next) => {
   }
 });
 
-// GET /
+// Alias for backward compatibility
+router.post('/request', verifyToken, async (req, res, next) => {
+  req.url = '/';
+  router.handle(req, res, next);
+});
+
+// GET / (List Leaves)
 router.get('/', verifyToken, async (req, res, next) => {
   try {
     const { role, _id } = req.user;
-    const { userId } = req.query;
+    const { userId, status, month } = req.query;
     let query = {};
 
-    if (userId) {
-      // Permission check: Founder can see all, managers can see their subordinates
-      if (role !== 'founder') {
-        const isSubordinate = await User.findOne({ _id: userId, reportingTo: _id });
-        if (!isSubordinate && userId.toString() !== _id.toString()) {
-          return res.status(403).json({ message: 'Forbidden: You can only view leave history for yourself or your subordinates' });
-        }
-      }
-      query = { user: userId };
-    } else if (role === 'executive') {
-      query = { user: _id };
-    } else if (role === 'industry_manager') {
-      // "leaves for their executives + their own pending to state manager"
-      const subordinates = await User.find({ reportingTo: _id }).select('_id');
-      const subIds = subordinates.map(s => s._id);
-      query = {
-        $or: [
-          { user: { $in: subIds } },
-          { user: _id, status: 'pending' }
-        ]
-      };
+    // Base Scoping
+    if (role === 'founder') {
+      // Sees everything
+      query = {};
     } else if (role === 'state_manager') {
-      // "leaves for their industry managers + their own pending to founder"
-      const subordinates = await User.find({ reportingTo: _id }).select('_id');
-      const subIds = subordinates.map(s => s._id);
-      query = {
-        $or: [
-          { user: { $in: subIds } },
-          { user: _id, status: 'pending' }
-        ]
-      };
-    } else if (role === 'founder') {
-      // "all pending leave requests"
-      query = { status: 'pending' };
+      // See industry managers reporting to them, and their executives
+      const ims = await User.find({ reportingTo: _id }).select('_id');
+      const imIds = ims.map(im => im._id);
+      const execs = await User.find({ reportingTo: { $in: imIds } }).select('_id');
+      const execIds = execs.map(ex => ex._id);
+      query = { user: { $in: [...imIds, ...execIds, _id] } };
+    } else if (role === 'industry_manager') {
+      // See executives reporting to them
+      const execs = await User.find({ reportingTo: _id }).select('_id');
+      const execIds = execs.map(ex => ex._id);
+      query = { user: { $in: [...execIds, _id] } };
+    } else {
+      // Executive sees only their own
+      query = { user: _id };
+    }
+
+    // Apply Filters
+    if (userId) {
+      // Verify permission to see this specific user
+      const canSee = (role === 'founder') || (query.user && query.user.$in.some(id => id.toString() === userId.toString())) || (userId.toString() === _id.toString());
+      if (!canSee) return res.status(403).json({ message: 'Not authorized to view this user\'s leaves' });
+      query.user = userId;
+    }
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (month) {
+      const targetYear = new Date().getFullYear();
+      const m = parseInt(month);
+      const start = new Date(targetYear, m - 1, 1);
+      const end = new Date(targetYear, m, 0);
+      query.$or = [
+        { fromDate: { $lte: end }, toDate: { $gte: start } }
+      ];
     }
 
     const leaves = await Leave.find(query)
-      .populate('user', 'name role state industry')
+      .populate('user', 'name role state industry reportingTo')
       .sort({ requestedAt: -1 });
 
     res.json(leaves);
@@ -170,22 +192,66 @@ router.get('/', verifyToken, async (req, res, next) => {
   }
 });
 
-// PUT /:id/approve
-router.put('/:id/approve', verifyToken, async (req, res, next) => {
+// GET /pending
+router.get('/pending', verifyToken, async (req, res, next) => {
+  try {
+    const { role, _id } = req.user;
+    let query = { status: 'pending' };
+
+    // Scoping for pending leaves (who can approve what)
+    if (role === 'founder') {
+      // Sees all pending leaves from State Managers
+      const stateManagers = await User.find({ role: 'state_manager' }).select('_id');
+      const smIds = stateManagers.map(sm => sm._id);
+      // Also potentially anything else if direct reporting is used
+      query.user = { $exists: true }; 
+    } else if (role === 'state_manager') {
+      // Sees pending leaves from Industry Managers reporting to them
+      const ims = await User.find({ reportingTo: _id }).select('_id');
+      const imIds = ims.map(im => im._id);
+      query.user = { $in: imIds };
+    } else if (role === 'industry_manager') {
+      // Sees pending leaves from Executives reporting to them
+      const execs = await User.find({ reportingTo: _id }).select('_id');
+      const execIds = execs.map(ex => ex._id);
+      query.user = { $in: execIds };
+    } else {
+      // Executive sees no pending leaves to approve
+      return res.json([]);
+    }
+
+    const leaves = await Leave.find(query)
+      .populate('user', 'name role state industry reportingTo')
+      .sort({ requestedAt: -1 });
+
+    res.json(leaves);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /:id/approve
+router.patch('/:id/approve', verifyToken, async (req, res, next) => {
   try {
     const leave = await Leave.findById(req.params.id);
     if (!leave) return res.status(404).json({ message: 'Leave request not found' });
 
+    // FIX 2: Authorization Check
+    const isAuthorized = await checkSuperior(leave.user, req.user);
+    if (!isAuthorized) {
+      return res.status(403).json({ message: 'Not authorized to approve this leave' });
+    }
+
     leave.status = 'approved';
     leave.approvedBy = req.user._id;
+    leave.approvedAt = new Date();
     await leave.save();
 
     // Create Attendance docs
     const dates = getDatesInRange(leave.fromDate, leave.toDate);
     for (const date of dates) {
-      // Use findOneAndUpdate to avoid duplicate key errors if attendance already exists
       await Attendance.findOneAndUpdate(
-        { user: leave.user, date: date.setHours(0,0,0,0) },
+        { user: leave.user, date: new Date(date).setHours(0,0,0,0) },
         { status: 'leave' },
         { upsert: true, new: true }
       );
@@ -204,15 +270,22 @@ router.put('/:id/approve', verifyToken, async (req, res, next) => {
   }
 });
 
-// PUT /:id/reject
-router.put('/:id/reject', verifyToken, async (req, res, next) => {
+// PATCH /:id/reject
+router.patch('/:id/reject', verifyToken, async (req, res, next) => {
   try {
     const { approvalNote } = req.body;
     const leave = await Leave.findById(req.params.id);
     if (!leave) return res.status(404).json({ message: 'Leave request not found' });
 
+    // FIX 2: Authorization Check
+    const isAuthorized = await checkSuperior(leave.user, req.user);
+    if (!isAuthorized) {
+      return res.status(403).json({ message: 'Not authorized to reject this leave' });
+    }
+
     leave.status = 'rejected';
     leave.approvedBy = req.user._id;
+    leave.rejectedAt = new Date();
     leave.approvalNote = approvalNote;
     await leave.save();
 
@@ -228,6 +301,17 @@ router.put('/:id/reject', verifyToken, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// Backward compatibility for PUT approve/reject
+router.put('/:id/approve', verifyToken, async (req, res, next) => {
+  req.method = 'PATCH';
+  router.handle(req, res, next);
+});
+
+router.put('/:id/reject', verifyToken, async (req, res, next) => {
+  req.method = 'PATCH';
+  router.handle(req, res, next);
 });
 
 // GET /balance/:userId

@@ -37,11 +37,30 @@ const IndustryManagers = () => {
   const stats = dashData?.stats || {};
   const escalations = dashData?.escalated || [];
   const user = dashData?.user || {};
+  const managerPerformance = dashData?.industryManagers || [];
+  const performanceById = new Map(managerPerformance.map(m => [String(m._id), m]));
+  const performanceByIndustry = new Map(managerPerformance.map(m => [m.industry, m]));
+  const managerRows = managersRaw?.length ? managersRaw : managerPerformance;
+  const industryManagers = managerRows.map(manager => {
+    const performance = performanceById.get(String(manager._id)) || performanceByIndustry.get(manager.industry) || {};
+
+    return {
+      ...manager,
+      industry: manager.industry || performance.industry || '',
+      leadsCount: performance.leadsCount ?? manager.leadsCount ?? 0,
+      efficiency: performance.efficiency ?? manager.efficiency ?? 0,
+      calls: performance.calls ?? manager.calls ?? 0,
+      meetings: performance.meetings ?? manager.meetings ?? 0,
+      conversions: performance.conversions ?? manager.conversions ?? 0,
+      revenue: performance.revenue ?? manager.revenue ?? 0,
+      districts: performance.districts ?? manager.districts ?? (manager.district ? 1 : 0)
+    };
+  });
 
   const filteredManagers = industryManagers.filter(m => {
     return !searchTerm || 
-      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.industry.toLowerCase().includes(searchTerm.toLowerCase());
+      (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.industry || '').toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const formatCurrency = (val) => {

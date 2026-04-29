@@ -5,14 +5,53 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Overview = () => {
-  const [summaryTab, setSummaryTab] = useState('month');
+  const [summaryTab, setSummaryTab] = useState('week');
+  
+  // Initialize summaryPeriodValue based on current date
+  const getCurrentDefaultValue = (tab) => {
+    const now = new Date();
+    if (tab === 'week') {
+      const week = Math.ceil(now.getDate() / 7);
+      return `Week ${week > 5 ? 5 : week}`;
+    }
+    if (tab === 'month') {
+      return now.toLocaleString('en-US', { month: 'long' });
+    }
+    if (tab === 'quarter') {
+      const q = Math.floor(now.getMonth() / 3) + 1;
+      return `Q${q}`;
+    }
+    if (tab === 'year') {
+      return String(now.getFullYear());
+    }
+    return '';
+  };
+
+  const [summaryPeriodValue, setSummaryPeriodValue] = useState(() => getCurrentDefaultValue('week'));
 
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'founder', summaryTab],
-    queryFn: () => dashboardApi.getFounderDashboard(summaryTab).then(res => res.data),
+    queryKey: ['dashboard', 'founder', summaryTab, summaryPeriodValue],
+    queryFn: () => dashboardApi.getFounderDashboard(summaryTab, summaryPeriodValue).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
+
+  const handleTabChange = (t) => {
+    setSummaryTab(t);
+    setSummaryPeriodValue(getCurrentDefaultValue(t));
+  };
+
+  const getDropdownOptions = () => {
+    if (summaryTab === 'today') return [];
+    if (summaryTab === 'week') return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+    if (summaryTab === 'month') return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    if (summaryTab === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'];
+    if (summaryTab === 'year') {
+      const currentYear = new Date().getFullYear();
+      return Array.from({ length: 5 }, (_, i) => String(currentYear - i));
+    }
+    return [];
+  };
 
   const openModal = (id) => {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
@@ -102,16 +141,30 @@ const Overview = () => {
           <div className="section-title">Founder Summary</div>
           <div className="section-sub">Enterprise overview {"\u2014"} all states, industries & staff</div>
         </div>
-        <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-          {['today', 'week', 'month', 'year'].map(t => (
-            <button 
-              key={t}
-              onClick={() => setSummaryTab(t)}
-              className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+        <div className="flex items-center gap-3">
+          <div className="flex bg-surface2 p-1 rounded-xl border border-border">
+            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+              <button 
+                key={t}
+                onClick={() => handleTabChange(t)}
+                className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          
+          {summaryTab !== 'today' && (
+            <select 
+              value={summaryPeriodValue}
+              onChange={(e) => setSummaryPeriodValue(e.target.value)}
+              className="bg-white border border-border rounded-xl px-4 py-2 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm min-w-[120px]"
             >
-              {t}
-            </button>
-          ))}
+              {getDropdownOptions().map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

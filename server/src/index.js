@@ -88,6 +88,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/leave', leaveRouter);
+app.use('/api/leaves', leaveRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/stats', statsRouter);

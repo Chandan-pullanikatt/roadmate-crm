@@ -56,9 +56,20 @@ const LeaveCalendar = () => {
   });
 
   const applyMutation = useMutation({
-    mutationFn: (data) => leaveApi.requestLeave(data),
+    mutationFn: (data) => {
+      const typeMap = {
+        'casual': 'paid',
+        'sick': 'sick',
+        'optional_holiday': 'optional_holiday',
+        'unpaid': 'unpaid'
+      };
+      return leaveApi.requestLeave({
+        ...data,
+        type: typeMap[data.type] || 'unpaid'
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(['leaves']);
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
       toast.success("Leave request sent to Founder");
       setLeaveForm({ type: 'casual', fromDate: '', toDate: '', days: 1, reason: '' });
     },

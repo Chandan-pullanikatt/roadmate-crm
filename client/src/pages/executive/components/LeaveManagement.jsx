@@ -39,10 +39,9 @@ const LeaveManagement = () => {
   });
 
   const requestMutation = useMutation({
-    mutationFn: (data) => leaveApi.requestLeave(data),
+    mutationFn: (data) => leaveApi.createLeave(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['leaves', 'my-requests']);
-      queryClient.invalidateQueries(['leaves', 'balance']);
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
       setIsRequestModalOpen(false);
       setLeaveForm({ type: 'paid', fromDate: '', toDate: '', reason: '' });
       addToast("Leave request submitted", "success");

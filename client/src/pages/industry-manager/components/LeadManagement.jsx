@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { 
   StatCard, 
   Button, 
   Avatar, 
   Tag, 
-  Modal,
   DashboardSkeleton 
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -15,48 +14,104 @@ import { useToast } from '../../../context/ToastContext';
 const LeadManagement = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
+      setPage(1);
     }, 350);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { data: dashData, isLoading } = useQuery({
+  const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
     queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
     staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev
+    placeholderData: keepPreviousData
   });
 
-  const leads = useMemo(() => dashData?.leads || [], [dashData]);
+  const { data: counts } = useQuery({
+    queryKey: ['leads', 'counts'],
+    queryFn: () => leadsApi.getCounts().then(res => res.data),
+    staleTime: 5 * 60 * 1000
+  });
+
+  const { data: leadData, isLoading, isFetching } = useQuery({
+    queryKey: ['leads', 'industry-list', activeTab, debouncedSearch, page],
+    queryFn: () => leadsApi.getLeads({ 
+      status: activeTab === 'all' ? undefined : activeTab, 
+      search: debouncedSearch,
+      page,
+      limit: 20
+    }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
+  });
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await leadsApi.getLeads({
+        status: activeTab === 'all' ? undefined : activeTab,
+        search: debouncedSearch,
+        limit: 9999
+      });
+      const leads = res.data.leads || [];
+      
+      if (leads.length === 0) {
+        addToast('No leads to export', 'warning');
+        return;
+      }
+
+      const headers = ['Lead ID', 'Lead Name', 'Company', 'Phone', 'Email', 'Status', 'Assigned To', 'Last Updated'];
+      const rows = leads.map(l => [
+        l.leadId || (l._id ?? '').substring(0,8).toUpperCase(),
+        l.name,
+        l.company || 'N/A',
+        l.phone,
+        l.email || 'N/A',
+        l.status?.toUpperCase(),
+        l.owner?.name || 'Unassigned',
+        new Date(l.updatedAt).toLocaleDateString()
+      ]);
+
+      const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `industry-leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Export successful', 'success');
+    } catch (err) {
+      addToast('Export failed', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const leads = leadData?.leads || [];
+  const total = leadData?.total || 0;
+  const totalPages = leadData?.totalPages || 1;
   const stats = dashData?.stats || {};
   const userInfo = dashData?.user || {};
 
-  const filteredLeads = useMemo(() => {
-    let result = leads;
-    if (activeTab !== 'All') {
-        const tab = activeTab.toLowerCase();
-        if (tab === 'follow-up') {
-            result = result.filter(l => l.status.toLowerCase() === 'followup');
-        } else {
-            result = result.filter(l => l.status.toLowerCase() === tab);
-        }
-    }
-    if (debouncedSearch) {
-        result = result.filter(l => 
-            l.company.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
-            l.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            l.leadId.toLowerCase().includes(debouncedSearch.toLowerCase())
-        );
-    }
-    return result;
-  }, [leads, activeTab, debouncedSearch]);
+  const tabs = [
+    { id: 'all', label: 'All', count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
+    { id: 'new', label: 'New', count: counts?.new || 0 },
+    { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
+    { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
+    { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
+    { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
+    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
+  ];
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -65,7 +120,7 @@ const LeadManagement = () => {
   };
 
   const getStatusVariant = (status) => {
-    status = status.toLowerCase();
+    status = status?.toLowerCase();
     if (status === 'hot') return 'red';
     if (status === 'warm') return 'amber';
     if (status === 'converted') return 'green';
@@ -99,7 +154,7 @@ const LeadManagement = () => {
             Lead Database
           </h1>
           <p className="text-sm text-text-muted mt-1 font-medium">
-            Managing {leads.length} Leads <span className="mx-2 opacity-30">·</span> {userInfo.industry} <span className="mx-2 opacity-30">·</span> {userInfo.state}
+            Managing {total} Leads <span className="mx-2 opacity-30">·</span> {userInfo.industry} <span className="mx-2 opacity-30">·</span> {userInfo.state}
           </p>
         </div>
         
@@ -116,7 +171,7 @@ const LeadManagement = () => {
             </div>
             <div className="h-8 w-px bg-border/60" />
             <Button 
-                className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-purple/10"
+                className="bg-[#0f766e] text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-[#0f766e]/10"
                 onClick={() => openModal('add-lead')}
             >
                 + New Lead
@@ -136,7 +191,7 @@ const LeadManagement = () => {
         <StatCard 
             label="Hot Pipeline" 
             value={stats.hotLeads || 0} 
-            delta={`${Math.round((stats.hotLeads / stats.totalLeads) * 100) || 0}%`}
+            delta={`${Math.round((stats.hotLeads / (stats.totalLeads || 1)) * 100) || 0}%`}
             deltaLabel="of total"
             deltaType="up"
             colorClass="red" 
@@ -161,20 +216,25 @@ const LeadManagement = () => {
       {/* Main Table Card */}
       <div className="card shadow-lg shadow-purple/5 border-border/40 overflow-hidden">
         <div className="card-header border-none px-8 pt-8 pb-4 flex flex-col sm:flex-row justify-between gap-4">
-          <div className="flex bg-surface2 p-1 rounded-xl border border-border/40">
-            {['All', 'Hot', 'Follow-up', 'RNR', 'Converted', 'Lost'].map(tab => (
+          <div className="flex bg-surface2 p-1 rounded-xl border border-border/40 overflow-x-auto">
+            {tabs.map(tab => (
                 <button 
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest ${activeTab === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
-                >{tab}</button>
+                    key={tab.id}
+                    onClick={() => { setActiveTab(tab.id); setPage(1); }}
+                    className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === tab.id ? 'bg-white shadow-sm text-[#0f766e]' : 'text-text-muted hover:text-text-primary'}`}
+                >
+                  {tab.label} <span className="ml-1 opacity-50">{tab.count}</span>
+                </button>
             ))}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest" onClick={() => openModal('bulk-upload')}>
                 Bulk Upload
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest">
+            <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-purple/20 text-purple text-[10px] uppercase tracking-widest" onClick={() => openModal('bulk-allocate')}>
+                Bulk Allocate
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest" onClick={handleExport} loading={isExporting}>
                 Export
             </Button>
           </div>
@@ -189,21 +249,19 @@ const LeadManagement = () => {
                 <th className="px-6 py-4">District</th>
                 <th className="px-6 py-4">Executive</th>
                 <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-center">RNR</th>
-                <th className="px-6 py-4">Revenue</th>
-                <th className="px-6 py-4">Age</th>
+                <th className="px-6 py-4 text-center">Last Updated</th>
                 <th className="px-6 py-4 text-right pr-8">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {filteredLeads.map((lead, idx) => (
+              {leads.map((lead, idx) => (
                 <tr key={lead._id} className="hover:bg-purple-light/10 transition-colors group">
                   <td className="px-8 py-4">
-                    <span className="text-[10px] font-black font-mono text-text-muted group-hover:text-purple transition-colors">{lead.leadId}</span>
+                    <span className="text-[10px] font-black font-mono text-text-muted group-hover:text-purple transition-colors">{lead.leadId || (lead._id ?? '').substring(0,8).toUpperCase()}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-black text-text-primary group-hover:text-purple transition-colors">{lead.company}</span>
+                      <span className="text-sm font-black text-text-primary group-hover:text-purple transition-colors">{lead.company || lead.name}</span>
                       <span className="text-[10px] font-bold text-text-muted">{lead.name}</span>
                     </div>
                   </td>
@@ -212,8 +270,8 @@ const LeadManagement = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                       <Avatar name={lead.owner} size="xs" className={`av-${idx % 5} rounded-lg`} />
-                       <span className="text-[11px] font-bold text-text-primary">{lead.owner}</span>
+                       <div className="w-6 h-6 rounded-lg bg-surface2 flex items-center justify-center text-[9px] font-black">{lead.owner?.name?.[0] || 'U'}</div>
+                       <span className="text-[11px] font-bold text-text-primary">{lead.owner?.name || 'Unassigned'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -224,15 +282,7 @@ const LeadManagement = () => {
                     />
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className={`text-[10px] font-black ${lead.rnrCount > 0 ? 'text-amber' : 'text-text-muted opacity-30'}`}>
-                        {lead.rnrCount > 0 ? `${lead.rnrCount}x RNR` : '—'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[11px] font-black text-text-primary">{formatCurrency(lead.revenue)}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[11px] font-bold text-text-muted">{lead.age}d</span>
+                    <span className="text-[11px] font-bold text-text-muted font-mono">{new Date(lead.updatedAt).toLocaleDateString()}</span>
                   </td>
                   <td className="px-6 py-4 text-right pr-8">
                     <div className="flex items-center justify-end gap-2">
@@ -242,7 +292,7 @@ const LeadManagement = () => {
                   </td>
                 </tr>
               ))}
-              {filteredLeads.length === 0 && (
+              {leads.length === 0 && !isLoading && (
                   <tr>
                       <td colSpan="9" className="p-20 text-center">
                          <div className="text-3xl mb-3 opacity-30">🔍</div>
@@ -252,6 +302,16 @@ const LeadManagement = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/5">
+          <div className="text-[10px] text-text-muted font-black uppercase tracking-widest">
+             Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} of {total} leads
+          </div>
+          <div className="flex gap-2">
+            <Button size="xs" variant="outline" disabled={page === 1} onClick={() => setPage(p => p - 1)} className="rounded-xl px-6">Previous</Button>
+            <Button size="xs" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="rounded-xl px-6">Next</Button>
+          </div>
         </div>
       </div>
     </div>
