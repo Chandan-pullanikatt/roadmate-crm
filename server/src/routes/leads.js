@@ -48,6 +48,11 @@ const normalizeLeadPayload = (payload = {}) => {
   if (payload.expectedRevenue !== undefined && payload.expectedRevenue !== null && payload.expectedRevenue !== '') {
     normalized.expectedRevenue = Number(payload.expectedRevenue) || 0;
   }
+  if (payload.actualRevenue !== undefined && payload.actualRevenue !== null && payload.actualRevenue !== '') {
+    normalized.actualRevenue = Number(payload.actualRevenue) || 0;
+  }
+  if (payload.revenueCategory) normalized.revenueCategory = payload.revenueCategory;
+  if (payload.region) normalized.region = payload.region;
   if (Array.isArray(payload.documents)) {
     normalized.documents = payload.documents.map((doc) => ({
       name: doc.name || doc.fileName,

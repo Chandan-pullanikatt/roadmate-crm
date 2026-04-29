@@ -86,7 +86,7 @@ const LocationSelector = ({
   const errorClassName = "mt-1 text-[10px] font-bold text-red uppercase tracking-tight";
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {/* Country Selection */}
       <div className="space-y-1">
         <label className={labelClassName}>
@@ -148,6 +148,26 @@ const LocationSelector = ({
           ))}
         </select>
         {errors.district && <p className={errorClassName}>{errors.district}</p>}
+      </div>
+
+      {/* Region Selection */}
+      <div className="space-y-1">
+        <label className={labelClassName}>
+          Region
+        </label>
+        <select
+          value={value.region || ''}
+          onChange={(e) => onChange({ ...value, region: e.target.value })}
+          disabled={disabled}
+          className={selectClassName(errors.region)}
+        >
+          <option value="">Select Region</option>
+          <option value="North">North</option>
+          <option value="South">South</option>
+          <option value="East">East</option>
+          <option value="West">West</option>
+          <option value="Central">Central</option>
+        </select>
       </div>
     </div>
   );

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Overview = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [summaryTab, setSummaryTab] = useState('week');
   
   // Initialize summaryPeriodValue based on current date
@@ -53,8 +56,8 @@ const Overview = () => {
     return [];
   };
 
-  const openModal = (id) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
+  const openModal = (detail) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { detail }));
   };
 
   if (isLoading) return <DashboardSkeleton />;
@@ -192,12 +195,19 @@ const Overview = () => {
           <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.convertedThisMonth || 0} this month</div>
         </div>
 
-        <div className="stat-card" style={{ borderTop: '4px solid #0891b2' }}>
+        <div 
+          className="stat-card cursor-pointer hover:shadow-md transition-shadow" 
+          style={{ borderTop: '4px solid #0891b2' }}
+          onClick={() => window.location.href = '/dashboard?page=revenue'}
+        >
           <div className="stat-label mb-2 mt-1">Revenue Generated</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">
              {"\u20B9"}{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
           </div>
-          <div className="text-[12px] font-medium text-teal">{"\u2191"} 18.4% MoM</div>
+          <div className="text-[12px] font-medium text-teal flex items-center justify-between">
+            <span>{"\u2191"} 18.4% MoM</span>
+            <span className="text-[10px] font-bold text-blue underline">View Analysis</span>
+          </div>
         </div>
 
         <div className="stat-card" style={{ borderTop: '4px solid #8b5cf6' }}>
@@ -243,7 +253,7 @@ const Overview = () => {
           <div className="text-[12px] text-text-muted mt-0.5">Expected onboarding leads & current pipeline status</div>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="bg-white">Bulk Upload</Button>
+          <Button size="sm" variant="outline" className="bg-white" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
           <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none" onClick={() => openModal('add-lead')}>+ Add Lead</Button>
         </div>
       </div>
@@ -287,7 +297,7 @@ const Overview = () => {
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
           <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week {"\u00B7"} Requires allocation</div>
         </div>
-        <Button size="sm" variant="outline" className="bg-white">Allocate Leads</Button>
+        <Button size="sm" variant="outline" className="bg-white" onClick={() => openModal('bulk-allocate')}>Allocate Leads</Button>
       </div>
 
       <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
@@ -324,8 +334,8 @@ const Overview = () => {
                   <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.expectedDate}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm">Allocate</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary">Edit</Button>
+                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm" onClick={() => openModal({ type: 'allocate-lead', leadData: lead })}>Allocate</Button>
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => openModal({ type: 'update-lead', leadData: lead })}>Edit</Button>
                     </div>
                   </td>
                 </tr>
@@ -399,9 +409,17 @@ const Overview = () => {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 ml-8 w-[180px]">
-                  <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4">View</Button>
-                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3">Edit</Button>
-                  <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3">Delete</Button>
+                  <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4" onClick={() => navigate(`/dashboard?page=state-managers&id=${managerData.stateManagerId}`)}>View</Button>
+                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3" onClick={() => openModal({ type: 'create-state-manager', editData: managerData.managerData })}>Edit</Button>
+                  <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3" onClick={() => {
+                    if (window.confirm(`Are you sure you want to delete ${managerData.stateManager}?`)) {
+                      import('../../../api/usersApi').then(({ usersApi }) => {
+                        usersApi.deleteUser(managerData.stateManagerId).then(() => {
+                          queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+                        });
+                      });
+                    }
+                  }}>Delete</Button>
                 </div>
               </div>
             );

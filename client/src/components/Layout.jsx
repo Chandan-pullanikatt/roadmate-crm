@@ -57,6 +57,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Overview',
           items: [
             { label: 'Founder Dashboard', path: '/dashboard?page=overview', icon: 'overview' },
+            { label: 'Revenue Analytics', path: '/dashboard?page=revenue', icon: 'earnings' },
             { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'state-managers' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry-managers' },
             { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' }
@@ -101,7 +102,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Main',
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'My Work', path: '#', icon: 'my-work', special: true, comingSoon: true },
+            { label: 'Revenue Analytics', path: '/dashboard?page=revenue', icon: 'earnings' },
+            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', special: true },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'blue' },
             { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' },
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) }
@@ -137,10 +139,10 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Main',
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'My Work', path: '#', icon: 'my-work', special: true, comingSoon: true },
+            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', special: true },
             { label: 'District Executives', path: '/dashboard?page=team', icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'purple' },
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads) },
-            { label: 'Lead Task Flow', path: '#', icon: 'leads', comingSoon: true }
+            { label: 'Lead Task Flow', path: '/dashboard?page=lead-flow', icon: 'leads' }
           ]
         },
         {

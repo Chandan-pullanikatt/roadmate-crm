@@ -944,6 +944,114 @@ router.get('/state-manager', async (req, res) => {
 });
 
 /**
+ * GET /api/dashboard/revenue - Detailed revenue metrics
+ */
+router.get('/revenue', verifyToken, async (req, res) => {
+  try {
+    const { period = 'month', value } = req.query;
+    const { start, end } = getDateRange(period, value);
+    
+    const query = { 
+      action: 'converted',
+      createdAt: { $gte: start, $lte: end }
+    };
+
+    const revenueAggregation = [
+      { $match: query },
+      {
+        $lookup: {
+          from: 'leads',
+          localField: 'lead',
+          foreignField: '_id',
+          as: 'leadDetails'
+        }
+      },
+      { $unwind: '$leadDetails' }
+    ];
+
+    if (req.user.role === 'state_manager') {
+      revenueAggregation.push({ $match: { 'leadDetails.state': req.user.state } });
+    } else if (req.user.role === 'industry_manager') {
+      revenueAggregation.push({ $match: { 'leadDetails.industry': req.user.industry } });
+    }
+
+    const revenueData = await LeadActivity.aggregate([
+      ...revenueAggregation,
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
+          count: { $sum: 1 },
+          avgDealValue: { $avg: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } }
+        }
+      }
+    ]);
+
+    const byCategory = await LeadActivity.aggregate([
+      ...revenueAggregation,
+      {
+        $group: {
+          _id: { $ifNull: ['$metadata.category', '$leadDetails.revenueCategory', 'other'] },
+          revenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const byState = await LeadActivity.aggregate([
+      ...revenueAggregation,
+      {
+        $group: {
+          _id: '$leadDetails.state',
+          revenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { revenue: -1 } }
+    ]);
+
+    const byIndustry = await LeadActivity.aggregate([
+      ...revenueAggregation,
+      {
+        $group: {
+          _id: '$leadDetails.industry',
+          revenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { revenue: -1 } }
+    ]);
+
+    const recentConversions = await LeadActivity.aggregate([
+      ...revenueAggregation,
+      { $sort: { createdAt: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 1,
+          leadName: '$leadDetails.name',
+          company: '$leadDetails.company',
+          revenue: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] },
+          category: { $ifNull: ['$metadata.category', '$leadDetails.revenueCategory', 'other'] },
+          createdAt: 1
+        }
+      }
+    ]);
+
+    res.json({
+      summary: revenueData[0] || { totalRevenue: 0, count: 0, avgDealValue: 0 },
+      byCategory,
+      byState,
+      byIndustry,
+      recentConversions
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
  * GET /founder -> role: founder
  */
 router.get('/founder', async (req, res) => {
@@ -1042,7 +1150,19 @@ router.get('/founder', async (req, res) => {
         // 2. Optimized By State Aggregation
         const [stateStaff, stateLeads, stateActivities, stateAttendance] = await Promise.all([
             User.aggregate([
-                { $group: { _id: '$state', staffCount: { $sum: 1 }, manager: { $push: { $cond: [{ $eq: ['$role', 'state_manager'] }, '$name', '$$REMOVE'] } } } }
+                { $group: { 
+                    _id: '$state', 
+                    staffCount: { $sum: 1 }, 
+                    managers: { 
+                        $push: { 
+                            $cond: [
+                                { $eq: ['$role', 'state_manager'] }, 
+                                { _id: '$_id', name: '$name', email: '$email', phone: '$phone', state: '$state', district: '$district', country: '$country', dateOfJoining: '$dateOfJoining', basicSalary: '$basicSalary', aadhaarNumber: '$aadhaarNumber', panNumber: '$panNumber', documents: '$documents' }, 
+                                '$$REMOVE'
+                            ] 
+                        } 
+                    } 
+                } }
             ]),
             Lead.aggregate([
                 { $group: { 
@@ -1079,7 +1199,9 @@ router.get('/founder', async (req, res) => {
 
             return {
                 state: s,
-                stateManager: staff.manager?.[0] || 'Unassigned',
+                stateManager: staff.managers?.[0]?.name || 'Unassigned',
+                stateManagerId: staff.managers?.[0]?._id,
+                managerData: staff.managers?.[0],
                 totalStaff: staff.staffCount || 0,
                 leads: leads.leads || 0,
                 converted: leads.converted || 0,
@@ -1262,7 +1384,8 @@ router.get('/founder', async (req, res) => {
                 assignedTo: l.owner?.name || 'Unassigned',
                 priority: l.priority,
                 expectedDate: l.nextActionAt ? new Date(l.nextActionAt).toLocaleDateString() : 'TBD',
-                age: `${age}d`
+                age: `${age}d`,
+                _id: l._id
             };
         });
 

@@ -82,7 +82,14 @@ const leadService = {
           lead.status = 'converted';
           lead.convertedAt = new Date();
           lead.strategyNote = data.strategyNote;
+          if (data.revenueCategory) lead.revenueCategory = data.revenueCategory;
+          if (data.actualRevenue) lead.actualRevenue = data.actualRevenue;
+          
           activityData.action = 'converted';
+          activityData.metadata = {
+            revenue: lead.actualRevenue || lead.expectedRevenue || 0,
+            category: lead.revenueCategory
+          };
         } else if (nextAction === 'not_interested') {
           lead.status = 'not_interested';
           lead.strategyNote = data.strategyNote;

@@ -14,6 +14,7 @@ import StaffDocs from './components/StaffDocs';
 import CreateExecutive from './components/CreateExecutive';
 import Performance from './components/Performance';
 import Reports from './components/Reports';
+import RevenueDashboard from '../founder/sections/RevenueDashboard';
 
 const IndDashboard = () => {
   const location = useLocation();
@@ -38,6 +39,7 @@ const IndDashboard = () => {
       case 'create-executive': return <CreateExecutive />;
       case 'performance': return <Performance />;
       case 'reports': return <Reports />;
+      case 'revenue': return <RevenueDashboard />;
       default: return <Overview />;
     }
   };

@@ -27,8 +27,9 @@ const GlobalModals = () => {
   
   const [leadFormData, setLeadFormData] = useState({
     name: '', company: '', countryCode: '+91', phone: '', email: '',
-    country: '', district: '', state: '', industry: '',
+    country: '', district: '', state: '', region: '', industry: '',
     leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
+    revenueCategory: 'other',
     documents: []
   });
 
@@ -267,8 +268,9 @@ const GlobalModals = () => {
       setActiveModal(null);
       setLeadFormData({
         name: '', company: '', countryCode: '+91', phone: '', email: '',
-        country: '', district: '', state: '', industry: '',
+        country: '', district: '', state: '', region: '', industry: '',
         leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
+        revenueCategory: 'other',
         documents: []
       });
     } catch (err) {
@@ -449,13 +451,15 @@ const GlobalModals = () => {
                   value={{ 
                     country: leadFormData.country, 
                     state: leadFormData.state, 
-                    district: leadFormData.district 
+                    district: leadFormData.district,
+                    region: leadFormData.region
                   }}
                   onChange={(loc) => setLeadFormData({ 
                     ...leadFormData, 
                     country: loc.country, 
                     state: loc.state, 
-                    district: loc.district 
+                    district: loc.district,
+                    region: loc.region
                   })}
                   required
                 />
@@ -488,6 +492,17 @@ const GlobalModals = () => {
                   <option>Hot 🔥</option>
                   <option>Warm</option>
                   <option>Cold</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">Revenue Category</label>
+                <select className="select" value={leadFormData.revenueCategory} onChange={(e)=>setLeadFormData({...leadFormData, revenueCategory: e.target.value})}>
+                  <option value="partnership">Partnership</option>
+                  <option value="shop_subscription">Shop Subscription</option>
+                  <option value="delivery_subscription">Delivery Subscription</option>
+                  <option value="distributor_subscription">Distributor Subscription</option>
+                  <option value="manufacturer_subscription">Manufacturer Subscription</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
             </div>

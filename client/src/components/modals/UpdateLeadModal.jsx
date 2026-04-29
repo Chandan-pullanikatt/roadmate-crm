@@ -12,7 +12,9 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     status: 'new',
     nextActionAt: '',
     notes: '',
-    expectedOnboarding: ''
+    expectedOnboarding: '',
+    actualRevenue: '',
+    revenueCategory: 'other'
   });
 
   useEffect(() => {
@@ -21,7 +23,9 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         status: lead.status || 'new',
         nextActionAt: lead.nextActionAt ? new Date(lead.nextActionAt).toISOString().split('T')[0] : '',
         notes: lead.notes || '',
-        expectedOnboarding: lead.expectedOnboarding ? new Date(lead.expectedOnboarding).toISOString().split('T')[0] : ''
+        expectedOnboarding: lead.expectedOnboarding ? new Date(lead.expectedOnboarding).toISOString().split('T')[0] : '',
+        actualRevenue: lead.actualRevenue || '',
+        revenueCategory: lead.revenueCategory || 'other'
       });
     }
   }, [lead]);
@@ -30,12 +34,13 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Use the payload requested in the fix
       const payload = {
         status: formData.status,
         nextActionAt: formData.nextActionAt,
         convertedAt: formData.expectedOnboarding,
-        notes: formData.notes
+        notes: formData.notes,
+        actualRevenue: formData.actualRevenue,
+        revenueCategory: formData.revenueCategory
       };
       
       await leadsApi.updateLead(lead._id, payload);
@@ -88,15 +93,44 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         )}
 
         {formData.status === 'converted' && (
-          <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
-            <label className="form-label">Expected Onboarding Date</label>
-            <input 
-              type="date" 
-              className="input" 
-              value={formData.expectedOnboarding} 
-              onChange={(e) => setFormData({...formData, expectedOnboarding: e.target.value})} 
-              required
-            />
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
+            <div className="space-y-1">
+              <label className="form-label">Revenue Category</label>
+              <select 
+                className="select" 
+                value={formData.revenueCategory} 
+                onChange={(e) => setFormData({...formData, revenueCategory: e.target.value})}
+                required
+              >
+                <option value="partnership">Partnership</option>
+                <option value="shop_subscription">Shop Subscription</option>
+                <option value="delivery_subscription">Delivery Subscription</option>
+                <option value="distributor_subscription">Distributor Subscription</option>
+                <option value="manufacturer_subscription">Manufacturer Subscription</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="form-label">Actual Revenue (\u20B9)</label>
+              <input 
+                type="number" 
+                className="input" 
+                placeholder="Enter conversion amount"
+                value={formData.actualRevenue} 
+                onChange={(e) => setFormData({...formData, actualRevenue: e.target.value})} 
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="form-label">Expected Onboarding Date</label>
+              <input 
+                type="date" 
+                className="input" 
+                value={formData.expectedOnboarding} 
+                onChange={(e) => setFormData({...formData, expectedOnboarding: e.target.value})} 
+                required
+              />
+            </div>
           </div>
         )}
 

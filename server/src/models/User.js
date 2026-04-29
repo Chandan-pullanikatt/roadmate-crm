@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema({
   reportingTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   state: { type: String },
   district: { type: String },
+  region: { type: String },
   industry: { type: String },
   address: { type: String },
   employmentType: { type: String },

@@ -12,6 +12,7 @@ export const dashboardApi = {
   generateSalary: (data) => api.post('/dashboard/salary/generate', data),
   updateSalary: (id, data) => api.put(`/dashboard/salary/${id}`, data),
   saveStrategy: (data) => api.post('/dashboard/strategy', data),
+  getRevenueDashboard: (period, value) => api.get('/dashboard/revenue', { params: { period, value } }),
 };
 
 export default dashboardApi;

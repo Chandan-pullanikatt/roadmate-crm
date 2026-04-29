@@ -50,6 +50,13 @@ const leadSchema = new mongoose.Schema({
   escalatedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   escalationNote: { type: String },
   expectedRevenue: { type: Number, default: 0 },
+  actualRevenue: { type: Number, default: 0 },
+  revenueCategory: {
+    type: String,
+    enum: ['partnership', 'shop_subscription', 'delivery_subscription', 'distributor_subscription', 'manufacturer_subscription', 'other'],
+    default: 'other'
+  },
+  region: { type: String },
 }, { timestamps: true });
 
 // Performance Indexes
