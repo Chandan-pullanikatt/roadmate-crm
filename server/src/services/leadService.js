@@ -98,10 +98,12 @@ const leadService = {
           lead.status = 'meeting_virtual';
           lead.meetingAt = new Date(data.meetingAt);
           lead.meetingLink = data.meetingLink;
+          if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
         } else if (nextAction === 'direct_meeting') {
           lead.status = 'meeting_direct';
           lead.meetingAt = new Date(data.meetingAt);
+          if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
         }
         break;
@@ -168,6 +170,7 @@ const leadService = {
         break;
 
       case 'escalate':
+        lead.status = 'escalated';
         lead.escalatedTo = data.escalateTo;
         lead.escalationNote = data.note;
         activityData.action = 'escalated';

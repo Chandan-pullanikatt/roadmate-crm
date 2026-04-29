@@ -150,6 +150,7 @@ const DistrictExecutives = () => {
                 actions={
                   <div className="flex items-center gap-2">
                       <Tag variant={exec.isWorking ? 'green' : 'surface2'} label={exec.status} />
+                      <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'assign-target', executive: exec } }))}>Set Target</Button>
                       <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40">Details</Button>
                   </div>
                 }

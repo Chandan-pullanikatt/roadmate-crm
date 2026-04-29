@@ -11,6 +11,12 @@ const Meetings = () => {
     queryFn: () => dashboardApi.getMeetings().then(res => res.data)
   });
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   if (isLoading) return <div className="p-8 text-center text-muted">Loading meetings...</div>;
 
   const metrics = meetingData?.metrics || {};
@@ -62,7 +68,7 @@ const Meetings = () => {
               <option>Virtual</option>
             </select>
           </div>
-          <button className="btn btn-orange btn-sm font-bold shadow-md shadow-orange/10">+ Schedule Meeting</button>
+          <button className="btn btn-orange btn-sm font-bold shadow-md shadow-orange/10" onClick={() => openModal('schedule-meeting')}>+ Schedule Meeting</button>
         </div>
       </div>
 
@@ -116,7 +122,7 @@ const Meetings = () => {
                 </div>
                 <div className="m-actions">
                   <button className="btn btn-ghost btn-xs">View History</button>
-                  <button className="btn btn-outline btn-xs">Update Lead</button>
+                  <button className="btn btn-outline btn-xs" onClick={() => openModal('update-lead', { leadData: { _id: m.id, ...m } })}>Reschedule</button>
                   {!m.isConfirmed && <button className="btn btn-orange btn-xs">Confirm Visit</button>}
                 </div>
               </div>
@@ -149,9 +155,10 @@ const Meetings = () => {
                   {m.link ? (
                     <button className="btn btn-primary btn-xs" onClick={() => window.open(m.link, '_blank')}>Join Meeting</button>
                   ) : (
-                    <button className="btn btn-outline btn-xs">Set Link</button>
+                    <button className="btn btn-outline btn-xs" onClick={() => openModal('update-lead', { leadData: { _id: m.id, ...m } })}>Set Link</button>
                   )}
                   <button className="btn btn-ghost btn-xs">History</button>
+                  <button className="btn btn-outline btn-xs" onClick={() => openModal('update-lead', { leadData: { _id: m.id, ...m } })}>Reschedule</button>
                 </div>
               </div>
             ))

@@ -7,7 +7,7 @@ const leadSchema = new mongoose.Schema({
   email: { type: String },
   status: { 
     type: String, 
-    enum: ['new','called','followup','rnr','meeting_virtual','meeting_direct','converted','lost','not_interested'], 
+    enum: ['new','called','followup','rnr','meeting_virtual','meeting_direct','converted','lost','not_interested','escalated'], 
     default: 'new' 
   },
   priority: { 

@@ -15,7 +15,7 @@ router.post('/start', async (req, res) => {
     if (req.user.role !== 'executive') {
       return res.status(403).json({ message: 'Only executives can start work' });
     }
-    const result = await attendanceService.startWork(req.user._id);
+    const result = await attendanceService.startWork(req.user._id, req.body);
     res.json(result);
   } catch (err) {
     res.status(400).json({ message: err.message });

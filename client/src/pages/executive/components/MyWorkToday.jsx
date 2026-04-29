@@ -11,6 +11,7 @@ const MyWorkToday = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { user } = useAuth();
+  const [wfhData, setWfhData] = useState({ isWFH: false, location: '', reason: '', description: '' });
 
   // 1. Fetch Today's Attendance
   const { data: attendanceData, refetch: refetchAttendance } = useQuery({
@@ -73,8 +74,46 @@ const MyWorkToday = () => {
           <SummaryCard icon="🔥" label="Hot Pipeline" count={stats.hotPipelineCount || 0} color="#EF4444" />
           <SummaryCard icon="🌱" label="Assignments" count={stats.totalLeads || 0} color="#10B981" />
         </div>
+        <div style={{ background: 'var(--surface2)', padding: 24, borderRadius: 20, width: '100%', maxWidth: 560, marginBottom: 32, border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm font-bold">Working from home today?</div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={wfhData.isWFH} onChange={(e) => setWfhData({ ...wfhData, isWFH: e.target.checked })} />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange"></div>
+            </label>
+          </div>
+          
+          {wfhData.isWFH && (
+            <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted uppercase">Current Location</label>
+                <input 
+                  type="text" className="input bg-surface border-border/60" placeholder="Where are you working from?" 
+                  value={wfhData.location} onChange={e => setWfhData({ ...wfhData, location: e.target.value })} 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-muted uppercase">Reason</label>
+                  <input 
+                    type="text" className="input bg-surface border-border/60" placeholder="e.g. Travel, Health" 
+                    value={wfhData.reason} onChange={e => setWfhData({ ...wfhData, reason: e.target.value })} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-muted uppercase">Work Description</label>
+                  <input 
+                    type="text" className="input bg-surface border-border/60" placeholder="What's the plan?" 
+                    value={wfhData.description} onChange={e => setWfhData({ ...wfhData, description: e.target.value })} 
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <button className="wizard-btn wizard-btn-orange" style={{ height: 52, padding: '0 48px', fontSize: 16, fontWeight: 800, borderRadius: 16 }}
-          onClick={() => startWorkMutation.mutate()} disabled={startWorkMutation.isPending}>
+          onClick={() => startWorkMutation.mutate(wfhData)} disabled={startWorkMutation.isPending}>
           {startWorkMutation.isPending ? 'INITIALIZING...' : '⚡ START MY WORK DAY'}
         </button>
       </div>
@@ -115,6 +154,9 @@ const MyWorkToday = () => {
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', animation: 'callPulse 2s infinite' }}></div>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>
               Session Active · {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+              {attendanceData?.attendance?.isWFH && (
+                <span className="ml-3 px-2 py-0.5 bg-orange/10 text-orange rounded-full text-[10px] uppercase font-black">Working From Home</span>
+              )}
             </span>
           </div>
         </div>

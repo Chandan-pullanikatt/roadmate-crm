@@ -10,7 +10,7 @@ const attendanceService = {
   /**
    * Start work day for an executive
    */
-  async startWork(userId) {
+  async startWork(userId, wfhData = null) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -75,12 +75,22 @@ const attendanceService = {
         workStartedAt: now,
         totalLeads: todayLeadsCount,
         note: note,
-        status: isHoliday ? 'holiday' : 'absent' // Default to absent until completed
+        status: isHoliday ? 'holiday' : 'absent', // Default to absent until completed
+        isWFH: wfhData?.isWFH || false,
+        location: wfhData?.location,
+        wfhReason: wfhData?.reason,
+        wfhDescription: wfhData?.description
       });
     } else {
       attendance.workStartedAt = now;
       attendance.totalLeads = todayLeadsCount;
       if (note) attendance.note = note;
+      if (wfhData) {
+        attendance.isWFH = wfhData.isWFH || false;
+        attendance.location = wfhData.location;
+        attendance.wfhReason = wfhData.reason;
+        attendance.wfhDescription = wfhData.description;
+      }
     }
 
     await attendance.save();

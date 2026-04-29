@@ -110,7 +110,8 @@ const LeadManagement = () => {
     { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
     { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
     { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
-    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
+    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 },
+    { id: 'escalated', label: 'Escalated', count: counts?.escalated || 0 }
   ];
 
   const formatCurrency = (val) => {
@@ -288,6 +289,7 @@ const LeadManagement = () => {
                     <div className="flex items-center justify-end gap-2">
                         <Button size="xs" variant="outline" className="font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
                         <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
+                        <Button size="xs" variant="outline" className="text-amber border-amber/10 font-bold text-[9px] uppercase tracking-wider" onClick={() => openModal('escalate-lead', { leadData: lead })}>Escalate</Button>
                     </div>
                   </td>
                 </tr>

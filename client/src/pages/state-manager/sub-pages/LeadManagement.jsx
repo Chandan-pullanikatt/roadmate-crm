@@ -96,7 +96,8 @@ const LeadManagement = () => {
     { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
     { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
     { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
-    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
+    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 },
+    { id: 'escalated', label: 'Escalated', count: counts?.escalated || 0 }
   ];
 
   const openModal = (type, data = null) => {
@@ -141,6 +142,7 @@ const LeadManagement = () => {
         <div className="flex gap-2">
           <Button size="xs" variant="outline" className="font-bold px-3" onClick={() => openModal('update-lead', { leadData: row })}>Update</Button>
           <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: row })}>Allocate</Button>
+          <Button size="xs" variant="outline" className="text-amber border-amber/10 font-bold px-3" onClick={() => openModal('escalate-lead', { leadData: row })}>Escalate</Button>
         </div>
       ),
       align: 'right'

@@ -468,6 +468,7 @@ router.get('/industry-manager', async (req, res) => {
       converted: leads.filter(l => l.status === 'converted').length,
       lost: leads.filter(l => l.status === 'lost').length,
       rnr: leads.filter(l => l.status === 'rnr').length,
+      escalated: leads.filter(l => l.status === 'escalated').length,
     };
 
     // 6. Optimized Executive Performance (Bulk queries)
@@ -872,6 +873,7 @@ router.get('/state-manager', async (req, res) => {
             { label: 'Warm', status: 'warm', color: '#F59E0B' },
             { label: 'Follow-up', status: 'followup', color: '#8B5CF6' },
             { label: 'Meeting', status: 'meeting_scheduled', color: '#06B6D4' },
+            { label: 'Escalated', status: 'escalated', color: '#7C3AED' },
             { label: 'Converted', status: 'converted', color: '#10B981' },
             { label: 'Lost', status: 'lost', color: '#6B7280' }
         ];

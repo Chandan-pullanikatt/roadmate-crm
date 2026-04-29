@@ -44,7 +44,12 @@ const normalizeLeadPayload = (payload = {}) => {
   const normalized = { ...payload };
   if (payload.ownerId && !payload.owner) normalized.owner = payload.ownerId;
   if (payload.priority !== undefined) normalized.priority = normalizePriority(payload.priority);
-  if (payload.status) normalized.status = normalizeStatusValue(payload.status);
+  if (payload.status) {
+    normalized.status = normalizeStatusValue(payload.status);
+  } else if (payload.meetingAt) {
+    normalized.status = payload.meetingType === 'virtual' ? 'meeting_virtual' : 'meeting_direct';
+  }
+  
   if (payload.expectedRevenue !== undefined && payload.expectedRevenue !== null && payload.expectedRevenue !== '') {
     normalized.expectedRevenue = Number(payload.expectedRevenue) || 0;
   }
@@ -158,7 +163,8 @@ router.get('/counts', async (req, res) => {
       meeting_direct: 0,
       converted: 0,
       lost: 0,
-      rnr: 0
+      rnr: 0,
+      escalated: 0
     };
 
     counts.forEach(c => {

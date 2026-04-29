@@ -93,6 +93,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/search', require('./routes/search'));
+app.use('/api/targets', require('./routes/targets'));
 
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/config', require('./routes/config'));

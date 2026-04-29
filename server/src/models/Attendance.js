@@ -15,6 +15,10 @@ const attendanceSchema = new mongoose.Schema({
   },
   salaryDeduction: { type: Number, default: 0 },
   note: { type: String },
+  isWFH: { type: Boolean, default: false },
+  location: { type: String },
+  wfhReason: { type: String },
+  wfhDescription: { type: String },
 }, { timestamps: true });
 
 // Compound index for unique attendance per user per day

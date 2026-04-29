@@ -30,6 +30,8 @@ const GlobalModals = () => {
     country: '', district: '', state: '', region: '', industry: '',
     leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
     revenueCategory: 'other',
+    meetingAt: '',
+    meetingType: 'direct',
     documents: []
   });
 
@@ -71,6 +73,24 @@ const GlobalModals = () => {
   const [targetExecutiveId, setTargetExecutiveId] = useState('');
   const [bulkAllocateStep, setBulkAllocateStep] = useState(1);
   const [unassignedLeads, setUnassignedLeads] = useState([]);
+  const [escalateData, setEscalateData] = useState({ lead: null, reason: '', managerId: '' });
+  const [targetState, setTargetState] = useState({
+    userId: '',
+    name: '',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    calls: 0,
+    leads: 0,
+    conversions: 0,
+    revenue: 0
+  });
+  const [myLeads, setMyLeads] = useState([]);
+  const [scheduleFormData, setScheduleFormData] = useState({
+    leadId: '',
+    meetingAt: '',
+    meetingType: 'direct',
+    notes: ''
+  });
 
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
@@ -168,6 +188,22 @@ const GlobalModals = () => {
         setActiveModal('bulk-allocate');
         fetchUnassignedLeads();
         fetchUsers();
+      } else if (e.detail.type === 'escalate-lead') {
+        setEscalateData({ lead: e.detail.leadData, reason: '', managerId: '' });
+        setActiveModal('escalate-lead');
+        fetchUsers();
+      } else if (e.detail.type === 'assign-target') {
+        setTargetState({
+          userId: e.detail.executive._id,
+          name: e.detail.executive.name,
+          month: new Date().getMonth() + 1,
+          year: new Date().getFullYear(),
+          calls: 0,
+          leads: 0,
+          conversions: 0,
+          revenue: 0
+        });
+        setActiveModal('assign-target');
       } else {
         setActiveModal(e.detail.type);
       }
@@ -191,8 +227,19 @@ const GlobalModals = () => {
       if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(type)) fetchUsers();
       if (type === 'leave-approval') fetchPendingLeaves();
       if (type === 'work-time') fetchWorkingHours();
+      if (type === 'schedule-meeting') fetchMyLeads();
     }
   }, []);
+
+  const fetchMyLeads = async () => {
+    try {
+      // Fetch leads assigned to the current user (the API handles scoping based on token)
+      const res = await leadsApi.getLeads({ limit: 100 });
+      setMyLeads(res.data.leads || []);
+    } catch (err) {
+      addToast('Error fetching leads', 'error');
+    }
+  };
 
   useEffect(() => {
     window.addEventListener('open-modal', handleOpenModal);
@@ -271,6 +318,8 @@ const GlobalModals = () => {
         country: '', district: '', state: '', region: '', industry: '',
         leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
         revenueCategory: 'other',
+        meetingAt: '',
+        meetingType: 'direct',
         documents: []
       });
     } catch (err) {
@@ -394,6 +443,62 @@ const GlobalModals = () => {
       setActiveModal(null);
     } catch (err) {
       addToast('Error saving configuration', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEscalateSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await leadsApi.transitionLead(escalateData.lead._id, 'escalate', {
+        escalateTo: escalateData.managerId,
+        note: escalateData.reason
+      });
+      addToast('Lead escalated successfully!', 'success');
+      setActiveModal(null);
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+    } catch (err) {
+      addToast('Error escalating lead', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleScheduleMeetingSubmit = async (e) => {
+    e.preventDefault();
+    if (!scheduleFormData.leadId) return addToast('Please select a lead', 'warning');
+    setLoading(true);
+    try {
+      await leadsApi.updateLead(scheduleFormData.leadId, {
+        meetingAt: scheduleFormData.meetingAt,
+        status: scheduleFormData.meetingType === 'virtual' ? 'meeting_virtual' : 'meeting_direct',
+        notes: scheduleFormData.notes
+      });
+      addToast('Meeting scheduled successfully!', 'success');
+      setActiveModal(null);
+      setScheduleFormData({ leadId: '', meetingAt: '', meetingType: 'direct', notes: '' });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      // Refresh meetings list if we are on that page
+      window.dispatchEvent(new CustomEvent('refresh-meetings'));
+    } catch (err) {
+      addToast('Error scheduling meeting', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTargetSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await targetsApi.assignTarget(targetState);
+      addToast('Target assigned successfully!', 'success');
+      setActiveModal(null);
+      queryClient.invalidateQueries({ queryKey: ['targets'] });
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Error assigning target', 'error');
     } finally {
       setLoading(false);
     }
@@ -527,6 +632,35 @@ const GlobalModals = () => {
                 <select className="select" value={leadFormData.ownerId} onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}>
                   <option value="">Select Executive</option>
                   {executives.map(ex => <option key={ex._id} value={ex._id}>{ex.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* SCHEDULE MEETING SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Schedule Meeting (Optional)</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+              <div className="space-y-2">
+                <label className="form-label">Meeting Date & Time</label>
+                <input 
+                  type="datetime-local" className="input" 
+                  value={leadFormData.meetingAt} 
+                  onChange={(e) => setLeadFormData({ ...leadFormData, meetingAt: e.target.value })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">Meeting Type</label>
+                <select 
+                  className="select" 
+                  value={leadFormData.meetingType} 
+                  onChange={(e) => setLeadFormData({ ...leadFormData, meetingType: e.target.value })}
+                >
+                  <option value="direct">Direct Visit</option>
+                  <option value="virtual">Virtual Meeting</option>
                 </select>
               </div>
             </div>
@@ -1319,7 +1453,192 @@ const GlobalModals = () => {
         onClose={handleCloseModal} 
         lead={selectedLead}
       />
+      {/* ESCALATE LEAD MODAL */}
+      <Modal
+        isOpen={activeModal === 'escalate-lead'}
+        title="Escalate Lead"
+        subtitle="Forward this lead to a senior manager for review"
+        onClose={handleCloseModal}
+      >
+        <form onSubmit={handleEscalateSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="form-label">Manager to Escalate To</label>
+              <select 
+                className="select" 
+                value={escalateData.managerId} 
+                onChange={(e) => setEscalateData({ ...escalateData, managerId: e.target.value })}
+                required
+              >
+                <option value="">Select Manager</option>
+                <optgroup label="State Managers">
+                  {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
+                </optgroup>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="form-label">Reason for Escalation</label>
+              <textarea 
+                className="textarea h-32" 
+                placeholder="Explain why this lead needs senior management attention..."
+                value={escalateData.reason}
+                onChange={(e) => setEscalateData({ ...escalateData, reason: e.target.value })}
+                required
+              ></textarea>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
+            <Button variant="primary" type="submit" loading={loading} className="bg-purple border-purple">Escalate Now</Button>
+          </div>
+        </form>
+      </Modal>
+      <AssignTargetModal
+        isOpen={activeModal === 'assign-target'}
+        onClose={handleCloseModal}
+        targetState={targetState}
+        setTargetState={setTargetState}
+        onSubmit={handleTargetSubmit}
+        loading={loading}
+      />
+      <ScheduleMeetingModal
+        isOpen={activeModal === 'schedule-meeting'}
+        onClose={handleCloseModal}
+        formData={scheduleFormData}
+        setFormData={setScheduleFormData}
+        leads={myLeads}
+        onSubmit={handleScheduleMeetingSubmit}
+        loading={loading}
+      />
     </>
+  );
+};
+
+const ScheduleMeetingModal = ({ isOpen, onClose, formData, setFormData, leads, onSubmit, loading }) => {
+  if (!isOpen) return null;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Schedule Meeting"
+      subtitle="Select an existing lead to book a new meeting"
+      className="modal-md"
+    >
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="space-y-1">
+          <label className="form-label">Select Lead</label>
+          <select 
+            className="select" 
+            value={formData.leadId} 
+            onChange={(e) => setFormData({ ...formData, leadId: e.target.value })}
+            required
+          >
+            <option value="">-- Choose Lead --</option>
+            {leads.map(l => (
+              <option key={l._id} value={l._id}>{l.company || l.name} ({l.name})</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="form-label">Meeting Date & Time</label>
+            <input 
+              type="datetime-local" className="input" 
+              value={formData.meetingAt} 
+              onChange={(e) => setFormData({ ...formData, meetingAt: e.target.value })} 
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="form-label">Meeting Type</label>
+            <select 
+              className="select" 
+              value={formData.meetingType} 
+              onChange={(e) => setFormData({ ...formData, meetingType: e.target.value })}
+              required
+            >
+              <option value="direct">Direct Visit</option>
+              <option value="virtual">Virtual Meeting</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="form-label">Notes</label>
+          <textarea 
+            className="textarea" 
+            placeholder="Add any specific notes for this meeting..."
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          />
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" loading={loading} className="bg-orange border-orange">Schedule Now</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const AssignTargetModal = ({ isOpen, onClose, targetState, setTargetState, onSubmit, loading }) => {
+  if (!isOpen) return null;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      title={`Set Monthly Target - ${targetState.name}`}
+      subtitle="Define performance goals for the current month"
+      onClose={onClose}
+    >
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="form-label">Total Calls</label>
+            <input 
+              type="number" className="input" 
+              value={targetState.calls} 
+              onChange={e => setTargetState({ ...targetState, calls: parseInt(e.target.value) || 0 })} 
+              min="0"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="form-label">Leads to Generate</label>
+            <input 
+              type="number" className="input" 
+              value={targetState.leads} 
+              onChange={e => setTargetState({ ...targetState, leads: parseInt(e.target.value) || 0 })} 
+              min="0"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="form-label">Conversions</label>
+            <input 
+              type="number" className="input" 
+              value={targetState.conversions} 
+              onChange={e => setTargetState({ ...targetState, conversions: parseInt(e.target.value) || 0 })} 
+              min="0"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="form-label">Revenue Target (Lakhs)</label>
+            <input 
+              type="number" className="input" 
+              value={targetState.revenue} 
+              onChange={e => setTargetState({ ...targetState, revenue: parseInt(e.target.value) || 0 })} 
+              min="0"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" loading={loading} className="bg-purple border-purple">Assign Target</Button>
+        </div>
+      </form>
+    </Modal>
   );
 };
 

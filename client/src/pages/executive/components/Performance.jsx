@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { targetsApi } from '../../../api/targetsApi';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -130,7 +131,14 @@ const Performance = () => {
 
       </div>
 
-      {/* 4. Bottom Section - Meeting Performance Placeholder */}
+      {/* 4. Target vs Achievement Section */}
+      <TargetSection 
+        month={month} 
+        year={year} 
+        metrics={metrics}
+      />
+
+      {/* 5. Bottom Section - Meeting Performance Placeholder */}
       <div className="mt-6 bg-surface border border-border rounded-2xl p-6 shadow-sm">
         <div className="text-sm font-extrabold mb-4">Meeting Performance</div>
         <div className="flex items-center justify-center h-20 text-muted text-xs italic">
@@ -156,5 +164,60 @@ const StatusRow = ({ label, count, color, total }) => (
     </div>
   </div>
 );
+
+const TargetSection = ({ month, year, metrics }) => {
+  const { data: target, isLoading } = useQuery({
+    queryKey: ['targets', 'my', month, year],
+    queryFn: () => targetsApi.getMyTargets({ month, year }).then(res => res.data)
+  });
+
+  if (isLoading) return null;
+
+  const targetItems = [
+    { label: 'Total Calls', current: metrics.totalCalls?.value || 0, target: target?.calls || 0, icon: '📞' },
+    { label: 'Conversions', current: metrics.conversions?.value || 0, target: target?.conversions || 0, icon: '🏆' },
+    { label: 'Revenue (L)', current: metrics.revenue?.value || 0, target: target?.revenue || 0, icon: '💰' },
+    { label: 'Lead Generation', current: metrics.freshLeads?.value || 0, target: target?.leads || 0, icon: '🚀' }
+  ];
+
+  return (
+    <div className="mt-8 bg-surface border border-border rounded-2xl p-6 shadow-sm">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-lg font-black tracking-tight">Target vs Achievement</h2>
+          <p className="text-xs text-muted">Monthly performance tracking against set targets</p>
+        </div>
+        <div className="text-[10px] font-black px-3 py-1 bg-surface2 rounded-full uppercase tracking-widest border border-border">
+          {new Date().toLocaleString('default', { month: 'long' })} {year}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6">
+        {targetItems.map((item, i) => {
+          const pct = item.target > 0 ? Math.round((item.current / item.target) * 100) : 0;
+          return (
+            <div key={i} className="space-y-4">
+              <div className="flex justify-between items-end">
+                <div>
+                  <div className="text-[10px] font-black text-muted uppercase tracking-wider mb-1">{item.label}</div>
+                  <div className="text-xl font-black">{item.current} <span className="text-xs font-bold text-muted">/ {item.target || '--'}</span></div>
+                </div>
+                <div className={`text-xs font-black ${pct >= 100 ? 'text-green-600' : 'text-amber-600'}`}>
+                  {pct}%
+                </div>
+              </div>
+              <div className="h-2 w-full bg-surface2 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-green-500' : 'bg-amber-500'}`} 
+                  style={{ width: `${Math.min(100, pct)}%` }}
+                ></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 export default Performance;

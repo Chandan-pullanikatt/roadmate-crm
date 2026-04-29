@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
+import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 
 const STEPS = [
@@ -17,6 +18,8 @@ const OUTCOMES = [
   { id: 'rnr', icon: '📵', label: 'RNR / No Answer', sub: 'Auto-retry logic', color: '#D97706', bg: '#FFFBEB' },
   { id: 'schedule_virtual', icon: '🎥', label: 'Virtual Meeting', sub: 'Schedule online', color: '#7C3AED', bg: '#F5F3FF' },
   { id: 'direct_meeting', icon: '🏢', label: 'Direct Meeting', sub: 'In-person visit', color: '#0891B2', bg: '#ECFEFF' },
+  { id: 'reschedule', icon: '🔄', label: 'Reschedule', sub: 'Change meeting time', color: '#0891B2', bg: '#ECFEFF' },
+  { id: 'escalate', icon: '⬆️', label: 'Escalate', sub: 'Send to Manager', color: '#7C3AED', bg: '#F5F3FF' },
 ];
 
 const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
@@ -35,6 +38,9 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
   const [meetingLink, setMeetingLink] = useState('');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
+  const [escalatedTo, setEscalatedTo] = useState(null);
+  const [escalationReason, setEscalationReason] = useState('');
+  const [inviteeId, setInviteeId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch suggested dates
@@ -42,6 +48,13 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
     queryKey: ['suggested-dates'],
     queryFn: () => leadsApi.getSuggestedDates().then(r => r.data),
     enabled: step === 3 && (outcome === 'followup'),
+  });
+
+  // Fetch hierarchy for escalation & meeting invites
+  const { data: hierarchy } = useQuery({
+    queryKey: ['hierarchy'],
+    queryFn: () => usersApi.getHierarchy().then(r => r.data),
+    enabled: step === 3 && (outcome === 'escalate' || outcome === 'schedule_virtual' || outcome === 'direct_meeting' || outcome === 'reschedule')
   });
 
   // Reset on new lead
@@ -141,11 +154,20 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
           });
         }
         addToast('Follow-up scheduled successfully!', 'success');
-      } else if (outcome === 'schedule_virtual' || outcome === 'direct_meeting') {
+      } else if (outcome === 'schedule_virtual' || outcome === 'direct_meeting' || outcome === 'reschedule') {
         payload.meetingAt = `${meetingDate}T${meetingTime || '10:00'}`;
         if (outcome === 'schedule_virtual') payload.meetingLink = meetingLink;
+        if (inviteeId) payload.meetingInvitees = [inviteeId];
         await transitionMutation.mutateAsync(payload);
-        addToast('Meeting scheduled!', 'success');
+        addToast(outcome === 'reschedule' ? 'Meeting rescheduled!' : 'Meeting scheduled!', 'success');
+      } else if (outcome === 'escalate') {
+        if (!escalatedTo) throw new Error('Please select a manager to escalate to');
+        await transitionMutation.mutateAsync({
+          action: 'escalate',
+          escalateTo: escalatedTo,
+          note: feedback + (escalationReason ? `\n\nReason: ${escalationReason}` : '')
+        });
+        addToast('Lead escalated to manager.', 'success');
       }
 
       onComplete();
@@ -160,7 +182,8 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
     if (step === 3) {
       if (outcome === 'followup') return selectedDate || (showCustomDate && customDate && customReason);
       if (outcome === 'schedule_virtual') return meetingDate && meetingLink;
-      if (outcome === 'direct_meeting') return meetingDate;
+      if (outcome === 'direct_meeting' || outcome === 'reschedule') return meetingDate;
+      if (outcome === 'escalate') return escalatedTo;
       return true;
     }
     return true;
@@ -248,7 +271,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
               setCustomTime={setCustomTime}
             />
           )}
-          {step === 3 && (outcome === 'schedule_virtual' || outcome === 'direct_meeting') && (
+          {step === 3 && (outcome === 'schedule_virtual' || outcome === 'direct_meeting' || outcome === 'reschedule') && (
             <StepMeeting
               type={outcome}
               meetingDate={meetingDate}
@@ -257,6 +280,18 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
               setMeetingTime={setMeetingTime}
               meetingLink={meetingLink}
               setMeetingLink={setMeetingLink}
+              managers={hierarchy?.industryManagers || []}
+              inviteeId={inviteeId}
+              setInviteeId={setInviteeId}
+            />
+          )}
+          {step === 3 && outcome === 'escalate' && (
+            <StepEscalate
+              managers={hierarchy?.industryManagers || []}
+              selectedId={escalatedTo}
+              setSelectedId={setEscalatedTo}
+              reason={escalationReason}
+              setReason={setEscalationReason}
             />
           )}
         </div>
@@ -392,21 +427,26 @@ const StepFollowUp = ({ suggestedDates, selectedDate, setSelectedDate, showCusto
   </div>
 );
 
-const StepMeeting = ({ type, meetingDate, setMeetingDate, meetingTime, setMeetingTime, meetingLink, setMeetingLink }) => (
+const StepMeeting = ({ type, meetingDate, setMeetingDate, meetingTime, setMeetingTime, meetingLink, setMeetingLink, managers, inviteeId, setInviteeId }) => (
   <div className="wizard-feedback-form">
     <div style={{ marginBottom: 4 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>
-        {type === 'schedule_virtual' ? '🎥 Schedule Virtual Meeting' : '🏢 Schedule Direct Meeting'}
+        {type === 'schedule_virtual' ? '🎥 Schedule Virtual Meeting' : 
+         type === 'reschedule' ? '🔄 Reschedule Meeting' : '🏢 Schedule Direct Meeting'}
       </h3>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Set the date, time{type === 'schedule_virtual' ? ' and meeting link' : ''}</p>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+        {type === 'reschedule' ? 'Select the new date and time for this meeting' : `Set the date, time${type === 'schedule_virtual' ? ' and meeting link' : ''}`}
+      </p>
     </div>
-    <div>
-      <div className="wizard-field-label">Meeting Date *</div>
-      <input type="date" className="input" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
-    </div>
-    <div>
-      <div className="wizard-field-label">Meeting Time</div>
-      <input type="time" className="input" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} />
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div>
+        <div className="wizard-field-label">Meeting Date *</div>
+        <input type="date" className="input" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} />
+      </div>
+      <div>
+        <div className="wizard-field-label">Meeting Time</div>
+        <input type="time" className="input" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} />
+      </div>
     </div>
     {type === 'schedule_virtual' && (
       <div>
@@ -414,6 +454,48 @@ const StepMeeting = ({ type, meetingDate, setMeetingDate, meetingTime, setMeetin
         <input type="url" className="input" placeholder="https://zoom.us/j/..." value={meetingLink} onChange={e => setMeetingLink(e.target.value)} />
       </div>
     )}
+    <div style={{ marginTop: 8 }}>
+      <div className="wizard-field-label">Invite Manager (Optional)</div>
+      <select className="select" value={inviteeId} onChange={e => setInviteeId(e.target.value)}>
+        <option value="">No Manager Invited</option>
+        {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.role?.replace('_', ' ')})</option>)}
+      </select>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+        Manager will receive a real-time notification.
+      </p>
+    </div>
+  </div>
+);
+
+const StepEscalate = ({ managers, selectedId, setSelectedId, reason, setReason }) => (
+  <div className="wizard-feedback-form">
+    <div style={{ marginBottom: 4 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>⬆️ Escalate to Manager</h3>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose which manager should handle this lead</p>
+    </div>
+    <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
+      {managers.length > 0 ? managers.map(m => (
+        <button key={m._id} className={`wizard-date-btn ${selectedId === m._id ? 'selected' : ''}`} 
+          style={{ textAlign: 'left', padding: '12px 16px' }}
+          onClick={() => setSelectedId(m._id)}>
+          <div className="date-icon">{selectedId === m._id ? '✓' : '👤'}</div>
+          <div>
+            <div className="date-text">{m.name}</div>
+            <div className="date-sub">{m.role?.replace('_', ' ').toUpperCase()} · {m.industry}</div>
+          </div>
+        </button>
+      )) : (
+        <div style={{ padding: 20, textAlign: 'center', background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No direct managers found in your hierarchy.</p>
+        </div>
+      )}
+    </div>
+    <div style={{ marginTop: 20 }}>
+      <div className="wizard-field-label">Escalation Context (Optional)</div>
+      <textarea className="wizard-textarea" style={{ minHeight: 80 }} 
+        placeholder="Provide additional details for the manager..." 
+        value={reason} onChange={e => setReason(e.target.value)} />
+    </div>
   </div>
 );
 
