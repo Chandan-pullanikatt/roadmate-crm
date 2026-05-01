@@ -57,7 +57,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Overview',
           items: [
             { label: 'Founder Dashboard', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'Revenue Analytics', path: '/dashboard?page=revenue', icon: 'earnings' },
             { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'state-managers' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry-managers' },
             { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' }
@@ -102,7 +101,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Main',
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'Revenue Analytics', path: '/dashboard?page=revenue', icon: 'earnings' },
             { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', special: true },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'blue' },
             { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' },
@@ -148,6 +146,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'Team',
           items: [
+            { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Staff Performance', path: '/dashboard?page=performance', icon: 'performance' },
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
             { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
@@ -183,15 +182,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'INSIGHTS',
           items: [
-            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' },
-            { label: 'Earnings & Payouts', path: '#', icon: 'earnings', comingSoon: true }
-          ]
-        },
-        {
-          label: 'RESOURCES',
-          items: [
-            { label: 'Company Policies', path: '#', icon: 'policies', comingSoon: true },
-            { label: 'Hierarchy Status', path: '#', icon: 'hierarchy', comingSoon: true }
+            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' }
           ]
         }
       ]

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../../api/dashboardApi';
 import { usersApi } from '../../api/usersApi';
 import { leadsApi } from '../../api/leadsApi';
 import { searchApi } from '../../api/searchApi';
+import { notificationsApi } from '../../api/notificationsApi';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
-import { useNotificationStore } from '../../store/useNotificationStore';
 
 const getIcon = (iconName) => {
   const props = { className: "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
@@ -82,6 +82,31 @@ const DashboardLayout = ({
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef(null);
+  const notifRef = useRef(null);
+
+  // Notifications from API
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => notificationsApi.getNotifications().then(res => res.data),
+    refetchInterval: 30000,
+    staleTime: 15000,
+  });
+  const notifications = notifData?.notifications || [];
+  const unreadCount = notifData?.unreadCount || 0;
+
+  const handleMarkRead = async (id) => {
+    try {
+      await notificationsApi.markAsRead(id);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (err) { console.error('Mark read failed:', err); }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsApi.markAllRead();
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (err) { console.error('Mark all read failed:', err); }
+  };
 
   // Debounce Search
   useEffect(() => {
@@ -128,7 +153,7 @@ const DashboardLayout = ({
   }, []);
 
   const handlePrefetch = (item) => {
-    if (!item.path || item.path === '#' || item.comingSoon || item.disabled) return;
+    if (!item.path || item.path === '#' || item.disabled) return;
     
     const params = new URLSearchParams(item.path.split('?')[1]);
     const page = params.get('page') || 'overview';
@@ -165,7 +190,6 @@ const DashboardLayout = ({
     }
   };
 
-  const { notifications, unreadCount, markAllRead, clearAll } = useNotificationStore();
 
   // Initialize meeting alerts (polls in background if role is executive)
   useMeetingAlerts(userRole);
@@ -203,35 +227,20 @@ const DashboardLayout = ({
             <div key={sidx} className="sidebar-section">
               <div className="sidebar-label">{section.label}</div>
               {section.items.map((item, iidx) => {
-                const isComingSoon = (item.comingSoon || item.disabled) && item.label !== 'Leave Calendar';
-                const isActive = !isComingSoon && location.pathname + location.search === item.path;
+                const isActive = location.pathname + location.search === item.path;
                 const itemContent = (
                   <>
                     <div className="nav-icon-wrapper">
                       {typeof item.icon === 'string' ? getIcon(item.icon) : item.icon}
                     </div>
                     <span className="nav-label-text">{item.label}</span>
-                    {(item.badge || isComingSoon) && (
-                      <span className={`nav-badge-v2 ${isComingSoon ? 'gray' : item.badgeColor || ''}`}>
-                        {isComingSoon ? 'Coming Soon' : item.badge}
+                    {item.badge && (
+                      <span className={`nav-badge-v2 ${item.badgeColor || ''}`}>
+                        {item.badge}
                       </span>
                     )}
                   </>
                 );
-
-                if (isComingSoon) {
-                  return (
-                    <div
-                      key={iidx}
-                      className={`nav-item ${item.special ? 'special-item' : ''}`}
-                      aria-disabled="true"
-                      title={`${item.label} Coming Soon`}
-                      style={{ opacity: 0.58, cursor: 'not-allowed' }}
-                    >
-                      {itemContent}
-                    </div>
-                  );
-                }
                 
                 return (
                   <NavLink
@@ -414,17 +423,18 @@ const DashboardLayout = ({
               )}
 
               <div className="flex items-center gap-2 border-l border-border pl-4">
-                <div className="relative">
+                <div className="relative" ref={notifRef}>
                   <button 
                     className="w-10 h-10 rounded-xl hover:bg-surface2 flex items-center justify-center relative group transition-colors"
                     onClick={() => {
                       setIsNotificationOpen(!isNotificationOpen);
-                      if (!isNotificationOpen) markAllRead();
                     }}
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted group-hover:text-text-primary"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
                     {unreadCount > 0 && (
-                      <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></div>
+                      <div className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 bg-red-500 border-2 border-white rounded-full flex items-center justify-center">
+                        <span className="text-[8px] font-black text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                      </div>
                     )}
                   </button>
 
@@ -433,7 +443,9 @@ const DashboardLayout = ({
                       <div className="p-4 border-b border-border flex items-center justify-between">
                         <h3 className="font-bold text-sm">Notifications</h3>
                         <div className="flex gap-2">
-                          <button onClick={clearAll} className="text-[10px] font-bold text-red hover:underline">Clear all</button>
+                          {unreadCount > 0 && (
+                            <button onClick={handleMarkAllRead} className="text-[10px] font-bold text-blue hover:underline">Mark all read</button>
+                          )}
                           <button onClick={() => setIsNotificationOpen(false)} className="text-[10px] font-bold text-text-muted hover:underline">Close</button>
                         </div>
                       </div>
@@ -445,20 +457,26 @@ const DashboardLayout = ({
                           </div>
                         ) : (
                           notifications.map((n) => (
-                            <div key={n.id} className={`p-4 border-b border-border last:border-0 hover:bg-surface2/30 transition-colors ${!n.read ? 'bg-accent/5' : ''}`}>
+                            <div 
+                              key={n._id} 
+                              className={`p-4 border-b border-border last:border-0 hover:bg-surface2/30 transition-colors cursor-pointer ${!n.read ? 'bg-accent/5' : ''}`}
+                              onClick={() => !n.read && handleMarkRead(n._id)}
+                            >
                               <div className="flex gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shrink-0
                                   ${n.type?.includes('leave') ? 'bg-blue/10 text-blue' : 
-                                    n.type?.includes('meeting') ? 'bg-orange/10 text-orange' : 
+                                    n.type?.includes('staff') ? 'bg-orange/10 text-orange' : 
                                     n.type?.includes('lead') ? 'bg-green/10 text-green' : 'bg-accent/10 text-accent'}
                                 `}>
-                                  {n.type?.includes('leave') ? '📅' : n.type?.includes('meeting') ? '🤝' : n.type?.includes('lead') ? '👥' : '🔔'}
+                                  {n.type?.includes('leave') ? '📅' : n.type?.includes('staff') ? '🤝' : n.type?.includes('lead') ? '👥' : '🔔'}
                                 </div>
-                                <div className="flex-1">
-                                  <div className="text-xs font-bold text-text-primary">{n.title}</div>
-                                  <div className="text-[11px] text-text-muted mt-0.5 line-clamp-2">{n.message}</div>
-                                  <div className="text-[9px] text-text-muted mt-1 font-medium">{new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-bold text-text-primary line-clamp-2">{n.message}</div>
+                                  <div className="text-[9px] text-text-muted mt-1 font-medium">
+                                    {n.createdAt ? new Date(n.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </div>
                                 </div>
+                                {!n.read && <div className="w-2 h-2 rounded-full bg-blue shrink-0 mt-1"></div>}
                               </div>
                             </div>
                           ))
@@ -468,14 +486,7 @@ const DashboardLayout = ({
                   )}
                 </div>
 
-                <button
-                  className="h-10 rounded-xl bg-surface2 px-3 text-[10px] font-black uppercase tracking-widest text-muted cursor-not-allowed"
-                  disabled
-                  title="Settings Coming Soon"
-                  aria-label="Settings Coming Soon"
-                >
-                  Coming Soon
-                </button>
+
               </div>
             </div>
           </header>

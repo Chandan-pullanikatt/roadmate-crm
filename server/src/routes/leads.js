@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const leadService = require('../services/leadService');
+const notificationService = require('../services/notificationService');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 
@@ -75,25 +76,106 @@ const normalizeLeadPayload = (payload = {}) => {
 
 const bulkCreateLeads = async (req, res) => {
   try {
-    const leadsData = req.body.map(item => {
-      const normalized = normalizeLeadPayload(item);
-      return {
-        ...normalized,
-        allocatedBy: req.user._id
-      };
-    });
-    
-    const leads = await Lead.insertMany(leadsData);
-    
-    const activities = leads.map(l => ({
-      lead: l._id,
-      performedBy: req.user._id,
-      action: 'created',
-      note: 'Bulk upload'
-    }));
-    await LeadActivity.insertMany(activities);
+    const User = require('../models/User');
+    const imported = [];
+    const errors = [];
 
-    res.status(201).json({ count: leads.length });
+    for (let i = 0; i < req.body.length; i++) {
+      const item = req.body[i];
+      try {
+        const normalized = normalizeLeadPayload(item);
+        normalized.allocatedBy = req.user._id;
+
+        // Handle "Assigned To" — lookup user by name
+        if (item.assignedTo) {
+          const assignee = await User.findOne({ 
+            name: { $regex: new RegExp(`^${item.assignedTo.trim()}$`, 'i') }
+          }).select('_id');
+          if (assignee) {
+            normalized.owner = assignee._id;
+          } else {
+            errors.push({ row: i + 1, reason: `Assigned To "${item.assignedTo}" not found` });
+          }
+        }
+
+        // Handle status override (bypass workflow for bulk)
+        if (item.status) {
+          const statusMap = {
+            'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
+            'rnr': 'rnr', 'not reached': 'rnr', 'virtual meeting': 'meeting_virtual',
+            'direct meeting': 'meeting_direct', 'meeting': 'meeting_direct',
+            'converted': 'converted', 'lost': 'lost', 'not interested': 'not_interested',
+            'escalated': 'escalated',
+          };
+          const mappedStatus = statusMap[item.status.toLowerCase().trim()];
+          if (mappedStatus) normalized.status = mappedStatus;
+        }
+
+        // Sub-status
+        if (item.subStatus) normalized.subStatus = item.subStatus;
+
+        // Follow-up date
+        if (item.followUpDate) {
+          const fDate = new Date(item.followUpDate);
+          if (!isNaN(fDate.getTime())) normalized.followUpDate = fDate;
+        }
+
+        // Remarks → append to feedback array
+        if (item.remarks) {
+          normalized.remarks = item.remarks;
+          normalized.feedback = [{
+            note: item.remarks,
+            createdAt: new Date(),
+            createdBy: 'Bulk Import'
+          }];
+        }
+
+        // Created Date override for historical imports
+        if (item.createdDate) {
+          const cDate = new Date(item.createdDate);
+          if (!isNaN(cDate.getTime())) normalized.createdAt = cDate;
+        }
+
+        const lead = await Lead.create(normalized);
+        imported.push(lead);
+      } catch (rowErr) {
+        errors.push({ row: i + 1, reason: rowErr.message });
+      }
+    }
+
+    // Create activity logs for imported leads
+    if (imported.length > 0) {
+      const activities = imported.map(l => ({
+        lead: l._id,
+        performedBy: req.user._id,
+        action: 'created',
+        note: 'Bulk upload'
+      }));
+      await LeadActivity.insertMany(activities);
+    }
+
+    // Notify managers about new leads in their territory
+    const io = req.app.get('io');
+    const states = [...new Set(imported.map(l => l.state).filter(Boolean))];
+    if (states.length > 0) {
+      const managers = await User.find({ role: { $in: ['state_manager', 'industry_manager'] }, state: { $in: states } }).select('_id');
+      for (const mgr of managers) {
+        await notificationService.onLeadAdded({
+          managerId: mgr._id,
+          leadName: `${imported.length} leads (bulk upload)`,
+          createdByName: req.user.name || 'System',
+          io,
+        });
+      }
+    }
+
+    res.status(201).json({ 
+      total: req.body.length,
+      imported: imported.length, 
+      skipped: errors.length,
+      errors: errors.slice(0, 50),
+      count: imported.length // backward compat
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -362,6 +444,15 @@ router.put('/:id/allocate', async (req, res) => {
       performedBy: req.user._id,
       action: 'reallocated',
       note: `Lead reallocated from ${oldOwner} to ${ownerId}`
+    });
+
+    // Notify new owner
+    const io = req.app.get('io');
+    await notificationService.onLeadAllocated({
+      executiveId: ownerId,
+      leadName: lead.name || lead.company || 'Lead',
+      allocatedByName: req.user.name || 'Manager',
+      io,
     });
 
     res.json(lead);

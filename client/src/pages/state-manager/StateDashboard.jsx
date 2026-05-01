@@ -12,7 +12,7 @@ const Attendance = lazy(() => import('./sub-pages/Attendance'));
 const LeaveCalendar = lazy(() => import('./sub-pages/LeaveCalendar'));
 const Performance = lazy(() => import('./sub-pages/Performance'));
 const Reports = lazy(() => import('./sub-pages/Reports'));
-const RevenueDashboard = lazy(() => import('../founder/sections/RevenueDashboard'));
+
 
 const StateDashboard = () => {
   const [searchParams] = useSearchParams();
@@ -29,7 +29,7 @@ const StateDashboard = () => {
       case 'calendar': return <LeaveCalendar />;
       case 'performance': return <Performance />;
       case 'reports': return <Reports />;
-      case 'revenue': return <RevenueDashboard />;
+
       default: return <Overview />;
     }
   };

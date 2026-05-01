@@ -158,6 +158,20 @@ const MyWork = () => {
           >
             {workStarted ? 'Stop Work' : 'Start Work'}
           </Button>
+          <Button 
+            variant="outline"
+            className="bg-white border-purple/30 text-purple hover:bg-purple/5 rounded-xl px-5 font-bold"
+            onClick={() => openModal('create-exec', {
+              prefill: {
+                role: 'executive',
+                state: currentUser?.state || '',
+                industry: currentUser?.industry || '',
+                reportingTo: currentUser?._id || '',
+              }
+            })}
+          >
+            + Onboard Executive
+          </Button>
         </div>
       </div>
 

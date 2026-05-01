@@ -13,8 +13,9 @@ import LeaveCalendar from './components/LeaveCalendar';
 import StaffDocs from './components/StaffDocs';
 import CreateExecutive from './components/CreateExecutive';
 import Performance from './components/Performance';
+import MyPerformance from './components/MyPerformance';
 import Reports from './components/Reports';
-import RevenueDashboard from '../founder/sections/RevenueDashboard';
+
 
 const IndDashboard = () => {
   const location = useLocation();
@@ -38,8 +39,9 @@ const IndDashboard = () => {
       case 'staff-docs': return <StaffDocs />;
       case 'create-executive': return <CreateExecutive />;
       case 'performance': return <Performance />;
+      case 'my-performance': return <MyPerformance />;
       case 'reports': return <Reports />;
-      case 'revenue': return <RevenueDashboard />;
+
       default: return <Overview />;
     }
   };

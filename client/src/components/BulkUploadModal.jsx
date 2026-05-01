@@ -5,8 +5,8 @@ import { Modal, Button, Tag } from './ui';
 import { leadsApi } from '../api/leadsApi';
 import { useToast } from '../context/ToastContext';
 
-const EXPECTED_HEADERS = ['Name', 'Phone', 'Company', 'Email', 'State', 'District', 'Industry', 'ExpectedRevenue', 'Notes'];
-const REQUIRED_HEADERS = ['Name', 'Phone'];
+const EXPECTED_HEADERS = ['Lead Name', 'Phone Number', 'Alternate Phone', 'Email', 'Company', 'State', 'District', 'Region', 'Industry', 'Lead Source', 'Assigned To', 'Current Status', 'Sub-Status', 'Follow-Up Date', 'Remarks', 'Expected Revenue', 'Created Date'];
+const REQUIRED_HEADERS = ['Lead Name', 'Phone'];
 
 const BulkUploadModal = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
@@ -100,8 +100,9 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "data:text/csv;charset=utf-8," + EXPECTED_HEADERS.join(",") + "\n" +
-      "John Doe,9876543210,Acme Corp,john@example.com,Maharashtra,Mumbai,Technology,500000,Looking for CRM";
+    const headers = EXPECTED_HEADERS.join(',');
+    const sampleRow = 'John Doe,9876543210,9876543211,john@example.com,Acme Corp,Maharashtra,Mumbai,West,Technology,Referral,,New,,15/06/2026,Looking for CRM solution,500000,01/01/2026';
+    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + sampleRow;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -121,20 +122,38 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       // Helper to find key case-insensitively
       const getVal = (keyStr) => {
         const k = Object.keys(row).find(k => k.toLowerCase().includes(keyStr.toLowerCase()));
-        return k ? row[k] : undefined;
+        return k ? row[k]?.trim() : undefined;
+      };
+
+      // Parse DD/MM/YYYY date strings
+      const parseDate = (str) => {
+        if (!str) return undefined;
+        const parts = str.split('/');
+        if (parts.length === 3) {
+          return new Date(parts[2], parts[1] - 1, parts[0]).toISOString();
+        }
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? undefined : d.toISOString();
       };
 
       return {
-        name: getVal('name'),
-        phone: getVal('phone')?.toString().replace(/\D/g,''), // strip non-digits
+        name: getVal('lead name') || getVal('name'),
+        phone: (getVal('phone number') || getVal('phone'))?.toString().replace(/\D/g,''),
+        alternatePhone: getVal('alternate'),
         email: getVal('email'),
         company: getVal('company'),
         state: getVal('state'),
         district: getVal('district'),
+        region: getVal('region'),
         industry: getVal('industry'),
-        expectedRevenue: getVal('revenue') || getVal('expectedrevenue') ? Number(getVal('revenue') || getVal('expectedrevenue')) : 0,
-        notes: getVal('notes'),
-        leadSource: 'Bulk Upload'
+        leadSource: getVal('lead source') || 'Bulk Upload',
+        assignedTo: getVal('assigned to'),
+        status: getVal('current status'),
+        subStatus: getVal('sub-status') || getVal('sub status'),
+        followUpDate: parseDate(getVal('follow-up date') || getVal('follow up date')),
+        remarks: getVal('remarks') || getVal('notes'),
+        expectedRevenue: getVal('revenue') || getVal('expected revenue') ? Number(getVal('revenue') || getVal('expected revenue')) : 0,
+        createdDate: parseDate(getVal('created date')),
       };
     });
 
@@ -156,8 +175,8 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         <div className="p-4 bg-blue-light/30 border border-blue/20 rounded-2xl flex gap-3 items-start">
           <span className="text-blue text-lg">ℹ️</span>
           <div className="text-xs text-text-secondary leading-relaxed">
-            Ensure your CSV file contains the required columns: <span className="font-bold text-text-primary">Name</span> and <span className="font-bold text-text-primary">Phone</span>.<br />
-            Optional fields include Company, Email, State, District, Industry, ExpectedRevenue, and Notes.<br />
+            Ensure your CSV file contains the required columns: <span className="font-bold text-text-primary">Lead Name</span> and <span className="font-bold text-text-primary">Phone Number</span>.<br />
+            New optional fields: Lead Source, Assigned To, Current Status, Sub-Status, Follow-Up Date, Remarks, and Created Date (for historical imports).<br />
             <button type="button" onClick={handleDownloadTemplate} className="text-blue font-bold hover:underline mt-1 bg-transparent border-none cursor-pointer p-0">Download CSV Template</button>
           </div>
         </div>

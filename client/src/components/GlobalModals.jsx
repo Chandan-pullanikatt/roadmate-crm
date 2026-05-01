@@ -133,11 +133,15 @@ const GlobalModals = () => {
             role: e.detail.editData.role === 'industry_manager' ? 'industry-manager' : e.detail.editData.role
           });
         } else {
+          const prefill = e.detail.prefill || {};
           setExecFormData(prev => ({ 
             ...prev, 
             _id: undefined,
-            role: e.detail.role || 'industry-manager',
-            name: '', email: '', phone: '', state: '', industry: '', 
+            role: prefill.role || e.detail.role || 'industry-manager',
+            name: '', email: '', phone: '', 
+            state: prefill.state || '', 
+            industry: prefill.industry || '', 
+            reportingTo: prefill.reportingTo || '',
             dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
           }));
         }
@@ -525,7 +529,7 @@ const GlobalModals = () => {
             
             <div className="grid grid-cols-2 gap-x-10 gap-y-6">
               <div className="space-y-2">
-                <label className="form-label">Full Name</label>
+                <label className="form-label">Full Name <span className="text-red">*</span></label>
                 <input className="input" type="text" value={leadFormData.name} onChange={(e)=>setLeadFormData({...leadFormData, name: e.target.value})} placeholder="Lead name" required />
               </div>
               <div className="space-y-2">
@@ -582,8 +586,8 @@ const GlobalModals = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="form-label">Lead Source</label>
-                <select className="select" value={leadFormData.leadSource} onChange={(e)=>setLeadFormData({...leadFormData, leadSource: e.target.value})}>
+                <label className="form-label">Lead Source <span className="text-red">*</span></label>
+                <select className="select" value={leadFormData.leadSource} onChange={(e)=>setLeadFormData({...leadFormData, leadSource: e.target.value})} required>
                   <option>Direct</option>
                   <option>Referral</option>
                   <option>Campaign</option>
@@ -755,18 +759,18 @@ const GlobalModals = () => {
               </div>
               <div className="space-y-1">
                 <label className="form-label">Basic Salary ({"\u20B9"})</label>
-                <input className="input" type="number" value={managerFormData.basicSalary} onChange={(e)=>setManagerFormData({...managerFormData, basicSalary: e.target.value})} placeholder="e.g. 35000" required />
+                <input className="input" type="number" value={managerFormData.basicSalary} onChange={(e)=>setManagerFormData({...managerFormData, basicSalary: e.target.value})} placeholder="e.g. 35000" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="form-label">Aadhaar Number</label>
-                <input className="input" type="text" value={managerFormData.aadhaar} onChange={(e)=>setManagerFormData({...managerFormData, aadhaar: e.target.value})} placeholder="XXXX XXXX XXXX" required />
+                <input className="input" type="text" value={managerFormData.aadhaar} onChange={(e)=>setManagerFormData({...managerFormData, aadhaar: e.target.value})} placeholder="XXXX XXXX XXXX" />
               </div>
               <div className="space-y-1">
                 <label className="form-label">PAN Number</label>
-                <input className="input uppercase" type="text" value={managerFormData.pan} onChange={(e)=>setManagerFormData({...managerFormData, pan: e.target.value})} placeholder="ABCDE1234F" required />
+                <input className="input uppercase" type="text" value={managerFormData.pan} onChange={(e)=>setManagerFormData({...managerFormData, pan: e.target.value})} placeholder="ABCDE1234F" />
               </div>
             </div>
 
@@ -967,8 +971,8 @@ const GlobalModals = () => {
 
             {/* Industry */}
             <div className="space-y-2">
-              <label className="form-label">Industry <span className="text-red">*</span></label>
-              <select className="select" value={execFormData.industry} onChange={(e) => setExecFormData({...execFormData, industry: e.target.value})} required>
+              <label className="form-label">Industry</label>
+              <select className="select" value={execFormData.industry} onChange={(e) => setExecFormData({...execFormData, industry: e.target.value})}>
                 <option value="">Select Industry</option>
                 <option>Automobile</option>
                 <option>Electronics</option>
@@ -981,8 +985,8 @@ const GlobalModals = () => {
 
             {/* Date of Joining */}
             <div className="space-y-2">
-              <label className="form-label">Date of Joining</label>
-              <input className="input" type="date" value={execFormData.dateOfJoining} onChange={(e) => setExecFormData({...execFormData, dateOfJoining: e.target.value})} />
+              <label className="form-label">Date of Joining <span className="text-red">*</span></label>
+              <input className="input" type="date" value={execFormData.dateOfJoining} onChange={(e) => setExecFormData({...execFormData, dateOfJoining: e.target.value})} required />
             </div>
 
             {/* Basic Salary */}
@@ -993,14 +997,14 @@ const GlobalModals = () => {
 
             {/* Aadhaar Number */}
             <div className="space-y-2">
-              <label className="form-label">Aadhaar Number <span className="text-red">*</span></label>
-              <input className="input" type="text" placeholder="XXXX XXXX XXXX" value={execFormData.aadhaarNumber} onChange={(e) => setExecFormData({...execFormData, aadhaarNumber: e.target.value})} required />
+              <label className="form-label">Aadhaar Number</label>
+              <input className="input" type="text" placeholder="XXXX XXXX XXXX" value={execFormData.aadhaarNumber} onChange={(e) => setExecFormData({...execFormData, aadhaarNumber: e.target.value})} />
             </div>
 
             {/* PAN Number */}
             <div className="space-y-2">
-              <label className="form-label">PAN Number <span className="text-red">*</span></label>
-              <input className="input uppercase" type="text" placeholder="ABCDE1234F" value={execFormData.panNumber} onChange={(e) => setExecFormData({...execFormData, panNumber: e.target.value})} required />
+              <label className="form-label">PAN Number</label>
+              <input className="input uppercase" type="text" placeholder="ABCDE1234F" value={execFormData.panNumber} onChange={(e) => setExecFormData({...execFormData, panNumber: e.target.value})} />
             </div>
 
             {/* Document Uploads */}

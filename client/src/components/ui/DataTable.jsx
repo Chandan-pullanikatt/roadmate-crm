@@ -7,8 +7,8 @@ const DataTable = ({ columns, data, loading, emptyText = 'No data available' }) 
         <table className="data-table">
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col.key}>{col.label}</th>
+              {columns.map((col, i) => (
+                <th key={col.key || col.accessor || i}>{col.label || col.header}</th>
               ))}
             </tr>
           </thead>
@@ -43,19 +43,22 @@ const DataTable = ({ columns, data, loading, emptyText = 'No data available' }) 
       <table className="data-table">
         <thead>
           <tr>
-            {columns.map((col) => (
-              <th key={col.key}>{col.label}</th>
+            {columns.map((col, i) => (
+              <th key={col.key || col.accessor || i}>{col.label || col.header}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, rowIndex) => (
-            <tr key={row.id || rowIndex}>
-              {columns.map((col) => (
-                <td key={col.key}>
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
-                </td>
-              ))}
+            <tr key={row.id || row._id || rowIndex}>
+              {columns.map((col, colIndex) => {
+                const key = col.key || col.accessor;
+                return (
+                  <td key={key || colIndex}>
+                    {col.render ? col.render(row[key], row) : row[key]}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

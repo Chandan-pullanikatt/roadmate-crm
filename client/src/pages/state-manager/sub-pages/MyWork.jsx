@@ -90,6 +90,23 @@ const MyWork = () => {
           >
             {isWorking ? 'Stop Work' : 'Start Work'}
           </Button>
+          <Button 
+            variant="outline"
+            size="sm"
+            className="bg-white border-blue/30 text-blue hover:bg-blue/5 font-bold"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-modal', {
+              detail: {
+                type: 'create-exec',
+                prefill: {
+                  role: 'industry-manager',
+                  state: currentUser?.state || '',
+                  reportingTo: currentUser?._id || '',
+                }
+              }
+            }))}
+          >
+            + Onboard Industry Manager
+          </Button>
         </div>
       </div>
 

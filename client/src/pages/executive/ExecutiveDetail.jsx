@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../api/axios';
 import { 
   Avatar, 
   Button, 
@@ -19,14 +19,14 @@ const ExecutiveDetail = () => {
     queryKey: ['executive', 'detail', id],
     queryFn: async () => {
       const [userRes, leadsRes, attendanceRes] = await Promise.all([
-        axios.get(`/api/stats/user/${id}`),
-        axios.get(`/api/leads?owner=${id}&limit=100`),
-        axios.get(`/api/attendance?userId=${id}&limit=30`)
+        api.get(`/stats/user/${id}`),
+        api.get(`/leads?owner=${id}&limit=100`),
+        api.get(`/attendance?userId=${id}&limit=30`)
       ]);
       return {
-        user: userRes.data.user,
-        performance: userRes.data.performance,
-        leads: leadsRes.data.leads || [],
+        user: userRes.data?.user || {},
+        performance: userRes.data?.performance || { monthly: {}, totalLeads: 0, avgWorkPct: 0 },
+        leads: leadsRes.data?.leads || [],
         attendance: attendanceRes.data || []
       };
     }
@@ -36,14 +36,25 @@ const ExecutiveDetail = () => {
   if (error) return (
     <div className="p-8 text-center">
       <h2 className="text-xl font-bold text-red-500">Error loading executive details</h2>
+      <p className="text-text-muted mt-2 text-sm">{error?.message || 'Please try again later.'}</p>
       <Button className="mt-4" onClick={() => navigate('/dashboard?page=executives')}>Back to List</Button>
     </div>
   );
 
-  const { user, performance, leads, attendance } = detailData;
+  const { user = {}, performance = { monthly: {} }, leads = [], attendance = [] } = detailData || {};
+  const monthly = performance?.monthly || {};
 
   const handleBack = () => {
     navigate('/dashboard?page=executives');
+  };
+
+  const safeFormat = (dateStr, fmt) => {
+    try {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return 'N/A';
+      return format(d, fmt);
+    } catch { return 'N/A'; }
   };
 
   return (
@@ -60,7 +71,7 @@ const ExecutiveDetail = () => {
           <div className="flex items-center gap-2 text-[12px] font-medium text-text-muted">
             <span>Executive Management</span>
             <span className="opacity-30">›</span>
-            <span className="text-text-primary font-semibold">{user.name}</span>
+            <span className="text-text-primary font-semibold">{user?.name || 'Executive'}</span>
           </div>
           <h1 className="text-[24px] font-bold text-text-primary tracking-tight">Executive Profile</h1>
         </div>
@@ -70,40 +81,40 @@ const ExecutiveDetail = () => {
       <div className="bg-white rounded-2xl border border-border shadow-sm p-6 mb-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-blue"></div>
         <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
-          <Avatar name={user.name} size="xl" className="rounded-2xl border-4 border-surface2 shadow-md w-24 h-24 text-3xl" />
+          <Avatar name={user?.name || 'U'} size="xl" className="rounded-2xl border-4 border-surface2 shadow-md w-24 h-24 text-3xl" />
           
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-3 mb-2">
-              <h2 className="text-[28px] font-black text-text-primary tracking-tight">{user.name}</h2>
-              <Tag variant="blue" label={user.role.toUpperCase()} className="font-black text-[10px] tracking-widest px-3" />
-              <span className="bg-green/10 text-green px-3 py-1 rounded-full text-[12px] font-bold">Active</span>
+              <h2 className="text-[28px] font-black text-text-primary tracking-tight">{user?.name || 'N/A'}</h2>
+              <Tag variant="blue" label={(user?.role || 'executive').toUpperCase()} className="font-black text-[10px] tracking-widest px-3" />
+              <span className="bg-green/10 text-green px-3 py-1 rounded-full text-[12px] font-bold">{user?.isActive !== false ? 'Active' : 'Inactive'}</span>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-y-2 gap-x-8 text-[14px] text-text-muted font-medium">
               <div className="flex items-center gap-2">
-                <span className="opacity-60 text-lg">📧</span> {user.email}
+                <span className="opacity-60 text-lg">📧</span> {user?.email || 'N/A'}
               </div>
               <div className="flex items-center gap-2">
-                <span className="opacity-60 text-lg">📞</span> {user.phone}
+                <span className="opacity-60 text-lg">📞</span> {user?.phone || 'N/A'}
               </div>
               <div className="flex items-center gap-2">
-                <span className="opacity-60 text-lg">📍</span> {user.district}, {user.state}
+                <span className="opacity-60 text-lg">📍</span> {[user?.district, user?.state].filter(Boolean).join(', ') || 'N/A'}
               </div>
               <div className="flex items-center gap-2">
-                <span className="opacity-60 text-lg">🏢</span> {user.industry} Vertical
+                <span className="opacity-60 text-lg">🏢</span> {user?.industry || 'General'} Vertical
               </div>
               <div className="flex items-center gap-2">
-                <span className="opacity-60 text-lg">🆔</span> {user.employeeId}
+                <span className="opacity-60 text-lg">🆔</span> {user?.employeeId || 'N/A'}
               </div>
               <div className="flex items-center gap-2">
-                <span className="opacity-60 text-lg">📅</span> Joined {user.dateOfJoining ? format(new Date(user.dateOfJoining), 'PP') : 'N/A'}
+                <span className="opacity-60 text-lg">📅</span> Joined {safeFormat(user?.dateOfJoining, 'PP')}
               </div>
             </div>
           </div>
 
           <div className="bg-surface2/50 p-4 rounded-xl border border-border min-w-[200px]">
             <div className="text-[11px] font-black text-text-muted uppercase tracking-wider mb-1">Current Salary</div>
-            <div className="text-[24px] font-black text-text-primary">₹{user.basicSalary?.toLocaleString() || 0}</div>
+            <div className="text-[24px] font-black text-text-primary">₹{user?.basicSalary?.toLocaleString() || 0}</div>
             <div className="text-[11px] text-text-muted font-medium mt-1">Per Month · Fixed</div>
           </div>
         </div>
@@ -127,10 +138,10 @@ const ExecutiveDetail = () => {
         <div className="animate-in slide-in-from-bottom-2 duration-300">
           {/* SECTION 2: Performance Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard label="Total Leads" value={performance.totalLeads} sub="Lifetime" color="blue" />
-            <StatCard label="Monthly Calls" value={performance.monthly.calls} sub="This Month" color="purple" />
-            <StatCard label="Monthly Revenue" value={`₹${(performance.monthly.revenue / 1000).toFixed(1)}K`} sub="Target: 50K" color="green" />
-            <StatCard label="Avg Work %" value={`${performance.avgWorkPct}%`} sub="Attendance Quality" color="amber" />
+            <StatCard label="Total Leads" value={performance?.totalLeads || 0} sub="Lifetime" color="blue" />
+            <StatCard label="Monthly Calls" value={monthly?.calls || 0} sub="This Month" color="purple" />
+            <StatCard label="Monthly Revenue" value={`₹${((monthly?.revenue || 0) / 1000).toFixed(1)}K`} sub="Target: 50K" color="green" />
+            <StatCard label="Avg Work %" value={`${performance?.avgWorkPct || 0}%`} sub="Attendance Quality" color="amber" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -139,9 +150,9 @@ const ExecutiveDetail = () => {
                 <span className="text-blue">📊</span> Monthly Metrics Breakdown
               </h3>
               <div className="space-y-6">
-                <MetricBar label="Lead Conversion" value={performance.monthly.conversions} total={performance.monthly.calls} color="bg-green" />
-                <MetricBar label="Meeting Success" value={performance.monthly.meetings} total={performance.monthly.calls} color="bg-blue" />
-                <MetricBar label="Follow-up Rate" value={performance.monthly.followups} total={performance.monthly.calls} color="bg-purple" />
+                <MetricBar label="Lead Conversion" value={monthly?.conversions || 0} total={monthly?.calls || 0} color="bg-green" />
+                <MetricBar label="Meeting Success" value={monthly?.meetings || 0} total={monthly?.calls || 0} color="bg-blue" />
+                <MetricBar label="Follow-up Rate" value={monthly?.followups || 0} total={monthly?.calls || 0} color="bg-purple" />
               </div>
             </div>
 
@@ -181,16 +192,16 @@ const ExecutiveDetail = () => {
                   <td className="p-4">
                     <Tag 
                       variant={lead.status === 'converted' ? 'green' : lead.status === 'lost' ? 'red' : 'blue'} 
-                      label={lead.status.replace('_', ' ').toUpperCase()} 
+                      label={(lead.status || 'new').replace('_', ' ').toUpperCase()} 
                     />
                   </td>
                   <td className="p-4">
                     <span className={`text-[12px] font-bold ${lead.priority === 'hot' ? 'text-red-500' : lead.priority === 'warm' ? 'text-amber-500' : 'text-blue-500'}`}>
-                      {lead.priority.toUpperCase()}
+                      {(lead.priority || 'cold').toUpperCase()}
                     </span>
                   </td>
                   <td className="p-4 text-[13px] font-medium text-text-muted">
-                    {format(new Date(lead.updatedAt), 'MMM dd, yyyy')}
+                    {safeFormat(lead.updatedAt, 'MMM dd, yyyy')}
                   </td>
                 </tr>
               ))}
@@ -220,23 +231,23 @@ const ExecutiveDetail = () => {
             <tbody className="divide-y divide-border">
               {attendance.map(record => (
                 <tr key={record._id} className="hover:bg-surface2/30 transition-all">
-                  <td className="p-4 pl-6 font-bold text-[14px]">{format(new Date(record.date), 'EEE, MMM dd')}</td>
+                  <td className="p-4 pl-6 font-bold text-[14px]">{safeFormat(record.date, 'EEE, MMM dd')}</td>
                   <td className="p-4">
                     <Tag 
                       variant={record.status === 'present' ? 'green' : record.status === 'half_day' ? 'amber' : 'red'} 
-                      label={record.status.replace('_', ' ').toUpperCase()} 
+                      label={(record.status || 'absent').replace('_', ' ').toUpperCase()} 
                     />
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue" style={{ width: `${record.completionPct}%` }}></div>
+                        <div className="h-full bg-blue" style={{ width: `${record.completionPct || 0}%` }}></div>
                       </div>
-                      <span className="text-[12px] font-bold">{record.completionPct}%</span>
+                      <span className="text-[12px] font-bold">{record.completionPct || 0}%</span>
                     </div>
                   </td>
                   <td className="p-4 text-[13px] font-medium text-text-muted">
-                    {record.workStartedAt ? format(new Date(record.workStartedAt), 'hh:mm a') : '—'}
+                    {record.workStartedAt ? safeFormat(record.workStartedAt, 'hh:mm a') : '—'}
                   </td>
                   <td className="p-4 text-[13px] font-medium text-text-muted italic">
                     {record.note || 'No remarks'}
@@ -261,7 +272,7 @@ const ExecutiveDetail = () => {
                 <div className="w-10 h-10 rounded-lg bg-surface2 flex items-center justify-center text-xl">📄</div>
                 <div>
                   <div className="text-[14px] font-bold truncate max-w-[150px]">{doc.name}</div>
-                  <div className="text-[11px] text-text-muted">Uploaded {format(new Date(doc.uploadedAt), 'PP')}</div>
+                  <div className="text-[11px] text-text-muted">Uploaded {safeFormat(doc.uploadedAt, 'PP')}</div>
                 </div>
               </div>
               <a 

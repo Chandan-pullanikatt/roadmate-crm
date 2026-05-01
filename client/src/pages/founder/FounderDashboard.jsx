@@ -10,7 +10,7 @@ import LeaveCalendar from './sections/LeaveCalendar';
 import Performance from './sections/Performance';
 import Reports from './sections/Reports';
 import ExpectedOnboarding from './sections/ExpectedOnboarding';
-import RevenueDashboard from './sections/RevenueDashboard';
+
 import './founder.css';
 
 const FounderDashboard = () => {
@@ -30,7 +30,7 @@ const FounderDashboard = () => {
       case 'performance': return <Performance />;
       case 'reports': return <Reports />;
       case 'leads-onboarding': return <ExpectedOnboarding />;
-      case 'revenue': return <RevenueDashboard />;
+
       default: return <Overview />;
     }
   };

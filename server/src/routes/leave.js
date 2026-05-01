@@ -5,6 +5,7 @@ const LeavePolicy = require('../models/LeavePolicy');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { verifyToken } = require('../middleware/auth');
+const notificationService = require('../services/notificationService');
 const mongoose = require('mongoose');
 
 // Helper to get dates between range
@@ -264,6 +265,14 @@ router.patch('/:id/approve', verifyToken, async (req, res, next) => {
       status: 'approved'
     });
 
+    // Create notification for requester
+    await notificationService.onLeaveDecision({
+      userId: leave.user,
+      decision: 'approved',
+      managerName: req.user.name || 'Manager',
+      io,
+    });
+
     res.json(leave);
   } catch (err) {
     next(err);
@@ -295,6 +304,14 @@ router.patch('/:id/reject', verifyToken, async (req, res, next) => {
       leaveId: leave._id,
       status: 'rejected',
       note: approvalNote
+    });
+
+    // Create notification for requester
+    await notificationService.onLeaveDecision({
+      userId: leave.user,
+      decision: 'rejected',
+      managerName: req.user.name || 'Manager',
+      io,
     });
 
     res.json(leave);

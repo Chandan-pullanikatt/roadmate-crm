@@ -50,6 +50,8 @@ const leadSchema = new mongoose.Schema({
   escalatedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   escalationNote: { type: String },
   expectedRevenue: { type: Number, default: 0 },
+  subStatus: { type: String },
+  remarks: { type: String },
   actualRevenue: { type: Number, default: 0 },
   revenueCategory: {
     type: String,

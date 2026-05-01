@@ -146,7 +146,77 @@ const DistrictExecutives = () => {
         </div>
       </div>
 
-      <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm">
+      {/* Mobile/Tablet Cards - visible < lg */}
+      <div className="lg:hidden space-y-4 mb-6">
+        {filteredExecs.map((m) => (
+          <div key={m._id} className="bg-white rounded-xl border border-border shadow-sm p-4 hover:shadow-md transition-all">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar name={m.name} size="sm" className="rounded-lg shadow-sm border border-border" />
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-[14px] text-text-primary truncate">{m.name}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">{m.state || 'N/A'}</span>
+                  <span className="text-[11px] text-text-muted font-medium capitalize">{m.industry || 'General'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Leads</div>
+                <div className="text-[16px] font-bold text-text-primary">{m.leads || 0}</div>
+              </div>
+              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Connected</div>
+                <div className="text-[16px] font-bold text-text-primary">{m.calls || 0}</div>
+              </div>
+              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Converted</div>
+                <div className="text-[16px] font-bold text-[#16a34a]">{m.converted || 0}</div>
+              </div>
+              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Work %</div>
+                <div className="text-[16px] font-bold text-text-primary">{m.workPct || 0}%</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button 
+                size="xs" 
+                className="flex-1 bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold py-2"
+                onClick={() => navigate(`/dashboard/executives/${m._id}`)}
+              >
+                View
+              </Button>
+              <Button 
+                size="xs" 
+                variant="outline" 
+                className="flex-1 bg-white border-border shadow-sm text-text-primary py-2 font-bold"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m } }))}
+              >
+                Edit
+              </Button>
+              <Button 
+                size="xs" 
+                variant="outline" 
+                className="bg-white border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] shadow-sm px-3 py-2 font-bold"
+                onClick={() => handleDelete(m)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        ))}
+        {filteredExecs.length === 0 && (
+          <div className="bg-white rounded-xl border border-border p-12 text-center">
+            <div className="text-[24px] mb-2">📊</div>
+            <p className="text-text-muted italic font-medium">No executive performance data available for this selection.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Table - visible >= lg */}
+      <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm hidden lg:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
