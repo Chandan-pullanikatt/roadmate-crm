@@ -1,17 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../context/ToastContext';
+import { useSocket } from '../../../hooks/useSocket';
 import LeadWizard from './LeadWizard';
 
 const MyWorkToday = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { user } = useAuth();
+  const socket = useSocket();
   const [wfhData, setWfhData] = useState({ isWFH: false, location: '', reason: '', description: '' });
+
+  // Refresh queue immediately when a DM-day hourly retry is due
+  useEffect(() => {
+    if (!socket) return;
+    const handleDMRetry = ({ leadName, meetingAt }) => {
+      queryClient.invalidateQueries(['leads', 'workflow']);
+      const timeStr = new Date(meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      addToast(`⏰ Retry: "${leadName}" — call again before meeting at ${timeStr}`, 'warning');
+    };
+    socket.on('lead:dm_retry', handleDMRetry);
+    return () => socket.off('lead:dm_retry', handleDMRetry);
+  }, [socket, queryClient, addToast]);
+
+  // Refresh queue when a meeting confirmation task is pushed by cron
+  useEffect(() => {
+    if (!socket) return;
+    const handleConfirmTask = ({ leadName, meetingAt, taskType }) => {
+      queryClient.invalidateQueries(['leads', 'workflow']);
+      const timeStr = new Date(meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const label = taskType === '30m_vm_confirm'
+        ? `⚡ 30-min check: Call "${leadName}" before virtual meeting at ${timeStr}`
+        : `📅 Confirm tomorrow's meeting: "${leadName}" at ${timeStr}`;
+      addToast(label, 'warning');
+    };
+    socket.on('lead:confirmation_task', handleConfirmTask);
+    return () => socket.off('lead:confirmation_task', handleConfirmTask);
+  }, [socket, queryClient, addToast]);
 
   // 1. Fetch Today's Attendance
   const { data: attendanceData, refetch: refetchAttendance } = useQuery({

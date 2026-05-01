@@ -21,9 +21,18 @@ const MeetingAlertBanner = ({ meeting, onConfirm, onReject, onFeedback }) => {
           </div>
           
           <div className="flex flex-col">
-            <div className="text-[10px] font-black text-accent uppercase tracking-[0.2em] mb-1">Live Reminder</div>
-            <h4 className="font-extrabold text-base text-text-primary leading-tight">Meeting in 60m</h4>
-            <p className="text-xs font-bold text-text-secondary mt-1">Lead: <span className="text-blue">{meeting.lead}</span></p>
+            <div className="text-[10px] font-black text-accent uppercase tracking-[0.2em] mb-1">
+              {meeting.reminderType === '15m' ? '⚡ Urgent Reminder' : 'Live Reminder'}
+            </div>
+            <h4 className="font-extrabold text-base text-text-primary leading-tight">
+              {meeting.reminderType === '15m' ? 'Meeting in 15 minutes!' : 'Meeting in 1 hour'}
+            </h4>
+            <p className="text-xs font-bold text-text-secondary mt-1">
+              {meeting.type === 'virtual' ? '🎥 Virtual' : '📍 Direct'} · <span className="text-blue">{meeting.lead}</span>
+            </p>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {new Date(meeting.meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
           </div>
         </div>
         

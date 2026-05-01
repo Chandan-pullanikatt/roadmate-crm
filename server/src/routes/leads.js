@@ -106,6 +106,12 @@ const bulkCreateLeads = async (req, res) => {
             'direct meeting': 'meeting_direct', 'meeting': 'meeting_direct',
             'converted': 'converted', 'lost': 'lost', 'not interested': 'not_interested',
             'escalated': 'escalated',
+            'blocking amount received': 'blocking_amount_received',
+            'blocking_amount_received': 'blocking_amount_received',
+            'full amount received': 'full_amount_received',
+            'full_amount_received': 'full_amount_received',
+            'agreement signed': 'agreement_signed',
+            'agreement_signed': 'agreement_signed',
           };
           const mappedStatus = statusMap[item.status.toLowerCase().trim()];
           if (mappedStatus) normalized.status = mappedStatus;
@@ -244,6 +250,9 @@ router.get('/counts', async (req, res) => {
       meeting_virtual: 0,
       meeting_direct: 0,
       converted: 0,
+      blocking_amount_received: 0,
+      full_amount_received: 0,
+      agreement_signed: 0,
       lost: 0,
       rnr: 0,
       escalated: 0
@@ -333,8 +342,13 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    const payload = normalizeLeadPayload(req.body);
+    // Executives always own the leads they create
+    if (req.user.role === 'executive' && !payload.owner) {
+      payload.owner = req.user._id;
+    }
     const lead = new Lead({
-      ...normalizeLeadPayload(req.body),
+      ...payload,
       allocatedBy: req.user._id
     });
     await lead.save();
@@ -515,15 +529,27 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/transition', async (req, res) => {
   try {
     const { action, ...data } = req.body;
-    const lead = await leadService.transition(req.params.id, action, data, req.user);
-    
     const io = req.app.get('io');
-    if (io) {
-      io.to(lead.owner.toString()).emit('lead:updated', {
+    const lead = await leadService.transition(req.params.id, action, data, req.user, io);
+
+    if (io && lead.owner) {
+      const ownerId = lead.owner.toString();
+
+      io.to(ownerId).emit('lead:updated', {
         leadId: lead._id,
         status: lead.status,
         nextActionAt: lead.nextActionAt
       });
+
+      // If a DM-day lead was marked RNR, the status stays 'meeting_direct'
+      // Push lead:dm_retry so the exec's queue refreshes immediately
+      if (action === 'mark_rnr' && lead.status === 'meeting_direct') {
+        io.to(ownerId).emit('lead:dm_retry', {
+          leadId: lead._id,
+          leadName: lead.company || lead.name,
+          meetingAt: lead.meetingAt
+        });
+      }
 
       if (action === 'set_feedback' && (data.nextAction === 'schedule_virtual' || data.nextAction === 'direct_meeting')) {
         const invitees = lead.meetingInvitees || [];

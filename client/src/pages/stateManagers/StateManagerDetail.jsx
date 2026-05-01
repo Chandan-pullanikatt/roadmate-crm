@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../api/axios';
 import { 
   Avatar, 
   Button, 
@@ -19,9 +19,9 @@ const StateManagerDetail = () => {
     queryKey: ['state-manager', 'detail', id],
     queryFn: async () => {
       const [userRes, industryMgrsRes, leavesRes] = await Promise.all([
-        axios.get(`/api/stats/user/${id}`),
-        axios.get(`/api/users?role=industry_manager&reportingTo=${id}`),
-        axios.get(`/api/leave?userId=${id}`)
+        api.get(`/stats/user/${id}`),
+        api.get(`/users?role=industry_manager&reportingTo=${id}`),
+        api.get(`/leave?userId=${id}`)
       ]);
       return {
         user: userRes.data.user,
@@ -40,7 +40,12 @@ const StateManagerDetail = () => {
     </div>
   );
 
-  const { user, performance, industryManagers, leaves } = detailData;
+  const { 
+    user = {}, 
+    performance = { monthly: {} }, 
+    industryManagers = [], 
+    leaves = [] 
+  } = detailData || {};
 
   const handleBack = () => {
     navigate('/dashboard?page=state-managers');

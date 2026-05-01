@@ -90,7 +90,11 @@ const LeadList = () => {
     { id: 'new', label: 'New', count: counts?.new || 0 },
     { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
     { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
-    { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
+    {
+      id: 'converted',
+      label: 'Converted',
+      count: (counts?.converted || 0) + (counts?.blocking_amount_received || 0) + (counts?.full_amount_received || 0) + (counts?.agreement_signed || 0)
+    },
     { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
     { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
   ];
@@ -182,9 +186,18 @@ const LeadList = () => {
                 </td>
                 <td className="p-4 text-xs font-medium text-text-secondary">{lead.phone}</td>
                 <td className="p-4 text-center">
-                  <Tag 
-                    variant={lead.status === 'converted' ? 'green' : (lead.status === 'meeting_virtual' || lead.status === 'meeting_direct') ? 'blue' : (lead.status === 'followup' || lead.status === 'new') ? 'amber' : 'red'} 
-                    label={lead.status?.toUpperCase() ?? 'NEW'} 
+                  <Tag
+                    variant={
+                      ['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'].includes(lead.status) ? 'green' :
+                      (lead.status === 'meeting_virtual' || lead.status === 'meeting_direct') ? 'blue' :
+                      (lead.status === 'followup' || lead.status === 'new') ? 'amber' : 'red'
+                    }
+                    label={
+                      lead.status === 'blocking_amount_received' ? 'BLOCKING AMT' :
+                      lead.status === 'full_amount_received' ? 'FULL AMT' :
+                      lead.status === 'agreement_signed' ? 'AGREEMENT' :
+                      lead.status?.replace(/_/g, ' ').toUpperCase() ?? 'NEW'
+                    }
                   />
                 </td>
                 <td className="p-4 text-center text-xs text-text-muted font-bold">{formatLastContact(lead.updatedAt)}</td>

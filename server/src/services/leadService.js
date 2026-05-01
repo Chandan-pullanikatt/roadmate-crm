@@ -3,6 +3,7 @@ const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const LeavePolicy = require('../models/LeavePolicy');
 const mongoose = require('mongoose');
+const notificationService = require('./notificationService');
 
 /**
  * Helper to check if a date is a working day (not Sunday and not a holiday)
@@ -50,15 +51,20 @@ async function getNextWorkingDays(count, state) {
 
 const leadService = {
   /**
-   * Transition lead state
+   * Transition lead state.
+   * @param {string} leadId
+   * @param {string} action
+   * @param {Object} data
+   * @param {Object|null} performedBy - user object, or null for system-triggered transitions
+   * @param {Object|null} io - Socket.io instance for real-time notifications
    */
-  async transition(leadId, action, data, performedBy) {
+  async transition(leadId, action, data, performedBy = null, io = null) {
     const lead = await Lead.findById(leadId);
     if (!lead) throw new Error('Lead not found');
 
     const activityData = {
       lead: lead._id,
-      performedBy: performedBy._id,
+      performedBy: performedBy?._id ?? null,
       action: '',
       note: data.note || '',
       metadata: {}
@@ -100,57 +106,125 @@ const leadService = {
           lead.meetingLink = data.meetingLink;
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
+
+          // Schedule initial confirmation task: 2 hours before the meeting
+          // (or immediately if the meeting is within 2 hours)
+          const vmConfirmAt = new Date(lead.meetingAt.getTime() - 2 * 60 * 60 * 1000);
+          lead.nextActionAt = vmConfirmAt > new Date() ? vmConfirmAt : new Date();
+          lead.subStatus = 'pre_meeting_confirm';
+
         } else if (nextAction === 'direct_meeting') {
           lead.status = 'meeting_direct';
           lead.meetingAt = new Date(data.meetingAt);
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
+
+          // Schedule confirmation task based on how far away the meeting is
+          const tomorrowEnd = new Date();
+          tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+          tomorrowEnd.setHours(23, 59, 59, 999);
+
+          if (lead.meetingAt > tomorrowEnd) {
+            // Meeting is day-after-tomorrow or later → confirm the day before at 10 AM
+            const dayBeforeAt10 = new Date(lead.meetingAt);
+            dayBeforeAt10.setDate(dayBeforeAt10.getDate() - 1);
+            dayBeforeAt10.setHours(10, 0, 0, 0);
+            lead.nextActionAt = dayBeforeAt10;
+            lead.subStatus = 'day_before_confirm';
+          } else {
+            // Meeting is today or tomorrow → confirm immediately
+            lead.nextActionAt = new Date();
+            lead.subStatus = 'pre_meeting_confirm';
+          }
+        } else if (nextAction === 'blocking_amount_received') {
+          lead.status = 'blocking_amount_received';
+          activityData.action = 'blocking_amount_received';
+        } else if (nextAction === 'full_amount_received') {
+          lead.status = 'full_amount_received';
+          activityData.action = 'full_amount_received';
+        } else if (nextAction === 'agreement_signed') {
+          lead.status = 'agreement_signed';
+          activityData.action = 'agreement_signed';
         }
         break;
 
-      case 'mark_rnr':
+      case 'mark_rnr': {
         lead.rnrCount = (lead.rnrCount || 0) + 1;
         activityData.action = 'rnr';
-        
+
+        // ── Special case: Direct Meeting lead on the DAY of the meeting ──────
+        // Keep retrying every hour until the scheduled meeting time.
+        // Do not escalate or change status — the meeting is still on.
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+        const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+        const meetingAt  = lead.meetingAt ? new Date(lead.meetingAt) : null;
+        const isDMDay    = lead.status === 'meeting_direct' &&
+                           meetingAt && meetingAt >= todayStart && meetingAt <= todayEnd;
+
+        if (isDMDay) {
+          const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+          lead.nextActionAt = oneHourFromNow < meetingAt ? oneHourFromNow : meetingAt;
+          activityData.note = `Pre-meeting retry #${lead.rnrCount}. Next attempt: ${lead.nextActionAt.toLocaleTimeString()}. Meeting at: ${meetingAt.toLocaleTimeString()}`;
+          break; // skip normal RNR escalation
+        }
+
+        // ── Normal RNR path ──────────────────────────────────────────────────
+        lead.status = 'rnr';
+
         if (lead.rnrCount === 1) {
+          // Retry same afternoon at 1:30 PM
           const today = new Date();
           today.setHours(13, 30, 0, 0);
           lead.nextActionAt = today;
         } else if (lead.rnrCount === 2) {
+          // Next working day at a random time between 10 AM–2 PM
           const nextDay = new Date();
           nextDay.setDate(nextDay.getDate() + 1);
-          // Simple random time between 10 AM and 2 PM
-          const randomHour = Math.floor(Math.random() * (14 - 10 + 1)) + 10;
-          const randomMin = Math.floor(Math.random() * 60);
-          nextDay.setHours(randomHour, randomMin, 0, 0);
+          const rHour2 = Math.floor(Math.random() * (14 - 10 + 1)) + 10;
+          const rMin2  = Math.floor(Math.random() * 60);
+          nextDay.setHours(rHour2, rMin2, 0, 0);
           lead.nextActionAt = nextDay;
         } else if (lead.rnrCount === 3) {
+          // Two days later at a random time between 9 AM–4 PM
           const twoDaysLater = new Date();
           twoDaysLater.setDate(twoDaysLater.getDate() + 2);
-          const randomHour = Math.floor(Math.random() * (16 - 9 + 1)) + 9;
-          twoDaysLater.setHours(randomHour, 0, 0, 0);
+          const rHour3 = Math.floor(Math.random() * (16 - 9 + 1)) + 9;
+          twoDaysLater.setHours(rHour3, 0, 0, 0);
           lead.nextActionAt = twoDaysLater;
         } else if (lead.rnrCount >= 4) {
-          // Reallocate
+          // Capture previous owner BEFORE reassigning
+          const previousOwnerId = lead.owner;
+
           const otherExec = await User.findOne({
             role: 'executive',
             isActive: true,
             state: lead.state,
             industry: lead.industry,
-            _id: { $ne: lead.owner }
+            _id: { $ne: previousOwnerId }
           });
 
           if (otherExec) {
             lead.owner = otherExec._id;
+            lead.nextActionAt = new Date(); // Queue immediately for new executive
             activityData.action = 'reallocated';
-            activityData.note = `Auto-reallocated due to RNR count ${lead.rnrCount}. Previous owner: ${lead.owner}`;
-          } else if (lead.rnrCount >= 5) {
+            activityData.note = `Auto-reallocated after ${lead.rnrCount} RNR attempts. Previous owner: ${previousOwnerId}`;
+
+            await notificationService.onLeadAutoReallocated({
+              executiveId: otherExec._id,
+              leadName: lead.company || lead.name || 'Lead',
+              rnrCount: lead.rnrCount,
+              io,
+            });
+          } else {
+            // No available executive in same territory — mark as lost
             lead.status = 'lost';
             lead.lostAt = new Date();
             activityData.action = 'lost';
+            activityData.note = `Auto-lost: no available executive in ${lead.state}/${lead.industry} after ${lead.rnrCount} RNR attempts`;
           }
         }
         break;
+      }
 
       case 'set_followup_date':
         lead.followUpDate = new Date(data.followUpDate);
@@ -181,12 +255,34 @@ const leadService = {
         activityData.action = 'reallocated';
         break;
 
+      case 'confirm_meeting': {
+        // Executive called and confirmed the meeting is happening.
+        // Clear the confirmation task subStatus.
+        lead.subStatus = null;
+        activityData.action = 'meeting_confirmed';
+        activityData.note = data.note || 'Meeting confirmed by executive';
+
+        // For virtual meetings: if the meeting is still > 30 min away,
+        // push nextActionAt to 30 min before so the 30-min cron can
+        // detect it and create the final confirmation task.
+        if (lead.status === 'meeting_virtual' && lead.meetingAt) {
+          const thirtyMinBefore = new Date(lead.meetingAt.getTime() - 30 * 60 * 1000);
+          if (thirtyMinBefore > new Date()) {
+            lead.nextActionAt = thirtyMinBefore;
+          }
+        }
+        break;
+      }
+
       default:
         throw new Error('Invalid transition action');
     }
 
     await lead.save();
-    await LeadActivity.create(activityData);
+    // Skip activity log for system-triggered transitions that have no real performer
+    if (activityData.action) {
+      await LeadActivity.create(activityData);
+    }
     return lead;
   },
 
@@ -199,7 +295,8 @@ const leadService = {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const leads = await Lead.find({ owner: userId, status: { $nin: ['converted', 'lost', 'not_interested'] } });
+    const CLOSED_STATUSES = ['converted', 'lost', 'not_interested', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
+    const leads = await Lead.find({ owner: userId, status: { $nin: CLOSED_STATUSES } });
 
     // SORT ORDER:
     // 1. Direct meetings scheduled for today

@@ -82,6 +82,19 @@ const notificationService = {
   },
 
   /**
+   * Notify executive when a lead is auto-reallocated to them by the system
+   */
+  async onLeadAutoReallocated({ executiveId, leadName, rnrCount, io }) {
+    return this.create({
+      userId: executiveId,
+      message: `Lead "${leadName}" was auto-assigned to you after ${rnrCount} missed calls by the previous executive.`,
+      type: 'lead_allocated',
+      meta: { leadName, rnrCount, autoAssigned: true },
+      io,
+    });
+  },
+
+  /**
    * Notify when new staff is created under a manager
    */
   async onStaffCreated({ managerId, staffName, staffRole, io }) {

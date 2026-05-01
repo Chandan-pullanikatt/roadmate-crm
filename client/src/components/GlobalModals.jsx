@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Tag, FileUpload, Avatar } from './ui';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
@@ -18,6 +19,8 @@ import AllocateLeadModal from './modals/AllocateLeadModal';
 const GlobalModals = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const { user: currentUser } = useAuth();
+  const isExecutive = currentUser?.role === 'executive';
   const [activeModal, setActiveModal] = useState(null);
   const [managers, setManagers] = useState([]);
   const [executives, setExecutives] = useState([]);
@@ -312,7 +315,9 @@ const GlobalModals = () => {
     try {
       const leadData = {
         ...leadFormData,
-        phone: `${leadFormData.countryCode}${leadFormData.phone}`
+        phone: `${leadFormData.countryCode}${leadFormData.phone}`,
+        // Executives always own the leads they create; backend enforces this too
+        ...(isExecutive && { ownerId: currentUser._id })
       };
       await leadsApi.createLead(leadData);
       addToast('Lead added successfully!', 'success');
@@ -617,7 +622,8 @@ const GlobalModals = () => {
             </div>
           </div>
 
-          {/* ALLOCATION SECTION */}
+          {/* ALLOCATION SECTION — hidden for executives (auto-assigned to themselves) */}
+          {!isExecutive && (
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Allocation</div>
@@ -640,6 +646,7 @@ const GlobalModals = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* SCHEDULE MEETING SECTION */}
           <div className="space-y-6">

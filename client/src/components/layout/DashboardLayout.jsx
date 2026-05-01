@@ -7,6 +7,8 @@ import { leadsApi } from '../../api/leadsApi';
 import { searchApi } from '../../api/searchApi';
 import { notificationsApi } from '../../api/notificationsApi';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
+import MeetingAlertBanner from '../ui/MeetingAlertBanner';
+import { useToast } from '../../context/ToastContext';
 
 const getIcon = (iconName) => {
   const props = { className: "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
@@ -191,8 +193,30 @@ const DashboardLayout = ({
   };
 
 
-  // Initialize meeting alerts (polls in background if role is executive)
-  useMeetingAlerts(userRole);
+  const { addToast } = useToast();
+
+  // Meeting reminder banner — fires for all roles via socket push + polling fallback
+  const { activeMeeting, dismissMeeting } = useMeetingAlerts();
+
+  const handleMeetingConfirm = async () => {
+    if (!activeMeeting?.leadId) { dismissMeeting(); return; }
+    try {
+      await leadsApi.updateLead(activeMeeting.leadId, {
+        notes: `Meeting confirmed at ${new Date(activeMeeting.meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      });
+      addToast('Meeting confirmed ✓', 'success');
+    } catch { /* non-critical */ }
+    dismissMeeting();
+  };
+
+  const handleMeetingFeedback = async (feedback) => {
+    if (!feedback.trim() || !activeMeeting?.leadId) return;
+    try {
+      await leadsApi.updateLead(activeMeeting.leadId, { notes: feedback });
+      addToast('Note saved.', 'success');
+    } catch { /* non-critical */ }
+    dismissMeeting();
+  };
 
   // Handle case where sections aren't provided but navItems are
   const effectiveSections = sections.length > 0 ? sections : [{ label: 'Main', items: navItems }];
@@ -496,6 +520,16 @@ const DashboardLayout = ({
           {children}
         </div>
       </div>
+
+      {/* Meeting reminder banner — fixed bottom-right, appears for 1h and 15m alerts */}
+      {activeMeeting && (
+        <MeetingAlertBanner
+          meeting={activeMeeting}
+          onConfirm={handleMeetingConfirm}
+          onReject={dismissMeeting}
+          onFeedback={handleMeetingFeedback}
+        />
+      )}
     </div>
   );
 };

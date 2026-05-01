@@ -65,16 +65,21 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <label className="form-label">Status</label>
-          <select 
-            className="select" 
-            value={formData.status} 
+          <select
+            className="select"
+            value={formData.status}
             onChange={(e) => setFormData({...formData, status: e.target.value})}
           >
             <option value="new">New</option>
             <option value="followup">Follow-up</option>
-            <option value="meeting_virtual">Meeting</option>
+            <option value="meeting_virtual">Virtual Meeting</option>
+            <option value="meeting_direct">Direct Meeting</option>
             <option value="rnr">RNR</option>
             <option value="converted">Converted</option>
+            <option value="blocking_amount_received">Blocking Amount Received</option>
+            <option value="full_amount_received">Full Amount Received</option>
+            <option value="agreement_signed">Agreement Signed</option>
+            <option value="not_interested">Not Interested</option>
             <option value="lost">Lost</option>
           </select>
         </div>
@@ -92,7 +97,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
           </div>
         )}
 
-        {formData.status === 'converted' && (
+        {['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'].includes(formData.status) && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
             <div className="space-y-1">
               <label className="form-label">Revenue Category</label>

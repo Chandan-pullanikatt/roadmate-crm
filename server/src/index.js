@@ -30,9 +30,6 @@ const server = http.createServer(app);
 // Connect to Database
 connectDB();
 
-// Init Cron Jobs
-initCronJobs();
-
 // Middleware
 app.use(helmet());
 app.use(cors({ 
@@ -64,6 +61,9 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+
+// Init Cron Jobs — must run after io is created so the sweep cron can send notifications
+initCronJobs(io);
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
