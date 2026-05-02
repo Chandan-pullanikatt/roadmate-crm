@@ -308,6 +308,12 @@ router.post('/create-state-manager', async (req, res) => {
       workingHours,
       basicSalary,
       employeeId,
+      doj,
+      dateOfJoining,
+      aadhaar,
+      aadhaarNumber,
+      pan,
+      panNumber,
       documents = []
     } = req.body;
     const existingUser = await User.findOne({ email });
@@ -326,6 +332,9 @@ router.post('/create-state-manager', async (req, res) => {
       workingHours: workingHours || { start: '09:30', end: '18:30' },
       basicSalary: basicSalary || 0,
       employeeId: employeeId || `SM-${Date.now().toString().slice(-6)}`,
+      dateOfJoining: doj || dateOfJoining || null,
+      aadhaarNumber: aadhaar || aadhaarNumber || '',
+      panNumber: pan || panNumber || '',
       documents
     });
 
@@ -364,13 +373,8 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
-    // Check for subordinates (Staff reporting to this user)
-    const subordinateCount = await User.countDocuments({ reportingTo: id });
-    if (subordinateCount > 0) {
-      return res.status(400).json({ 
-        message: `Cannot delete user: ${subordinateCount} staff members report to this account. Reassign them first.` 
-      });
-    }
+    // Nullify reporting relationships before deletion
+    await User.updateMany({ reportingTo: id }, { $unset: { reportingTo: '' } });
 
     // Check for assigned leads (Warning only, deletion proceeds)
     const leadCount = await Lead.countDocuments({ owner: id });

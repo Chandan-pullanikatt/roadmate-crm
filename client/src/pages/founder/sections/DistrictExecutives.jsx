@@ -53,7 +53,7 @@ const DistrictExecutives = () => {
   const filteredExecs = executives.filter(e => filterState === 'All' || e.state === filterState);
 
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 overflow-x-hidden">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-4 text-[12px] font-medium text-text-muted">
         <span>Founder</span>

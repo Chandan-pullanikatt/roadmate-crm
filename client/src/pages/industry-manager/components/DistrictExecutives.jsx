@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   StatCard,
   Button,
@@ -10,10 +10,38 @@ import {
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
+import { useAuth } from '../../../context/AuthContext';
 
 
 const DistrictExecutives = () => {
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const [activeDistrict, setActiveDistrict] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
+    };
+    window.addEventListener('refresh-users', handleRefresh);
+    return () => window.removeEventListener('refresh-users', handleRefresh);
+  }, [queryClient]);
+
+  const openCreateExec = (editData = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', {
+      detail: {
+        type: 'create-exec',
+        role: 'executive',
+        ...(editData ? { editData } : {
+          prefill: {
+            reportingTo: currentUser?._id,
+            state: currentUser?.state,
+            industry: currentUser?.industry
+          }
+        })
+      }
+    }));
+  };
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
@@ -46,9 +74,16 @@ const DistrictExecutives = () => {
   }, [executives]);
 
   const filteredExecs = useMemo(() => {
-    if (activeDistrict === 'All') return executives;
-    return executives.filter(e => e.district === activeDistrict);
-  }, [executives, activeDistrict]);
+    let result = activeDistrict === 'All' ? executives : executives.filter(e => e.district === activeDistrict);
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(e =>
+        e.name?.toLowerCase().includes(q) ||
+        e.district?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [executives, activeDistrict, searchTerm]);
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -69,17 +104,6 @@ const DistrictExecutives = () => {
           <p className="text-sm text-text-muted">All district executives · {dashData?.user?.industry} · Performance</p>
         </div>
         <div className="flex items-center gap-3">
-            <div className="relative">
-                <input 
-                    type="text" 
-                    placeholder="Search leads, executives..." 
-                    className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-sm focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-lg">🔍</span>
-            </div>
-            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
-                <span className="text-lg">🔔</span>
-            </button>
             <Avatar name={dashData?.user?.name} size="md" className="border-2 border-purple/10" />
         </div>
       </div>
@@ -90,9 +114,9 @@ const DistrictExecutives = () => {
           <h2 className="text-lg font-bold">District Executives · {dashData?.user?.industry} · {dashData?.user?.state}</h2>
           <p className="text-xs text-text-muted">{stats.totalExecutives} executives - Performance & lead handling</p>
         </div>
-        <Button 
+        <Button
             className="bg-purple text-white border-none rounded-xl px-6 h-10 font-bold shadow-lg shadow-purple/10"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}
+            onClick={() => openCreateExec()}
         >
             + Create Executive
         </Button>
@@ -172,7 +196,7 @@ const DistrictExecutives = () => {
                       )}
                       <Tag variant={exec.isWorking ? 'green' : 'surface2'} label={exec.status} />
                       <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'assign-target', executive: exec } }))}>Set Target</Button>
-                      <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40">Details</Button>
+                      <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => openCreateExec(exec)}>Details</Button>
                   </div>
                 }
               />

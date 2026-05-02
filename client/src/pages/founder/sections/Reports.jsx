@@ -141,7 +141,6 @@ const Reports = () => {
       <div className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
-          <p className="text-sm text-text-muted mt-1">All reports · Lead, performance, revenue, attendance, salary</p>
         </div>
         <div className="flex items-center gap-3">
              <div className="relative">
@@ -169,11 +168,6 @@ const Reports = () => {
                 + State Manager
              </button>
         </div>
-      </div>
-
-      <div className="mb-10">
-        <h2 className="text-lg font-bold text-text-primary">Reports</h2>
-        <p className="text-xs text-text-muted mt-0.5">Lead reports, performance reports, revenue, attendance & salary exports</p>
       </div>
 
       {/* Grid of Report Cards */}

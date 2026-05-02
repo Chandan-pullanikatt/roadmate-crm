@@ -31,15 +31,13 @@ const LeaveCalendar = () => {
     placeholderData: (prev) => prev
   });
 
-  // 2. Get Executive Leave Requests (Pending)
-  const { data: allLeaves, isLoading: leavesLoading } = useQuery({
+  // 2. Get Executive Leave Requests (Pending — excludes own)
+  const { data: pendingLeaves = [], isLoading: leavesLoading } = useQuery({
     queryKey: ['leaves', 'im-approvals'],
-    queryFn: () => leaveApi.getLeaves().then(res => res.data),
+    queryFn: () => leaveApi.getPendingLeaves().then(res => res.data || []),
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev
   });
-
-  const pendingLeaves = useMemo(() => allLeaves?.filter(l => l.status === 'pending') || [], [allLeaves]);
 
   // 3. Get Dashboard Profile
   const { data: dashData, isLoading: dashLoading } = useQuery({

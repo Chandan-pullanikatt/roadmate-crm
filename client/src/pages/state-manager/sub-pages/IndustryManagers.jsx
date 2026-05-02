@@ -25,6 +25,15 @@ const IndustryManagers = () => {
     placeholderData: keepPreviousData
   });
 
+  React.useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'industry-managers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'state-manager'] });
+    };
+    window.addEventListener('refresh-users', handleRefresh);
+    return () => window.removeEventListener('refresh-users', handleRefresh);
+  }, [queryClient]);
+
   const escalateMutation = useMutation({
     mutationFn: (data) => toast.promise(Promise.resolve(), { loading: 'Escalating...', success: 'Escalated to Founder', error: 'Failed' }),
     onSuccess: () => {
@@ -155,8 +164,8 @@ const IndustryManagers = () => {
               </div>
 
               <div className="flex gap-2">
-                <Button size="xs" variant="outline" className="border-border text-text-secondary px-3 py-1.5 font-bold">View Details</Button>
-                <Button size="xs" variant="outline" className="text-amber border-amber/30 px-3 py-1.5 font-bold hover:bg-amber-light/10">Escalate</Button>
+                <Button size="xs" variant="outline" className="border-border text-text-secondary px-3 py-1.5 font-bold" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m } }))}>View Details</Button>
+                <Button size="xs" variant="outline" className="text-amber border-amber/30 px-3 py-1.5 font-bold hover:bg-amber-light/10" onClick={() => escalateMutation.mutate(m._id)}>Escalate</Button>
               </div>
             </div>
           ))}
@@ -179,7 +188,7 @@ const IndustryManagers = () => {
                    <div className="text-[13px] font-black">{m.name} <span className="text-[10px] text-text-muted font-normal">· {m.industry}</span></div>
                 </div>
                 <div className="mono text-[13px] font-black text-blue">{m.leadsCount || 0} leads</div>
-                <Button size="xs" variant="outline" className="bg-white border-border text-[10px] font-bold px-3">Remap</Button>
+                <Button size="xs" variant="outline" className="bg-white border-border text-[10px] font-bold px-3" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'bulk-allocate' } }))}>Remap</Button>
               </div>
             ))}
           </div>

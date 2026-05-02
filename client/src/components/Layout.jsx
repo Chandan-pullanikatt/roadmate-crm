@@ -102,7 +102,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     state_manager: {
       accentColor: 'var(--blue)',
       logoSub: 'State Manager Portal',
-      roleBadge: '🗺 Kerala',
+      roleBadge: `🗺 ${user?.state || 'State Manager'}`,
       roleBadgeClass: 'state-badge',
       logoMarkClass: 'blue',
       logoMarkText: 'RM',
@@ -140,7 +140,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     industry_manager: {
       accentColor: 'var(--purple)',
       logoSub: 'Industry Manager Portal',
-      roleBadge: '🚗 Automobile · Kerala',
+      roleBadge: `🚗 ${user?.industry || 'Industry'} · ${user?.state || 'State'}`,
       roleBadgeClass: 'ind-badge',
       logoMarkClass: 'purple',
       logoMarkText: 'RM',
@@ -229,9 +229,9 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
 
   return (
     <DashboardLayout
-      userName={isExecutive ? 'Mohan R.' : (user?.name || 'Guest User')}
+      userName={user?.name || 'Guest User'}
       userRole={user?.role || 'executive'}
-      stateName={isExecutive ? 'Mumbai' : (user?.state || 'Kerala')}
+      stateName={user?.state || user?.district || 'N/A'}
       accentColor={config?.accentColor}
       logoSub={config?.logoSub}
       roleBadge={config?.roleBadge}

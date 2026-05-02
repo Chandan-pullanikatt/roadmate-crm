@@ -309,12 +309,6 @@ const DashboardLayout = ({
 
             {isUserDropdownOpen && (
               <div className="user-dropdown-menu animate-in">
-                <div className="dropdown-item" onClick={() => setIsUserDropdownOpen(false)}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
-                  </svg>
-                  My Profile
-                </div>
                 <div className="dropdown-item" onClick={() => { 
                   window.dispatchEvent(new CustomEvent('open-modal', { detail: 'change-password' }));
                   setIsUserDropdownOpen(false); 

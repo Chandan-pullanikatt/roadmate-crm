@@ -11,6 +11,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 
 const Performance = () => {
   const [viewType, setViewType] = useState('Monthly');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
@@ -19,7 +20,16 @@ const Performance = () => {
     placeholderData: (prev) => prev
   });
 
-  const executives = useMemo(() => dashData?.executivePerformance || [], [dashData]);
+  const allExecutives = useMemo(() => dashData?.executivePerformance || [], [dashData]);
+
+  const executives = useMemo(() => {
+    if (!searchTerm.trim()) return allExecutives;
+    const q = searchTerm.toLowerCase();
+    return allExecutives.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.district?.toLowerCase().includes(q)
+    );
+  }, [allExecutives, searchTerm]);
   const userInfo = dashData?.user || {};
 
   // Calculate Winners for Stat Cards
@@ -63,9 +73,11 @@ const Performance = () => {
         </div>
         <div className="flex items-center gap-3">
             <div className="relative">
-                <input 
-                    type="text" 
-                    placeholder="Search leads, executives..." 
+                <input
+                    type="text"
+                    placeholder="Search leads, executives..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
@@ -210,6 +222,11 @@ const Performance = () => {
                   </td>
                 </tr>
               ))}
+              {executives.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-8 py-16 text-center text-text-muted italic">No executives found</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

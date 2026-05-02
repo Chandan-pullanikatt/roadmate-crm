@@ -56,7 +56,8 @@ const StateManagers = () => {
   if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
-  const filteredManagers = managers?.filter(m => filterState === 'All' || m.state === filterState);
+  const byStateMap = new Map((dashData?.byState || []).map(s => [s.stateManagerId, s]));
+  const filteredManagers = (managers || []).filter(m => filterState === 'All' || m.state === filterState);
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -74,7 +75,7 @@ const StateManagers = () => {
               <div className="text-[12px] text-text-muted mt-1">Summary of each state manager's dashboard · Click row to drill in</div>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('create-lead')}>Create Lead</Button>
+              <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('add-lead')}>Create Lead</Button>
               <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
               <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-state-manager')}>+ State Manager</Button>
             </div>
@@ -125,85 +126,85 @@ const StateManagers = () => {
                   onChange={e => setFilterState(e.target.value)}
                 >
                   <option value="All">All States</option>
-                  {dashData?.byState?.map(s => <option key={s.state} value={s.state}>{s.state}</option>)}
+                  {[...new Set((managers || []).map(m => m.state).filter(Boolean))].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
             <div className="divide-y divide-border">
-              {dashData?.byState?.filter(s => filterState === 'All' || s.state === filterState).map((m, idx) => {
-                const initials = m.stateManager !== 'Unassigned' ? m.stateManager.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+              {filteredManagers.map((m, idx) => {
+                const s = byStateMap.get(m._id?.toString()) || {};
+                const initials = m.name ? m.name.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase() : 'U';
                 const colors = ['bg-[#3b82f6]', 'bg-[#4f46e5]', 'bg-[#0f766e]', 'bg-[#ea580c]'];
                 const avatarColor = colors[idx % colors.length];
+                const revenue = s.revenue || 0;
 
                 return (
-                  <div key={m.stateManagerId || idx} className="flex items-center justify-between p-5 hover:bg-surface2/30 transition-colors group cursor-pointer" onClick={() => setDetailMgr(m)}>
+                  <div key={m._id} className="flex items-center justify-between p-5 hover:bg-surface2/30 transition-colors group cursor-pointer" onClick={() => setDetailMgr({ ...s, ...m, stateManagerId: m._id })}>
                     <div className="flex items-center gap-4 min-w-[340px]">
                       <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>
                         {initials}
                       </div>
                       <div>
-                        <div className="text-[14px] font-bold text-text-primary group-hover:text-blue transition-colors">{m.stateManager}</div>
+                        <div className="text-[14px] font-bold text-text-primary group-hover:text-blue transition-colors">{m.name}</div>
                         <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                          {m.state} · {m.calls || 0} calls · {m.meetings || 0} meetings
+                          {m.state} · {s.calls || 0} calls · {s.meetings || 0} meetings
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-end gap-10 flex-1">
                       <div className="text-center w-14">
-                        <div className="text-[15px] font-bold text-blue font-mono">{m.leads || 0}</div>
+                        <div className="text-[15px] font-bold text-blue font-mono">{s.leads || 0}</div>
                         <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Leads</div>
                       </div>
                       <div className="text-center w-14">
-                        <div className="text-[15px] font-bold text-[#16a34a] font-mono">{m.converted || 0}</div>
+                        <div className="text-[15px] font-bold text-[#16a34a] font-mono">{s.converted || 0}</div>
                         <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Converted</div>
                       </div>
                       <div className="text-center w-24">
                         <div className="text-[15px] font-bold text-teal font-mono">
-                          ₹{m.revenue >= 100000 ? (m.revenue >= 10000000 ? (m.revenue / 10000000).toFixed(1) + 'Cr' : (m.revenue / 100000).toFixed(1) + 'L') : m.revenue.toLocaleString()}
+                          ₹{revenue >= 100000 ? (revenue >= 10000000 ? (revenue / 10000000).toFixed(1) + 'Cr' : (revenue / 100000).toFixed(1) + 'L') : revenue.toLocaleString()}
                         </div>
                         <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Revenue</div>
                       </div>
-                      
+
                       <div className="flex flex-col items-center justify-center w-24 border-l border-border pl-4">
                         <div className="flex items-center gap-2">
                            <div className="w-6 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                             <div className="h-full bg-[#16a34a]" style={{ width: `${m.avgWorkPct || 0}%` }}></div>
+                             <div className="h-full bg-[#16a34a]" style={{ width: `${s.avgWorkPct || 0}%` }}></div>
                            </div>
-                           <div className="text-[13px] font-bold text-text-primary">{Math.round(m.avgWorkPct || 0)}%</div>
+                           <div className="text-[13px] font-bold text-text-primary">{Math.round(s.avgWorkPct || 0)}%</div>
                         </div>
                         <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5 font-bold">Work %</div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-end gap-2 ml-10 w-[240px]">
-                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4 font-bold" onClick={(e) => { 
-                        e.stopPropagation(); 
-                        if (m.stateManagerId) navigate(`/dashboard/state-managers/${m.stateManagerId}`);
+                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4 font-bold" onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard/state-managers/${m._id}`);
                       }}>View</Button>
-                      
+
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={(e) => {
                         e.stopPropagation();
-                        const userObj = managers?.find(u => u._id === m.stateManagerId);
-                        if (userObj) openModal('create-state-manager', { editData: userObj });
+                        openModal('create-state-manager', { editData: m });
                       }}>Edit</Button>
-                      
-                      <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={(e) => { 
-                        e.stopPropagation(); 
-                        const userObj = managers?.find(u => u._id === m.stateManagerId);
-                        if (userObj) openModal('leave-history', { user: userObj });
+
+                      <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={(e) => {
+                        e.stopPropagation();
+                        openModal('leave-history', { user: m });
                       }}>Leave</Button>
-                      
+
                       <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(m.stateManagerId, m.stateManager);
+                        handleDelete(m._id, m.name);
                       }}>Delete</Button>
                     </div>
                   </div>
                 );
               })}
-              {dashData?.byState?.length === 0 && <div className="p-12 text-center text-text-muted italic">No state managers found</div>}
+              {filteredManagers.length === 0 && <div className="p-12 text-center text-text-muted italic">No state managers found</div>}
             </div>
           </div>
         </>

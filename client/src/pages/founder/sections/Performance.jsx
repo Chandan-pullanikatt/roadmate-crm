@@ -15,15 +15,26 @@ const SortIcon = ({ active, dir }) => (
   </span>
 );
 
+const PERIOD_API_MAP = { daily: 'today', weekly: 'weekly', monthly: 'monthly', quarterly: 'quarter' };
+
+const SECONDARY_OPTIONS = {
+  weekly: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+  monthly: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  quarterly: ['Q1', 'Q2', 'Q3', 'Q4'],
+};
+
 const Performance = () => {
   const navigate = useNavigate();
   const [viewType, setViewType] = useState('monthly');
+  const [subValue, setSubValue] = useState('');
   const [sortKey, setSortKey] = useState('completionPct');
   const [sortDir, setSortDir] = useState('desc');
 
+  const apiPeriod = PERIOD_API_MAP[viewType] || 'monthly';
+
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'founder', viewType],
-    queryFn: () => dashboardApi.getFounderDashboard(viewType).then(res => res.data),
+    queryKey: ['dashboard', 'founder', viewType, subValue],
+    queryFn: () => dashboardApi.getFounderDashboard(apiPeriod, subValue || undefined).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -66,16 +77,30 @@ const Performance = () => {
           <div className="section-title">Performance Analytics</div>
           <div className="section-sub">Enterprise-wide conversion tracking &amp; regional office metrics</div>
         </div>
-        <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-          {['daily', 'weekly', 'monthly', 'quarterly'].map(type => (
-            <button
-              key={type}
-              onClick={() => setViewType(type)}
-              className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+        <div className="flex items-center gap-3">
+          <div className="flex bg-surface2 p-1 rounded-xl border border-border">
+            {['daily', 'weekly', 'monthly', 'quarterly'].map(type => (
+              <button
+                key={type}
+                onClick={() => { setViewType(type); setSubValue(''); }}
+                className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          {SECONDARY_OPTIONS[viewType] && (
+            <select
+              className="bg-white border border-border rounded-lg px-3 py-1.5 text-[11px] font-bold text-text-secondary outline-none focus:border-purple transition-colors"
+              value={subValue}
+              onChange={e => setSubValue(e.target.value)}
             >
-              {type}
-            </button>
-          ))}
+              <option value="">All {viewType === 'weekly' ? 'Weeks' : viewType === 'monthly' ? 'Months' : 'Quarters'}</option>
+              {SECONDARY_OPTIONS[viewType].map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

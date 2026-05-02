@@ -11,6 +11,7 @@ const Attendance = () => {
   const { addToast } = useToast();
   const [viewType, setViewType] = useState('Today');
   const [viewDate, setViewDate] = useState(new Date());
+  const [searchTerm, setSearchTerm] = useState('');
 
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
@@ -31,9 +32,18 @@ const Attendance = () => {
     placeholderData: (prev) => prev
   });
 
-  const executives = performanceData || [];
+  const allExecutives = performanceData || [];
   const stats = dashData?.stats || {};
   const userInfo = dashData?.user || {};
+
+  const executives = useMemo(() => {
+    if (!searchTerm.trim()) return allExecutives;
+    const q = searchTerm.toLowerCase();
+    return allExecutives.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.district?.toLowerCase().includes(q)
+    );
+  }, [allExecutives, searchTerm]);
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
@@ -53,9 +63,11 @@ const Attendance = () => {
         </div>
         <div className="flex items-center gap-3">
             <div className="relative">
-                <input 
-                    type="text" 
-                    placeholder="Search leads, executives..." 
+                <input
+                    type="text"
+                    placeholder="Search leads, executives..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
@@ -74,7 +86,7 @@ const Attendance = () => {
           <p className="text-xs text-text-muted">All {executives.length} district executives · Work %, leaves, salary</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest">
+            <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' }))}>
                 Edit Working Hours
             </Button>
             <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={exportRegister}>
@@ -212,6 +224,11 @@ const Attendance = () => {
                   </td>
                 </tr>
               ))}
+              {executives.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-8 py-16 text-center text-text-muted italic">No executives found</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

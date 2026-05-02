@@ -8,7 +8,7 @@ export const attendanceApi = {
   getAttendance: (params) => api.get('/attendance', { params }),
   getAttendanceSummary: (userId) => api.get(`/attendance/summary/${userId}`),
   editAttendance: (id, data) => api.put(`/attendance/${id}`, data),
-  getTeamAttendance: (date) => api.get('/attendance/team', { params: { date } }),
+  getTeamAttendance: (params) => api.get('/attendance/team', { params: typeof params === 'string' ? { date: params } : params }),
 };
 
 export default attendanceApi;

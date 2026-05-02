@@ -122,46 +122,72 @@ router.get('/summary/:userId', async (req, res) => {
  * PUT /api/attendance/:id - Manager edit record
  */
 /**
- * GET /api/attendance/team - Get team attendance for a date (State Manager view)
+ * GET /api/attendance/team - Get team attendance (State Manager view)
+ * Accepts: date (single day), fromDate+toDate (range), or period (today/week/month)
  */
 router.get('/team', async (req, res) => {
   try {
-    const { date } = req.query;
-    const targetDate = date ? new Date(date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const { date, fromDate, toDate, period } = req.query;
 
-    // Get all users in the state
     const { User } = require('../models');
+    const Leave = require('../models/Leave');
     const users = await User.find({ state: req.user.state, role: { $in: ['industry_manager', 'executive'] } });
     const userIds = users.map(u => u._id);
 
-    const attendance = await Attendance.find({ 
-      user: { $in: userIds }, 
-      date: targetDate 
+    // Determine date range
+    let rangeStart, rangeEnd;
+    const now = new Date();
+    if (fromDate && toDate) {
+      rangeStart = new Date(fromDate); rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(toDate); rangeEnd.setHours(23, 59, 59, 999);
+    } else if (period === 'week') {
+      rangeStart = new Date(now);
+      const day = rangeStart.getDay();
+      rangeStart.setDate(rangeStart.getDate() - day + (day === 0 ? -6 : 1));
+      rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(rangeStart); rangeEnd.setDate(rangeStart.getDate() + 6); rangeEnd.setHours(23, 59, 59, 999);
+    } else if (period === 'month') {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else {
+      // Single day (default: today or provided date)
+      const targetDate = date ? new Date(date) : new Date();
+      targetDate.setHours(0, 0, 0, 0);
+      rangeStart = targetDate;
+      rangeEnd = new Date(targetDate); rangeEnd.setHours(23, 59, 59, 999);
+    }
+
+    const attendance = await Attendance.find({
+      user: { $in: userIds },
+      date: { $gte: rangeStart, $lte: rangeEnd }
     }).populate('user', 'name role industry');
 
-    // Also get leaves for that day
-    const Leave = require('../models/Leave');
     const leaves = await Leave.find({
       user: { $in: userIds },
       status: 'approved',
-      fromDate: { $lte: targetDate },
-      toDate: { $gte: targetDate }
+      fromDate: { $lte: rangeEnd },
+      toDate: { $gte: rangeStart }
     }).populate('user', 'name role industry');
 
-    // Combine: User + Attendance + Leave
+    // Aggregate per user across the range
     const results = users.map(u => {
-      const att = attendance.find(a => a.user?._id.toString() === u._id.toString());
-      const leave = leaves.find(l => l.user?._id.toString() === u._id.toString());
-      
+      const uid = u._id.toString();
+      const userAtts = attendance.filter(a => a.user?._id.toString() === uid);
+      const userLeave = leaves.find(l => l.user?._id.toString() === uid);
+      const latest = userAtts.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      const avgWorkPct = userAtts.length
+        ? Math.round(userAtts.reduce((sum, a) => sum + (a.workPercentage || 0), 0) / userAtts.length)
+        : 0;
+
       return {
-        _id: att?._id || `temp-${u._id}`,
+        _id: latest?._id || `temp-${u._id}`,
         user: u,
-        status: leave ? 'leave' : (att ? att.status : 'absent'),
-        startTime: att?.workStartedAt ? new Date(att.workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
-        workPercentage: att?.workPercentage || 0,
-        completionPct: att?.completionPct || 0,
-        note: att?.note || (leave ? `On Leave: ${leave.reason}` : null)
+        status: userLeave ? 'leave' : (latest ? latest.status : 'absent'),
+        startTime: latest?.workStartedAt ? new Date(latest.workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+        workPercentage: avgWorkPct,
+        completionPct: latest?.completionPct || 0,
+        note: latest?.note || (userLeave ? `On Leave: ${userLeave.reason}` : null)
       };
     });
 

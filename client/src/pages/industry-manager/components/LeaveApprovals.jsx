@@ -11,15 +11,12 @@ const LeaveApprovals = () => {
   const [rejectionNote, setRejectionNote] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
-  const { data: leaves, isLoading } = useQuery({
+  const { data: pendingLeaves = [], isLoading } = useQuery({
     queryKey: ['leaves', 'im-approvals'],
-    queryFn: () => leaveApi.getLeaves().then(res => res.data),
+    queryFn: () => leaveApi.getPendingLeaves().then(res => res.data || []),
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev
   });
-
-  // Filter only pending leaves from subordinates
-  const pendingLeaves = leaves?.filter(l => l.status === 'pending') || [];
 
   const approveMutation = useMutation({
     mutationFn: leaveApi.approveLeave,
@@ -45,7 +42,7 @@ const LeaveApprovals = () => {
     }
   });
 
-  if (isLoading && !leaves) return <DashboardSkeleton />;
+  if (isLoading && !pendingLeaves.length) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -66,10 +63,10 @@ const LeaveApprovals = () => {
             <div key={leave._id} className="bg-surface border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                   <Avatar name={leave.user.name} size="md" />
+                   <Avatar name={leave.user?.name} size="md" />
                    <div>
-                      <p className="font-bold text-sm text-text-primary">{leave.user.name}</p>
-                      <p className="text-[10px] text-purple font-bold uppercase tracking-tight">{leave.user.district} · {leave.user.industry}</p>
+                      <p className="font-bold text-sm text-text-primary">{leave.user?.name ?? 'Unknown'}</p>
+                      <p className="text-[10px] text-purple font-bold uppercase tracking-tight">{leave.user?.district} · {leave.user?.industry}</p>
                    </div>
                 </div>
                 <Tag variant="amber" className="text-[9px] font-black">{leave.type.replace('_', ' ').toUpperCase()}</Tag>

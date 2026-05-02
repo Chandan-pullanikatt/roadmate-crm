@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 
 const IndustryManagers = () => {
+  const queryClient = useQueryClient();
   const [viewType, setViewType] = useState('daily');
   const [filterState, setFilterState] = useState('All');
   const [filterIndustry, setFilterIndustry] = useState('All');
@@ -24,8 +25,22 @@ const IndustryManagers = () => {
     placeholderData: keepPreviousData
   });
 
-  const openModal = (id) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', {
+      detail: typeof type === 'string' ? { type, ...data } : type
+    }));
+  };
+
+  const handleDelete = async (m) => {
+    if (window.confirm(`Are you sure you want to delete ${m.name}? This action cannot be undone.`)) {
+      try {
+        await usersApi.deleteUser(m._id);
+        queryClient.invalidateQueries({ queryKey: ['users', 'industry-managers-global'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+      } catch (err) {
+        alert(err.response?.data?.message || 'Error deleting manager');
+      }
+    }
   };
 
   if (isLoading) return <DashboardSkeleton />;
@@ -105,7 +120,7 @@ const IndustryManagers = () => {
           <div className="text-[12px] text-text-muted mt-1">Summary across all states & industries · Staff by staff performance</div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('create-lead')}>Create Lead</Button>
+          <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('add-lead')}>Create Lead</Button>
           <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
           <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-industry-manager')}>+ Industry Manager</Button>
         </div>
@@ -203,10 +218,16 @@ const IndustryManagers = () => {
                   <td className="p-4 text-center text-[12px] font-mono">{m.leaves}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3">View</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold">Edit</Button>
+                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3" onClick={() => {
+                        const userObj = filteredManagers?.find(u => u._id === m._id);
+                        if (userObj) openModal('create-exec', { editData: userObj });
+                      }}>View</Button>
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={() => {
+                        const userObj = filteredManagers?.find(u => u._id === m._id);
+                        if (userObj) openModal('create-exec', { editData: userObj });
+                      }}>Edit</Button>
                       <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={() => openModal('leave-approval')}>Leave</Button>
-                      <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold">Delete</Button>
+                      <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={() => handleDelete(m)}>Delete</Button>
                     </div>
                   </td>
                 </tr>
@@ -250,8 +271,14 @@ const IndustryManagers = () => {
                    </div>
                 </div>
                 <div className="flex gap-2">
-                   <Button size="xs" variant="outline" className="bg-white border-border text-text-primary font-bold text-[10px] px-4">View Docs</Button>
-                   <Button size="xs" className="bg-[#0f766e] text-white border-none font-bold text-[10px] px-4">Attach</Button>
+                   <Button size="xs" variant="outline" className="bg-white border-border text-text-primary font-bold text-[10px] px-4" onClick={() => {
+                     const userObj = filteredManagers?.find(u => u._id === m._id);
+                     if (userObj) openModal('create-exec', { editData: userObj });
+                   }}>View Docs</Button>
+                   <Button size="xs" className="bg-[#0f766e] text-white border-none font-bold text-[10px] px-4" onClick={() => {
+                     const userObj = filteredManagers?.find(u => u._id === m._id);
+                     if (userObj) openModal('create-exec', { editData: userObj });
+                   }}>Attach</Button>
                 </div>
               </div>
             ))}

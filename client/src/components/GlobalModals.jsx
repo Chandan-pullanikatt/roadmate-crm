@@ -275,7 +275,9 @@ const GlobalModals = () => {
   const fetchPendingLeaves = async () => {
     try {
       const res = await leaveApi.getLeaves();
-      setPendingLeaves((res.data || []).filter((leave) => leave.status === 'pending'));
+      setPendingLeaves((res.data || []).filter((leave) =>
+        leave.status === 'pending' && leave.user?._id !== currentUser?._id
+      ));
     } catch (err) {
       addToast('Error fetching leave requests', 'error');
     }
@@ -336,6 +338,7 @@ const GlobalModals = () => {
         meetingType: 'direct',
         documents: []
       });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
     } catch (err) {
       addToast(err.response?.data?.message || 'Error adding lead', 'error');
     } finally {
@@ -347,11 +350,17 @@ const GlobalModals = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      const payload = {
+        ...managerFormData,
+        dateOfJoining: managerFormData.doj || managerFormData.dateOfJoining || null,
+        aadhaarNumber: managerFormData.aadhaar || managerFormData.aadhaarNumber || '',
+        panNumber: managerFormData.pan || managerFormData.panNumber || '',
+      };
       if (managerFormData._id) {
-        await usersApi.updateUser(managerFormData._id, managerFormData);
+        await usersApi.updateUser(managerFormData._id, payload);
         addToast('State Manager updated successfully!', 'success');
       } else {
-        await usersApi.createStateManager(managerFormData);
+        await usersApi.createStateManager(payload);
         addToast('State Manager created successfully!', 'success');
       }
       setActiveModal(null);

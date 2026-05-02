@@ -351,6 +351,14 @@ router.post('/', async (req, res) => {
     if (req.user.role === 'executive' && !payload.owner) {
       payload.owner = req.user._id;
     }
+    // State managers' leads are scoped to their state
+    if (req.user.role === 'state_manager' && !payload.state) {
+      payload.state = req.user.state;
+    }
+    // Industry managers' leads are scoped to their industry
+    if (req.user.role === 'industry_manager' && !payload.industry) {
+      payload.industry = req.user.industry;
+    }
     const lead = new Lead({
       ...payload,
       allocatedBy: req.user._id

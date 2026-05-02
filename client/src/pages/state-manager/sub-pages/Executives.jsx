@@ -1,13 +1,22 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Executives = () => {
+  const queryClient = useQueryClient();
   const [filterIndustry, setFilterIndustry] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'state-manager'] });
+    };
+    window.addEventListener('refresh-users', handleRefresh);
+    return () => window.removeEventListener('refresh-users', handleRefresh);
+  }, [queryClient]);
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],

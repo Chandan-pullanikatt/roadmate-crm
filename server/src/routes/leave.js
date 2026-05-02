@@ -19,21 +19,30 @@ const getDatesInRange = (startDate, endDate) => {
   return dates;
 };
 
-// Authorization Helper: Approver must be superior or Founder
+// Authorization Helper: enforces strict role hierarchy
 const checkSuperior = async (requesterId, approver) => {
   if (approver.role === 'founder') return true;
 
   const requester = await User.findById(requesterId);
   if (!requester) return false;
 
-  // Executive's leave -> Industry Manager
-  if (requester.role === 'executive' && requester.reportingTo?.toString() === approver._id.toString()) return true;
+  // State Manager's leave → Founder only
+  if (requester.role === 'state_manager') return false;
 
-  // Industry Manager's leave -> State Manager
-  if (requester.role === 'industry_manager' && requester.reportingTo?.toString() === approver._id.toString()) return true;
+  // Industry Manager's leave → direct State Manager
+  if (requester.role === 'industry_manager') {
+    return requester.reportingTo?.toString() === approver._id.toString();
+  }
 
-  // State Manager's leave -> Founder (already handled by role === 'founder' check)
-  
+  // Executive's leave → direct Industry Manager OR the SM above that IM
+  if (requester.role === 'executive') {
+    if (requester.reportingTo?.toString() === approver._id.toString()) return true;
+    if (approver.role === 'state_manager') {
+      const im = await User.findById(requester.reportingTo);
+      return im?.reportingTo?.toString() === approver._id.toString();
+    }
+  }
+
   return false;
 };
 
@@ -80,9 +89,11 @@ router.post('/', verifyToken, async (req, res, next) => {
         return res.status(400).json({ message: 'Paid leaves are not allowed during probation' });
       }
 
-      // Calculate total earned leaves
-      const joinDate = user.createdAt;
-      const monthsServed = Math.floor((new Date() - joinDate) / (1000 * 60 * 60 * 24 * 30.44));
+      // Calculate total earned leaves — use dateOfJoining if set, fall back to createdAt.
+      // New accounts (< 1 month) get at least 1 month's accrual so they can apply from day one.
+      const joinDate = user.dateOfJoining || user.createdAt;
+      const rawMonths = Math.floor((new Date() - new Date(joinDate)) / (1000 * 60 * 60 * 24 * 30.44));
+      const monthsServed = Math.max(1, rawMonths);
       const totalEarned = monthsServed * policy.paidLeavesPerMonth;
 
       const usedPaid = await Leave.aggregate([
@@ -98,6 +109,7 @@ router.post('/', verifyToken, async (req, res, next) => {
 
     const leaveRequest = new Leave({
       user: userId,
+      applicantRole: user.role,
       type: type || 'unpaid',
       fromDate: start,
       toDate: end,
@@ -145,17 +157,17 @@ router.get('/', verifyToken, async (req, res, next) => {
       // Sees everything
       query = {};
     } else if (role === 'state_manager') {
-      // See industry managers reporting to them, and their executives
+      // Subordinates only — SM's own leave is fetched separately when needed
       const ims = await User.find({ reportingTo: _id }).select('_id');
       const imIds = ims.map(im => im._id);
       const execs = await User.find({ reportingTo: { $in: imIds } }).select('_id');
       const execIds = execs.map(ex => ex._id);
-      query = { user: { $in: [...imIds, ...execIds, _id] } };
+      query = { user: { $in: [...imIds, ...execIds] } };
     } else if (role === 'industry_manager') {
-      // See executives reporting to them
+      // Subordinates only — IM's own leave is fetched separately when needed
       const execs = await User.find({ reportingTo: _id }).select('_id');
       const execIds = execs.map(ex => ex._id);
-      query = { user: { $in: [...execIds, _id] } };
+      query = { user: { $in: execIds } };
     } else {
       // Executive sees only their own
       query = { user: _id };
@@ -207,10 +219,12 @@ router.get('/pending', verifyToken, async (req, res, next) => {
       // Also potentially anything else if direct reporting is used
       query.user = { $exists: true }; 
     } else if (role === 'state_manager') {
-      // Sees pending leaves from Industry Managers reporting to them
+      // Sees pending leaves from IMs and their DEs (SM cannot approve own leave)
       const ims = await User.find({ reportingTo: _id }).select('_id');
       const imIds = ims.map(im => im._id);
-      query.user = { $in: imIds };
+      const execs = await User.find({ reportingTo: { $in: imIds } }).select('_id');
+      const execIds = execs.map(ex => ex._id);
+      query.user = { $in: [...imIds, ...execIds] };
     } else if (role === 'industry_manager') {
       // Sees pending leaves from Executives reporting to them
       const execs = await User.find({ reportingTo: _id }).select('_id');

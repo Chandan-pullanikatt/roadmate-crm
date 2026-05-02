@@ -6,7 +6,6 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Attendance = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [period, setPeriod] = useState('Today');
 
   const { data: dashData } = useQuery({
@@ -16,9 +15,11 @@ const Attendance = () => {
     placeholderData: keepPreviousData
   });
 
+  const periodParam = period === 'This Week' ? { period: 'week' } : period === 'This Month' ? { period: 'month' } : { date: new Date().toISOString().split('T')[0] };
+
   const { data: attendanceRecords, isLoading } = useQuery({
-    queryKey: ['attendance', 'state-team', selectedDate],
-    queryFn: () => attendanceApi.getTeamAttendance(selectedDate).then(res => res.data),
+    queryKey: ['attendance', 'state-team', period],
+    queryFn: () => attendanceApi.getTeamAttendance(periodParam).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -37,7 +38,7 @@ const Attendance = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Attendance_Kerala_${selectedDate}.csv`;
+    a.download = `Attendance_${user.state || 'Team'}_${period.replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
 

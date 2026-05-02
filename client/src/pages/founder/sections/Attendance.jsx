@@ -194,8 +194,8 @@ const Attendance = () => {
                 {attendanceSummary?.map((row, idx) => (
                   <tr key={idx} className="hover:bg-surface2/20 transition-colors">
                     <td className="p-4">
-                      <div className="font-bold text-[14px] text-text-primary">{row.user.name}</div>
-                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user.role)}</div>
+                      <div className="font-bold text-[14px] text-text-primary">{row.user?.name ?? 'Unknown'}</div>
+                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user?.role)}</div>
                     </td>
                     <td className="p-4 text-center font-bold text-[13px] text-text-secondary">{row.present}</td>
                     <td className="p-4 text-center font-bold text-[13px] text-red">{row.absent || '0'}</td>
@@ -282,8 +282,8 @@ const Attendance = () => {
                 {salaryData?.data?.map((row, idx) => (
                   <tr key={idx} className="hover:bg-surface2/20 transition-colors">
                     <td className="p-4">
-                      <div className="font-bold text-[14px] text-text-primary">{row.user.name}</div>
-                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user.role)}</div>
+                      <div className="font-bold text-[14px] text-text-primary">{row.user?.name ?? 'Unknown'}</div>
+                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user?.role)}</div>
                     </td>
                     <td className="p-4 font-medium text-[13px]">{"\u20B9"}{row.baseSalary?.toLocaleString()}</td>
                     <td className="p-4 text-center font-medium text-[13px]">{row.workingDays}</td>

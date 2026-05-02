@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 
 const Overview = () => {
   const queryClient = useQueryClient();
+  const [eventFilter, setEventFilter] = useState('Today');
+  const [pipelineFilter, setPipelineFilter] = useState('This Month');
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
     queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
@@ -31,12 +33,34 @@ const Overview = () => {
 
   const stats = dashData?.stats || {};
   const managers = dashData?.industryManagers || [];
-  const pipeline = dashData?.pipelineData || [];
-  const events = dashData?.upcomingEvents || [];
+  const allEvents = dashData?.upcomingEvents || [];
+  const allPipeline = dashData?.pipelineData || [];
   const expectedOnboarding = dashData?.expectedOnboarding || [];
   const leaveRequests = dashData?.leaveRequests || [];
   const escalated = dashData?.escalated || [];
   const user = dashData?.user || {};
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const events = allEvents.filter(e => {
+    const d = new Date(e.time);
+    d.setHours(0, 0, 0, 0);
+    if (eventFilter === 'Today') return d.getTime() === today.getTime();
+    return d.getTime() === tomorrow.getTime();
+  });
+
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const pipeline = allPipeline.filter(p => {
+    if (!p.updatedAt) return true;
+    const d = new Date(p.updatedAt);
+    return pipelineFilter === 'This Week' ? d >= weekStart : d >= monthStart;
+  });
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `\u20B9${(val / 100000).toFixed(1)}L`;
@@ -52,20 +76,6 @@ const Overview = () => {
           <p className="text-[13px] text-text-muted mt-0.5">
             {user.state} · Full state overview · Industry managers & executives
           </p>
-        </div>
-        <div className="flex items-center gap-3 bg-surface1 p-1 rounded-xl border border-border shadow-sm">
-          <div className="relative">
-             <input 
-               type="text" 
-               placeholder="Search leads, managers.." 
-               className="bg-surface2 border-none text-[12.5px] py-2 pl-9 pr-4 rounded-lg w-[240px] focus:ring-1 ring-purple/30 transition-all outline-none"
-             />
-             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">🔍</span>
-          </div>
-          <button className="p-2 hover:bg-surface2 rounded-lg relative text-text-secondary">
-             🔔 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red rounded-full border-2 border-surface1"></span>
-          </button>
-          <button className="p-2 hover:bg-surface2 rounded-lg text-text-secondary">👤</button>
         </div>
       </div>
 
@@ -215,7 +225,7 @@ const Overview = () => {
             </div>
             <div className="flex gap-1">
                {['Today', 'Tomorrow'].map(t => (
-                 <button key={t} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${t === 'Today' ? 'bg-blue/10 text-blue' : 'text-text-muted hover:bg-surface2'}`}>
+                 <button key={t} onClick={() => setEventFilter(t)} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${eventFilter === t ? 'bg-blue/10 text-blue' : 'text-text-muted hover:bg-surface2'}`}>
                    {t}
                  </button>
                ))}
@@ -260,7 +270,7 @@ const Overview = () => {
             </div>
             <div className="flex gap-1 bg-surface2 p-1 rounded-lg">
                {['This Month', 'This Week'].map(t => (
-                 <button key={t} className={`px-4 py-1.5 text-[11px] font-black rounded-md transition-all ${t === 'This Month' ? 'bg-surface1 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}>
+                 <button key={t} onClick={() => setPipelineFilter(t)} className={`px-4 py-1.5 text-[11px] font-black rounded-md transition-all ${pipelineFilter === t ? 'bg-surface1 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}>
                    {t}
                  </button>
                ))}
@@ -290,7 +300,7 @@ const Overview = () => {
           <div className="p-5 border-b border-border flex justify-between items-center">
             <div>
               <h2 className="text-[15px] font-bold text-text-primary">Leave Requests</h2>
-              <p className="text-[12px] text-text-muted mt-0.5">Industry Managers pending approval</p>
+              <p className="text-[12px] text-text-muted mt-0.5">Industry Managers &amp; Executives pending approval</p>
             </div>
             <Tag variant="amber" label={`${leaveRequests.length} Pending`} className="font-black text-[10px]" />
           </div>

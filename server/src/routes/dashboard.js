@@ -916,9 +916,9 @@ router.get('/state-manager', async (req, res) => {
             };
         });
 
-        // 8. Pending Leave Requests (Industry Managers)
+        // 8. Pending Leave Requests (IMs + DEs — SM cannot approve own leave)
         const leaveRequests = await Leave.find({
-            user: { $in: managerIds },
+            user: { $in: [...managerIds, ...executiveIds] },
             status: 'pending'
         }).populate('user', 'name role industry');
 

@@ -2,10 +2,11 @@ const mongoose = require('mongoose');
 
 const leaveSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { 
-    type: String, 
-    enum: ['paid','unpaid','optional_holiday','sick'], 
-    required: true 
+  applicantRole: { type: String, enum: ['founder','state_manager','industry_manager','executive'], default: null },
+  type: {
+    type: String,
+    enum: ['paid','unpaid','optional_holiday','sick'],
+    required: true
   },
   fromDate: { type: Date, required: true },
   toDate: { type: Date, required: true },

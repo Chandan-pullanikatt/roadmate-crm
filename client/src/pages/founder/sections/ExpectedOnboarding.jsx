@@ -125,7 +125,7 @@ const ExpectedOnboarding = () => {
                 <span className="absolute top-2 right-2 w-2 h-2 bg-red rounded-full border-2 border-white"></span>
              </button>
              <button className="bg-[#0f766e] text-white px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:shadow-md transition-all" onClick={() => openModal('add-lead')}>+ Add Lead</button>
-             <button className="bg-white border border-border text-text-primary px-6 py-2 rounded-xl font-bold text-sm hover:bg-surface2 transition-all">+ State Manager</button>
+             <button className="bg-white border border-border text-text-primary px-6 py-2 rounded-xl font-bold text-sm hover:bg-surface2 transition-all" onClick={() => openModal('create-state-manager')}>+ State Manager</button>
           </div>
         </div>
 
