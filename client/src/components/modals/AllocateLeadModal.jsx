@@ -41,8 +41,14 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
       <div className="mb-6">
         <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Target Lead</label>
         <div className="p-3 bg-surface2/50 rounded-xl border border-border flex items-center justify-between">
-          <span className="font-bold text-text-primary">{lead.name}</span>
-          <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{lead.state || 'N/A'}</span>
+          <div>
+            <span className="font-bold text-text-primary">{lead.company || lead.name}</span>
+            {lead.company && <div className="text-[11px] text-text-muted mt-0.5">{lead.name}</div>}
+          </div>
+          <div className="flex gap-2">
+            {lead.country && <span className="bg-purple/10 text-purple px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{lead.country}</span>}
+            {lead.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{lead.state}</span>}
+          </div>
         </div>
       </div>
 

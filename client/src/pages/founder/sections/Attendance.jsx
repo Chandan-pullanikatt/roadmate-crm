@@ -183,6 +183,9 @@ const Attendance = () => {
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Absent</th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Half Day</th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Leave</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">WFH</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Late (min)</th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Early Exit</th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Work %</th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Status</th>
                 </tr>
@@ -198,6 +201,21 @@ const Attendance = () => {
                     <td className="p-4 text-center font-bold text-[13px] text-red">{row.absent || '0'}</td>
                     <td className="p-4 text-center font-bold text-[13px] text-orange">{row.halfDay || '0'}</td>
                     <td className="p-4 text-center font-bold text-[13px] text-blue">{row.leave || '0'}</td>
+                    <td className="p-4 text-center">
+                      {row.wfhDays > 0
+                        ? <span className="px-2 py-0.5 bg-blue/10 text-blue rounded-full text-[10px] font-bold">{row.wfhDays}d</span>
+                        : <span className="text-[11px] text-text-muted">—</span>}
+                    </td>
+                    <td className="p-4 text-center">
+                      {(row.avgLateMinutes || 0) > 0
+                        ? <span className="text-[12px] font-bold text-orange">{Math.round(row.avgLateMinutes)}m</span>
+                        : <span className="text-[11px] text-text-muted">—</span>}
+                    </td>
+                    <td className="p-4 text-center">
+                      {(row.avgEarlyExitMinutes || 0) > 0
+                        ? <span className="text-[12px] font-bold text-red">{Math.round(row.avgEarlyExitMinutes)}m</span>
+                        : <span className="text-[11px] text-text-muted">—</span>}
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-1.5 bg-surface2 rounded-full overflow-hidden max-w-[80px]">

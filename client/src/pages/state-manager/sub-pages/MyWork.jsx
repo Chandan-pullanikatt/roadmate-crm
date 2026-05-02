@@ -86,7 +86,7 @@ const MyWork = () => {
           <Button 
             className={isWorking ? 'bg-red text-white' : 'bg-blue text-white'}
             size="sm" 
-            onClick={() => isWorking ? endWorkMutation.mutate() : startWorkMutation.mutate()}
+            onClick={() => isWorking ? endWorkMutation.mutate(personalDash?.attendance?._id) : startWorkMutation.mutate()}
           >
             {isWorking ? 'Stop Work' : 'Start Work'}
           </Button>

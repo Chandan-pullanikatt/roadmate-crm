@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import Papa from 'papaparse';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
@@ -11,6 +12,31 @@ const LeaveCalendar = () => {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [uploadState, setUploadState] = useState('');
+  const calFileRef = useRef(null);
+
+  const handleCalendarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadState('parsing');
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: async (result) => {
+        try {
+          const holidays = result.data.map(row => ({
+            name: row.Name || row.name || row.Holiday || '',
+            date: row.Date || row.date || '',
+            type: (row.Type || row.type || 'public').toLowerCase(),
+          })).filter(h => h.name && h.date);
+          await leaveApi.updateLeavePolicy({ holidays, year: new Date().getFullYear() });
+          toast.success(`${holidays.length} holiday(s) uploaded!`);
+          queryClient.invalidateQueries({ queryKey: ['leaves'] });
+        } catch { toast.error('Upload failed'); }
+        finally { setUploadState(''); if (calFileRef.current) calFileRef.current.value = ''; }
+      },
+      error: () => { toast.error('Failed to parse CSV'); setUploadState(''); }
+    });
+  };
   
   // My Leave Request Form State
   const [leaveForm, setLeaveForm] = useState({
@@ -96,9 +122,15 @@ const LeaveCalendar = () => {
           <div className="section-title">Leave Calendar · {user.state}</div>
           <div className="section-sub text-[13px]">Holiday calendar - Leave policies - Approvals</div>
         </div>
-        <Button variant="outline" size="sm" className="bg-white shadow-sm border-border text-text font-bold px-5" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'leave-policy' }))}>
-           <span className="mr-2">📄</span> Leave Policy
-        </Button>
+        <div className="flex items-center gap-2">
+          <input ref={calFileRef} type="file" accept=".csv" className="hidden" onChange={handleCalendarUpload} />
+          <Button variant="outline" size="sm" className="bg-white shadow-sm border-border font-bold px-4" onClick={() => calFileRef.current?.click()} disabled={uploadState === 'parsing'}>
+            {uploadState === 'parsing' ? 'Uploading...' : '📅 Upload Calendar'}
+          </Button>
+          <Button variant="outline" size="sm" className="bg-white shadow-sm border-border text-text font-bold px-5" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'leave-policy' }))}>
+            <span className="mr-2">📄</span> Leave Policy
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

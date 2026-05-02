@@ -65,8 +65,16 @@ const MyWorkToday = () => {
   // Mutations
   const startWorkMutation = useMutation({
     mutationFn: attendanceApi.startWork,
-    onSuccess: () => {
-      addToast("Workspace initialized. Let's make it count!", "success");
+    onSuccess: (res) => {
+      const data = res?.data || res;
+      if (data?.isLateLogin && data?.lateLoginMinutes) {
+        addToast(
+          `Late login: ${data.lateLoginMinutes} min past grace period — attendance may be marked half day.`,
+          'warning'
+        );
+      } else {
+        addToast("Workspace initialized. Let's make it count!", 'success');
+      }
       refetchAttendance();
       queryClient.invalidateQueries(['leads', 'workflow']);
     }

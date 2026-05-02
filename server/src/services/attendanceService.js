@@ -54,14 +54,16 @@ const attendanceService = {
     const expectedStart = new Date(today);
     expectedStart.setHours(startHour, startMin, 0, 0);
     
-    // 30 min grace period
-    const lateThreshold = new Date(expectedStart.getTime() + 30 * 60000);
-    let note = '';
-    if (now > lateThreshold) {
-      note = 'Late start (> 30 mins)';
-      // The user mentioned marking a half_day warning but not auto-marking yet.
-      // We'll store it in the note or a dedicated flag if needed.
-    }
+    // Load config for grace period (default 30 min)
+    const Config = require('../models/Config');
+    const configDoc = await Config.findOne({ key: 'working-hours' });
+    const configRules = configDoc?.value?.rules || {};
+    const gracePeriodMin = configRules.lateLoginGraceMinutes ?? 30;
+
+    const lateThreshold = new Date(expectedStart.getTime() + gracePeriodMin * 60000);
+    const isLateLogin = now > lateThreshold;
+    const lateLoginMinutes = isLateLogin ? Math.floor((now - lateThreshold) / 60000) : 0;
+    let note = isLateLogin ? `Late login: ${lateLoginMinutes} min past grace period` : '';
 
     // 5. Count leads in queue
     const queue = await leadService.getQueue(userId);
@@ -74,8 +76,10 @@ const attendanceService = {
         date: today,
         workStartedAt: now,
         totalLeads: todayLeadsCount,
-        note: note,
-        status: isHoliday ? 'holiday' : 'absent', // Default to absent until completed
+        isLateLogin,
+        lateLoginMinutes,
+        note,
+        status: isHoliday ? 'holiday' : 'absent', // Resolved to final status at completeWork time
         isWFH: wfhData?.isWFH || false,
         location: wfhData?.location,
         wfhReason: wfhData?.reason,
@@ -84,6 +88,8 @@ const attendanceService = {
     } else {
       attendance.workStartedAt = now;
       attendance.totalLeads = todayLeadsCount;
+      attendance.isLateLogin = isLateLogin;
+      attendance.lateLoginMinutes = lateLoginMinutes;
       if (note) attendance.note = note;
       if (wfhData) {
         attendance.isWFH = wfhData.isWFH || false;
@@ -100,7 +106,9 @@ const attendanceService = {
       workStartTime: workStartTimeStr,
       todayLeads: todayLeadsCount,
       isHoliday,
-      holidayName
+      holidayName,
+      isLateLogin,
+      lateLoginMinutes,
     };
   },
 
@@ -134,23 +142,51 @@ const attendanceService = {
     const completionPct = (completedLeadsCount / totalLeads) * 100;
     attendance.completionPct = completionPct;
 
-    // Fetch dynamic rules from Config
+    // 3. Fetch dynamic rules and working-hours config
     const Config = require('../models/Config');
     const configDoc = await Config.findOne({ key: 'working-hours' });
-    const rules = configDoc?.value?.rules || { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true };
+    const whConfig = configDoc?.value || {};
+    const rules = whConfig.rules || {
+      leaveThreshold: 30,
+      halfDayThreshold: 70,
+      delayedLoginHalfDay: true,
+      earlyExitThresholdMinutes: 120,
+    };
 
-    // 3. Determine status based on dynamic thresholds
+    // 4. Early exit detection — compare completeWork time vs expected end time
+    //    Ramadan-aware: use ramadanEnd if today falls in the Ramadan window
+    let expectedEndStr = whConfig.normalEnd || '18:30';
+    if (whConfig.ramadanFrom && whConfig.ramadanTo) {
+      const ramFrom = new Date(whConfig.ramadanFrom);
+      const ramTo   = new Date(whConfig.ramadanTo);
+      const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+      if (todayDate >= ramFrom && todayDate <= ramTo) {
+        expectedEndStr = whConfig.ramadanEnd || '17:30';
+      }
+    }
+    const [endHour, endMin] = expectedEndStr.split(':').map(Number);
+    const expectedEnd = new Date();
+    expectedEnd.setHours(endHour, endMin, 0, 0);
+
+    // Positive value = completed before expected end (early exit)
+    const minutesBeforeEnd = Math.floor((expectedEnd.getTime() - now.getTime()) / 60000);
+    const earlyExitThreshold = rules.earlyExitThresholdMinutes ?? 120;
+    const isEarlyExit = minutesBeforeEnd > earlyExitThreshold;
+
+    if (isEarlyExit) {
+      attendance.earlyExitMinutes = minutesBeforeEnd;
+    }
+
+    // 5. Determine final attendance status
+    //    Priority: completion % rules → late login / early exit → present
     if (completionPct < rules.leaveThreshold) {
-      attendance.status = 'leave'; // Counts as absent per prompt
+      attendance.status = 'leave';
     } else if (completionPct < rules.halfDayThreshold) {
       attendance.status = 'half_day';
+    } else if ((rules.delayedLoginHalfDay && attendance.isLateLogin) || isEarlyExit) {
+      attendance.status = 'half_day';
     } else {
-      // Check if delayed login should force a half day
-      if (rules.delayedLoginHalfDay && attendance.note && attendance.note.includes('Late start')) {
-        attendance.status = 'half_day';
-      } else {
-        attendance.status = 'present';
-      }
+      attendance.status = 'present';
     }
 
     await attendance.save();

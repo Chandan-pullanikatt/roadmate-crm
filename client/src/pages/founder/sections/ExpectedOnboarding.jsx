@@ -8,6 +8,7 @@ import { Button, Tag } from '../../../components/ui';
 const ExpectedOnboarding = () => {
   const [activeTab, setActiveTab] = useState('All');
   const [filterState, setFilterState] = useState('All');
+  const [filterCountry, setFilterCountry] = useState('All');
   const [listSearch, setListSearch] = useState('');
   const [headerSearch, setHeaderSearch] = useState('');
   const [debouncedListSearch, setDebouncedListSearch] = useState('');
@@ -37,10 +38,11 @@ const ExpectedOnboarding = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'global', activeTab, filterState, debouncedListSearch],
-    queryFn: () => leadsApi.getLeads({ 
-      status: activeTab === 'All' ? undefined : activeTab.toLowerCase().replace(' ', '_'), 
+    queryKey: ['leads', 'global', activeTab, filterState, filterCountry, debouncedListSearch],
+    queryFn: () => leadsApi.getLeads({
+      status: activeTab === 'All' ? undefined : activeTab.toLowerCase().replace(' ', '_'),
       state: filterState === 'All' ? undefined : filterState,
+      country: filterCountry === 'All' ? undefined : filterCountry,
       search: debouncedListSearch,
       limit: 15
     }).then(res => res.data),
@@ -170,8 +172,19 @@ const ExpectedOnboarding = () => {
                 />
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
              </div>
-             <select 
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[140px]"
+             <select
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px]"
+               value={filterCountry}
+               onChange={e => setFilterCountry(e.target.value)}
+             >
+               <option value="All">All Countries</option>
+               <option value="India">🇮🇳 India</option>
+               <option value="UAE">🇦🇪 UAE</option>
+               <option value="USA">🇺🇸 USA</option>
+               <option value="UK">🇬🇧 UK</option>
+             </select>
+             <select
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px]"
                value={filterState}
                onChange={e => setFilterState(e.target.value)}
              >
@@ -227,9 +240,10 @@ const ExpectedOnboarding = () => {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.company || l.name })}>History</button>
                       <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
                       <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>
-                      <button className="bg-white border border-red/20 text-red px-3 py-1 rounded-md text-[11px] font-bold hover:bg-red-light transition-all">Delete</button>
+                      <button className="bg-white border border-red/20 text-red px-3 py-1 rounded-md text-[11px] font-bold hover:bg-red-light transition-all" onClick={() => leadsApi.deleteLead(l._id).then(() => window.location.reload())}>Delete</button>
                     </div>
                   </td>
                 </tr>

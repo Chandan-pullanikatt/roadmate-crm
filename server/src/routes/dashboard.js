@@ -256,6 +256,7 @@ router.get('/executive', async (req, res) => {
       monthlyStats,
       workStarted: !!attendance?.workStartedAt,
       attendance: {
+        _id: attendance?._id,
         status: attendance?.status || 'absent',
         workStartedAt: attendance?.workStartedAt,
         completionPct: attendance?.completionPct || 0

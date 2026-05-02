@@ -14,6 +14,9 @@ const attendanceSchema = new mongoose.Schema({
     default: 'absent' 
   },
   salaryDeduction: { type: Number, default: 0 },
+  isLateLogin: { type: Boolean, default: false },
+  lateLoginMinutes: { type: Number, default: 0 },
+  earlyExitMinutes: { type: Number, default: 0 },
   note: { type: String },
   isWFH: { type: Boolean, default: false },
   location: { type: String },

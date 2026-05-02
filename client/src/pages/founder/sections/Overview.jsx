@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { leadsApi } from '../../../api/leadsApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Overview = () => {
@@ -37,6 +38,13 @@ const Overview = () => {
     queryFn: () => dashboardApi.getFounderDashboard(summaryTab, summaryPeriodValue).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
+  });
+
+  const { data: unallocatedCount = 0 } = useQuery({
+    queryKey: ['leads', 'unallocated-count'],
+    queryFn: () => leadsApi.getLeads({ owner: 'unassigned', limit: 1 }).then(r => r.data.total || 0),
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const handleTabChange = (t) => {
@@ -246,6 +254,28 @@ const Overview = () => {
           </div>
         </div>
       </div>
+
+      {/* Unallocated leads alert — visible badge like WhatsApp counter */}
+      {unallocatedCount > 0 && (
+        <div
+          className="flex items-center gap-4 p-4 mb-6 bg-red/5 border border-red/20 rounded-2xl cursor-pointer hover:bg-red/10 transition-colors"
+          onClick={() => navigate('/dashboard?page=leads')}
+        >
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-red/10 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+            </div>
+            <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red rounded-full flex items-center justify-center text-white text-[10px] font-black">
+              {unallocatedCount > 99 ? '99+' : unallocatedCount}
+            </span>
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-bold text-red">Unallocated Leads</div>
+            <div className="text-xs text-text-muted mt-0.5">{unallocatedCount} lead{unallocatedCount !== 1 ? 's' : ''} have no executive assigned — click to allocate</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      )}
 
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>

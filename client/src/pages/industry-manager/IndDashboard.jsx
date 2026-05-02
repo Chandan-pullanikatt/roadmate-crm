@@ -15,6 +15,7 @@ import CreateExecutive from './components/CreateExecutive';
 import Performance from './components/Performance';
 import MyPerformance from './components/MyPerformance';
 import Reports from './components/Reports';
+import Tasks from '../founder/sections/Tasks';
 
 
 const IndDashboard = () => {
@@ -41,6 +42,7 @@ const IndDashboard = () => {
       case 'performance': return <Performance />;
       case 'my-performance': return <MyPerformance />;
       case 'reports': return <Reports />;
+      case 'tasks':   return <Tasks />;
 
       default: return <Overview />;
     }

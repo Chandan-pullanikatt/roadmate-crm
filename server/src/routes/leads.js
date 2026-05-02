@@ -213,8 +213,8 @@ const updateLead = async (req, res) => {
  */
 router.get('/queue', async (req, res) => {
   try {
-    if (req.user.role !== 'executive') {
-      return res.status(403).json({ message: 'Forbidden: Executive only' });
+    if (!['executive', 'industry_manager', 'state_manager'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: Role not authorized to access queue' });
     }
     const workflow = await leadService.getWorkflowData(req.user._id);
     res.json(workflow);
@@ -314,7 +314,11 @@ router.get('/', async (req, res) => {
       query.status = normalizeStatusFilter(status);
     }
     if (priority) query.priority = priority;
-    if (owner) query.owner = owner;
+    if (owner === 'unassigned' || owner === 'none') {
+      query.owner = null; // unallocated leads
+    } else if (owner) {
+      query.owner = owner;
+    }
     if (state) query.state = state;
     if (industry) query.industry = industry;
 

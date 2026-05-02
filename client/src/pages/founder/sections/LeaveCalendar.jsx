@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import Papa from 'papaparse';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
@@ -9,6 +10,36 @@ const LeaveCalendar = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [uploadState, setUploadState] = useState('');
+  const fileRef = useRef(null);
+
+  const handleCalendarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadState('parsing');
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (result) => {
+        try {
+          const holidays = result.data.map(row => ({
+            name: row.Name || row.name || row.Holiday || '',
+            date: row.Date || row.date || '',
+            type: (row.Type || row.type || 'public').toLowerCase(),
+          })).filter(h => h.name && h.date);
+          await leaveApi.updateLeavePolicy({ holidays, year: new Date().getFullYear() });
+          addToast(`${holidays.length} holiday(s) uploaded successfully!`, 'success');
+          queryClient.invalidateQueries({ queryKey: ['leaves'] });
+        } catch (err) {
+          addToast(err.response?.data?.message || 'Upload failed', 'error');
+        } finally {
+          setUploadState('');
+          if (fileRef.current) fileRef.current.value = '';
+        }
+      },
+      error: () => { addToast('Failed to parse CSV file', 'error'); setUploadState(''); }
+    });
+  };
 
   // Section 1: Pending Approvals
   const { data: pendingLeaves, isLoading: pendingLoading } = useQuery({
@@ -60,6 +91,18 @@ const LeaveCalendar = () => {
         <div>
           <div className="section-title">Leave Management</div>
           <div className="section-sub">Approve team requests and track attendance across the organization</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCalendarUpload} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadState === 'parsing'}
+          >
+            {uploadState === 'parsing' ? 'Uploading...' : '📅 Upload Holiday Calendar'}
+          </Button>
+          <span className="text-[10px] text-text-muted">CSV: Name, Date, Type</span>
         </div>
       </div>
 

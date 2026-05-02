@@ -12,8 +12,8 @@ router.use(verifyToken);
  */
 router.post('/start', async (req, res) => {
   try {
-    if (req.user.role !== 'executive') {
-      return res.status(403).json({ message: 'Only executives can start work' });
+    if (!['executive', 'industry_manager', 'state_manager'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: Role not authorized to start work' });
     }
     const result = await attendanceService.startWork(req.user._id, req.body);
     res.json(result);

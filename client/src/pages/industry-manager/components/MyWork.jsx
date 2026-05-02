@@ -154,7 +154,7 @@ const MyWork = () => {
           </div>
           <Button 
             className={`${workStarted ? 'bg-red' : 'bg-purple'} text-white border-none rounded-xl px-6`}
-            onClick={() => workStarted ? endWorkMutation.mutate() : startWorkMutation.mutate()}
+            onClick={() => workStarted ? endWorkMutation.mutate(dashData?.attendance?._id) : startWorkMutation.mutate()}
           >
             {workStarted ? 'Stop Work' : 'Start Work'}
           </Button>

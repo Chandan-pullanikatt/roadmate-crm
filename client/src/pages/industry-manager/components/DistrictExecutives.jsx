@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  StatCard, 
-  Button, 
-  Avatar, 
-  Tag, 
+import {
+  StatCard,
+  Button,
+  Avatar,
+  Tag,
   MemberRow,
   DashboardSkeleton
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { leaveApi } from '../../../api/leaveApi';
 
 
 const DistrictExecutives = () => {
@@ -23,7 +24,22 @@ const DistrictExecutives = () => {
 
   const executives = dashData?.executivePerformance || [];
   const stats = dashData?.stats || {};
-  
+
+  const { data: pendingLeaves = [] } = useQuery({
+    queryKey: ['leaves', 'pending'],
+    queryFn: () => leaveApi.getPendingLeaves().then(r => r.data || []),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const pendingLeaveMap = useMemo(() => {
+    const map = {};
+    pendingLeaves.forEach(l => {
+      const uid = l.user?._id || l.user;
+      if (uid) map[String(uid)] = (map[String(uid)] || 0) + 1;
+    });
+    return map;
+  }, [pendingLeaves]);
+
   // Extract unique districts - moved before conditional return
   const districts = useMemo(() => {
     return ['All', ...new Set(executives.map(e => e.district))];
@@ -149,6 +165,11 @@ const DistrictExecutives = () => {
                 ]}
                 actions={
                   <div className="flex items-center gap-2">
+                      {(pendingLeaveMap[String(exec._id)] || 0) > 0 && (
+                        <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20">
+                          {pendingLeaveMap[String(exec._id)]} leave pending
+                        </span>
+                      )}
                       <Tag variant={exec.isWorking ? 'green' : 'surface2'} label={exec.status} />
                       <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'assign-target', executive: exec } }))}>Set Target</Button>
                       <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40">Details</Button>

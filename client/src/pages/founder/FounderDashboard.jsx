@@ -10,6 +10,8 @@ import LeaveCalendar from './sections/LeaveCalendar';
 import Performance from './sections/Performance';
 import Reports from './sections/Reports';
 import ExpectedOnboarding from './sections/ExpectedOnboarding';
+import Targets from './sections/Targets';
+import Tasks from './sections/Tasks';
 
 import './founder.css';
 
@@ -30,6 +32,8 @@ const FounderDashboard = () => {
       case 'performance': return <Performance />;
       case 'reports': return <Reports />;
       case 'leads-onboarding': return <ExpectedOnboarding />;
+      case 'targets': return <Targets />;
+      case 'tasks':   return <Tasks />;
 
       default: return <Overview />;
     }

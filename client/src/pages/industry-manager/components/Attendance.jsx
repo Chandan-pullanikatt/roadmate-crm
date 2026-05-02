@@ -141,6 +141,8 @@ const Attendance = () => {
                 <th className="px-6 py-4">District</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">In Time</th>
+                <th className="px-6 py-4 text-center">WFH</th>
+                <th className="px-6 py-4 text-center">Late</th>
                 <th className="px-6 py-4">Work %</th>
                 <th className="px-6 py-4 text-center">Leads Done</th>
                 <th className="px-6 py-4 text-center">Attendance %</th>
@@ -169,7 +171,20 @@ const Attendance = () => {
                     />
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="text-[10px] font-black text-text-primary">9:26 AM</span>
+                    <span className="text-[10px] font-black text-text-primary">
+                      {exec.loginTime || '9:30 AM'}
+                      {exec.isLateLogin && <span className="ml-1 text-orange text-[9px]">▲</span>}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {exec.isWFH
+                      ? <span className="px-2 py-0.5 bg-blue/10 text-blue rounded-full text-[9px] font-bold">WFH</span>
+                      : <span className="text-[10px] text-text-muted">Office</span>}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {(exec.lateLoginMinutes || 0) > 0
+                      ? <span className="text-[10px] font-bold text-orange">{exec.lateLoginMinutes}m</span>
+                      : <span className="text-[10px] text-text-muted">—</span>}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

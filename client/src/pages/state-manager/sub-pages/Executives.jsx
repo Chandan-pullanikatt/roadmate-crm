@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Executives = () => {
@@ -15,12 +16,27 @@ const Executives = () => {
     placeholderData: keepPreviousData
   });
 
+  const { data: pendingLeaves = [] } = useQuery({
+    queryKey: ['leaves', 'pending'],
+    queryFn: () => leaveApi.getPendingLeaves().then(r => r.data || []),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const pendingLeaveMap = useMemo(() => {
+    const map = {};
+    pendingLeaves.forEach(l => {
+      const uid = l.user?._id || l.user;
+      if (uid) map[String(uid)] = (map[String(uid)] || 0) + 1;
+    });
+    return map;
+  }, [pendingLeaves]);
+
   if (dashLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
   const user = dashData?.user || {};
   const executives = dashData?.executivePerformance || [];
-  
+
   const filteredExecs = executives.filter(e => {
     const matchesIndustry = filterIndustry === 'All' || e.industry === filterIndustry;
     const matchesSearch = !searchTerm || 
@@ -135,11 +151,16 @@ const Executives = () => {
                 </div>
               </div>
 
-              <div className="w-24 flex justify-end">
-                <Tag 
-                    variant={e.status === 'Active' ? 'green' : 'amber'} 
-                    label={e.status.toUpperCase()} 
-                    className="font-black text-[9px] tracking-widest"
+              <div className="flex items-center gap-2 justify-end">
+                {(pendingLeaveMap[String(e._id)] || 0) > 0 && (
+                  <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20">
+                    {pendingLeaveMap[String(e._id)]} leave pending
+                  </span>
+                )}
+                <Tag
+                  variant={e.status === 'Active' ? 'green' : 'amber'}
+                  label={e.status.toUpperCase()}
+                  className="font-black text-[9px] tracking-widest"
                 />
               </div>
             </div>

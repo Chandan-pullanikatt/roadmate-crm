@@ -13,6 +13,7 @@ import { State } from 'country-state-city';
 import LeaveHistoryModal from './modals/LeaveHistoryModal';
 import UpdateLeadModal from './modals/UpdateLeadModal';
 import AllocateLeadModal from './modals/AllocateLeadModal';
+import LeadHistoryModal from './modals/LeadHistoryModal';
 
 
 
@@ -22,6 +23,7 @@ const GlobalModals = () => {
   const { user: currentUser } = useAuth();
   const isExecutive = currentUser?.role === 'executive';
   const [activeModal, setActiveModal] = useState(null);
+  const [leadHistoryData, setLeadHistoryData] = useState({ leadId: null, leadName: '' });
   const [managers, setManagers] = useState([]);
   const [executives, setExecutives] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,7 @@ const GlobalModals = () => {
     normalStart: '09:30', normalEnd: '18:30',
     ramadanStart: '09:00', ramadanEnd: '17:30',
     ramadanFrom: '', ramadanTo: '',
-    rules: { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true }
+    rules: { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true, earlyExitThresholdMinutes: 120 }
   });
 
   const [leaveFormData, setLeaveFormData] = useState({
@@ -171,6 +173,9 @@ const GlobalModals = () => {
       } else if (e.detail.type === 'leave-history') {
         setLeaveHistoryUser(e.detail.user);
         setActiveModal('leave-history');
+      } else if (e.detail.type === 'lead-history') {
+        setLeadHistoryData({ leadId: e.detail.leadId, leadName: e.detail.leadName || '' });
+        setActiveModal('lead-history');
       } else if (e.detail.type === 'update-lead') {
         setSelectedLead(e.detail.leadData);
         setActiveModal('update-lead');
@@ -1267,11 +1272,21 @@ const GlobalModals = () => {
 
               <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
                 <span className="text-sm font-medium text-text-primary">Delayed login → <span className="font-bold">Half day</span> (based on time frame above)</span>
-                <input 
-                  type="checkbox" 
-                  className="w-5 h-5 rounded accent-[#0f766e]" 
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 rounded accent-[#0f766e]"
                   checked={workingHours.rules.delayedLoginHalfDay}
                   onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, delayedLoginHalfDay: e.target.checked}})}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
+                <span className="text-sm font-medium text-text-primary">Early exit threshold → <span className="font-bold">Half day</span> if left this many minutes before end time</span>
+                <input
+                  type="number"
+                  className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold"
+                  value={workingHours.rules.earlyExitThresholdMinutes ?? 120}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, earlyExitThresholdMinutes: Number(e.target.value)}})}
                 />
               </div>
             </div>
@@ -1454,9 +1469,15 @@ const GlobalModals = () => {
         onClose={handleCloseModal} 
         user={leaveHistoryUser}
       />
-      <UpdateLeadModal 
-        isOpen={activeModal === 'update-lead'} 
-        onClose={handleCloseModal} 
+      <LeadHistoryModal
+        isOpen={activeModal === 'lead-history'}
+        onClose={handleCloseModal}
+        leadId={leadHistoryData.leadId}
+        leadName={leadHistoryData.leadName}
+      />
+      <UpdateLeadModal
+        isOpen={activeModal === 'update-lead'}
+        onClose={handleCloseModal}
         lead={selectedLead}
       />
       <AllocateLeadModal 
