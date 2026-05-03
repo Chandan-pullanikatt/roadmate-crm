@@ -5,7 +5,8 @@
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem -Path \"D:\\\\work\\\\roadmate\\\\roadmate-crm\" -Force)",
       "Bash(Select-Object Name, Mode)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(git -C \"D:\\\\work\\\\roadmate\\\\roadmate-crm\" log --oneline --all)"
     ]
   }
 }

@@ -53,19 +53,19 @@ const DistrictExecutives = () => {
   const filteredExecs = executives.filter(e => filterState === 'All' || e.state === filterState);
 
   return (
-    <div className="animate-in fade-in duration-500 overflow-x-hidden">
+    <div className="animate-in fade-in duration-500">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-4 text-[12px] font-medium text-text-muted">
+      <div className="flex items-center gap-2 mb-2 text-[12px] font-medium text-text-muted">
         <span>Founder</span>
         <span className="text-text-muted/30">›</span>
         <span className="text-text-primary font-semibold">District Executives</span>
       </div>
 
       {/* Header */}
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex justify-between items-start mb-4">
         <div>
-          <h1 className="text-[24px] font-bold text-text-primary tracking-tight">District Executives</h1>
-          <p className="text-[14px] text-text-muted mt-0.5">Performance summary · Lead handling · Attendance · Salary</p>
+          <h1 className="text-[22px] font-bold text-text-primary tracking-tight">District Executives</h1>
+          <p className="text-[13px] text-text-muted mt-0.5">Performance summary · Lead handling · Attendance · Salary</p>
         </div>
         <div className="flex gap-3">
           <Button 
@@ -91,36 +91,36 @@ const DistrictExecutives = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Total Executives</div>
-          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.salesStaff?.total || 0}</div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total Executives</div>
+          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.salesStaff?.total || 0}</div>
           <div className="text-[12px] text-[#16a34a] font-bold flex items-center gap-1.5">
              <span className="text-[14px]">↑</span> {stats.executivesThisMonth || 0} this month
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#0f766e]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Total Handling Leads</div>
-          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.totalLeads?.toLocaleString() || 0}</div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total Handling Leads</div>
+          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.totalLeads?.toLocaleString() || 0}</div>
           <div className="text-[12px] text-[#0f766e] font-bold">Active pipeline</div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Total Connected</div>
-          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.totalCalls?.toLocaleString() || 0}</div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total Connected</div>
+          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.totalCalls?.toLocaleString() || 0}</div>
           <div className="text-[12px] text-text-muted font-bold">
             <span className="text-[#3b82f6]">{stats.reachRate || 0}%</span> reach rate
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-3">Conversions</div>
-          <div className="text-[36px] font-bold text-text-primary leading-tight mb-2">{stats.totalConversions?.toLocaleString() || 0}</div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Conversions</div>
+          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.totalConversions?.toLocaleString() || 0}</div>
           <div className="text-[12px] text-text-muted font-bold">
             <span className="text-[#16a34a]">{stats.conversionRate || 0}%</span> conv. rate
           </div>
@@ -128,7 +128,7 @@ const DistrictExecutives = () => {
       </div>
 
       {/* Table Section */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="mb-3 flex flex-col md:flex-row md:items-end justify-between gap-2">
         <div>
           <h2 className="text-[18px] font-bold text-text-primary">Executive Performance — {viewType.charAt(0).toUpperCase() + viewType.slice(1)} Report</h2>
           <p className="text-[13px] text-text-muted mt-1 font-medium">Handling leads · Connected · Follow-ups · Converted · Revenue · Leaves</p>
@@ -147,7 +147,7 @@ const DistrictExecutives = () => {
       </div>
 
       {/* Mobile/Tablet Cards - visible < lg */}
-      <div className="lg:hidden space-y-4 mb-6">
+      <div className="lg:hidden space-y-4 mb-4">
         {filteredExecs.map((m) => (
           <div key={m._id} className="bg-white rounded-xl border border-border shadow-sm p-4 hover:shadow-md transition-all">
             <div className="flex items-center gap-3 mb-3">
