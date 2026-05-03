@@ -32,13 +32,13 @@ const LeadManagement = () => {
 
   const { data: leadData, isLoading, isFetching } = useQuery({
     queryKey: ['leads', 'state-list', activeTab, debouncedSearch, page],
-    queryFn: () => leadsApi.getLeads({ 
-      status: activeTab === 'all' ? undefined : activeTab, 
+    queryFn: () => leadsApi.getLeads({
+      status: activeTab === 'all' ? undefined : activeTab,
       search: debouncedSearch,
       page,
       limit: 20
     }).then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     placeholderData: keepPreviousData
   });
 

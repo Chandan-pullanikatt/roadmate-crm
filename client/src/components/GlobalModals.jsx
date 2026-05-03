@@ -22,6 +22,8 @@ const GlobalModals = () => {
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
   const isExecutive = currentUser?.role === 'executive';
+  const isStateManager = currentUser?.role === 'state_manager';
+  const isIndustryManager = currentUser?.role === 'industry_manager';
   const [activeModal, setActiveModal] = useState(null);
   const [leadHistoryData, setLeadHistoryData] = useState({ leadId: null, leadName: '' });
   const [managers, setManagers] = useState([]);
@@ -30,15 +32,21 @@ const GlobalModals = () => {
   const [leaveHistoryUser, setLeaveHistoryUser] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
   
-  const [leadFormData, setLeadFormData] = useState({
+  const getLeadFormDefaults = () => ({
     name: '', company: '', countryCode: '+91', phone: '', email: '',
-    country: '', district: '', state: '', region: '', industry: '',
+    country: isStateManager || isIndustryManager ? 'India' : '',
+    district: '',
+    state: isStateManager ? (currentUser?.state || '') : '',
+    region: '',
+    industry: isIndustryManager ? (currentUser?.industry || '') : '',
     leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
     revenueCategory: 'other',
     meetingAt: '',
     meetingType: 'direct',
     documents: []
   });
+
+  const [leadFormData, setLeadFormData] = useState(getLeadFormDefaults);
 
   const [managerFormData, setManagerFormData] = useState({
     name: '', email: '', phone: '', state: '', employmentType: 'Full Time',
@@ -319,8 +327,9 @@ const GlobalModals = () => {
         assignedTo: targetExecutiveId
       });
       addToast(`${selectedLeadIds.length} leads allocated successfully!`, 'success');
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+      queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
       setActiveModal(null);
       setSelectedLeadIds([]);
       setTargetExecutiveId('');
@@ -345,16 +354,10 @@ const GlobalModals = () => {
       await leadsApi.createLead(leadData);
       addToast('Lead added successfully!', 'success');
       setActiveModal(null);
-      setLeadFormData({
-        name: '', company: '', countryCode: '+91', phone: '', email: '',
-        country: '', district: '', state: '', region: '', industry: '',
-        leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
-        revenueCategory: 'other',
-        meetingAt: '',
-        meetingType: 'direct',
-        documents: []
-      });
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setLeadFormData(getLeadFormDefaults());
+      queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+      queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
     } catch (err) {
       addToast(err.response?.data?.message || 'Error adding lead', 'error');
     } finally {
@@ -497,7 +500,8 @@ const GlobalModals = () => {
       });
       addToast('Lead escalated successfully!', 'success');
       setActiveModal(null);
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+      queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
     } catch (err) {
       addToast('Error escalating lead', 'error');
     } finally {
@@ -591,17 +595,17 @@ const GlobalModals = () => {
               </div>
 
               <div className="col-span-2">
-                <LocationSelector 
-                  value={{ 
-                    country: leadFormData.country, 
-                    state: leadFormData.state, 
+                <LocationSelector
+                  value={{
+                    country: leadFormData.country,
+                    state: leadFormData.state,
                     district: leadFormData.district,
                     region: leadFormData.region
                   }}
-                  onChange={(loc) => setLeadFormData({ 
-                    ...leadFormData, 
-                    country: loc.country, 
-                    state: loc.state, 
+                  onChange={(loc) => setLeadFormData({
+                    ...leadFormData,
+                    country: loc.country,
+                    state: loc.state,
                     district: loc.district,
                     region: loc.region
                   })}

@@ -86,6 +86,10 @@ const bulkCreateLeads = async (req, res) => {
         const normalized = normalizeLeadPayload(item);
         normalized.allocatedBy = req.user._id;
 
+        // Enforce role-based scoping on bulk imports too
+        if (req.user.role === 'state_manager') normalized.state = req.user.state;
+        if (req.user.role === 'industry_manager') normalized.industry = req.user.industry;
+
         // Handle "Assigned To" — lookup user by name
         if (item.assignedTo) {
           const assignee = await User.findOne({ 
@@ -351,12 +355,11 @@ router.post('/', async (req, res) => {
     if (req.user.role === 'executive' && !payload.owner) {
       payload.owner = req.user._id;
     }
-    // State managers' leads are scoped to their state
-    if (req.user.role === 'state_manager' && !payload.state) {
+    // Always scope to creator's state/industry — prevents mismatched leads that become invisible to the creator
+    if (req.user.role === 'state_manager') {
       payload.state = req.user.state;
     }
-    // Industry managers' leads are scoped to their industry
-    if (req.user.role === 'industry_manager' && !payload.industry) {
+    if (req.user.role === 'industry_manager') {
       payload.industry = req.user.industry;
     }
     const lead = new Lead({
