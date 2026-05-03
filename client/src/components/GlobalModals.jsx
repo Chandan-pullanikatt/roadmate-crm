@@ -61,6 +61,7 @@ const GlobalModals = () => {
     documents: []
   });
 
+  const [viewDocsUser, setViewDocsUser] = useState(null);
   const [pendingLeaves, setPendingLeaves] = useState([]);
   const [leaveAction, setLeaveAction] = useState({ id: '', reason: '' });
   const [incentiveForm, setIncentiveForm] = useState({ salaryId: '', amount: 0, note: '' });
@@ -216,6 +217,20 @@ const GlobalModals = () => {
           revenue: 0
         });
         setActiveModal('assign-target');
+      } else if (e.detail.type === 'create-industry-manager') {
+        setExecFormData({
+          _id: undefined,
+          role: 'industry-manager',
+          name: '', email: '', phone: '',
+          state: '', industry: '',
+          reportingTo: '',
+          dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
+        });
+        setActiveModal('create-exec');
+        fetchUsers();
+      } else if (e.detail.type === 'view-docs') {
+        setViewDocsUser(e.detail.user);
+        setActiveModal('view-docs');
       } else {
         setActiveModal(e.detail.type);
       }
@@ -305,6 +320,7 @@ const GlobalModals = () => {
       });
       addToast(`${selectedLeadIds.length} leads allocated successfully!`, 'success');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setActiveModal(null);
       setSelectedLeadIds([]);
       setTargetExecutiveId('');
@@ -1489,11 +1505,96 @@ const GlobalModals = () => {
         onClose={handleCloseModal}
         lead={selectedLead}
       />
-      <AllocateLeadModal 
-        isOpen={activeModal === 'allocate-single-lead'} 
-        onClose={handleCloseModal} 
+      <AllocateLeadModal
+        isOpen={activeModal === 'allocate-single-lead'}
+        onClose={handleCloseModal}
         lead={selectedLead}
       />
+
+      {/* VIEW / ATTACH DOCUMENTS MODAL */}
+      <Modal
+        isOpen={activeModal === 'view-docs'}
+        title="Staff Documents"
+        subtitle={viewDocsUser ? `${viewDocsUser.name} · ${viewDocsUser.industry || ''} ${viewDocsUser.state ? '· ' + viewDocsUser.state : ''}`.trim().replace(/·\s*$/, '') : ''}
+        onClose={handleCloseModal}
+      >
+        {viewDocsUser && (
+          <div className="space-y-6">
+            {/* Identity Numbers */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-surface2/50 rounded-xl border border-border">
+                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Aadhaar Number</div>
+                <div className="text-[14px] font-bold text-text-primary font-mono">{viewDocsUser.aadhaarNumber || <span className="text-text-muted font-normal text-[12px]">Not provided</span>}</div>
+              </div>
+              <div className="p-4 bg-surface2/50 rounded-xl border border-border">
+                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">PAN Number</div>
+                <div className="text-[14px] font-bold text-text-primary font-mono uppercase">{viewDocsUser.panNumber || <span className="text-text-muted font-normal text-[12px]">Not provided</span>}</div>
+              </div>
+            </div>
+
+            {/* Existing Documents */}
+            {viewDocsUser.documents?.length > 0 && (
+              <div>
+                <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3">Attached Documents</div>
+                <div className="space-y-2">
+                  {viewDocsUser.documents.map((doc, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-surface2/40 rounded-lg border border-border">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </div>
+                        <div>
+                          <div className="text-[12px] font-bold text-text-primary">{doc.name || 'Document'}</div>
+                          {doc.size && <div className="text-[10px] text-text-muted">{(doc.size / 1024).toFixed(1)} KB</div>}
+                        </div>
+                      </div>
+                      {doc.url && (
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                          <Button size="xs" variant="outline" className="bg-white text-blue border-blue/20 font-bold text-[10px]">View</Button>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upload New Documents */}
+            <div>
+              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3">Attach Documents</div>
+              <div className="grid grid-cols-2 gap-4">
+                <FileUpload
+                  folder="staff-docs"
+                  entityId={viewDocsUser.email || viewDocsUser._id}
+                  label="Upload Aadhaar Card"
+                  onUploadComplete={async (file) => {
+                    const doc = { ...file, name: 'Aadhaar Card' };
+                    try {
+                      await usersApi.addUserDocument(viewDocsUser._id, doc);
+                      setViewDocsUser(prev => ({ ...prev, documents: [...(prev.documents || []), doc] }));
+                      window.dispatchEvent(new CustomEvent('refresh-users'));
+                    } catch {}
+                  }}
+                />
+                <FileUpload
+                  folder="staff-docs"
+                  entityId={viewDocsUser.email || viewDocsUser._id}
+                  label="Upload PAN Card"
+                  onUploadComplete={async (file) => {
+                    const doc = { ...file, name: 'PAN Card' };
+                    try {
+                      await usersApi.addUserDocument(viewDocsUser._id, doc);
+                      setViewDocsUser(prev => ({ ...prev, documents: [...(prev.documents || []), doc] }));
+                      window.dispatchEvent(new CustomEvent('refresh-users'));
+                    } catch {}
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* ESCALATE LEAD MODAL */}
       <Modal
         isOpen={activeModal === 'escalate-lead'}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
@@ -30,6 +30,15 @@ const IndustryManagers = () => {
       detail: typeof type === 'string' ? { type, ...data } : type
     }));
   };
+
+  useEffect(() => {
+    const handleRefreshUsers = () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'industry-managers-global'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+    };
+    window.addEventListener('refresh-users', handleRefreshUsers);
+    return () => window.removeEventListener('refresh-users', handleRefreshUsers);
+  }, [queryClient]);
 
   const handleDelete = async (m) => {
     if (window.confirm(`Are you sure you want to delete ${m.name}? This action cannot be undone.`)) {
@@ -218,10 +227,6 @@ const IndustryManagers = () => {
                   <td className="p-4 text-center text-[12px] font-mono">{m.leaves}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3" onClick={() => {
-                        const userObj = filteredManagers?.find(u => u._id === m._id);
-                        if (userObj) openModal('create-exec', { editData: userObj });
-                      }}>View</Button>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={() => {
                         const userObj = filteredManagers?.find(u => u._id === m._id);
                         if (userObj) openModal('create-exec', { editData: userObj });
@@ -273,11 +278,11 @@ const IndustryManagers = () => {
                 <div className="flex gap-2">
                    <Button size="xs" variant="outline" className="bg-white border-border text-text-primary font-bold text-[10px] px-4" onClick={() => {
                      const userObj = filteredManagers?.find(u => u._id === m._id);
-                     if (userObj) openModal('create-exec', { editData: userObj });
+                     if (userObj) openModal({ type: 'view-docs', user: userObj });
                    }}>View Docs</Button>
                    <Button size="xs" className="bg-[#0f766e] text-white border-none font-bold text-[10px] px-4" onClick={() => {
                      const userObj = filteredManagers?.find(u => u._id === m._id);
-                     if (userObj) openModal('create-exec', { editData: userObj });
+                     if (userObj) openModal({ type: 'view-docs', user: userObj });
                    }}>Attach</Button>
                 </div>
               </div>

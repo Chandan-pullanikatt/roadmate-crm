@@ -26,6 +26,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
       const execName = executives.find(e => e._id === selectedExecutiveId)?.name || 'Executive';
       addToast(`Lead allocated to ${execName}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
     } catch (err) {
       addToast(err.response?.data?.message || 'Error allocating lead', 'error');

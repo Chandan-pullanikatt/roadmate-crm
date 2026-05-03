@@ -4,6 +4,8 @@ import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-quer
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leadsApi } from '../../../api/leadsApi';
+import { leaveApi } from '../../../api/leaveApi';
+import { usersApi } from '../../../api/usersApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 
 const Overview = () => {
@@ -440,14 +442,23 @@ const Overview = () => {
 
                 <div className="flex items-center justify-end gap-2 ml-8 w-[180px]">
                   <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4" onClick={() => navigate(`/dashboard?page=state-managers&id=${managerData.stateManagerId}`)}>View</Button>
-                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3" onClick={() => openModal({ type: 'create-state-manager', editData: managerData.managerData })}>Edit</Button>
-                  <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3" onClick={() => {
+                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3" onClick={async () => {
+                    try {
+                      const user = await usersApi.getUserById(managerData.stateManagerId).then(r => r.data);
+                      openModal({ type: 'create-state-manager', editData: user });
+                    } catch {
+                      openModal({ type: 'create-state-manager', editData: managerData.managerData });
+                    }
+                  }}>Edit</Button>
+                  <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3" onClick={async () => {
                     if (window.confirm(`Are you sure you want to delete ${managerData.stateManager}?`)) {
-                      import('../../../api/usersApi').then(({ usersApi }) => {
-                        usersApi.deleteUser(managerData.stateManagerId).then(() => {
-                          queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
-                        });
-                      });
+                      try {
+                        await usersApi.deleteUser(managerData.stateManagerId);
+                        window.dispatchEvent(new CustomEvent('refresh-users'));
+                        queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+                      } catch (err) {
+                        alert(err.response?.data?.message || 'Error deleting manager');
+                      }
                     }
                   }}>Delete</Button>
                 </div>
@@ -498,9 +509,16 @@ const Overview = () => {
                 </div>
 
                 <div className="flex items-center justify-end gap-2">
-                  <Button size="xs" variant="outline" className="bg-[#f0fdf4] border-[#bbf7d0] text-[#16a34a] shadow-sm hover:bg-[#dcfce7] px-4 font-semibold">Approve</Button>
-                  <Button size="xs" variant="outline" className="bg-[#fef2f2] border-[#fecaca] text-[#dc2626] shadow-sm hover:bg-[#fee2e2] px-4 font-semibold">Reject</Button>
-                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-4 font-semibold">Details</Button>
+                  <Button size="xs" variant="outline" className="bg-[#f0fdf4] border-[#bbf7d0] text-[#16a34a] shadow-sm hover:bg-[#dcfce7] px-4 font-semibold" onClick={async () => {
+                    try {
+                      await leaveApi.approveLeave(l._id);
+                      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+                    } catch (err) {
+                      alert(err.response?.data?.message || 'Error approving leave');
+                    }
+                  }}>Approve</Button>
+                  <Button size="xs" variant="outline" className="bg-[#fef2f2] border-[#fecaca] text-[#dc2626] shadow-sm hover:bg-[#fee2e2] px-4 font-semibold" onClick={() => openModal({ type: 'leave-approval' })}>Reject</Button>
+                  <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-4 font-semibold" onClick={() => openModal({ type: 'leave-approval' })}>Details</Button>
                 </div>
               </div>
              );
