@@ -136,7 +136,7 @@ const bulkCreateLeads = async (req, res) => {
           normalized.feedback = [{
             note: item.remarks,
             createdAt: new Date(),
-            createdBy: 'Bulk Import'
+            createdBy: req.user._id
           }];
         }
 

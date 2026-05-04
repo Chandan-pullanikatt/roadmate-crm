@@ -13,6 +13,12 @@
   --text-secondary: #4B5563;
   --text-muted: #9CA3AF;
   
+  /* RoadMate Brand Yellow */
+  --brand: #C8B400;
+  --brand-light: #FEFCE8;
+  --brand-mid: #D4C200;
+  --brand-gradient: linear-gradient(135deg, #C8B400 0%, #D4C200 100%);
+
   /* Brand Accents - Vibrant & Premium */
   --accent: #059669;
   --accent-light: #ECFDF5;
@@ -222,14 +228,15 @@ body {
 }
 
 .role-founder .nav-item.active {
-  background: var(--accent-light);
-  color: var(--accent);
+  background: var(--brand-light);
+  color: #6B5900;
 }
 .role-founder .nav-item.active .icon {
-  color: var(--accent);
+  color: #6B5900;
 }
 .role-founder .nav-badge {
-  background: var(--accent);
+  background: var(--brand);
+  color: #111827;
 }
 
 .role-state_manager .nav-item.active {

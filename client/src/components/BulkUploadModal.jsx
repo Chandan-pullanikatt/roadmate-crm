@@ -30,7 +30,12 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const bulkUploadMutation = useMutation({
     mutationFn: (data) => leadsApi.bulkUpload(data),
     onSuccess: (res) => {
-      addToast(`Successfully imported ${res.data?.count || parsedData?.rows?.length} leads!`, 'success');
+      const imported = res.data?.imported ?? res.data?.count ?? 0;
+      const skipped = res.data?.skipped ?? 0;
+      const msg = skipped > 0
+        ? `Imported ${imported} leads (${skipped} skipped due to errors)`
+        : `Successfully imported ${imported} leads!`;
+      addToast(msg, imported > 0 ? 'success' : 'error');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();

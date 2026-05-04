@@ -25,6 +25,9 @@
   --color-teal-light: var(--teal-light);
   --color-orange: var(--orange);
   --color-orange-light: var(--orange-light);
+  --color-brand: var(--brand);
+  --color-brand-light: var(--brand-light);
+  --color-brand-mid: var(--brand-mid);
 
   --radius-default: var(--radius);
   --radius-sm: var(--radius-sm);
@@ -45,6 +48,7 @@
   --purple: #7C3AED; --purple-light: #F5F3FF;
   --teal: #0891B2; --teal-light: #ECFEFF;
   --orange: #C2410C; --orange-light: #FFF7ED;
+  --brand: #C8B400; --brand-light: #FEFCE8; --brand-mid: #D4C200;
   --radius: 10px; --radius-sm: 6px; --radius-lg: 14px;
   --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md: 0 4px 14px rgba(0,0,0,.09), 0 2px 4px rgba(0,0,0,.04);

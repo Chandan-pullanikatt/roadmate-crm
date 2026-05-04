@@ -12,7 +12,7 @@ const Overview = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [summaryTab, setSummaryTab] = useState('week');
-  
+
   // Initialize summaryPeriodValue based on current date
   const getCurrentDefaultValue = (tab) => {
     const now = new Date();
@@ -157,7 +157,7 @@ const Overview = () => {
         <div className="flex items-center gap-3">
           <div className="flex bg-surface2 p-1 rounded-xl border border-border">
             {['today', 'week', 'month', 'quarter', 'year'].map(t => (
-              <button 
+              <button
                 key={t}
                 onClick={() => handleTabChange(t)}
                 className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
@@ -166,9 +166,9 @@ const Overview = () => {
               </button>
             ))}
           </div>
-          
+
           {summaryTab !== 'today' && (
-            <select 
+            <select
               value={summaryPeriodValue}
               onChange={(e) => setSummaryPeriodValue(e.target.value)}
               className="bg-white border border-border rounded-xl px-4 py-2 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm min-w-[120px]"
@@ -205,14 +205,14 @@ const Overview = () => {
           <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.convertedThisMonth || 0} this month</div>
         </div>
 
-        <div 
-          className="stat-card cursor-pointer hover:shadow-md transition-shadow" 
+        <div
+          className="stat-card cursor-pointer hover:shadow-md transition-shadow"
           style={{ borderTop: '4px solid #0891b2' }}
           onClick={() => window.location.href = '/dashboard?page=revenue'}
         >
           <div className="stat-label mb-2 mt-1">Revenue Generated</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">
-             {"\u20B9"}{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
+            {"\u20B9"}{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
           </div>
           <div className="text-[12px] font-medium text-teal flex items-center justify-between">
             <span>{"\u2191"} 18.4% MoM</span>
@@ -265,7 +265,7 @@ const Overview = () => {
         >
           <div className="relative flex-shrink-0">
             <div className="w-10 h-10 rounded-xl bg-red/10 flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>
             </div>
             <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red rounded-full flex items-center justify-center text-white text-[10px] font-black">
               {unallocatedCount > 99 ? '99+' : unallocatedCount}
@@ -275,7 +275,7 @@ const Overview = () => {
             <div className="text-sm font-bold text-red">Unallocated Leads</div>
             <div className="text-xs text-text-muted mt-0.5">{unallocatedCount} lead{unallocatedCount !== 1 ? 's' : ''} have no executive assigned — click to allocate</div>
           </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </div>
       )}
 
@@ -295,21 +295,21 @@ const Overview = () => {
           let bgClass = "bg-white";
           let borderClass = "border-border";
           let bottomColor = "#3b82f6";
-          
+
           if (s.label === 'New') bottomColor = '#3b82f6';
           if (s.label === 'Follow-up') bottomColor = '#8b5cf6';
           if (s.label === 'Meeting') bottomColor = '#0f766e';
           if (s.label === 'Negotiation') bottomColor = '#d97706';
-          
+
           if (s.label === 'Converted') {
-             bgClass = "bg-[#f0fdf4]";
-             borderClass = "border-[#bbf7d0]";
-             bottomColor = "#16a34a";
+            bgClass = "bg-[#f0fdf4]";
+            borderClass = "border-[#bbf7d0]";
+            bottomColor = "#16a34a";
           }
           if (s.label === 'Lost') {
-             bgClass = "bg-[#fef2f2]";
-             borderClass = "border-[#fecaca]";
-             bottomColor = "#dc2626";
+            bgClass = "bg-[#fef2f2]";
+            borderClass = "border-[#fecaca]";
+            bottomColor = "#dc2626";
           }
 
           return (
@@ -394,7 +394,7 @@ const Overview = () => {
         <div className="divide-y divide-border">
           {dashData?.byState?.map((managerData, idx) => {
             const mName = managerData.stateManager !== 'Unassigned' ? managerData.stateManager : 'Unassigned';
-            const initials = mName !== 'Unassigned' ? mName.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase() : 'U';
+            const initials = mName !== 'Unassigned' ? mName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
             const colors = ['bg-[#3b82f6]', 'bg-[#4f46e5]', 'bg-[#0f766e]', 'bg-[#ea580c]'];
             const avatarColor = colors[idx % colors.length];
 
@@ -424,19 +424,19 @@ const Overview = () => {
                   </div>
                   <div className="text-center w-20">
                     <div className="text-[15px] font-bold text-teal font-mono">
-                       {"\u20B9"}{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
+                      {"\u20B9"}{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
                     </div>
                     <div className="text-[10px] text-text-muted uppercase tracking-wider">Revenue</div>
                   </div>
-                  
+
                   <div className="flex flex-col items-center justify-center w-24 border-l border-border pl-4">
                     <div className="flex items-center gap-2">
-                       <div className="w-6 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                         <div className="h-full bg-[#d97706]" style={{ width: `${managerData.avgWorkPct || 0}%` }}></div>
-                       </div>
-                       <div className="text-[13px] font-bold text-[#d97706]">{Math.round(managerData.avgWorkPct || 0)}%</div>
+                      <div className="w-6 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#d97706]" style={{ width: `${managerData.avgWorkPct || 0}%` }}></div>
+                      </div>
+                      <div className="text-[13px] font-bold text-[#d97706]">{Math.round(managerData.avgWorkPct || 0)}%</div>
                     </div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">Work %</div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">k %</div>
                   </div>
                 </div>
 
@@ -466,7 +466,7 @@ const Overview = () => {
             );
           })}
           {(!dashData?.byState || dashData.byState.length === 0) && (
-             <div className="p-8 text-center text-text-muted text-[13px]">No performance data found.</div>
+            <div className="p-8 text-center text-text-muted text-[13px]">No performance data found.</div>
           )}
         </div>
       </div>
@@ -478,23 +478,23 @@ const Overview = () => {
           <div className="text-[12px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
         </div>
         <div className="bg-amber/10 border border-amber/20 text-amber text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
-           {"\u26A0"} {pendingLeaves.length} Pending
+          {"\u26A0"} {pendingLeaves.length} Pending
         </div>
       </div>
 
       <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
         <div className="divide-y divide-border">
           {pendingLeaves.map((l, idx) => {
-             const mName = l.user?.name || 'Unknown';
-             const initials = mName.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase();
-             const colors = ['bg-[#3b82f6]', 'bg-[#8b5cf6]', 'bg-[#ea580c]', 'bg-[#14b8a6]'];
-             const avatarColor = colors[idx % colors.length];
+            const mName = l.user?.name || 'Unknown';
+            const initials = mName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const colors = ['bg-[#3b82f6]', 'bg-[#8b5cf6]', 'bg-[#ea580c]', 'bg-[#14b8a6]'];
+            const avatarColor = colors[idx % colors.length];
 
-             const roleDisplay = l.user?.role === 'state_manager' ? 'State Manager' : l.user?.role === 'industry_manager' ? 'Industry Mgr' : 'Executive';
-             const stateDisplay = l.user?.state || 'Unknown';
-             const typeDisplay = (l.type || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const roleDisplay = l.user?.role === 'state_manager' ? 'State Manager' : l.user?.role === 'industry_manager' ? 'Industry Mgr' : 'Executive';
+            const stateDisplay = l.user?.state || 'Unknown';
+            const typeDisplay = (l.type || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-             return (
+            return (
               <div key={l._id} className="flex items-center justify-between p-4 hover:bg-surface2/30 transition-colors group">
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>
@@ -521,15 +521,15 @@ const Overview = () => {
                   <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-4 font-semibold" onClick={() => openModal({ type: 'leave-approval' })}>Details</Button>
                 </div>
               </div>
-             );
+            );
           })}
           {pendingLeaves.length === 0 && (
-             <div className="p-8 text-center text-text-muted text-[13px]">No pending leave requests.</div>
+            <div className="p-8 text-center text-text-muted text-[13px]">No pending leave requests.</div>
           )}
           {pendingLeaves.length > 0 && (
-             <div className="p-3 bg-surface2/30 flex justify-end">
-               <Button size="sm" variant="outline" className="bg-white text-text-primary shadow-sm font-semibold">Manage All Leave Requests</Button>
-             </div>
+            <div className="p-3 bg-surface2/30 flex justify-end">
+              <Button size="sm" variant="outline" className="bg-white text-text-primary shadow-sm font-semibold">Manage All Leave Requests</Button>
+            </div>
           )}
         </div>
       </div>
