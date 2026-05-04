@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
+import { FileUpload } from '../../../components/ui';
 
 const STEPS = [
   { id: 'call', label: 'Call' },
@@ -46,6 +47,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
   const [escalatedTo, setEscalatedTo] = useState(null);
   const [escalationReason, setEscalationReason] = useState('');
   const [inviteeId, setInviteeId] = useState('');
+  const [documents, setDocuments] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch suggested dates
@@ -76,6 +78,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
     setMeetingLink('');
     setMeetingDate('');
     setMeetingTime('');
+    setDocuments([]);
   }, [lead?._id]);
 
   const transitionMutation = useMutation({
@@ -159,7 +162,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const payload = { action: 'set_feedback', nextAction: outcome, note: feedback };
+      const payload = { action: 'set_feedback', nextAction: outcome, note: feedback, documents };
 
       if (outcome === 'converted') {
         payload.strategyNote = strategyNote || feedback;
@@ -284,12 +287,15 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
           {step === 1 && <StepOutcome onSelect={handleOutcomeSelect} />}
           {step === 2 && (
             <StepFeedback
+              leadId={lead._id}
               outcome={outcome}
               prompt={getStrategyPrompt()}
               feedback={feedback}
               setFeedback={setFeedback}
               strategyNote={strategyNote}
               setStrategyNote={setStrategyNote}
+              documents={documents}
+              setDocuments={setDocuments}
             />
           )}
           {step === 3 && outcome === 'followup' && (
@@ -399,12 +405,12 @@ const StepCall = ({ lead, onCallDone }) => {
         {lead.phone} · {lead.company || 'Private Client'}
       </p>
       {lead.notes && (
-        <div style={{ background: 'var(--blue-light)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '12px 16px', margin: '16px auto', maxWidth: 400, textAlign: 'left' }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--blue)', textTransform: 'uppercase', marginBottom: 4 }}>Previous Notes</div>
-          <p style={{ fontSize: 13, color: '#1E40AF' }}>{lead.notes}</p>
+        <div style={{ background: 'var(--blue-light)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '10px 14px', margin: '12px auto', maxWidth: 400, textAlign: 'left' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--blue)', textTransform: 'uppercase', marginBottom: 2 }}>Previous Notes</div>
+          <p style={{ fontSize: 12, color: '#1E40AF', lineHeight: 1.4 }}>{lead.notes}</p>
         </div>
       )}
-      <button className="wizard-btn wizard-btn-primary" onClick={onCallDone} style={{ marginTop: 20, padding: '0 40px', height: 48 }}>
+      <button className="wizard-btn wizard-btn-primary" onClick={onCallDone} style={{ marginTop: 12, padding: '0 40px', height: 44 }}>
         ✓ Mark Call Completed
       </button>
     </div>
@@ -429,7 +435,7 @@ const StepOutcome = ({ onSelect }) => (
   </div>
 );
 
-const StepFeedback = ({ outcome, prompt, feedback, setFeedback, strategyNote, setStrategyNote }) => (
+const StepFeedback = ({ leadId, outcome, prompt, feedback, setFeedback, strategyNote, setStrategyNote, documents, setDocuments }) => (
   <div className="wizard-feedback-form">
     <div style={{ marginBottom: 4 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>
@@ -437,18 +443,43 @@ const StepFeedback = ({ outcome, prompt, feedback, setFeedback, strategyNote, se
       </h3>
       <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{prompt}</p>
     </div>
-    <div>
-      <div className="wizard-field-label">Feedback & Important Notes *</div>
-      <textarea className="wizard-textarea" placeholder="What was discussed? Key points from the call..." value={feedback} onChange={e => setFeedback(e.target.value)} autoFocus />
-    </div>
-    {(outcome === 'converted' || outcome === 'not_interested') && (
-      <div>
-        <div className="wizard-field-label">
-          {outcome === 'converted' ? '🏆 Winning Strategy Used' : '💡 How could we convert similar leads?'}
+    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 }}>
+      <div className="space-y-4">
+        <div>
+          <div className="wizard-field-label">Feedback & Important Notes *</div>
+          <textarea className="wizard-textarea" placeholder="What was discussed? Key points from the call..." value={feedback} onChange={e => setFeedback(e.target.value)} autoFocus />
         </div>
-        <textarea className="wizard-textarea" style={{ minHeight: 80 }} placeholder={outcome === 'converted' ? 'What approach worked? This helps the team...' : 'If this situation arises again, how to manage?'} value={strategyNote} onChange={e => setStrategyNote(e.target.value)} />
+        {(outcome === 'converted' || outcome === 'not_interested') && (
+          <div>
+            <div className="wizard-field-label">
+              {outcome === 'converted' ? '🏆 Winning Strategy Used' : '💡 How could we convert similar leads?'}
+            </div>
+            <textarea className="wizard-textarea" style={{ minHeight: 80 }} placeholder={outcome === 'converted' ? 'What approach worked? This helps the team...' : 'If this situation arises again, how to manage?'} value={strategyNote} onChange={e => setStrategyNote(e.target.value)} />
+          </div>
+        )}
       </div>
-    )}
+      
+      <div className="space-y-4">
+        <div>
+          <div className="wizard-field-label">Attach Document (Optional)</div>
+          <FileUpload 
+            folder="lead-docs"
+            entityId={leadId}
+            onUploadComplete={(file) => setDocuments(prev => [...prev, file])}
+          />
+          {documents.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {documents.map((doc, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 bg-surface2/50 rounded-lg border border-border text-[11px]">
+                  <span className="truncate max-w-[120px] font-medium">{doc.name}</span>
+                  <button className="text-red hover:text-red-dark" onClick={() => setDocuments(prev => prev.filter((_, i) => i !== idx))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   </div>
 );
 

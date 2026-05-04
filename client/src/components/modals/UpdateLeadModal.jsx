@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button } from '../ui';
+import { Modal, Button, FileUpload } from '../ui';
 import { useToast } from '../../context/ToastContext';
 import { leadsApi } from '../../api/leadsApi';
 import { useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,8 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     notes: '',
     expectedOnboarding: '',
     actualRevenue: '',
-    revenueCategory: 'other'
+    revenueCategory: 'other',
+    documents: []
   });
 
   useEffect(() => {
@@ -25,7 +26,8 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         notes: lead.notes || '',
         expectedOnboarding: lead.expectedOnboarding ? new Date(lead.expectedOnboarding).toISOString().split('T')[0] : '',
         actualRevenue: lead.actualRevenue || '',
-        revenueCategory: lead.revenueCategory || 'other'
+        revenueCategory: lead.revenueCategory || 'other',
+        documents: lead.documents || []
       });
     }
   }, [lead]);
@@ -40,7 +42,8 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         convertedAt: formData.expectedOnboarding,
         notes: formData.notes,
         actualRevenue: formData.actualRevenue,
-        revenueCategory: formData.revenueCategory
+        revenueCategory: formData.revenueCategory,
+        documents: formData.documents
       };
       
       await leadsApi.updateLead(lead._id, payload);
@@ -148,6 +151,25 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
             onChange={(e) => setFormData({...formData, notes: e.target.value})}
             required
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="form-label">Attach Document (Optional)</label>
+          <FileUpload 
+            folder="lead-docs"
+            entityId={lead._id}
+            onUploadComplete={(file) => setFormData(prev => ({ ...prev, documents: [...prev.documents, file] }))}
+          />
+          {formData.documents.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.documents.map((doc, idx) => (
+                <div key={idx} className="text-[10px] bg-surface2 px-2 py-1 rounded border border-border flex items-center gap-2">
+                  <span className="truncate max-w-[100px]">{doc.name}</span>
+                  <button type="button" className="text-red hover:text-red-dark" onClick={() => setFormData(prev => ({ ...prev, documents: prev.documents.filter((_, i) => i !== idx) }))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">

@@ -282,14 +282,20 @@ const GlobalModals = () => {
   }, [handleOpenModal]);
 
   const [industryManagers, setIndustryManagers] = useState([]);
+  const [hierarchy, setHierarchy] = useState({ stateManagers: [], industryManagers: [], executives: [] });
 
   const fetchUsers = async () => {
     try {
-      const res = await usersApi.getUsers();
-      const allUsers = res.data || [];
+      const [usersRes, hierarchyRes] = await Promise.all([
+        usersApi.getUsers(),
+        usersApi.getHierarchy()
+      ]);
+      
+      const allUsers = usersRes.data || [];
       setManagers(allUsers.filter(u => u.role === 'state_manager'));
       setIndustryManagers(allUsers.filter(u => u.role === 'industry_manager'));
       setExecutives(allUsers.filter(u => u.role === 'executive'));
+      setHierarchy(hierarchyRes.data || { stateManagers: [], industryManagers: [], executives: [] });
     } catch (err) {
       addToast('Error fetching users', 'error');
     }
@@ -1617,9 +1623,35 @@ const GlobalModals = () => {
                 required
               >
                 <option value="">Select Manager</option>
-                <optgroup label="State Managers">
-                  {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
-                </optgroup>
+                {isIndustryManager && hierarchy.stateManagers.length > 0 && (
+                  <optgroup label="State Managers">
+                    {hierarchy.stateManagers.map(m => (
+                      <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                    ))}
+                  </optgroup>
+                )}
+                {isExecutive && (
+                  <>
+                    {hierarchy.industryManagers.length > 0 && (
+                      <optgroup label="Industry Managers">
+                        {hierarchy.industryManagers.map(m => (
+                          <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {hierarchy.stateManagers.length > 0 && (
+                      <optgroup label="State Managers">
+                        {hierarchy.stateManagers.map(m => (
+                          <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                )}
+                {/* Fallback for Founder/Other roles */}
+                {!isIndustryManager && !isExecutive && managers.map(m => (
+                  <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                ))}
               </select>
             </div>
             <div className="space-y-1">
