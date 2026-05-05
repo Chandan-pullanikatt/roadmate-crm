@@ -27,6 +27,8 @@ const GlobalModals = () => {
   const [activeModal, setActiveModal] = useState(null);
   const [leadHistoryData, setLeadHistoryData] = useState({ leadId: null, leadName: '' });
   const [managers, setManagers] = useState([]);
+  const [industryManagers, setIndustryManagers] = useState([]);
+  const [founders, setFounders] = useState([]);
   const [executives, setExecutives] = useState([]);
   const [loading, setLoading] = useState(false);
   const [leaveHistoryUser, setLeaveHistoryUser] = useState(null);
@@ -295,7 +297,6 @@ const GlobalModals = () => {
     return () => window.removeEventListener('open-modal', handleOpenModal);
   }, [handleOpenModal]);
 
-  const [industryManagers, setIndustryManagers] = useState([]);
   const [hierarchy, setHierarchy] = useState({ stateManagers: [], industryManagers: [], executives: [] });
 
   const fetchUsers = async () => {
@@ -308,6 +309,7 @@ const GlobalModals = () => {
       const allUsers = usersRes.data || [];
       setManagers(allUsers.filter(u => u.role === 'state_manager'));
       setIndustryManagers(allUsers.filter(u => u.role === 'industry_manager'));
+      setFounders(allUsers.filter(u => u.role === 'founder'));
       setExecutives(allUsers.filter(u => u.role === 'executive'));
       setHierarchy(hierarchyRes.data || { stateManagers: [], industryManagers: [], executives: [] });
     } catch (err) {
@@ -1640,12 +1642,30 @@ const GlobalModals = () => {
                 required
               >
                 <option value="">Select Manager</option>
-                {isIndustryManager && hierarchy.stateManagers.length > 0 && (
-                  <optgroup label="State Managers">
-                    {hierarchy.stateManagers.map(m => (
-                      <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                {isStateManager && founders.length > 0 && (
+                  <optgroup label="Founder">
+                    {founders.map(f => (
+                      <option key={f._id} value={f._id}>{f.name} (Founder)</option>
                     ))}
                   </optgroup>
+                )}
+                {isIndustryManager && (
+                  <>
+                    {hierarchy.stateManagers.length > 0 && (
+                      <optgroup label="State Managers">
+                        {hierarchy.stateManagers.map(m => (
+                          <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {founders.length > 0 && (
+                      <optgroup label="Founder">
+                        {founders.map(f => (
+                          <option key={f._id} value={f._id}>{f.name} (Founder)</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
                 )}
                 {isExecutive && (
                   <>
@@ -1663,10 +1683,17 @@ const GlobalModals = () => {
                         ))}
                       </optgroup>
                     )}
+                    {founders.length > 0 && (
+                      <optgroup label="Founder">
+                        {founders.map(f => (
+                          <option key={f._id} value={f._id}>{f.name} (Founder)</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </>
                 )}
                 {/* Fallback for Founder/Other roles */}
-                {!isIndustryManager && !isExecutive && managers.map(m => (
+                {!isIndustryManager && !isExecutive && !isStateManager && managers.map(m => (
                   <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
                 ))}
               </select>

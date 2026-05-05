@@ -29,6 +29,12 @@ const Overview = () => {
     onError: (err) => toast.error(err.message)
   });
 
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { 
+      detail: typeof type === 'string' ? { type, ...data } : type 
+    }));
+  };
+
   if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
@@ -89,8 +95,13 @@ const Overview = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="bg-white border-[#FEF3C7] text-[#92400E] h-8 px-4 text-[12px] font-bold">Review</Button>
-            <Button size="sm" className="bg-[#D97706] hover:bg-[#B45309] text-white border-none h-8 px-4 text-[12px] font-bold">Escalate to Founder</Button>
+            <Button 
+              size="sm" 
+              className="bg-[#D97706] hover:bg-[#B45309] text-white border-none h-8 px-4 text-[12px] font-bold"
+              onClick={() => openModal('escalate-lead', { leadData: escalated[0] })}
+            >
+              Escalate to Founder
+            </Button>
           </div>
         </div>
       )}
