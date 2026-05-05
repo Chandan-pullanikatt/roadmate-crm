@@ -1070,23 +1070,23 @@ router.get('/founder', async (req, res) => {
         const { start: todayStart } = getDateRange('today');
         const { start: monthStart } = getDateRange('monthly');
 
-        // Stats for the top cards
-        const totalLeads = await Lead.countDocuments();
+        // Stats for the top cards — filtered by selected period
+        const totalLeads = await Lead.countDocuments({ createdAt: { $gte: periodStart, $lte: periodEnd } });
         const leadsToday = await Lead.countDocuments({ createdAt: { $gte: todayStart } });
-        
-        // Expected Onboarding (active pipeline) - Gap 1: Align with dedicated page filter
+
+        // Expected Onboarding (active pipeline) - always shows full pipeline
         const onboardingFilter = { status: { $nin: ['converted', 'lost', 'not_interested'] } };
         const expectedOnboarding = await Lead.countDocuments(onboardingFilter);
 
-        const totalConversions = await Lead.countDocuments({ status: 'converted' });
+        const totalConversions = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } });
         const convertedThisMonth = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: monthStart } });
-        
+
         const totalRevenue = await LeadActivity.aggregate([
-            { $match: { action: 'converted' } },
+            { $match: { action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } } },
             { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
         ]).then(res => res[0]?.total || 0);
 
-        const totalCalls = await LeadActivity.countDocuments({ action: 'called' });
+        const totalCalls = await LeadActivity.countDocuments({ action: 'called', createdAt: { $gte: periodStart, $lte: periodEnd } });
         const reachRate = totalLeads ? (totalCalls / totalLeads) * 100 : 0;
         const conversionRate = totalLeads ? (totalConversions / totalLeads) * 100 : 0;
         

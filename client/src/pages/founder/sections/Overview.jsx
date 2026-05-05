@@ -6,7 +6,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { usersApi } from '../../../api/usersApi';
-import { Avatar, Button, Tag } from '../../../components/ui';
+import { Avatar, Button, Tag, Modal } from '../../../components/ui';
 
 const Overview = () => {
   const navigate = useNavigate();
@@ -35,12 +35,26 @@ const Overview = () => {
 
   const [summaryPeriodValue, setSummaryPeriodValue] = useState(() => getCurrentDefaultValue('week'));
 
+  // Fix: Founders Summary Time Filter — staleTime 0 ensures fresh API call on every period change
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', summaryTab, summaryPeriodValue],
     queryFn: () => dashboardApi.getFounderDashboard(summaryTab, summaryPeriodValue).then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     placeholderData: keepPreviousData
   });
+
+  // Fix: Founders Summary Clickable Stats — drill-down modal state
+  const [drillModal, setDrillModal] = useState({ open: false, title: '', role: '', users: [], loading: false });
+
+  const handleStatDrillDown = async (role, title) => {
+    setDrillModal({ open: true, title, role, users: [], loading: true });
+    try {
+      const res = await usersApi.getUsers({ role });
+      setDrillModal(prev => ({ ...prev, users: res.data || [], loading: false }));
+    } catch {
+      setDrillModal(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   const { data: unallocatedCount = 0 } = useQuery({
     queryKey: ['leads', 'unallocated-count'],
@@ -220,9 +234,16 @@ const Overview = () => {
           </div>
         </div>
 
+        {/* Fix: Founders Summary Clickable Stats \u2014 numbers are now clickable drill-downs */}
         <div className="stat-card" style={{ borderTop: '4px solid #8b5cf6' }}>
           <div className="stat-label mb-2 mt-1">State Managers</div>
-          <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.stateManagers?.total || 0}</div>
+          <div
+            className="text-[28px] font-bold font-mono text-text-primary mb-1 cursor-pointer hover:text-purple hover:underline underline-offset-2 transition-colors w-fit"
+            onClick={() => handleStatDrillDown('state_manager', 'State Managers')}
+            title="Click to see all State Managers"
+          >
+            {stats.stateManagers?.total || 0}
+          </div>
           <div className="text-[12px] font-medium flex gap-2">
             <span className="text-teal">{"\u2022"} {stats.stateManagers?.working || 0} Working</span>
             <span className="text-red">{"\u2022"} {stats.stateManagers?.onLeave || 0} On Leave</span>
@@ -231,7 +252,13 @@ const Overview = () => {
 
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
           <div className="stat-label mb-2 mt-1">Industry Managers</div>
-          <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.industryManagers?.total || 0}</div>
+          <div
+            className="text-[28px] font-bold font-mono text-text-primary mb-1 cursor-pointer hover:text-blue hover:underline underline-offset-2 transition-colors w-fit"
+            onClick={() => handleStatDrillDown('industry_manager', 'Industry Managers')}
+            title="Click to see all Industry Managers"
+          >
+            {stats.industryManagers?.total || 0}
+          </div>
           <div className="text-[12px] font-medium flex gap-2">
             <span className="text-teal">{"\u2022"} {stats.industryManagers?.working || 0} Working</span>
             <span className="text-red">{"\u2022"} {stats.industryManagers?.onLeave || 0} On Leave</span>
@@ -240,7 +267,13 @@ const Overview = () => {
 
         <div className="stat-card" style={{ borderTop: '4px solid #ea580c' }}>
           <div className="stat-label mb-2 mt-1">Sales Staff</div>
-          <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.salesStaff?.total || 0}</div>
+          <div
+            className="text-[28px] font-bold font-mono text-text-primary mb-1 cursor-pointer hover:text-orange hover:underline underline-offset-2 transition-colors w-fit"
+            onClick={() => handleStatDrillDown('executive', 'Sales Staff (District Executives)')}
+            title="Click to see all District Executives"
+          >
+            {stats.salesStaff?.total || 0}
+          </div>
           <div className="text-[12px] font-medium flex gap-2">
             <span className="text-teal">{"\u2022"} {stats.salesStaff?.working || 0} Working</span>
             <span className="text-red">{"\u2022"} {stats.salesStaff?.onLeave || 0} On Leave</span>
@@ -290,6 +323,7 @@ const Overview = () => {
         </div>
       </div>
 
+      {/* Fix: Lead Pipeline Clickable Numbers — each card navigates to filtered lead list */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {pipelineStats.map((s, i) => {
           let bgClass = "bg-white";
@@ -312,8 +346,15 @@ const Overview = () => {
             bottomColor = "#dc2626";
           }
 
+          const statusParam = s.label.toLowerCase().replace(/[\s-]+/g, '_').replace('follow_up', 'followup');
+
           return (
-            <div key={i} className={`rounded-xl border ${borderClass} ${bgClass} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm`}>
+            <div
+              key={i}
+              className={`rounded-xl border ${borderClass} ${bgClass} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
+              onClick={() => navigate(`/dashboard?page=leads&status=${statusParam}`)}
+              title={`View all ${s.label} leads`}
+            >
               <div className={`text-[28px] font-bold font-mono mb-1 ${s.label === 'Converted' ? 'text-[#16a34a]' : s.label === 'Lost' ? 'text-[#dc2626]' : s.label === 'Follow-up' ? 'text-[#8b5cf6]' : s.label === 'Meeting' ? 'text-[#0f766e]' : s.label === 'Negotiation' ? 'text-[#d97706]' : 'text-[#3b82f6]'}`}>
                 {s.count}
               </div>
@@ -329,7 +370,15 @@ const Overview = () => {
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
           <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week {"\u00B7"} Requires allocation</div>
         </div>
-        <Button size="sm" variant="outline" className="bg-white" onClick={() => openModal('bulk-allocate')}>Allocate Leads</Button>
+        <div className="flex items-center gap-2">
+          {/* Fix: Expected Onboarding "View All" \u2014 shown when item count \u2265 5 */}
+          {expectedOnboardingList.length >= 5 && (
+            <Button size="sm" variant="outline" className="bg-white" onClick={() => navigate('/dashboard?page=leads-onboarding')}>
+              View All
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="bg-white" onClick={() => openModal('bulk-allocate')}>Allocate Leads</Button>
+        </div>
       </div>
 
       <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
@@ -533,6 +582,47 @@ const Overview = () => {
           )}
         </div>
       </div>
+
+      {/* Fix: Founders Summary Clickable Stats — drill-down modal */}
+      <Modal
+        isOpen={drillModal.open}
+        title={drillModal.title}
+        subtitle="Leave and active status for each member"
+        onClose={() => setDrillModal(prev => ({ ...prev, open: false }))}
+      >
+        {drillModal.loading ? (
+          <div className="p-10 text-center text-text-muted">Loading...</div>
+        ) : drillModal.users.length === 0 ? (
+          <div className="p-10 text-center text-text-muted">No records found.</div>
+        ) : (
+          <div className="divide-y divide-border max-h-[480px] overflow-y-auto">
+            {drillModal.users.map((u, idx) => {
+              const initials = (u.name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+              const colors = ['bg-[#3b82f6]', 'bg-[#8b5cf6]', 'bg-[#0f766e]', 'bg-[#ea580c]'];
+              const avatarColor = colors[idx % colors.length];
+              return (
+                <div key={u._id} className="flex items-center justify-between p-4 hover:bg-surface2/30 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-xs ${avatarColor}`}>
+                      {initials}
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-bold text-text-primary">{u.name}</div>
+                      <div className="text-[11px] text-text-muted mt-0.5">
+                        {[u.state, u.industry].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                  </div>
+                  <Tag
+                    variant={u.onLeave ? 'amber' : 'green'}
+                    label={u.onLeave ? 'On Leave' : 'Active'}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

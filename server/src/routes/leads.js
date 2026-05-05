@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { verifyToken } = require('../middleware/auth');
 const leadService = require('../services/leadService');
 const notificationService = require('../services/notificationService');
@@ -77,8 +78,30 @@ const normalizeLeadPayload = (payload = {}) => {
 const bulkCreateLeads = async (req, res) => {
   try {
     const User = require('../models/User');
-    const imported = [];
+    const insertedLeads = [];
+    const updatedLeads = [];
     const errors = [];
+
+    const statusMap = {
+      'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
+      'rnr': 'rnr', 'not reached': 'rnr', 'switched off': 'rnr', 'not reachable': 'rnr',
+      'virtual meeting': 'meeting_virtual', 'meeting virtual': 'meeting_virtual',
+      'direct meeting': 'meeting_direct', 'meeting direct': 'meeting_direct',
+      'meeting': 'meeting_direct', 'meeting conducted': 'meeting_direct',
+      'meeting scheduled': 'meeting_direct',
+      'converted': 'converted', 'lost': 'lost',
+      'not interested': 'not_interested', 'not intersted': 'not_interested',
+      'escalated': 'escalated',
+      'blocking amount received': 'blocking_amount_received',
+      'blocking_amount_received': 'blocking_amount_received',
+      'full amount received': 'full_amount_received',
+      'full_amount_received': 'full_amount_received',
+      'agreement signed': 'agreement_signed',
+      'agreement_signed': 'agreement_signed',
+      'call back': 'followup', 'callback': 'followup',
+      'followup required': 'followup', 'interested': 'followup', 'intersted': 'followup',
+      'connected': 'called', 'invalid': 'lost',
+    };
 
     for (let i = 0; i < req.body.length; i++) {
       const item = req.body[i];
@@ -92,45 +115,27 @@ const bulkCreateLeads = async (req, res) => {
 
         // Handle "Assigned To" — lookup user by name
         if (item.assignedTo) {
-          const assignee = await User.findOne({ 
+          const assignee = await User.findOne({
             name: { $regex: new RegExp(`^${item.assignedTo.trim()}$`, 'i') }
           }).select('_id');
           if (assignee) {
             normalized.owner = assignee._id;
-          } else {
-            errors.push({ row: i + 1, reason: `Assigned To "${item.assignedTo}" not found` });
           }
         }
 
-        // Handle status override (bypass workflow for bulk)
+        // Status override
         if (item.status) {
-          const statusMap = {
-            'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
-            'rnr': 'rnr', 'not reached': 'rnr', 'virtual meeting': 'meeting_virtual',
-            'direct meeting': 'meeting_direct', 'meeting': 'meeting_direct',
-            'converted': 'converted', 'lost': 'lost', 'not interested': 'not_interested',
-            'escalated': 'escalated',
-            'blocking amount received': 'blocking_amount_received',
-            'blocking_amount_received': 'blocking_amount_received',
-            'full amount received': 'full_amount_received',
-            'full_amount_received': 'full_amount_received',
-            'agreement signed': 'agreement_signed',
-            'agreement_signed': 'agreement_signed',
-          };
-          const mappedStatus = statusMap[item.status.toLowerCase().trim()];
+          const mappedStatus = statusMap[(item.status || '').toLowerCase().trim()];
           if (mappedStatus) normalized.status = mappedStatus;
         }
 
-        // Sub-status
         if (item.subStatus) normalized.subStatus = item.subStatus;
 
-        // Follow-up date
         if (item.followUpDate) {
           const fDate = new Date(item.followUpDate);
           if (!isNaN(fDate.getTime())) normalized.followUpDate = fDate;
         }
 
-        // Remarks → append to feedback array
         if (item.remarks) {
           normalized.remarks = item.remarks;
           normalized.feedback = [{
@@ -140,51 +145,88 @@ const bulkCreateLeads = async (req, res) => {
           }];
         }
 
-        // Created Date override for historical imports
         if (item.createdDate) {
           const cDate = new Date(item.createdDate);
           if (!isNaN(cDate.getTime())) normalized.createdAt = cDate;
         }
 
-        const lead = await Lead.create(normalized);
-        imported.push(lead);
+        // --- UPSERT LOGIC ---
+        // Extract _id from payload (may be a MongoDB ObjectId or a custom string ID)
+        const { _id: rawLeadId, ...insertPayload } = normalized;
+        let lead = null;
+        let isUpdate = false;
+
+        // 1. Try update by valid MongoDB ObjectId
+        if (rawLeadId && mongoose.Types.ObjectId.isValid(rawLeadId)) {
+          lead = await Lead.findByIdAndUpdate(
+            rawLeadId,
+            { $set: insertPayload },
+            { new: true, runValidators: false }
+          );
+          if (lead) isUpdate = true;
+        }
+
+        // 2. Try update by phone match (deduplication)
+        if (!lead && insertPayload.phone) {
+          const existing = await Lead.findOne({ phone: insertPayload.phone });
+          if (existing) {
+            lead = await Lead.findByIdAndUpdate(
+              existing._id,
+              { $set: insertPayload },
+              { new: true, runValidators: false }
+            );
+            if (lead) isUpdate = true;
+          }
+        }
+
+        // 3. Create new lead if no match found
+        if (!lead) {
+          lead = await Lead.create(insertPayload);
+        }
+
+        if (isUpdate) updatedLeads.push(lead);
+        else insertedLeads.push(lead);
       } catch (rowErr) {
         errors.push({ row: i + 1, reason: rowErr.message });
       }
     }
 
-    // Create activity logs for imported leads
-    if (imported.length > 0) {
-      const activities = imported.map(l => ({
-        lead: l._id,
-        performedBy: req.user._id,
-        action: 'created',
-        note: 'Bulk upload'
-      }));
+    const allProcessed = [...insertedLeads, ...updatedLeads];
+
+    if (allProcessed.length > 0) {
+      const activities = [
+        ...insertedLeads.map(l => ({
+          lead: l._id, performedBy: req.user._id, action: 'created', note: 'Bulk upload'
+        })),
+        ...updatedLeads.map(l => ({
+          lead: l._id, performedBy: req.user._id, action: 'updated', note: 'Bulk update'
+        }))
+      ];
       await LeadActivity.insertMany(activities);
     }
 
     // Notify managers about new leads in their territory
     const io = req.app.get('io');
-    const states = [...new Set(imported.map(l => l.state).filter(Boolean))];
+    const states = [...new Set(insertedLeads.map(l => l.state).filter(Boolean))];
     if (states.length > 0) {
       const managers = await User.find({ role: { $in: ['state_manager', 'industry_manager'] }, state: { $in: states } }).select('_id');
       for (const mgr of managers) {
         await notificationService.onLeadAdded({
           managerId: mgr._id,
-          leadName: `${imported.length} leads (bulk upload)`,
+          leadName: `${insertedLeads.length} leads (bulk upload)`,
           createdByName: req.user.name || 'System',
           io,
         });
       }
     }
 
-    res.status(201).json({ 
+    res.status(201).json({
       total: req.body.length,
-      imported: imported.length, 
+      imported: insertedLeads.length,
+      updated: updatedLeads.length,
       skipped: errors.length,
       errors: errors.slice(0, 50),
-      count: imported.length // backward compat
+      count: insertedLeads.length + updatedLeads.length
     });
   } catch (err) {
     res.status(400).json({ message: err.message });

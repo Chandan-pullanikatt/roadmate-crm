@@ -237,7 +237,8 @@ const DashboardLayout = ({
         <div className="sidebar-logo">
           <div className={`logo-mark ${userRole === 'industry_manager' ? 'bg-purple shadow-purple/20' : userRole === 'state_manager' ? 'bg-blue shadow-blue/20' : logoMarkClass === 'brown' ? 'bg-brown shadow-brown/20' : ''}`}>{logoMarkText}</div>
           <div style={{ flex: 1 }}>
-            <div className="logo-text">RoadMate CRM</div>
+            {/* Fix: Rename branding to RoadMate Team */}
+            <div className="logo-text">RoadMate Team</div>
             {roleBadge && (
               <div className={`role-badge-v2 ${roleBadgeClass || ''}`}>
                 {roleBadge}

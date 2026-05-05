@@ -37,6 +37,8 @@ const GlobalModals = () => {
     country: isStateManager || isIndustryManager ? 'India' : '',
     district: '',
     state: isStateManager ? (currentUser?.state || '') : '',
+    // Fix: Region Type Filtering — added regionType field
+    regionType: '',
     region: '',
     industry: isIndustryManager ? (currentUser?.industry || '') : '',
     leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
@@ -209,6 +211,10 @@ const GlobalModals = () => {
         setActiveModal('bulk-allocate');
         fetchUnassignedLeads();
         fetchUsers();
+      } else if (e.detail.type === 'schedule-meeting') {
+        // Fix: Virtual Meeting Pop-up — ensure leads list is populated when opened as object
+        setActiveModal('schedule-meeting');
+        fetchMyLeads();
       } else if (e.detail.type === 'escalate-lead') {
         setEscalateData({ lead: e.detail.leadData, reason: '', managerId: '' });
         setActiveModal('escalate-lead');
@@ -257,12 +263,20 @@ const GlobalModals = () => {
       }
 
       setActiveModal(type);
-      
+
       // Data fetching
       if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(type)) fetchUsers();
       if (type === 'leave-approval') fetchPendingLeaves();
       if (type === 'work-time') fetchWorkingHours();
       if (type === 'schedule-meeting') fetchMyLeads();
+      // Fix: Unallocated Leads View — fetch unassigned leads and reset state when string 'bulk-allocate' is dispatched
+      if (type === 'bulk-allocate') {
+        setSelectedLeadIds([]);
+        setTargetExecutiveId('');
+        setBulkAllocateStep(1);
+        fetchUnassignedLeads();
+        fetchUsers();
+      }
     }
   }, []);
 
@@ -601,11 +615,13 @@ const GlobalModals = () => {
               </div>
 
               <div className="col-span-2">
+                {/* Fix: Region Type Filtering — pass regionType through LocationSelector */}
                 <LocationSelector
                   value={{
                     country: leadFormData.country,
                     state: leadFormData.state,
                     district: leadFormData.district,
+                    regionType: leadFormData.regionType,
                     region: leadFormData.region
                   }}
                   onChange={(loc) => setLeadFormData({
@@ -613,6 +629,7 @@ const GlobalModals = () => {
                     country: loc.country,
                     state: loc.state,
                     district: loc.district,
+                    regionType: loc.regionType,
                     region: loc.region
                   })}
                   required
@@ -1419,7 +1436,7 @@ const GlobalModals = () => {
       {/* LEAVE POLICY MODAL */}
       <Modal 
         isOpen={activeModal === 'leave-policy'} 
-        title="Leave Policy · RoadMate CRM" 
+        title="Leave Policy · RoadMate Team"
         subtitle="Standard corporate policies for staff and management"
         onClose={handleCloseModal}
         className="modal-lg"

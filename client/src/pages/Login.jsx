@@ -37,8 +37,9 @@ const Login = () => {
 
         {/* Brand yellow header */}
         <div className="px-8 py-7" style={{ background: 'var(--brand-gradient, linear-gradient(135deg, #C8B400 0%, #D4C200 100%))' }}>
-          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">RoadMate<sup className="text-sm font-normal">®</sup></h1>
-          <p className="text-[#111827]/70 text-sm mt-1 font-medium">CRM — Sign in to your account</p>
+          {/* Fix: Rename branding to RoadMate Team */}
+          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">RoadMate Team<sup className="text-sm font-normal">®</sup></h1>
+          <p className="text-[#111827]/70 text-sm mt-1 font-medium">Sign in to your account</p>
         </div>
 
         <div className="px-8 py-8">
@@ -100,7 +101,7 @@ const Login = () => {
           </form>
 
           <div className="mt-6 text-center text-sm text-[var(--text-muted)]">
-            <p>© 2026 RoadMate CRM. All rights reserved.</p>
+            <p>© 2026 RoadMate Team. All rights reserved.</p>
           </div>
         </div>
       </div>

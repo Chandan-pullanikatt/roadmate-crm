@@ -5,7 +5,8 @@ import { Modal, Button, Tag } from './ui';
 import { leadsApi } from '../api/leadsApi';
 import { useToast } from '../context/ToastContext';
 
-const EXPECTED_HEADERS = ['Lead Name', 'Phone Number', 'Alternate Phone', 'Email', 'Company', 'State', 'District', 'Region', 'Industry', 'Lead Source', 'Assigned To', 'Current Status', 'Sub-Status', 'Follow-Up Date', 'Remarks', 'Expected Revenue', 'Created Date'];
+// Fix: Bulk Upload Template — added Lead ID for update support
+const EXPECTED_HEADERS = ['Lead ID', 'Lead Name', 'Phone Number', 'Alternate Phone', 'Email', 'Company', 'State', 'District', 'Region', 'Industry', 'Lead Source', 'Assigned To', 'Current Status', 'Sub-Status', 'Follow-Up Date', 'Remarks', 'Expected Revenue', 'Created Date'];
 const REQUIRED_HEADERS = ['Lead Name', 'Phone'];
 
 const BulkUploadModal = ({ isOpen, onClose }) => {
@@ -30,12 +31,17 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const bulkUploadMutation = useMutation({
     mutationFn: (data) => leadsApi.bulkUpload(data),
     onSuccess: (res) => {
-      const imported = res.data?.imported ?? res.data?.count ?? 0;
+      const imported = res.data?.imported ?? 0;
+      const updated = res.data?.updated ?? 0;
       const skipped = res.data?.skipped ?? 0;
-      const msg = skipped > 0
-        ? `Imported ${imported} leads (${skipped} skipped due to errors)`
-        : `Successfully imported ${imported} leads!`;
-      addToast(msg, imported > 0 ? 'success' : 'error');
+      const total = imported + updated;
+      let msg = '';
+      if (imported > 0 && updated > 0) msg = `${imported} leads created, ${updated} updated`;
+      else if (imported > 0) msg = `Successfully imported ${imported} leads!`;
+      else if (updated > 0) msg = `Successfully updated ${updated} leads!`;
+      else msg = 'No leads processed';
+      if (skipped > 0) msg += ` (${skipped} skipped)`;
+      addToast(msg, total > 0 ? 'success' : 'error');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
@@ -81,12 +87,14 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         const rowErrors = [];
 
         results.data.forEach((row, index) => {
-          // Find the exact keys in the row that match our required headers (case-insensitive)
           const nameKey = Object.keys(row).find(k => k.toLowerCase().includes('name'));
           const phoneKey = Object.keys(row).find(k => k.toLowerCase().includes('phone'));
+          const idKey = Object.keys(row).find(k => k.toLowerCase() === 'lead id' || k.toLowerCase() === 'id');
+          const isUpdateRow = !!(idKey && row[idKey]?.trim());
 
-          if (!row[nameKey] || !row[phoneKey]) {
-            rowErrors.push(`Row ${index + 1}: Missing Name or Phone`);
+          // Update rows (with a Lead ID) don't require Name/Phone — server will match by ID or phone
+          if (!isUpdateRow && (!row[nameKey] || !row[phoneKey])) {
+            rowErrors.push(`Row ${index + 1}: Missing Name or Phone (required for new leads)`);
           } else {
             validRows.push(row);
           }
@@ -106,8 +114,10 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
 
   const handleDownloadTemplate = () => {
     const headers = EXPECTED_HEADERS.join(',');
-    const sampleRow = 'John Doe,9876543210,9876543211,john@example.com,Acme Corp,Maharashtra,Mumbai,West,Technology,Referral,,New,,15/06/2026,Looking for CRM solution,500000,01/01/2026';
-    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + sampleRow;
+    // Fix: Template — Lead ID is first column (leave blank for new leads, fill for updates)
+    const sampleRow = ',John Doe,9876543210,9876543211,john@example.com,Acme Corp,Maharashtra,Mumbai,West,Technology,Referral,,New,,15/06/2026,Looking for CRM solution,500000,01/01/2026';
+    const updateRow = '60d21b4967d0d8992e610c85,Jane Smith,9876543212,,,Acme Ltd,Kerala,Kochi,South,Finance,Referral,,Follow-up,,20/06/2026,Follow up required,300000,';
+    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + sampleRow + "\n" + updateRow;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -141,24 +151,30 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         return isNaN(d.getTime()) ? undefined : d.toISOString();
       };
 
+      // Include Lead ID for update flow; if present the backend upserts by ID or phone match
+      const leadId = getVal('lead id') || getVal('id');
+      const rawPhone = (getVal('phone number') || getVal('phone'))?.toString().replace(/\D/g, '');
+      const revenueRaw = getVal('expected revenue') || getVal('lead value') || getVal('revenue');
       return {
+        ...(leadId ? { _id: leadId } : {}),
         name: getVal('lead name') || getVal('name'),
-        phone: (getVal('phone number') || getVal('phone'))?.toString().replace(/\D/g,''),
+        phone: rawPhone || undefined,
         alternatePhone: getVal('alternate'),
         email: getVal('email'),
         company: getVal('company'),
         state: getVal('state'),
-        district: getVal('district'),
+        district: getVal('district') || getVal('district & place'),
         region: getVal('region'),
         industry: getVal('industry'),
         leadSource: getVal('lead source') || 'Bulk Upload',
-        assignedTo: getVal('assigned to'),
-        status: getVal('current status'),
+        assignedTo: getVal('assigned to') || getVal('lead handing'),
+        status: getVal('current status') || getVal('status') || getVal('messaged status'),
         subStatus: getVal('sub-status') || getVal('sub status'),
-        followUpDate: parseDate(getVal('follow-up date') || getVal('follow up date')),
-        remarks: getVal('remarks') || getVal('notes'),
-        expectedRevenue: getVal('revenue') || getVal('expected revenue') ? Number(getVal('revenue') || getVal('expected revenue')) : 0,
-        createdDate: parseDate(getVal('created date')),
+        followUpDate: parseDate(getVal('follow-up date') || getVal('next follow-up date') || getVal('follow up date')),
+        remarks: getVal('remarks') || getVal('follow-up notes') || getVal('notes'),
+        priority: getVal('priority level') || getVal('priority'),
+        expectedRevenue: revenueRaw ? Number(revenueRaw) : 0,
+        createdDate: parseDate(getVal('created date') || getVal('date')),
       };
     });
 
@@ -180,8 +196,8 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         <div className="p-4 bg-blue-light/30 border border-blue/20 rounded-2xl flex gap-3 items-start">
           <span className="text-blue text-lg">ℹ️</span>
           <div className="text-xs text-text-secondary leading-relaxed">
-            Ensure your CSV file contains the required columns: <span className="font-bold text-text-primary">Lead Name</span> and <span className="font-bold text-text-primary">Phone Number</span>.<br />
-            New optional fields: Lead Source, Assigned To, Current Status, Sub-Status, Follow-Up Date, Remarks, and Created Date (for historical imports).<br />
+            Required columns: <span className="font-bold text-text-primary">Lead Name</span> and <span className="font-bold text-text-primary">Phone Number</span>. Missing either will skip that row.<br />
+            To <span className="font-bold text-text-primary">update an existing lead</span>, include its <span className="font-bold text-text-primary">Lead ID</span> in the first column — the row will be treated as an update instead of a new insert.<br />
             <button type="button" onClick={handleDownloadTemplate} className="text-blue font-bold hover:underline mt-1 bg-transparent border-none cursor-pointer p-0">Download CSV Template</button>
           </div>
         </div>
@@ -293,7 +309,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
             disabled={!parsedData || parsedData.rows.length === 0 || isProcessing}
             className="bg-blue shadow-lg shadow-blue/20"
           >
-            {isProcessing ? 'Processing...' : `Upload ${parsedData?.rows?.length || 0} Leads`}
+            {isProcessing ? 'Processing...' : `Upload ${parsedData?.rows?.length || 0} Row${(parsedData?.rows?.length || 0) !== 1 ? 's' : ''}`}
           </Button>
         </div>
       </div>

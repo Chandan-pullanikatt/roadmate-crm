@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -9,7 +10,12 @@ import { useToast } from '../../../context/ToastContext';
 const LeadManagement = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState('all');
+  const location = useLocation();
+  // Fix: Lead Pipeline Clickable Numbers — read status from URL param to set initial tab
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('status') || 'all';
+  });
   const [filterState, setFilterState] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -227,6 +233,8 @@ const LeadManagement = () => {
                   <td className="p-4 text-center text-[11px] text-text-muted font-mono">{new Date(l.updatedAt).toLocaleDateString()}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {/* Fix: Lead Pipeline — View Details button opens lead history */}
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-muted font-bold px-3" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.company || l.name })}>View</Button>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('update-lead', { leadData: l })}>Update</Button>
                       <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
                     </div>
