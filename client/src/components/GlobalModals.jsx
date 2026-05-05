@@ -136,168 +136,14 @@ const GlobalModals = () => {
     setActiveModal(null);
   }, []);
 
-  const handleOpenModal = useCallback((e) => {
-    console.log('Open modal event received:', e.detail);
-    
-    if (typeof e.detail === 'object') {
-      if (e.detail.type === 'edit-incentive') {
-        setIncentiveForm({ salaryId: e.detail.salaryId, amount: 0, note: '' });
-        setActiveModal('edit-incentive');
-      } else if (e.detail.type === 'create-exec') {
-        if (e.detail.editData) {
-          setExecFormData({
-            ...e.detail.editData,
-            dateOfJoining: e.detail.editData.dateOfJoining ? new Date(e.detail.editData.dateOfJoining).toISOString().split('T')[0] : '',
-            role: e.detail.editData.role === 'industry_manager' ? 'industry-manager' : e.detail.editData.role
-          });
-        } else {
-          const prefill = e.detail.prefill || {};
-          setExecFormData(prev => ({ 
-            ...prev, 
-            _id: undefined,
-            role: prefill.role || e.detail.role || 'industry-manager',
-            name: '', email: '', phone: '', 
-            state: prefill.state || '', 
-            industry: prefill.industry || '', 
-            reportingTo: prefill.reportingTo || '',
-            dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
-          }));
-        }
-        setActiveModal('create-exec');
-        fetchUsers();
-      } else if (e.detail.type === 'create-state-manager') {
-        if (e.detail.editData) {
-          setManagerFormData({
-            ...e.detail.editData,
-            doj: e.detail.editData.dateOfJoining ? new Date(e.detail.editData.dateOfJoining).toISOString().split('T')[0] : '',
-            aadhaar: e.detail.editData.aadhaarNumber,
-            pan: e.detail.editData.panNumber,
-            documents: e.detail.editData.documents || []
-          });
-        } else {
-          setManagerFormData({
-            name: '', email: '', phone: '', state: '', employmentType: 'Full Time',
-            doj: '', basicSalary: '', normalStart: '09:30', ramadanStart: '09:00',
-            aadhaar: '', pan: '', documents: []
-          });
-        }
-        setActiveModal('create-state-manager');
-        fetchUsers();
-      } else if (e.detail.type === 'leave-history') {
-        setLeaveHistoryUser(e.detail.user);
-        setActiveModal('leave-history');
-      } else if (e.detail.type === 'lead-history') {
-        setLeadHistoryData({ leadId: e.detail.leadId, leadName: e.detail.leadName || '' });
-        setActiveModal('lead-history');
-      } else if (e.detail.type === 'update-lead') {
-        setSelectedLead(e.detail.leadData);
-        setActiveModal('update-lead');
-      } else if (e.detail.type === 'allocate-lead') {
-        if (e.detail.leadData) {
-          setSelectedLead(e.detail.leadData);
-          setActiveModal('allocate-single-lead');
-        } else {
-          setSelectedLead(null);
-          setActiveModal('allocate-lead');
-          fetchUsers();
-        }
-      } else if (e.detail.type === 'leave-approval') {
-
-        setLeaveAction({ id: e.detail.id, reason: '' });
-        setActiveModal('leave-approval');
-        fetchPendingLeaves();
-      } else if (e.detail.type === 'bulk-allocate') {
-        setSelectedLeadIds([]);
-        setTargetExecutiveId('');
-        setBulkAllocateStep(1);
-        setActiveModal('bulk-allocate');
-        fetchUnassignedLeads();
-        fetchUsers();
-      } else if (e.detail.type === 'schedule-meeting') {
-        // Fix: Virtual Meeting Pop-up — ensure leads list is populated when opened as object
-        setActiveModal('schedule-meeting');
-        fetchMyLeads();
-      } else if (e.detail.type === 'escalate-lead') {
-        setEscalateData({ lead: e.detail.leadData, reason: '', managerId: '' });
-        setActiveModal('escalate-lead');
-        fetchUsers();
-      } else if (e.detail.type === 'assign-target') {
-        setTargetState({
-          userId: e.detail.executive._id,
-          name: e.detail.executive.name,
-          month: new Date().getMonth() + 1,
-          year: new Date().getFullYear(),
-          calls: 0,
-          leads: 0,
-          conversions: 0,
-          revenue: 0
-        });
-        setActiveModal('assign-target');
-      } else if (e.detail.type === 'create-industry-manager') {
-        setExecFormData({
-          _id: undefined,
-          role: 'industry-manager',
-          name: '', email: '', phone: '',
-          state: '', industry: '',
-          reportingTo: '',
-          dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
-        });
-        setActiveModal('create-exec');
-        fetchUsers();
-      } else if (e.detail.type === 'view-docs') {
-        setViewDocsUser(e.detail.user);
-        setActiveModal('view-docs');
-      } else {
-        setActiveModal(e.detail.type);
-      }
-    } else {
-      // Handle string aliases
-      let type = e.detail;
-      if (type === 'create-industry-manager') {
-        setExecFormData(prev => ({ ...prev, role: 'industry-manager' }));
-        type = 'create-exec';
-      } else if (type === 'create-executive') {
-        setExecFormData(prev => ({ ...prev, role: 'executive' }));
-        type = 'create-exec';
-      } else if (type === 'create-exec') {
-        // Keep default role from state
-        setExecFormData(prev => ({ ...prev, role: 'executive' }));
-      }
-
-      setActiveModal(type);
-
-      // Data fetching
-      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'leave-approval', 'apply-leave'].includes(type)) fetchUsers();
-      if (type === 'leave-approval') fetchPendingLeaves();
-      if (type === 'work-time') fetchWorkingHours();
-      if (type === 'schedule-meeting') fetchMyLeads();
-      // Fix: Unallocated Leads View — fetch unassigned leads and reset state when string 'bulk-allocate' is dispatched
-      if (type === 'bulk-allocate') {
-        setSelectedLeadIds([]);
-        setTargetExecutiveId('');
-        setBulkAllocateStep(1);
-        fetchUnassignedLeads();
-        fetchUsers();
-      }
-    }
-  }, []);
-
   const fetchMyLeads = async () => {
     try {
-      // Fetch leads assigned to the current user (the API handles scoping based on token)
       const res = await leadsApi.getLeads({ limit: 100 });
       setMyLeads(res.data.leads || []);
     } catch (err) {
       addToast('Error fetching leads', 'error');
     }
   };
-
-  useEffect(() => {
-    window.addEventListener('open-modal', handleOpenModal);
-    return () => window.removeEventListener('open-modal', handleOpenModal);
-  }, [handleOpenModal]);
-
-  const [hierarchy, setHierarchy] = useState({ stateManagers: [], industryManagers: [], executives: [] });
 
   const fetchUsers = async () => {
     try {
@@ -339,6 +185,136 @@ const GlobalModals = () => {
       setLoading(false);
     }
   };
+
+  const fetchWorkingHours = async () => {
+    try {
+      const { configApi } = await import('../api/configApi');
+      const res = await configApi.getConfig('working-hours');
+      if (res.data?.value) setWorkingHours(res.data.value);
+    } catch (err) {
+      addToast('Error fetching configuration', 'error');
+    }
+  };
+
+  const handleOpenModal = useCallback((e) => {
+    console.log('Open modal event received:', e.detail);
+    
+    let targetType = '';
+
+    if (typeof e.detail === 'object') {
+      targetType = e.detail.type;
+      const data = e.detail;
+
+      if (targetType === 'edit-incentive') {
+        setIncentiveForm({ salaryId: data.salaryId, amount: 0, note: '' });
+      } else if (targetType === 'create-exec') {
+        if (data.editData) {
+          setExecFormData({
+            ...data.editData,
+            dateOfJoining: data.editData.dateOfJoining ? new Date(data.editData.dateOfJoining).toISOString().split('T')[0] : '',
+            role: data.editData.role === 'industry_manager' ? 'industry-manager' : data.editData.role
+          });
+        } else {
+          const prefill = data.prefill || {};
+          setExecFormData(prev => ({ 
+            ...prev, 
+            _id: undefined,
+            role: prefill.role || data.role || 'industry-manager',
+            name: '', email: '', phone: '', 
+            state: prefill.state || '', 
+            industry: prefill.industry || '', 
+            reportingTo: prefill.reportingTo || '',
+            dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
+          }));
+        }
+      } else if (targetType === 'create-state-manager') {
+        if (data.editData) {
+          setManagerFormData({
+            ...data.editData,
+            doj: data.editData.dateOfJoining ? new Date(data.editData.dateOfJoining).toISOString().split('T')[0] : '',
+            aadhaar: data.editData.aadhaarNumber,
+            pan: data.editData.panNumber,
+            documents: data.editData.documents || []
+          });
+        } else {
+          setManagerFormData({
+            name: '', email: '', phone: '', state: '', employmentType: 'Full Time',
+            doj: '', basicSalary: '', normalStart: '09:30', ramadanStart: '09:00',
+            aadhaar: '', pan: '', documents: []
+          });
+        }
+      } else if (targetType === 'leave-history') {
+        setLeaveHistoryUser(data.user);
+      } else if (targetType === 'lead-history') {
+        setLeadHistoryData({ leadId: data.leadId, leadName: data.leadName || '' });
+      } else if (targetType === 'update-lead') {
+        setSelectedLead(data.leadData);
+      } else if (targetType === 'allocate-lead') {
+        if (data.leadData) {
+          setSelectedLead(data.leadData);
+          targetType = 'allocate-single-lead';
+        } else {
+          setSelectedLead(null);
+        }
+      } else if (targetType === 'leave-approval') {
+        setLeaveAction({ id: data.id, reason: '' });
+      } else if (targetType === 'bulk-allocate') {
+        setSelectedLeadIds([]);
+        setTargetExecutiveId('');
+        setBulkAllocateStep(1);
+      } else if (targetType === 'escalate-lead') {
+        setEscalateData({ lead: data.leadData, reason: '', managerId: '' });
+      } else if (targetType === 'assign-target') {
+        setTargetState({
+          userId: data.executive._id,
+          name: data.executive.name,
+          month: new Date().getMonth() + 1,
+          year: new Date().getFullYear(),
+          calls: 0,
+          leads: 0,
+          conversions: 0,
+          revenue: 0
+        });
+      } else if (targetType === 'view-docs') {
+        setViewDocsUser(data.user);
+      }
+    } else {
+      targetType = e.detail;
+    }
+
+    // Unified Alias Handling
+    if (targetType === 'create-industry-manager') {
+      setExecFormData(prev => ({ ...prev, role: 'industry-manager' }));
+      targetType = 'create-exec';
+    } else if (targetType === 'create-executive') {
+      setExecFormData(prev => ({ ...prev, role: 'executive' }));
+      targetType = 'create-exec';
+    } else if (targetType === 'create-exec') {
+      setExecFormData(prev => ({ ...prev, role: 'executive' }));
+    }
+
+    if (targetType) {
+      setActiveModal(targetType);
+
+      // Unified Data Fetching
+      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'allocate-single-lead', 'leave-approval', 'apply-leave', 'escalate-lead', 'bulk-allocate'].includes(targetType)) {
+        fetchUsers();
+      }
+      if (targetType === 'leave-approval') fetchPendingLeaves();
+      if (targetType === 'work-time') fetchWorkingHours();
+      if (targetType === 'schedule-meeting') fetchMyLeads();
+      if (targetType === 'bulk-allocate') {
+        fetchUnassignedLeads();
+      }
+    }
+  }, [fetchUsers, fetchPendingLeaves, fetchUnassignedLeads, fetchWorkingHours, fetchMyLeads]);
+
+  useEffect(() => {
+    window.addEventListener('open-modal', handleOpenModal);
+    return () => window.removeEventListener('open-modal', handleOpenModal);
+  }, [handleOpenModal]);
+
+  const [hierarchy, setHierarchy] = useState({ stateManagers: [], industryManagers: [], executives: [] });
 
   const handleBulkAllocate = async () => {
     if (!targetExecutiveId) return addToast('Please select an executive', 'warning');
@@ -487,15 +463,6 @@ const GlobalModals = () => {
     }
   };
 
-  const fetchWorkingHours = async () => {
-    try {
-      const { configApi } = await import('../api/configApi');
-      const res = await configApi.getConfig('working-hours');
-      if (res.data?.value) setWorkingHours(res.data.value);
-    } catch (err) {
-      addToast('Error fetching configuration', 'error');
-    }
-  };
 
   const handleWorkingHoursSubmit = async (e) => {
     e.preventDefault();
