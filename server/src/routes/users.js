@@ -90,7 +90,10 @@ router.get('/', async (req, res) => {
     if (req.user.role === 'industry_manager') {
       query.reportingTo = req.user._id;
     } else if (req.user.role === 'state_manager') {
-      query.state = req.user.state;
+      query.$or = [
+        { state: req.user.state },
+        { role: 'founder' }
+      ];
     }
 
     if (role) {
