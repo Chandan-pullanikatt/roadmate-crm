@@ -372,7 +372,7 @@ const Overview = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* Fix: Expected Onboarding "View All" \u2014 shown when item count \u2265 5 */}
-          {expectedOnboardingList.length >= 5 && (
+          {expectedOnboardingList.length > 5 && (
             <Button size="sm" variant="outline" className="bg-white" onClick={() => navigate('/dashboard?page=leads-onboarding')}>
               View All
             </Button>
@@ -396,7 +396,7 @@ const Overview = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {expectedOnboardingList.map((lead, idx) => (
+              {expectedOnboardingList.slice(0, 5).map((lead, idx) => (
                 <tr key={idx} className="hover:bg-surface2/30 transition-colors">
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-text-primary">{lead.name}</div>

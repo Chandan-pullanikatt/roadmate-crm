@@ -4,6 +4,7 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
+import { exportToCSV } from '../../../utils/exportUtils';
 
 const ExpectedOnboarding = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -54,6 +55,20 @@ const ExpectedOnboarding = () => {
     window.dispatchEvent(new CustomEvent('open-modal', { 
       detail: typeof type === 'string' ? { type, ...data } : type 
     }));
+  };
+
+  const handleExport = () => {
+    if (filteredLeads.length === 0) return;
+    const dataToExport = filteredLeads.map(l => ({
+      'Lead Name': l.name,
+      'Company': l.company || 'N/A',
+      'Phone': l.phone || 'N/A',
+      'Owner': l.owner?.name || 'Unassigned',
+      'Status': l.status?.toUpperCase(),
+      'State': l.state || 'N/A',
+      'Follow-up Date': l.followUpDate ? new Date(l.followUpDate).toLocaleDateString() : 'N/A'
+    }));
+    exportToCSV(dataToExport, 'Expected_Onboarding_Leads');
   };
 
   const pipelineStats = dashData?.pipelineStats || [];
@@ -193,7 +208,7 @@ const ExpectedOnboarding = () => {
                <option>Telangana</option>
                <option>Maharashtra</option>
              </select>
-             <Button variant="outline" size="sm" className="bg-white text-text-primary font-bold">Export</Button>
+             <Button variant="outline" size="sm" className="bg-white text-text-primary font-bold" onClick={handleExport}>Export</Button>
           </div>
         </div>
 

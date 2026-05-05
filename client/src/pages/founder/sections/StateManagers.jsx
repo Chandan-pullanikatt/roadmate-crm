@@ -5,6 +5,7 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
+import { exportToCSV } from '../../../utils/exportUtils';
 
 const StateManagers = () => {
   const queryClient = useQueryClient();
@@ -51,6 +52,23 @@ const StateManagers = () => {
         alert(err.response?.data?.message || 'Error deleting manager');
       }
     }
+  };
+
+  const handleExport = () => {
+    const dataToExport = filteredManagers.map((m, idx) => {
+      const s = byStateMap.get(m._id?.toString()) || {};
+      return {
+        'Manager Name': m.name,
+        'State': m.state,
+        'Email': m.email,
+        'Total Leads': s.leads || 0,
+        'Conversions': s.converted || 0,
+        'Revenue': s.revenue || 0,
+        'Avg Work %': Math.round(s.avgWorkPct || 0) + '%',
+        'Joined Date': new Date(m.createdAt).toLocaleDateString()
+      };
+    });
+    exportToCSV(dataToExport, 'State_Managers_Report');
   };
 
   if (isLoading) return <DashboardSkeleton />;
@@ -119,7 +137,14 @@ const StateManagers = () => {
             <div className="card-header border-b border-border bg-white flex justify-between items-center px-5 py-4">
               <div className="text-[15px] font-bold text-text-primary">State Manager Profiles</div>
               <div className="flex gap-2">
-                <Button variant="outline" size="xs" className="bg-white text-text-primary font-bold text-[10px] uppercase tracking-wider px-4">Export</Button>
+                <Button 
+                  variant="outline" 
+                  size="xs" 
+                  className="bg-white text-text-primary font-bold text-[10px] uppercase tracking-wider px-4"
+                  onClick={handleExport}
+                >
+                  Export
+                </Button>
                 <select 
                   className="bg-white border border-border rounded-lg px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-blue transition-colors min-w-[140px]"
                   value={filterState}
