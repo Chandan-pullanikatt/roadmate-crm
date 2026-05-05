@@ -23,7 +23,7 @@ const Overview = () => {
       return leaveApi.rejectLeave(id, { approvalNote: 'Rejected by State Manager' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard', 'state-manager']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'state-manager'] });
       toast.success('Leave request updated');
     },
     onError: (err) => toast.error(err.message)

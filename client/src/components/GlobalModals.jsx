@@ -165,9 +165,9 @@ const GlobalModals = () => {
 
   const fetchPendingLeaves = async () => {
     try {
-      const res = await leaveApi.getLeaves();
+      const res = await leaveApi.getPendingLeaves();
       setPendingLeaves((res.data || []).filter((leave) =>
-        leave.status === 'pending' && leave.user?._id !== currentUser?._id
+        leave.user?._id !== currentUser?._id
       ));
     } catch (err) {
       addToast('Error fetching leave requests', 'error');

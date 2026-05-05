@@ -10,7 +10,6 @@ import {
 import { dashboardApi } from '../../../api/dashboardApi';
 
 const Performance = () => {
-  const [viewType, setViewType] = useState('Monthly');
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: dashData, isLoading } = useQuery({
@@ -69,9 +68,14 @@ const Performance = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Staff Performance</h1>
-          <p className="text-sm text-text-muted">Daily · Weekly · Monthly · All executives</p>
+          <p className="text-sm text-text-muted">Industry Manager · {userInfo.industry} · All executives</p>
         </div>
         <div className="flex items-center gap-3">
+            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
+                <span className="text-lg">🔔</span>
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red rounded-full border-2 border-surface2"></span>
+            </button>
+            <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
             <div className="relative">
                 <input
                     type="text"
@@ -82,29 +86,13 @@ const Performance = () => {
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
             </div>
-            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
-                <span className="text-lg">🔔</span>
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red rounded-full border-2 border-surface2"></span>
-            </button>
-            <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
         </div>
       </div>
 
-      {/* Sub Header / Tab Bar */}
-      <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-        <div>
-          <h2 className="text-lg font-bold">Staff Performance - {userInfo.industry} - {userInfo.state}</h2>
-          <p className="text-xs text-text-muted">Daily · Weekly · Monthly · Calls · Meetings · Revenue · Leaves</p>
-        </div>
-        <div className="flex bg-surface2 p-1 rounded-xl border border-border/40 shadow-sm">
-            {['Monthly', 'Weekly', 'Daily'].map(tab => (
-                <button 
-                    key={tab}
-                    onClick={() => setViewType(tab)}
-                    className={`px-6 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest ${viewType === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
-                >{tab}</button>
-            ))}
-        </div>
+      {/* Sub Header */}
+      <div className="bg-surface1 border border-border/40 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold">Staff Performance - {userInfo.industry} - {userInfo.state}</h2>
+        <p className="text-xs text-text-muted">Calls · Meetings · Revenue · Leaves · Real-time metrics</p>
       </div>
 
       {/* Top 4 Performance Cards */}

@@ -5,10 +5,8 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 
 const Performance = () => {
-  const [viewType, setViewType] = useState('monthly');
-
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'state-manager', viewType],
+    queryKey: ['dashboard', 'state-manager'],
     queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
@@ -84,17 +82,6 @@ const Performance = () => {
         <div>
           <div className="section-title">Performance Analytics</div>
           <div className="section-sub">Cross-industry performance comparison and leaderboard for {user.state}</div>
-        </div>
-        <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-          {['daily', 'weekly', 'monthly'].map(type => (
-            <button 
-              key={type}
-              onClick={() => setViewType(type)}
-              className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
-            >
-              {type}
-            </button>
-          ))}
         </div>
       </div>
 

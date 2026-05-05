@@ -64,7 +64,7 @@ const LeaveCalendar = () => {
 
   const { data: pendingLeaves, isLoading: pendingLoading } = useQuery({
     queryKey: ['leaves', 'pending-state'],
-    queryFn: () => leaveApi.getLeaves().then(res => res.data),
+    queryFn: () => leaveApi.getPendingLeaves().then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -75,8 +75,8 @@ const LeaveCalendar = () => {
       return leaveApi.rejectLeave(id, { approvalNote: 'Rejected by State Manager' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['leaves']);
-      queryClient.invalidateQueries(['dashboard', 'state-manager']);
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'state-manager'] });
       toast.success("Request updated successfully");
     }
   });

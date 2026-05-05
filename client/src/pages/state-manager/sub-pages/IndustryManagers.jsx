@@ -8,7 +8,6 @@ import { toast } from 'react-hot-toast';
 
 const IndustryManagers = () => {
   const queryClient = useQueryClient();
-  const [period, setPeriod] = useState('Monthly');
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
@@ -116,7 +115,7 @@ const IndustryManagers = () => {
       <div className="card mb-8">
         <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center">
           <div className="section-title text-[15px]">Industry Manager Performance</div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ml-auto">
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
               <input 
@@ -126,17 +125,6 @@ const IndustryManagers = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </div>
-            <div className="flex bg-surface2 p-1 rounded-lg border border-border">
-               {['Monthly', 'Weekly', 'Daily'].map(t => (
-                 <button 
-                   key={t} 
-                   className={`px-4 py-1 text-[11px] font-bold uppercase rounded-md transition-all ${period === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}
-                   onClick={() => setPeriod(t)}
-                 >
-                   {t}
-                 </button>
-               ))}
             </div>
           </div>
         </div>
