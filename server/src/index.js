@@ -3,15 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 
 const connectDB = require('./config/db');
 const { verifyToken } = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
-const User = require('./models/User');
 
 const authRouter = require('./routes/auth');
 const leadsRouter = require('./routes/leads');
@@ -30,8 +28,18 @@ const server = http.createServer(app);
 // Connect to Database
 connectDB();
 
+// Global API rate limiter — 300 requests per minute per IP
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests. Please slow down.' },
+});
+
 // Middleware
 app.use(helmet());
+app.use('/api/', apiLimiter);
 app.use(cors({ 
   origin: [
     process.env.CLIENT_URL, 
@@ -42,8 +50,8 @@ app.use(cors({
   ].filter(Boolean), 
   credentials: true 
 }));
-app.use(morgan('dev'));
-app.use(express.json());
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.json({ limit: '1mb' }));
 
 // Socket.io Setup
 const io = new Server(server, {

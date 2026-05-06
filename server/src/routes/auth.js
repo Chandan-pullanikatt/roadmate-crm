@@ -1,13 +1,22 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,             // max 10 login attempts per IP per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Please try again after 1 minute.' },
+});
+
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   try {
     const formattedEmail = email ? email.trim().toLowerCase() : '';
@@ -22,7 +31,15 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { _id: user._id, role: user.role, name: user.name },
+      {
+        _id:         user._id,
+        role:        user.role,
+        name:        user.name,
+        state:       user.state       || null,
+        industry:    user.industry    || null,
+        district:    user.district    || null,
+        reportingTo: user.reportingTo || null,
+      },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -69,9 +86,17 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ message: 'Token expired too long ago' });
     }
 
-    // Generate new token
+    // Generate new token — carry all profile fields forward from old token
     const newToken = jwt.sign(
-      { _id: decoded._id, role: decoded.role, name: decoded.name },
+      {
+        _id:         decoded._id,
+        role:        decoded.role,
+        name:        decoded.name,
+        state:       decoded.state       || null,
+        industry:    decoded.industry    || null,
+        district:    decoded.district    || null,
+        reportingTo: decoded.reportingTo || null,
+      },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );

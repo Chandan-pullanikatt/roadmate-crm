@@ -88,7 +88,11 @@ router.get('/', async (req, res) => {
     }
     
     if (req.user.role === 'industry_manager') {
-      query.reportingTo = req.user._id;
+      query.$or = [
+        { reportingTo: req.user._id },
+        { role: { $in: ['state_manager', 'industry_manager'] }, state: req.user.state },
+        { role: 'founder' }
+      ];
     } else if (req.user.role === 'state_manager') {
       query.$or = [
         { state: req.user.state },

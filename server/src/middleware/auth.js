@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
-const verifyToken = async (req, res, next) => {
+const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -12,17 +11,19 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded._id || decoded.userId || decoded.id;
-    if (!userId) {
+    if (!decoded._id) {
       return res.status(401).json({ message: 'Unauthorized: Invalid token' });
     }
 
-    const user = await User.findById(userId).select('-password');
-    if (!user) {
-      return res.status(401).json({ message: 'Unauthorized: User no longer exists' });
-    }
-
-    req.user = user;
+    req.user = {
+      _id:         decoded._id,
+      role:        decoded.role,
+      name:        decoded.name,
+      state:       decoded.state       || null,
+      industry:    decoded.industry    || null,
+      district:    decoded.district    || null,
+      reportingTo: decoded.reportingTo || null,
+    };
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Unauthorized: Invalid token' });

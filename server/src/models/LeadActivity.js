@@ -9,7 +9,8 @@ const leadActivitySchema = new mongoose.Schema({
       'created','called','rnr','followup_set','meeting_scheduled',
       'meeting_done','meeting_confirmed','converted','lost','not_interested',
       'escalated','reallocated','note_added','document_attached','updated',
-      'blocking_amount_received','full_amount_received','agreement_signed'
+      'blocking_amount_received','full_amount_received','agreement_signed',
+      'strategy_logged'
     ],
     required: true
   },

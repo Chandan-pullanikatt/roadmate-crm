@@ -289,7 +289,7 @@ const GlobalModals = () => {
     } else if (targetType === 'create-executive') {
       setExecFormData(prev => ({ ...prev, role: 'executive' }));
       targetType = 'create-exec';
-    } else if (targetType === 'create-exec') {
+    } else if (targetType === 'create-exec' && !execFormData.role) {
       setExecFormData(prev => ({ ...prev, role: 'executive' }));
     }
 
@@ -969,6 +969,9 @@ const GlobalModals = () => {
                 </optgroup>
                 <optgroup label="Industry Managers">
                   {industryManagers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry} · {m.state})</option>)}
+                </optgroup>
+                <optgroup label="Founders">
+                  {founders.map(f => <option key={f._id} value={f._id}>{f.name} (Founder)</option>)}
                 </optgroup>
               </select>
             </div>

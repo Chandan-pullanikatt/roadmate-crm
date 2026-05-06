@@ -5,6 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/index.js",
+    "start:prod": "pm2 start ecosystem.config.js --env production",
+    "stop": "pm2 stop roadmate-server",
+    "restart": "pm2 restart roadmate-server",
+    "logs": "pm2 logs roadmate-server",
     "dev": "nodemon src/index.js",
     "test": "node src/scripts/smoke.js"
   },
@@ -19,6 +23,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.5.0",
@@ -27,6 +32,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "pm2": "^7.0.1"
   }
 }
