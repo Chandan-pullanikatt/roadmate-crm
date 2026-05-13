@@ -55,6 +55,19 @@ router.post('/', verifyToken, async (req, res, next) => {
 
     const start = new Date(fromDate);
     const end = new Date(toDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return res.status(400).json({ message: 'Valid fromDate and toDate are required' });
+    }
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (start < today || end < today) {
+      return res.status(400).json({ message: 'Past dates cannot be selected for leave' });
+    }
+    if (end < start) {
+      return res.status(400).json({ message: 'To Date must be the same as or after From Date' });
+    }
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
     // 1. Check for conflicts

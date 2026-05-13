@@ -123,8 +123,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
             { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
-            { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' },
-            { label: 'Working Hours', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' })), icon: 'working-hours', badge: '9:30', badgeColor: 'green' }
+            { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' }
           ]
         },
         {
@@ -163,8 +162,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Staff Performance', path: '/dashboard?page=performance', icon: 'performance' },
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
             { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
-            { label: 'Staff Documents', path: '/dashboard?page=staff-docs', icon: 'reports' },
-            { label: 'Working Hours', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' })), icon: 'working-hours', badge: '9:30', badgeColor: 'green' }
+            { label: 'Staff Documents', path: '/dashboard?page=staff-docs', icon: 'reports' }
           ]
         },
         {

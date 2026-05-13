@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
+import { targetsApi } from '../api/targetsApi';
 import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
 import LocationSelector from './common/LocationSelector';
@@ -14,6 +15,14 @@ import LeaveHistoryModal from './modals/LeaveHistoryModal';
 import UpdateLeadModal from './modals/UpdateLeadModal';
 import AllocateLeadModal from './modals/AllocateLeadModal';
 import LeadHistoryModal from './modals/LeadHistoryModal';
+
+const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
+const toDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 
 
@@ -47,6 +56,7 @@ const GlobalModals = () => {
     revenueCategory: 'other',
     meetingAt: '',
     meetingType: 'direct',
+    meetingLink: '',
     documents: []
   });
 
@@ -107,6 +117,7 @@ const GlobalModals = () => {
     leadId: '',
     meetingAt: '',
     meetingType: 'direct',
+    meetingLink: '',
     notes: ''
   });
 
@@ -127,6 +138,16 @@ const GlobalModals = () => {
 
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
+    const today = toDateInputValue();
+    if (!leaveFormData.fromDate || !leaveFormData.toDate) {
+      return addToast('Please select leave dates', 'warning');
+    }
+    if (leaveFormData.fromDate < today || leaveFormData.toDate < today) {
+      return addToast('Past dates cannot be selected for leave', 'warning');
+    }
+    if (leaveFormData.toDate < leaveFormData.fromDate) {
+      return addToast('To Date must be the same as or after From Date', 'warning');
+    }
     setLoading(true);
     try {
       await leaveApi.createLeave({
@@ -315,6 +336,10 @@ const GlobalModals = () => {
     }
 
     if (targetType) {
+      if (targetType === 'work-time' && currentUser?.role !== 'founder') {
+        addToast('Only the founder can edit working hours.', 'warning');
+        return;
+      }
       setActiveModal(targetType);
 
       // Unified Data Fetching
@@ -328,7 +353,7 @@ const GlobalModals = () => {
         fetchUnassignedLeads();
       }
     }
-  }, [fetchUsers, fetchPendingLeaves, fetchUnassignedLeads, fetchWorkingHours, fetchMyLeads]);
+  }, [addToast, currentUser?.role, fetchUsers, fetchPendingLeaves, fetchUnassignedLeads, fetchWorkingHours, fetchMyLeads]);
 
   useEffect(() => {
     window.addEventListener('open-modal', handleOpenModal);
@@ -370,6 +395,7 @@ const GlobalModals = () => {
       const leadData = {
         ...leadFormData,
         phone: `${leadFormData.countryCode}${leadFormData.phone}`,
+        meetingLink: leadFormData.meetingType === 'virtual' ? leadFormData.meetingLink.trim() : '',
         ownerId: allocationOwnerId || undefined
       };
       await leadsApi.createLead(leadData);
@@ -529,11 +555,12 @@ const GlobalModals = () => {
       await leadsApi.updateLead(scheduleFormData.leadId, {
         meetingAt: scheduleFormData.meetingAt,
         status: scheduleFormData.meetingType === 'virtual' ? 'meeting_virtual' : 'meeting_direct',
+        meetingLink: scheduleFormData.meetingType === 'virtual' ? scheduleFormData.meetingLink.trim() : '',
         notes: scheduleFormData.notes
       });
       addToast('Meeting scheduled successfully!', 'success');
       setActiveModal(null);
-      setScheduleFormData({ leadId: '', meetingAt: '', meetingType: 'direct', notes: '' });
+      setScheduleFormData({ leadId: '', meetingAt: '', meetingType: 'direct', meetingLink: '', notes: '' });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       // Refresh meetings list if we are on that page
       window.dispatchEvent(new CustomEvent('refresh-meetings'));
@@ -598,7 +625,7 @@ const GlobalModals = () => {
                       <option value="+1">🇺🇸 +1</option>
                     </select>
                   </div>
-                  <input className="input flex-1" type="tel" value={leadFormData.phone} onChange={(e)=>setLeadFormData({...leadFormData, phone: e.target.value})} placeholder="XXXXX XXXXX" required />
+                  <input className="input flex-1" type="tel" inputMode="numeric" pattern="[0-9]*" value={leadFormData.phone} onChange={(e)=>setLeadFormData({...leadFormData, phone: digitsOnly(e.target.value)})} placeholder="XXXXX XXXXX" required />
                 </div>
               </div>
               <div className="space-y-2">
@@ -752,12 +779,24 @@ const GlobalModals = () => {
                 <select 
                   className="select" 
                   value={leadFormData.meetingType} 
-                  onChange={(e) => setLeadFormData({ ...leadFormData, meetingType: e.target.value })}
+                  onChange={(e) => setLeadFormData({ ...leadFormData, meetingType: e.target.value, meetingLink: e.target.value === 'virtual' ? leadFormData.meetingLink : '' })}
                 >
                   <option value="direct">Direct Visit</option>
                   <option value="virtual">Virtual Meeting</option>
                 </select>
               </div>
+              {leadFormData.meetingType === 'virtual' && (
+                <div className="space-y-2 col-span-2 animate-in fade-in slide-in-from-top-1">
+                  <label className="form-label">Meeting Link (Optional)</label>
+                  <input
+                    type="url"
+                    className="input"
+                    value={leadFormData.meetingLink}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, meetingLink: e.target.value })}
+                    placeholder="https://meet.google.com/... or https://zoom.us/..."
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -817,7 +856,7 @@ const GlobalModals = () => {
               </div>
               <div className="space-y-1">
                 <label className="form-label">Phone</label>
-                <input className="input" type="tel" value={managerFormData.phone} onChange={(e)=>setManagerFormData({...managerFormData, phone: e.target.value})} placeholder="+91 XXXXX XXXXX" required />
+                <input className="input" type="tel" inputMode="numeric" pattern="[0-9]*" value={managerFormData.phone} onChange={(e)=>setManagerFormData({...managerFormData, phone: digitsOnly(e.target.value)})} placeholder="91 XXXXX XXXXX" required />
               </div>
             </div>
 
@@ -850,14 +889,14 @@ const GlobalModals = () => {
               </div>
               <div className="space-y-1">
                 <label className="form-label">Basic Salary ({"\u20B9"})</label>
-                <input className="input" type="number" value={managerFormData.basicSalary} onChange={(e)=>setManagerFormData({...managerFormData, basicSalary: e.target.value})} placeholder="e.g. 35000" />
+                <input className="input" type="text" inputMode="numeric" pattern="[0-9]*" value={managerFormData.basicSalary} onChange={(e)=>setManagerFormData({...managerFormData, basicSalary: digitsOnly(e.target.value)})} placeholder="e.g. 35000" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="form-label">Aadhaar Number</label>
-                <input className="input" type="text" value={managerFormData.aadhaar} onChange={(e)=>setManagerFormData({...managerFormData, aadhaar: e.target.value})} placeholder="XXXX XXXX XXXX" />
+                <input className="input" type="text" inputMode="numeric" pattern="[0-9]*" value={managerFormData.aadhaar} onChange={(e)=>setManagerFormData({...managerFormData, aadhaar: digitsOnly(e.target.value)})} placeholder="XXXX XXXX XXXX" />
               </div>
               <div className="space-y-1">
                 <label className="form-label">PAN Number</label>
@@ -1043,7 +1082,7 @@ const GlobalModals = () => {
             {/* Phone */}
             <div className="space-y-2">
               <label className="form-label">Phone <span className="text-red">*</span></label>
-              <input className="input" type="tel" placeholder="+91 XXXXX XXXXX" value={execFormData.phone} onChange={(e) => setExecFormData({...execFormData, phone: e.target.value})} required />
+              <input className="input" type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="91 XXXXX XXXXX" value={execFormData.phone} onChange={(e) => setExecFormData({...execFormData, phone: digitsOnly(e.target.value)})} required />
             </div>
 
             {/* Email */}
@@ -1086,13 +1125,13 @@ const GlobalModals = () => {
             {/* Basic Salary */}
             <div className="space-y-2">
               <label className="form-label">Basic Salary (₹/month)</label>
-              <input className="input" type="number" placeholder="e.g. 22000" value={execFormData.basicSalary} onChange={(e) => setExecFormData({...execFormData, basicSalary: e.target.value})} />
+              <input className="input" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="e.g. 22000" value={execFormData.basicSalary} onChange={(e) => setExecFormData({...execFormData, basicSalary: digitsOnly(e.target.value)})} />
             </div>
 
             {/* Aadhaar Number */}
             <div className="space-y-2">
               <label className="form-label">Aadhaar Number</label>
-              <input className="input" type="text" placeholder="XXXX XXXX XXXX" value={execFormData.aadhaarNumber} onChange={(e) => setExecFormData({...execFormData, aadhaarNumber: e.target.value})} />
+              <input className="input" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="XXXX XXXX XXXX" value={execFormData.aadhaarNumber} onChange={(e) => setExecFormData({...execFormData, aadhaarNumber: digitsOnly(e.target.value)})} />
             </div>
 
             {/* PAN Number */}
@@ -1241,11 +1280,13 @@ const GlobalModals = () => {
              <div className="space-y-1">
                 <label className="form-label">Incentive Amount ({"\u20B9"})</label>
                 <input 
-                  type="number" 
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="input" 
                   placeholder="e.g. 5000" 
                   value={incentiveForm.amount}
-                  onChange={e => setIncentiveForm({...incentiveForm, amount: e.target.value})}
+                  onChange={e => setIncentiveForm({...incentiveForm, amount: digitsOnly(e.target.value)})}
                   required 
                 />
              </div>
@@ -1366,20 +1407,24 @@ const GlobalModals = () => {
               <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
                 <span className="text-sm font-medium text-text-primary">Work completion below <span className="font-bold text-red">30%</span> of allotted tasks → Auto-mark as <span className="font-bold">Leave</span></span>
                 <input 
-                  type="number" 
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold" 
                   value={workingHours.rules.leaveThreshold}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, leaveThreshold: Number(e.target.value)}})}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, leaveThreshold: Number(digitsOnly(e.target.value))}})}
                 />
               </div>
 
               <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
                 <span className="text-sm font-medium text-text-primary">Work completion below <span className="font-bold text-orange">70%</span> of allotted tasks → Auto-mark as <span className="font-bold">Half Day</span></span>
                 <input 
-                  type="number" 
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold" 
                   value={workingHours.rules.halfDayThreshold}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, halfDayThreshold: Number(e.target.value)}})}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, halfDayThreshold: Number(digitsOnly(e.target.value))}})}
                 />
               </div>
 
@@ -1396,10 +1441,12 @@ const GlobalModals = () => {
               <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
                 <span className="text-sm font-medium text-text-primary">Early exit threshold → <span className="font-bold">Half day</span> if left this many minutes before end time</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold"
                   value={workingHours.rules.earlyExitThresholdMinutes ?? 120}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, earlyExitThresholdMinutes: Number(e.target.value)}})}
+                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, earlyExitThresholdMinutes: Number(digitsOnly(e.target.value))}})}
                 />
               </div>
             </div>
@@ -1461,7 +1508,12 @@ const GlobalModals = () => {
                 type="date" 
                 className="input" 
                 value={leaveFormData.fromDate}
-                onChange={(e) => setLeaveFormData({...leaveFormData, fromDate: e.target.value})}
+                min={toDateInputValue()}
+                onChange={(e) => setLeaveFormData({
+                  ...leaveFormData,
+                  fromDate: e.target.value,
+                  toDate: leaveFormData.toDate && leaveFormData.toDate < e.target.value ? '' : leaveFormData.toDate
+                })}
                 required 
               />
             </div>
@@ -1471,6 +1523,7 @@ const GlobalModals = () => {
                 type="date" 
                 className="input" 
                 value={leaveFormData.toDate}
+                min={leaveFormData.fromDate || toDateInputValue()}
                 onChange={(e) => setLeaveFormData({...leaveFormData, toDate: e.target.value})}
                 required 
               />
@@ -1837,7 +1890,7 @@ const ScheduleMeetingModal = ({ isOpen, onClose, formData, setFormData, leads, o
             <select 
               className="select" 
               value={formData.meetingType} 
-              onChange={(e) => setFormData({ ...formData, meetingType: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, meetingType: e.target.value, meetingLink: e.target.value === 'virtual' ? formData.meetingLink : '' })}
               required
             >
               <option value="direct">Direct Visit</option>
@@ -1845,6 +1898,19 @@ const ScheduleMeetingModal = ({ isOpen, onClose, formData, setFormData, leads, o
             </select>
           </div>
         </div>
+
+        {formData.meetingType === 'virtual' && (
+          <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+            <label className="form-label">Meeting Link (Optional)</label>
+            <input
+              type="url"
+              className="input"
+              placeholder="https://meet.google.com/... or https://zoom.us/..."
+              value={formData.meetingLink || ''}
+              onChange={(e) => setFormData({ ...formData, meetingLink: e.target.value })}
+            />
+          </div>
+        )}
 
         <div className="space-y-1">
           <label className="form-label">Notes</label>
@@ -1880,36 +1946,36 @@ const AssignTargetModal = ({ isOpen, onClose, targetState, setTargetState, onSub
           <div className="space-y-1">
             <label className="form-label">Total Calls</label>
             <input 
-              type="number" className="input" 
+              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
               value={targetState.calls} 
-              onChange={e => setTargetState({ ...targetState, calls: parseInt(e.target.value) || 0 })} 
+              onChange={e => setTargetState({ ...targetState, calls: parseInt(digitsOnly(e.target.value)) || 0 })} 
               min="0"
             />
           </div>
           <div className="space-y-1">
             <label className="form-label">Leads to Generate</label>
             <input 
-              type="number" className="input" 
+              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
               value={targetState.leads} 
-              onChange={e => setTargetState({ ...targetState, leads: parseInt(e.target.value) || 0 })} 
+              onChange={e => setTargetState({ ...targetState, leads: parseInt(digitsOnly(e.target.value)) || 0 })} 
               min="0"
             />
           </div>
           <div className="space-y-1">
             <label className="form-label">Conversions</label>
             <input 
-              type="number" className="input" 
+              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
               value={targetState.conversions} 
-              onChange={e => setTargetState({ ...targetState, conversions: parseInt(e.target.value) || 0 })} 
+              onChange={e => setTargetState({ ...targetState, conversions: parseInt(digitsOnly(e.target.value)) || 0 })} 
               min="0"
             />
           </div>
           <div className="space-y-1">
             <label className="form-label">Revenue Target (Lakhs)</label>
             <input 
-              type="number" className="input" 
+              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
               value={targetState.revenue} 
-              onChange={e => setTargetState({ ...targetState, revenue: parseInt(e.target.value) || 0 })} 
+              onChange={e => setTargetState({ ...targetState, revenue: parseInt(digitsOnly(e.target.value)) || 0 })} 
               min="0"
             />
           </div>

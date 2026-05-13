@@ -63,6 +63,7 @@ const leadSchema = new mongoose.Schema({
     enum: ['partnership', 'shop_subscription', 'delivery_subscription', 'distributor_subscription', 'manufacturer_subscription', 'other'],
     default: 'other'
   },
+  regionType: { type: String, enum: ['Panchayat', 'Municipality', 'Corporation', ''], default: '' },
   region: { type: String },
 }, { timestamps: true });
 

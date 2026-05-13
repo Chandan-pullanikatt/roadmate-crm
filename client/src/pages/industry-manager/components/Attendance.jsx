@@ -86,9 +86,6 @@ const Attendance = () => {
           <p className="text-xs text-text-muted">All {executives.length} district executives · Work %, leaves, salary</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' }))}>
-                Edit Working Hours
-            </Button>
             <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={exportRegister}>
                 Export
             </Button>

@@ -254,11 +254,12 @@ router.get('/executive', async (req, res) => {
         callGrowth
       },
       monthlyStats,
-      workStarted: !!attendance?.workStartedAt,
+      workStarted: !!attendance?.workStartedAt && !attendance?.workCompletedAt,
       attendance: {
         _id: attendance?._id,
         status: attendance?.status || 'absent',
         workStartedAt: attendance?.workStartedAt,
+        workCompletedAt: attendance?.workCompletedAt,
         completionPct: attendance?.completionPct || 0
       },
       upcomingMeetings: meetingsFormatted,
@@ -508,8 +509,8 @@ router.get('/industry-manager', async (req, res) => {
         rnrCount: activeLeads.reduce((sum, l) => sum + (l.rnrCount || 0), 0),
         leadsCount: activeLeads.length,
         followupsCount: activeLeads.filter(l => l.status === 'followup').length,
-        isWorking: !!att?.workStartedAt,
-        status: att?.workStartedAt ? 'Active' : 'Offline'
+        isWorking: !!att?.workStartedAt && !att?.workCompletedAt,
+        status: att?.workStartedAt && !att?.workCompletedAt ? 'Active' : 'Offline'
       };
     });
 

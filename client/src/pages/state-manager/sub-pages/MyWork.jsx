@@ -31,7 +31,7 @@ const MyWork = () => {
   const startWorkMutation = useMutation({
     mutationFn: attendanceApi.startWork,
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
       toast.success("Work session started");
     }
   });
@@ -39,7 +39,7 @@ const MyWork = () => {
   const endWorkMutation = useMutation({
     mutationFn: attendanceApi.endWork,
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
       toast.success("Work session ended");
     }
   });
@@ -53,7 +53,8 @@ const MyWork = () => {
     }
   });
 
-  const isWorking = personalDash?.workStarted || false;
+  const isWorking = !!personalDash?.attendance?.workStartedAt && !personalDash?.attendance?.workCompletedAt;
+  const hasCompletedWork = !!personalDash?.attendance?.workCompletedAt;
   const myLeads = queueData?.queue || [];
   const currentLead = myLeads[currentLeadIdx];
   const isLastLead = currentLeadIdx >= myLeads.length;
@@ -81,14 +82,15 @@ const MyWork = () => {
         <div className="flex items-center gap-4">
           <div className={`px-4 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-2 border shadow-sm ${isWorking ? 'bg-green-light/10 text-green border-green/20' : 'bg-amber-light/10 text-amber border-amber/20'}`}>
              <span className={`w-2 h-2 rounded-full animate-pulse ${isWorking ? 'bg-green' : 'bg-amber'}`}></span>
-             {isWorking ? 'Working Active' : 'Work Not Started'}
+             {isWorking ? 'Working Active' : hasCompletedWork ? 'Work Ended' : 'Work Not Started'}
           </div>
           <Button 
             className={isWorking ? 'bg-red text-white' : 'bg-blue text-white'}
             size="sm" 
             onClick={() => isWorking ? endWorkMutation.mutate(personalDash?.attendance?._id) : startWorkMutation.mutate()}
+            disabled={hasCompletedWork || startWorkMutation.isPending || endWorkMutation.isPending}
           >
-            {isWorking ? 'Stop Work' : 'Start Work'}
+            {isWorking ? 'Stop Work' : hasCompletedWork ? 'Work Ended' : 'Start Work'}
           </Button>
           <Button 
             variant="outline"
@@ -360,4 +362,3 @@ const MyWork = () => {
 };
 
 export default MyWork;
-

@@ -4,6 +4,8 @@ import { useToast } from '../../context/ToastContext';
 import { leadsApi } from '../../api/leadsApi';
 import { useQueryClient } from '@tanstack/react-query';
 
+const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
+
 const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -15,6 +17,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     expectedOnboarding: '',
     actualRevenue: '',
     revenueCategory: 'other',
+    meetingLink: '',
     documents: []
   });
 
@@ -27,6 +30,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         expectedOnboarding: lead.expectedOnboarding ? new Date(lead.expectedOnboarding).toISOString().split('T')[0] : '',
         actualRevenue: lead.actualRevenue || '',
         revenueCategory: lead.revenueCategory || 'other',
+        meetingLink: lead.meetingLink || '',
         documents: lead.documents || []
       });
     }
@@ -43,6 +47,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         notes: formData.notes,
         actualRevenue: formData.actualRevenue,
         revenueCategory: formData.revenueCategory,
+        meetingLink: formData.status === 'meeting_virtual' ? formData.meetingLink.trim() : lead.meetingLink || '',
         documents: formData.documents
       };
       
@@ -100,6 +105,19 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
           </div>
         )}
 
+        {formData.status === 'meeting_virtual' && (
+          <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+            <label className="form-label">Meeting Link (Optional)</label>
+            <input
+              type="url"
+              className="input"
+              placeholder="https://meet.google.com/... or https://zoom.us/..."
+              value={formData.meetingLink}
+              onChange={(e) => setFormData({...formData, meetingLink: e.target.value})}
+            />
+          </div>
+        )}
+
         {['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'].includes(formData.status) && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
             <div className="space-y-1">
@@ -121,11 +139,13 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
             <div className="space-y-1">
               <label className="form-label">Actual Revenue (\u20B9)</label>
               <input 
-                type="number" 
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="input" 
                 placeholder="Enter conversion amount"
                 value={formData.actualRevenue} 
-                onChange={(e) => setFormData({...formData, actualRevenue: e.target.value})} 
+                onChange={(e) => setFormData({...formData, actualRevenue: digitsOnly(e.target.value)})} 
                 required
               />
             </div>

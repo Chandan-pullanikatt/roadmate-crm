@@ -59,6 +59,7 @@ const normalizeLeadPayload = (payload = {}) => {
     normalized.actualRevenue = Number(payload.actualRevenue) || 0;
   }
   if (payload.revenueCategory) normalized.revenueCategory = payload.revenueCategory;
+  if (payload.regionType) normalized.regionType = payload.regionType;
   if (payload.region) normalized.region = payload.region;
   if (Array.isArray(payload.documents)) {
     normalized.documents = payload.documents.map((doc) => ({

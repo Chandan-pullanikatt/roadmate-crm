@@ -50,7 +50,7 @@ const MyWork = () => {
   const startWorkMutation = useMutation({
     mutationFn: attendanceApi.startWork,
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard', 'executive']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
       addToast("Work started! Good luck.", "success");
     }
   });
@@ -58,7 +58,7 @@ const MyWork = () => {
   const endWorkMutation = useMutation({
     mutationFn: attendanceApi.endWork,
     onSuccess: () => {
-      queryClient.invalidateQueries(['dashboard', 'executive']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
       addToast("Work ended. Great job today!", "info");
     }
   });
@@ -87,7 +87,8 @@ const MyWork = () => {
     }));
   };
 
-  const workStarted = dashData?.workStarted || false;
+  const workStarted = !!dashData?.attendance?.workStartedAt && !dashData?.attendance?.workCompletedAt;
+  const workCompleted = !!dashData?.attendance?.workCompletedAt;
   const myQueue = queueData || [];
   const activeLead = myQueue[currentLeadIdx];
   const isQueueEmpty = myQueue.length === 0;
@@ -150,13 +151,14 @@ const MyWork = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber/10 rounded-lg">
             <div className="w-2 h-2 rounded-full bg-amber animate-pulse" />
-            <span className="text-[10px] font-bold text-amber uppercase tracking-wider">{workStarted ? 'Work Active' : 'Work Not Started'}</span>
+            <span className="text-[10px] font-bold text-amber uppercase tracking-wider">{workStarted ? 'Work Active' : workCompleted ? 'Work Ended' : 'Work Not Started'}</span>
           </div>
           <Button 
             className={`${workStarted ? 'bg-red' : 'bg-purple'} text-white border-none rounded-xl px-6`}
             onClick={() => workStarted ? endWorkMutation.mutate(dashData?.attendance?._id) : startWorkMutation.mutate()}
+            disabled={workCompleted || startWorkMutation.isPending || endWorkMutation.isPending}
           >
-            {workStarted ? 'Stop Work' : 'Start Work'}
+            {workStarted ? 'Stop Work' : workCompleted ? 'Work Ended' : 'Start Work'}
           </Button>
           <Button 
             variant="outline"

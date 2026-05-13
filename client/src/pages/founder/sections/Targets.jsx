@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { targetsApi } from '../../../api/targetsApi';
 import { usersApi } from '../../../api/usersApi';
 
+const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
+
 const pct = (achieved, target) => {
   if (!target || target === 0) return 0;
   return Math.min(100, Math.round((achieved / target) * 100));
@@ -98,10 +100,10 @@ const Targets = () => {
                 <div key={key} className="space-y-1">
                   <label className="form-label">{label}</label>
                   <input
-                    type="number" min="0" className="input"
+                    type="text" inputMode="numeric" pattern="[0-9]*" className="input"
                     placeholder="0"
                     value={assignForm[key]}
-                    onChange={e => setAssignForm(f => ({ ...f, [key]: e.target.value }))}
+                    onChange={e => setAssignForm(f => ({ ...f, [key]: digitsOnly(e.target.value) }))}
                   />
                 </div>
               ))}

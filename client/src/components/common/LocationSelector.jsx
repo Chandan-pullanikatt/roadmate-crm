@@ -52,6 +52,17 @@ const LocationSelector = ({
     return City.getCitiesOfState(selectedCountryCode, selectedStateCode);
   }, [selectedCountryCode, selectedStateCode, states]);
 
+  const regionOptions = useMemo(() => {
+    if (!selectedCountryCode || !selectedStateCode || !value.district || !value.regionType) return [];
+    const options = City.getCitiesOfState(selectedCountryCode, selectedStateCode)
+      .map(city => city.name)
+      .filter(Boolean);
+    const uniqueOptions = Array.from(new Set(options)).sort((a, b) => a.localeCompare(b));
+    if (uniqueOptions.length === 0 && value.district) uniqueOptions.push(value.district);
+    if (value.region && !uniqueOptions.includes(value.region)) uniqueOptions.unshift(value.region);
+    return uniqueOptions;
+  }, [selectedCountryCode, selectedStateCode, value.district, value.regionType, value.region]);
+
   // Pre-fill country code from value
   useEffect(() => {
     if (value.country) {
@@ -171,20 +182,23 @@ const LocationSelector = ({
               </span>
             )}
           </label>
-          <input
-            type="text"
+          <select
             value={value.region || ''}
             onChange={handleRegionChange}
-            disabled={disabled || !value.district || !value.regionType}
-            placeholder={
-              !value.district
+            disabled={disabled || !value.district || !value.regionType || regionOptions.length === 0}
+            className={selectClass(errors.region)}
+          >
+            <option value="">
+              {!value.district
                 ? 'Select District first'
                 : !value.regionType
                   ? 'Select Region Type first'
-                  : `Enter ${value.regionType} name`
-            }
-            className={selectClass(errors.region).replace('py-3', 'py-[11px]')}
-          />
+                  : regionOptions.length === 0
+                    ? 'No regions available'
+                    : `Select ${value.regionType}`}
+            </option>
+            {regionOptions.map(region => <option key={region} value={region}>{region}</option>)}
+          </select>
           {errors.region && <p className={errorClass}>{errors.region}</p>}
         </div>
       </div>
