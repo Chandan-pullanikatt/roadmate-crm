@@ -16,6 +16,10 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     return params.get('status') || 'all';
   });
+  const [ownerFilter, setOwnerFilter] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('owner') || '';
+  });
   const [filterState, setFilterState] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -31,16 +35,24 @@ const LeadManagement = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setActiveTab(params.get('status') || 'all');
+    setOwnerFilter(params.get('owner') || '');
+    setPage(1);
+  }, [location.search]);
+
   const { data: counts } = useQuery({
-    queryKey: ['leads', 'counts'],
-    queryFn: () => leadsApi.getCounts().then(res => res.data),
+    queryKey: ['leads', 'counts', ownerFilter],
+    queryFn: () => leadsApi.getCounts({ owner: ownerFilter || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'global', activeTab, filterState, debouncedSearch, page],
+    queryKey: ['leads', 'global', activeTab, filterState, ownerFilter, debouncedSearch, page],
     queryFn: () => leadsApi.getLeads({ 
       status: activeTab === 'all' ? undefined : activeTab, 
+      owner: ownerFilter || undefined,
       state: filterState === 'All' ? undefined : filterState,
       search: debouncedSearch,
       page,
@@ -61,6 +73,7 @@ const LeadManagement = () => {
     try {
       const res = await leadsApi.getLeads({
         status: activeTab === 'all' ? undefined : activeTab,
+        owner: ownerFilter || undefined,
         state: filterState === 'All' ? undefined : filterState,
         search: debouncedSearch,
         limit: 9999
@@ -126,7 +139,7 @@ const LeadManagement = () => {
 
       <div className="flex justify-between items-end mb-6">
         <div>
-          <div className="text-[20px] font-bold text-text-primary">Global Lead Management</div>
+          <div className="text-[20px] font-bold text-text-primary">{ownerFilter === 'unassigned' ? 'Unallocated Lead Management' : 'Global Lead Management'}</div>
           <div className="text-[12px] text-text-muted mt-1">Cross-state lead tracking · Allocation control · Lifecycle monitoring</div>
         </div>
         <div className="flex gap-2">

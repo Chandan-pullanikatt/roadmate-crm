@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
@@ -12,6 +12,10 @@ const Overview = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [summaryTab, setSummaryTab] = useState('week');
+  const [meetingDetail, setMeetingDetail] = useState(null);
+  const [meetingLinkInput, setMeetingLinkInput] = useState('');
+  const [savingMeetingLink, setSavingMeetingLink] = useState(false);
+  const leaveApprovalsRef = useRef(null);
 
   // Initialize summaryPeriodValue based on current date
   const getCurrentDefaultValue = (tab) => {
@@ -62,6 +66,25 @@ const Overview = () => {
     staleTime: 2 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    setMeetingLinkInput(meetingDetail?.meetingLink || '');
+  }, [meetingDetail]);
+
+  const handleSaveMeetingLink = async () => {
+    if (!meetingDetail?._id) return;
+    setSavingMeetingLink(true);
+    try {
+      const res = await leadsApi.updateLead(meetingDetail._id, { meetingLink: meetingLinkInput.trim() });
+      const savedLink = res.data?.meetingLink || meetingLinkInput.trim();
+      setMeetingDetail(prev => prev ? { ...prev, meetingLink: savedLink } : prev);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error saving meeting link');
+    } finally {
+      setSavingMeetingLink(false);
+    }
+  };
 
   const handleTabChange = (t) => {
     setSummaryTab(t);
@@ -137,7 +160,10 @@ const Overview = () => {
   return (
     <div className="animate-in fade-in duration-500">
       {nextMeeting ? (
-        <div className="meeting-alert mb-6 bg-accent-light/10 border border-accent/20 p-4 rounded-2xl flex items-center gap-4 hover:bg-accent-light/20 transition-all">
+        <div
+          className="meeting-alert mb-6 bg-accent-light/10 border border-accent/20 p-4 rounded-2xl flex items-center gap-4 hover:bg-accent-light/20 transition-all cursor-pointer"
+          onClick={() => setMeetingDetail(nextMeeting)}
+        >
           <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-accent/20">
             <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
               <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="white" strokeWidth="1.4" />
@@ -154,7 +180,10 @@ const Overview = () => {
               <Button
                 size="xs"
                 className="bg-accent text-white border-none"
-                onClick={() => window.open(nextMeeting.meetingLink, '_blank', 'noopener,noreferrer')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(nextMeeting.meetingLink, '_blank', 'noopener,noreferrer');
+                }}
               >
                 Join Now
               </Button>
@@ -196,7 +225,7 @@ const Overview = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <div className="stat-card" style={{ borderTop: '4px solid #14b8a6' }}>
+        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #14b8a6' }} onClick={() => navigate('/dashboard?page=leads')}>
           <div className="flex justify-between items-start mb-2">
             <div className="stat-label">Total Leads</div>
             <div className="bg-teal/10 p-1.5 rounded-lg">
@@ -207,13 +236,13 @@ const Overview = () => {
           <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.leadsToday || 0} new today</div>
         </div>
 
-        <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
+        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #3b82f6' }} onClick={() => navigate('/dashboard?page=leads-onboarding')}>
           <div className="stat-label mb-2 mt-1">Expected Onboarding</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.expectedOnboarding?.toLocaleString() || 0}</div>
           <div className="text-[12px] font-medium text-teal">{"\u2191"} This week pipeline</div>
         </div>
 
-        <div className="stat-card" style={{ borderTop: '4px solid #f59e0b' }}>
+        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #f59e0b' }} onClick={() => navigate('/dashboard?page=leads&status=converted')}>
           <div className="stat-label mb-2 mt-1">Conversions</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.converted?.toLocaleString() || 0}</div>
           <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.convertedThisMonth || 0} this month</div>
@@ -247,6 +276,7 @@ const Overview = () => {
           <div className="text-[12px] font-medium flex gap-2">
             <span className="text-teal">{"\u2022"} {stats.stateManagers?.working || 0} Working</span>
             <span className="text-red">{"\u2022"} {stats.stateManagers?.onLeave || 0} On Leave</span>
+            <span className="text-text-muted">{"\u2022"} {stats.stateManagers?.notStarted || 0} Not Started</span>
           </div>
         </div>
 
@@ -262,6 +292,7 @@ const Overview = () => {
           <div className="text-[12px] font-medium flex gap-2">
             <span className="text-teal">{"\u2022"} {stats.industryManagers?.working || 0} Working</span>
             <span className="text-red">{"\u2022"} {stats.industryManagers?.onLeave || 0} On Leave</span>
+            <span className="text-text-muted">{"\u2022"} {stats.industryManagers?.notStarted || 0} Not Started</span>
           </div>
         </div>
 
@@ -277,10 +308,15 @@ const Overview = () => {
           <div className="text-[12px] font-medium flex gap-2">
             <span className="text-teal">{"\u2022"} {stats.salesStaff?.working || 0} Working</span>
             <span className="text-red">{"\u2022"} {stats.salesStaff?.onLeave || 0} On Leave</span>
+            <span className="text-text-muted">{"\u2022"} {stats.salesStaff?.notStarted || 0} Not Started</span>
           </div>
         </div>
 
-        <div className="stat-card" style={{ borderTop: '4px solid #dc2626' }}>
+        <div
+          className="stat-card cursor-pointer hover:shadow-md transition-shadow"
+          style={{ borderTop: '4px solid #dc2626' }}
+          onClick={() => leaveApprovalsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        >
           <div className="stat-label mb-2 mt-1">Pending Leaves</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.pendingLeavesCount || 0}</div>
           <div className="text-[12px] font-medium text-orange flex items-center gap-1">
@@ -294,7 +330,7 @@ const Overview = () => {
       {unallocatedCount > 0 && (
         <div
           className="flex items-center gap-4 p-4 mb-6 bg-red/5 border border-red/20 rounded-2xl cursor-pointer hover:bg-red/10 transition-colors"
-          onClick={() => navigate('/dashboard?page=leads')}
+          onClick={() => navigate('/dashboard?page=leads&owner=unassigned')}
         >
           <div className="relative flex-shrink-0">
             <div className="w-10 h-10 rounded-xl bg-red/10 flex items-center justify-center">
@@ -324,7 +360,7 @@ const Overview = () => {
       </div>
 
       {/* Fix: Lead Pipeline Clickable Numbers — each card navigates to filtered lead list */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
         {pipelineStats.map((s, i) => {
           let bgClass = "bg-white";
           let borderClass = "border-border";
@@ -521,7 +557,7 @@ const Overview = () => {
       </div>
 
 
-      <div className="flex justify-between items-end mb-4 mt-8">
+      <div ref={leaveApprovalsRef} className="flex justify-between items-end mb-4 mt-8 scroll-mt-6">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Leave Approvals</div>
           <div className="text-[12px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
@@ -620,6 +656,56 @@ const Overview = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!meetingDetail}
+        title="Meeting Details"
+        subtitle={meetingDetail ? formatMeetingLead(meetingDetail) : ''}
+        onClose={() => setMeetingDetail(null)}
+      >
+        {meetingDetail && (
+          <div className="space-y-4">
+            <div className="p-4 bg-surface2/50 rounded-xl border border-border">
+              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">Time</div>
+              <div className="text-sm font-bold text-text-primary">{new Date(meetingDetail.meetingAt).toLocaleString()}</div>
+            </div>
+            <div className="p-4 bg-surface2/50 rounded-xl border border-border">
+              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">Assigned Staff</div>
+              <div className="text-sm font-bold text-text-primary">{meetingDetail.inviteeSummary || meetingDetail.owner?.name || 'Assigned staff'}</div>
+            </div>
+            {meetingDetail.meetingLink ? (
+              <div className="p-4 bg-blue/5 rounded-xl border border-blue/10">
+                <div className="text-[11px] font-bold text-blue uppercase tracking-wider mb-2">Meeting Link</div>
+                <a className="text-sm font-bold text-blue underline break-all" href={meetingDetail.meetingLink} target="_blank" rel="noreferrer">
+                  {meetingDetail.meetingLink}
+                </a>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber/5 rounded-xl border border-amber/10 text-sm font-medium text-amber">No meeting link has been added yet.</div>
+            )}
+            <div className="p-4 bg-surface2/50 rounded-xl border border-border">
+              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Add / Update Meeting Link</label>
+              <input
+                className="input"
+                type="url"
+                value={meetingLinkInput}
+                onChange={(e) => setMeetingLinkInput(e.target.value)}
+                placeholder="https://meet.google.com/... or https://zoom.us/..."
+              />
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="outline" onClick={() => setMeetingLinkInput(meetingDetail.meetingLink || '')}>Reset</Button>
+                <Button
+                  className="bg-[#0f766e] text-white"
+                  onClick={handleSaveMeetingLink}
+                  loading={savingMeetingLink}
+                >
+                  Save Link
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </Modal>

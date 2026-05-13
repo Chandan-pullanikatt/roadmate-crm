@@ -38,11 +38,26 @@ const attendanceService = {
       throw new Error('Work already started for today');
     }
 
-    // 3. Get working hours start
-    let workStartTimeStr = user.workingHours?.start || '09:30';
-    
-    // Ramadan check
-    if (policy && policy.ramadanStart && policy.ramadanEnd) {
+    const Config = require('../models/Config');
+    const configDoc = await Config.findOne({ key: 'working-hours' });
+    const whConfig = configDoc?.value || {};
+
+    const isWithinRamadanConfig = () => {
+      if (!whConfig.ramadanFrom || !whConfig.ramadanTo) return false;
+      const ramadanFrom = new Date(whConfig.ramadanFrom);
+      const ramadanTo = new Date(whConfig.ramadanTo);
+      ramadanFrom.setHours(0, 0, 0, 0);
+      ramadanTo.setHours(23, 59, 59, 999);
+      return today >= ramadanFrom && today <= ramadanTo;
+    };
+
+    // 3. Get working hours start. Global config is the source of truth;
+    // user-specific hours remain a fallback for legacy profiles.
+    let workStartTimeStr = whConfig.normalStart || user.workingHours?.start || '09:30';
+
+    if (isWithinRamadanConfig()) {
+      workStartTimeStr = whConfig.ramadanStart || '09:00';
+    } else if (policy && policy.ramadanStart && policy.ramadanEnd) {
       if (today >= policy.ramadanStart && today <= policy.ramadanEnd) {
         workStartTimeStr = policy.ramadanWorkStart || '09:00';
       }
@@ -55,8 +70,6 @@ const attendanceService = {
     expectedStart.setHours(startHour, startMin, 0, 0);
     
     // Load config for grace period (default 30 min)
-    const Config = require('../models/Config');
-    const configDoc = await Config.findOne({ key: 'working-hours' });
     const configRules = configDoc?.value?.rules || {};
     const gracePeriodMin = configRules.lateLoginGraceMinutes ?? 30;
 

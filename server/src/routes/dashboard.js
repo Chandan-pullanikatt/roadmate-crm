@@ -1132,8 +1132,9 @@ router.get('/founder', async (req, res) => {
         const totalLeads = await Lead.countDocuments({ createdAt: { $gte: periodStart, $lte: periodEnd } });
         const leadsToday = await Lead.countDocuments({ createdAt: { $gte: todayStart } });
 
-        // Expected Onboarding (active pipeline) - always shows full pipeline
-        const onboardingFilter = { status: { $nin: ['converted', 'lost', 'not_interested'] } };
+        const activeLeadFilter = { status: { $nin: ['converted', 'lost', 'not_interested'] } };
+        const periodLeadFilter = { createdAt: { $gte: periodStart, $lte: periodEnd } };
+        const onboardingFilter = { ...activeLeadFilter, ...periodLeadFilter };
         const expectedOnboarding = await Lead.countDocuments(onboardingFilter);
 
         const totalConversions = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } });
@@ -1149,30 +1150,52 @@ router.get('/founder', async (req, res) => {
         const conversionRate = totalLeads ? (totalConversions / totalLeads) * 100 : 0;
         
         // Optimized Staff Stats Batching
-        const staffStatsRaw = await User.aggregate([
-            { $match: { isActive: true, role: { $in: ['state_manager', 'industry_manager', 'executive'] } } },
-            { $group: { _id: '$role', count: { $sum: 1 } } }
-        ]);
+        const activeStaff = await User.find({
+            isActive: true,
+            role: { $in: ['state_manager', 'industry_manager', 'executive'] }
+        }).select('_id role');
+        const activeStaffIds = activeStaff.map(u => u._id);
 
-        const workingTodayRaw = await Attendance.aggregate([
-            { $match: { date: { $gte: todayStart }, workStartedAt: { $exists: true } } },
-            { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
-            { $unwind: '$user' },
-            { $group: { _id: '$user.role', count: { $sum: 1 } } }
-        ]);
+        const onLeaveToday = await Leave.find({
+            user: { $in: activeStaffIds },
+            status: 'approved',
+            fromDate: { $lte: new Date() },
+            toDate: { $gte: todayStart }
+        }).select('user');
+        const onLeaveUserIds = new Set(onLeaveToday.map(l => l.user.toString()));
 
-        const onLeaveTodayRaw = await Leave.aggregate([
-            { $match: { status: 'approved', fromDate: { $lte: new Date() }, toDate: { $gte: todayStart } } },
-            { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
-            { $unwind: '$user' },
-            { $group: { _id: '$user.role', count: { $sum: 1 } } }
-        ]);
+        const startedToday = await Attendance.find({
+            user: { $in: activeStaffIds },
+            date: { $gte: todayStart },
+            workStartedAt: { $exists: true }
+        }).select('user');
+        const startedUserIds = new Set(startedToday.map(a => a.user.toString()));
 
-        const getStaffObj = (role) => ({
-            total: staffStatsRaw.find(s => s._id === role)?.count || 0,
-            working: workingTodayRaw.find(w => w._id === role)?.count || 0,
-            onLeave: onLeaveTodayRaw.find(l => l._id === role)?.count || 0
+        const staffStatsRaw = ['state_manager', 'industry_manager', 'executive'].map((role) => {
+            const usersForRole = activeStaff.filter(u => u.role === role);
+            const onLeave = usersForRole.filter(u => onLeaveUserIds.has(u._id.toString())).length;
+            const working = usersForRole.filter(u => startedUserIds.has(u._id.toString()) && !onLeaveUserIds.has(u._id.toString())).length;
+            return {
+                _id: role,
+                count: usersForRole.length,
+                working,
+                onLeave,
+                notStarted: Math.max(0, usersForRole.length - working - onLeave)
+            };
         });
+
+        const workingTodayRaw = staffStatsRaw.map(s => ({ _id: s._id, count: s.working }));
+        const onLeaveTodayRaw = staffStatsRaw.map(s => ({ _id: s._id, count: s.onLeave }));
+
+        const getStaffObj = (role) => {
+            const stat = staffStatsRaw.find(s => s._id === role) || {};
+            return {
+                total: stat.count || 0,
+                working: stat.working || 0,
+                onLeave: stat.onLeave || 0,
+                notStarted: stat.notStarted || 0
+            };
+        };
 
         const stateManagers = getStaffObj('state_manager');
         const industryManagers = getStaffObj('industry_manager');
@@ -1299,15 +1322,9 @@ router.get('/founder', async (req, res) => {
         });
 
         // 4. Pending Leave
-        const pendingLeaveRequests = await Leave.find({
-            status: 'pending'
-        })
-        .populate({
-            path: 'user',
-            select: 'name role state industry',
-            match: { role: 'state_manager' } // Focus on SM for founder
-        })
-        .then(leaves => leaves.filter(l => l.user)); // Remove leaves from non-SM users
+        const pendingLeaveRequests = await Leave.find({ status: 'pending' })
+            .populate('user', 'name role state industry')
+            .then(leaves => leaves.filter(l => l.user));
 
         // 5. Recent Activity
         const recentActivity = await LeadActivity.find()
@@ -1370,16 +1387,15 @@ router.get('/founder', async (req, res) => {
             return pipelineStatsRaw.filter(p => statusArr.includes(p._id)).reduce((sum, p) => sum + p.count, 0);
         };
 
+        const allPipelineTotal = pipelineStatsRaw.reduce((sum, p) => sum + p.count, 0);
         const pipelineStats = [
-            { label: 'All', count: totalLeads, color: 'blue' },
+            { label: 'All', count: allPipelineTotal, color: 'blue' },
             { label: 'New', count: getPipelineCount('new'), color: 'blue' },
             { label: 'Follow-up', count: getPipelineCount(['called', 'followup']), color: 'purple' },
             { label: 'Meeting', count: getPipelineCount(['meeting_virtual', 'meeting_direct']), color: 'teal' },
-            { label: 'Hot', count: await Lead.countDocuments({ priority: 'hot', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'red' },
-            { label: 'Warm', count: await Lead.countDocuments({ priority: 'warm', status: { $nin: ['converted', 'lost', 'not_interested'] } }), color: 'orange' },
-            { label: 'RNR', count: getPipelineCount('rnr'), color: 'gray' },
             { label: 'Converted', count: getPipelineCount('converted'), color: 'green' },
-            { label: 'Lost', count: getPipelineCount(['lost', 'not_interested']), color: 'red' }
+            { label: 'Lost', count: getPipelineCount(['lost', 'not_interested']), color: 'red' },
+            { label: 'RNR', count: getPipelineCount('rnr'), color: 'gray' }
         ];
 
         // Optimized Performance Lists (Bulk Data Fetching)

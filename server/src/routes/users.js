@@ -77,7 +77,7 @@ router.post('/create-executive', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const query = {};
-    const { role, search } = req.query;
+    const { role, search, state, industry, reportingTo } = req.query;
 
     if (search) {
       query.$or = [
@@ -103,6 +103,9 @@ router.get('/', async (req, res) => {
     if (role) {
       query.role = role;
     }
+    if (state) query.state = state;
+    if (industry) query.industry = industry;
+    if (reportingTo) query.reportingTo = reportingTo;
 
     const users = await User.find(query).select('-password');
     res.json(users);

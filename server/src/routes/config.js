@@ -27,7 +27,9 @@ router.get('/:key', async (req, res) => {
           rules: {
             leaveThreshold: 30,
             halfDayThreshold: 70,
-            delayedLoginHalfDay: true
+            delayedLoginHalfDay: true,
+            earlyExitThresholdMinutes: 120,
+            lateLoginGraceMinutes: 30
           }
         }
       };

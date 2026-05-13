@@ -21,11 +21,11 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
     enabled: isOpen && !!lead
   });
 
-  // Step 2: load industry managers in the selected SM's state
+  // Step 2: load industry managers who report to the selected SM
   const selectedSM = stateManagers.find(m => m._id === selectedStateManagerId);
   const { data: industryManagers = [], isLoading: loadingIMs } = useQuery({
-    queryKey: ['users', 'alloc-ims', selectedStateManagerId, selectedSM?.state],
-    queryFn: () => usersApi.getUsers({ role: 'industry_manager', state: selectedSM?.state }).then(r => r.data),
+    queryKey: ['users', 'alloc-ims', selectedStateManagerId],
+    queryFn: () => usersApi.getUsers({ role: 'industry_manager', reportingTo: selectedStateManagerId }).then(r => r.data),
     enabled: isOpen && !!selectedStateManagerId && !!selectedSM?.state
   });
 
@@ -131,11 +131,11 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
           )}
         </div>
 
-        {/* Step 2 — Industry State Manager (optional — skipping allocates to SM directly) */}
+        {/* Step 2 — Industry Manager (optional — skipping allocates to SM directly) */}
         {selectedStateManagerId && (
           <div className="space-y-2">
             <label className="form-label">
-              Industry State Manager
+              Industry Manager
               <span className="ml-1 text-[10px] text-text-muted normal-case font-normal">
                 (optional — skip to allocate directly to State Manager)
               </span>

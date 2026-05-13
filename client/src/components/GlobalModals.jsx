@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Tag, FileUpload, Avatar } from './ui';
 import { useToast } from '../context/ToastContext';
@@ -36,14 +36,14 @@ const GlobalModals = () => {
   
   const getLeadFormDefaults = () => ({
     name: '', company: '', countryCode: '+91', phone: '', email: '',
-    country: isStateManager || isIndustryManager ? 'India' : '',
+    country: 'India',
     district: '',
     state: isStateManager ? (currentUser?.state || '') : '',
     // Fix: Region Type Filtering — added regionType field
     regionType: '',
     region: '',
     industry: isIndustryManager ? (currentUser?.industry || '') : '',
-    leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', ownerId: '', notes: '',
+    leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', industryManagerId: '', ownerId: '', notes: '',
     revenueCategory: 'other',
     meetingAt: '',
     meetingType: 'direct',
@@ -109,6 +109,21 @@ const GlobalModals = () => {
     meetingType: 'direct',
     notes: ''
   });
+
+  const selectedLeadStateManager = useMemo(
+    () => managers.find((m) => m._id === leadFormData.managerId),
+    [managers, leadFormData.managerId]
+  );
+
+  const leadIndustryManagerOptions = useMemo(() => {
+    if (!leadFormData.managerId) return [];
+    return industryManagers.filter((m) => m.reportingTo === leadFormData.managerId);
+  }, [industryManagers, leadFormData.managerId]);
+
+  const leadExecutiveOptions = useMemo(() => {
+    if (!leadFormData.industryManagerId) return [];
+    return executives.filter((e) => e.reportingTo === leadFormData.industryManagerId);
+  }, [executives, leadFormData.industryManagerId]);
 
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
@@ -190,7 +205,13 @@ const GlobalModals = () => {
     try {
       const { configApi } = await import('../api/configApi');
       const res = await configApi.getConfig('working-hours');
-      if (res.data?.value) setWorkingHours(res.data.value);
+      if (res.data?.value) {
+        setWorkingHours(prev => ({
+          ...prev,
+          ...res.data.value,
+          rules: { ...prev.rules, ...(res.data.value.rules || {}) }
+        }));
+      }
     } catch (err) {
       addToast('Error fetching configuration', 'error');
     }
@@ -343,11 +364,13 @@ const GlobalModals = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      const allocationOwnerId = isExecutive
+        ? currentUser._id
+        : (leadFormData.ownerId || leadFormData.industryManagerId || leadFormData.managerId || '');
       const leadData = {
         ...leadFormData,
         phone: `${leadFormData.countryCode}${leadFormData.phone}`,
-        // Executives always own the leads they create; backend enforces this too
-        ...(isExecutive && { ownerId: currentUser._id })
+        ownerId: allocationOwnerId || undefined
       };
       await leadsApi.createLead(leadData);
       addToast('Lead added successfully!', 'success');
@@ -658,16 +681,51 @@ const GlobalModals = () => {
             <div className="grid grid-cols-2 gap-x-10 gap-y-6">
               <div className="space-y-2">
                 <label className="form-label">Assign to State Manager</label>
-                <select className="select" value={leadFormData.managerId} onChange={(e)=>setLeadFormData({...leadFormData, managerId: e.target.value})}>
+                <select
+                  className="select"
+                  value={leadFormData.managerId}
+                  onChange={(e)=>setLeadFormData({
+                    ...leadFormData,
+                    managerId: e.target.value,
+                    industryManagerId: '',
+                    ownerId: ''
+                  })}
+                >
                   <option value="">Select State Manager</option>
-                  {managers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                  {managers
+                    .filter(m => !leadFormData.state || m.state === leadFormData.state)
+                    .map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="form-label">Assign to Executive</label>
-                <select className="select" value={leadFormData.ownerId} onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}>
-                  <option value="">Select Executive</option>
-                  {executives.map(ex => <option key={ex._id} value={ex._id}>{ex.name}</option>)}
+                <label className="form-label">Assign to Industry Manager</label>
+                <select
+                  className="select"
+                  value={leadFormData.industryManagerId}
+                  onChange={(e)=>setLeadFormData({
+                    ...leadFormData,
+                    industryManagerId: e.target.value,
+                    ownerId: ''
+                  })}
+                  disabled={!leadFormData.managerId}
+                >
+                  <option value="">{leadFormData.managerId ? 'Select Industry Manager' : 'Select State Manager first'}</option>
+                  {leadIndustryManagerOptions.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>)}
+                </select>
+                {leadFormData.managerId && leadIndustryManagerOptions.length === 0 && (
+                  <p className="text-[11px] text-amber font-medium">No industry managers report to {selectedLeadStateManager?.name || 'this state manager'}.</p>
+                )}
+              </div>
+              <div className="space-y-2 col-span-2">
+                <label className="form-label">Assign to District Executive</label>
+                <select
+                  className="select"
+                  value={leadFormData.ownerId}
+                  onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}
+                  disabled={!leadFormData.industryManagerId}
+                >
+                  <option value="">{leadFormData.industryManagerId ? 'Select District Executive' : 'Select Industry Manager first'}</option>
+                  {leadExecutiveOptions.map(ex => <option key={ex._id} value={ex._id}>{ex.name} ({ex.district || ex.state})</option>)}
                 </select>
               </div>
             </div>
@@ -1217,6 +1275,37 @@ const GlobalModals = () => {
         className="modal-lg"
       >
         <form onSubmit={handleWorkingHoursSubmit} className="space-y-8 py-2">
+          {/* NORMAL HOURS SECTION */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Normal Working Hours</div>
+              <div className="h-[1px] w-full bg-border"></div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+              <div className="space-y-2">
+                <label className="form-label">Start Time <span className="text-red">*</span></label>
+                <input
+                  className="input"
+                  type="time"
+                  value={workingHours.normalStart}
+                  onChange={(e) => setWorkingHours({...workingHours, normalStart: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="form-label">End Time <span className="text-red">*</span></label>
+                <input
+                  className="input"
+                  type="time"
+                  value={workingHours.normalEnd}
+                  onChange={(e) => setWorkingHours({...workingHours, normalEnd: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
           {/* RAMADAN HOURS SECTION */}
           <div className="space-y-6">
             <div className="flex items-center gap-4">

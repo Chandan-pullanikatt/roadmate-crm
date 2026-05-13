@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import Papa from 'papaparse';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Tag } from './ui';
 import { leadsApi } from '../api/leadsApi';
+import { usersApi } from '../api/usersApi';
 import { useToast } from '../context/ToastContext';
 
 // Fix: Bulk Upload Template — added Lead ID for update support
@@ -17,6 +18,11 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const [parsedData, setParsedData] = useState(null); // { headers: [], rows: [] }
   const [errors, setErrors] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [assignmentTargetId, setAssignmentTargetId] = useState('');
+  const [selectedStateManagerId, setSelectedStateManagerId] = useState('');
+  const [selectedIndustryManagerId, setSelectedIndustryManagerId] = useState('');
+  const [selectedExecutiveId, setSelectedExecutiveId] = useState('');
+  const [assignableUsers, setAssignableUsers] = useState([]);
   const fileInputRef = useRef(null);
 
   // Reset state when modal opens/closes
@@ -25,8 +31,41 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       setFile(null);
       setParsedData(null);
       setErrors([]);
+      setAssignmentTargetId('');
+      setSelectedStateManagerId('');
+      setSelectedIndustryManagerId('');
+      setSelectedExecutiveId('');
     }
   }, [isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    usersApi.getUsers()
+      .then((res) => {
+        const users = res.data || [];
+        setAssignableUsers(users.filter(u => ['state_manager', 'industry_manager', 'executive'].includes(u.role)));
+      })
+      .catch(() => setAssignableUsers([]));
+  }, [isOpen]);
+
+  const stateManagers = useMemo(
+    () => assignableUsers.filter(u => u.role === 'state_manager'),
+    [assignableUsers]
+  );
+
+  const industryManagerOptions = useMemo(
+    () => assignableUsers.filter(u => u.role === 'industry_manager' && u.reportingTo === selectedStateManagerId),
+    [assignableUsers, selectedStateManagerId]
+  );
+
+  const executiveOptions = useMemo(
+    () => assignableUsers.filter(u => u.role === 'executive' && u.reportingTo === selectedIndustryManagerId),
+    [assignableUsers, selectedIndustryManagerId]
+  );
+
+  React.useEffect(() => {
+    setAssignmentTargetId(selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '');
+  }, [selectedStateManagerId, selectedIndustryManagerId, selectedExecutiveId]);
 
   const bulkUploadMutation = useMutation({
     mutationFn: (data) => leadsApi.bulkUpload(data),
@@ -131,6 +170,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     if (!parsedData || parsedData.rows.length === 0) return;
     
     setIsProcessing(true);
+    const allocationTargetId = selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '';
     
     // Map CSV rows to API payload
     const payload = parsedData.rows.map(row => {
@@ -157,6 +197,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       const revenueRaw = getVal('expected revenue') || getVal('lead value') || getVal('revenue');
       return {
         ...(leadId ? { _id: leadId } : {}),
+        ...(allocationTargetId ? { ownerId: allocationTargetId } : {}),
         name: getVal('lead name') || getVal('name'),
         phone: rawPhone || undefined,
         alternatePhone: getVal('alternate'),
@@ -291,12 +332,64 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               )}
             </div>
 
-            <div className="p-4 bg-surface2/50 border border-border rounded-xl flex items-center justify-between mt-4">
-              <div>
-                <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
-                <div className="text-[11px] text-text-muted mt-0.5">Leads will be imported as Unallocated. You can bulk allocate them later.</div>
+            <div className="p-4 bg-surface2/50 border border-border rounded-xl mt-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
+                  <div className="text-[11px] text-text-muted mt-0.5">Optionally assign every lead in this upload to one manager or district executive.</div>
+                </div>
+                <Tag variant={assignmentTargetId ? 'green' : 'gray'} label={assignmentTargetId ? 'Will assign' : 'Unallocated'} />
               </div>
-              <Tag variant="gray" label="Unallocated" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                <div>
+                  <label className="form-label">State Manager</label>
+                  <select
+                    className="select"
+                    value={selectedStateManagerId}
+                    onChange={(e) => {
+                      setSelectedStateManagerId(e.target.value);
+                      setSelectedIndustryManagerId('');
+                      setSelectedExecutiveId('');
+                    }}
+                  >
+                    <option value="">Keep unallocated</option>
+                    {stateManagers.map(u => (
+                      <option key={u._id} value={u._id}>{u.name} ({u.state || 'State Manager'})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Industry Manager</label>
+                  <select
+                    className="select"
+                    value={selectedIndustryManagerId}
+                    disabled={!selectedStateManagerId}
+                    onChange={(e) => {
+                      setSelectedIndustryManagerId(e.target.value);
+                      setSelectedExecutiveId('');
+                    }}
+                  >
+                    <option value="">{selectedStateManagerId ? 'Assign to State Manager' : 'Select State Manager first'}</option>
+                    {industryManagerOptions.map(u => (
+                      <option key={u._id} value={u._id}>{u.name} ({[u.industry, u.state].filter(Boolean).join(' · ') || 'Industry Manager'})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">District Executive</label>
+                  <select
+                    className="select"
+                    value={selectedExecutiveId}
+                    disabled={!selectedIndustryManagerId}
+                    onChange={(e) => setSelectedExecutiveId(e.target.value)}
+                  >
+                    <option value="">{selectedIndustryManagerId ? 'Assign to Industry Manager' : 'Select Industry Manager first'}</option>
+                    {executiveOptions.map(u => (
+                      <option key={u._id} value={u._id}>{u.name} ({[u.district, u.state].filter(Boolean).join(' · ') || 'Executive'})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         )}

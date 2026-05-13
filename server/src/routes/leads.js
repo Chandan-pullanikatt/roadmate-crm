@@ -275,6 +275,7 @@ router.get('/queue', async (req, res) => {
 router.get('/counts', async (req, res) => {
   try {
     const query = {};
+    const { owner } = req.query;
 
     // Scoping based on role
     if (req.user.role === 'executive') {
@@ -283,6 +284,15 @@ router.get('/counts', async (req, res) => {
       query.state = req.user.state;
     } else if (req.user.role === 'industry_manager') {
       query.industry = req.user.industry;
+    }
+
+    if (owner === 'unassigned' || owner === 'none') {
+      query.$and = [
+        ...(query.$and || []),
+        { $or: [{ owner: null }, { owner: { $exists: false } }] }
+      ];
+    } else if (owner) {
+      query.owner = owner;
     }
 
     const counts = await Lead.aggregate([
@@ -361,7 +371,10 @@ router.get('/', async (req, res) => {
     }
     if (priority) query.priority = priority;
     if (owner === 'unassigned' || owner === 'none') {
-      query.owner = null; // unallocated leads
+      query.$and = [
+        ...(query.$and || []),
+        { $or: [{ owner: null }, { owner: { $exists: false } }] }
+      ];
     } else if (owner) {
       query.owner = owner;
     }
