@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Country, State, City } from 'country-state-city';
+// City is used for fallback when district data isn't in INDIA_DISTRICTS
 
 const INDIA_DISTRICTS = {
   Kerala: ['Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasaragod', 'Kollam', 'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad', 'Pathanamthitta', 'Thiruvananthapuram', 'Thrissur', 'Wayanad'],
@@ -52,16 +53,7 @@ const LocationSelector = ({
     return City.getCitiesOfState(selectedCountryCode, selectedStateCode);
   }, [selectedCountryCode, selectedStateCode, states]);
 
-  const regionOptions = useMemo(() => {
-    if (!selectedCountryCode || !selectedStateCode || !value.district || !value.regionType) return [];
-    const options = City.getCitiesOfState(selectedCountryCode, selectedStateCode)
-      .map(city => city.name)
-      .filter(Boolean);
-    const uniqueOptions = Array.from(new Set(options)).sort((a, b) => a.localeCompare(b));
-    if (uniqueOptions.length === 0 && value.district) uniqueOptions.push(value.district);
-    if (value.region && !uniqueOptions.includes(value.region)) uniqueOptions.unshift(value.region);
-    return uniqueOptions;
-  }, [selectedCountryCode, selectedStateCode, value.district, value.regionType, value.region]);
+  const isRegionEnabled = !disabled && !!value.district && !!value.regionType;
 
   // Pre-fill country code from value
   useEffect(() => {
@@ -172,7 +164,7 @@ const LocationSelector = ({
           {errors.regionType && <p className={errorClass}>{errors.regionType}</p>}
         </div>
 
-        {/* Region — Fix: only enabled after District AND RegionType are both selected */}
+        {/* Region — text input scoped to the selected district */}
         <div className="space-y-1">
           <label className={labelClass}>
             Region
@@ -182,23 +174,20 @@ const LocationSelector = ({
               </span>
             )}
           </label>
-          <select
+          <input
+            type="text"
             value={value.region || ''}
-            onChange={handleRegionChange}
-            disabled={disabled || !value.district || !value.regionType || regionOptions.length === 0}
-            className={selectClass(errors.region)}
-          >
-            <option value="">
-              {!value.district
+            onChange={(e) => handleRegionChange({ target: { value: e.target.value } })}
+            disabled={!isRegionEnabled}
+            placeholder={
+              !value.district
                 ? 'Select District first'
                 : !value.regionType
                   ? 'Select Region Type first'
-                  : regionOptions.length === 0
-                    ? 'No regions available'
-                    : `Select ${value.regionType}`}
-            </option>
-            {regionOptions.map(region => <option key={region} value={region}>{region}</option>)}
-          </select>
+                  : `Enter ${value.regionType} name`
+            }
+            className={selectClass(errors.region)}
+          />
           {errors.region && <p className={errorClass}>{errors.region}</p>}
         </div>
       </div>

@@ -395,6 +395,7 @@ const leadService = {
     }));
 
     return {
+      queue: fullQueue,
       currentLead,
       taskSequence,
       todayMeetings: meetingsFormatted,

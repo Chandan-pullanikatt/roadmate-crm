@@ -16,7 +16,14 @@ const MyWork = () => {
 
   const { data: queueData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'my-queue'],
-    queryFn: () => leadsApi.getQueue().then(res => res.data),
+    queryFn: () => leadsApi.getLeadQueue().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
+  });
+
+  const { data: allLeadsData, isLoading: allLeadsLoading } = useQuery({
+    queryKey: ['leads', 'sm-my-all'],
+    queryFn: () => leadsApi.getLeads({ limit: 100 }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -45,10 +52,11 @@ const MyWork = () => {
   });
 
   const transitionMutation = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(data.id, data.action, data.payload),
+    mutationFn: (data) => leadsApi.transitionLead(data.id, data.action, data.payload || {}),
     onSuccess: () => {
-      queryClient.invalidateQueries(['leads', 'my-queue']);
-      queryClient.invalidateQueries(['dashboard', 'personal']);
+      queryClient.invalidateQueries({ queryKey: ['leads', 'my-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['leads', 'sm-my-all'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'personal'] });
       toast.success("Lead status updated");
     }
   });
@@ -56,6 +64,7 @@ const MyWork = () => {
   const isWorking = !!personalDash?.attendance?.workStartedAt && !personalDash?.attendance?.workCompletedAt;
   const hasCompletedWork = !!personalDash?.attendance?.workCompletedAt;
   const myLeads = queueData?.queue || [];
+  const allMyLeads = allLeadsData?.leads || [];
   const currentLead = myLeads[currentLeadIdx];
   const isLastLead = currentLeadIdx >= myLeads.length;
   
@@ -69,7 +78,7 @@ const MyWork = () => {
     transitionMutation.mutate({ id: currentLead._id, action, payload });
   };
 
-  if (queueLoading || dashLoading) return <DashboardSkeleton />;
+  if (queueLoading || dashLoading || allLeadsLoading) return <DashboardSkeleton />;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -201,8 +210,8 @@ const MyWork = () => {
                    </div>
 
                    <div className="flex gap-4">
-                      <Button className="flex-1 bg-green text-white py-3" onClick={() => handleAction('call_done')}>✓ Call Completed</Button>
-                      <Button className="flex-1 border-amber text-amber border py-3" variant="outline" onClick={() => handleAction('rnr')}>📵 Mark RNR</Button>
+                      <Button className="flex-1 bg-green text-white py-3" onClick={() => handleAction('mark_called')}>✓ Call Completed</Button>
+                      <Button className="flex-1 border-amber text-amber border py-3" variant="outline" onClick={() => handleAction('mark_rnr')}>📵 Mark RNR</Button>
                       <Button className="px-6 border-border text-text-muted border" variant="outline" onClick={() => setCurrentLeadIdx(prev => prev + 1)}>Skip</Button>
                    </div>
                 </div>
@@ -274,18 +283,29 @@ const MyWork = () => {
               <Button size="sm" className="bg-blue text-white" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ Add Lead</Button>
            </div>
         </div>
-        <DataTable 
+        <DataTable
           columns={[
-            { header: 'ID', accessor: 'leadId', render: (val) => <span className="mono text-[11px] font-bold">{val || 'SM-01'}</span> },
+            { header: 'ID', accessor: 'leadId', render: (val, row) => <span className="mono text-[11px] font-bold">{val || (row._id ?? '').substring(0,8).toUpperCase()}</span> },
             { header: 'PARTNER / ORGANISATION', accessor: 'company', render: (val, row) => <div><div className="font-bold text-[13px]">{val || row.business}</div><div className="text-[11px] text-text-muted">{row.name} {"\u00B7"} {row.phone}</div></div> },
             { header: 'DISTRICT', accessor: 'district' },
-            { header: 'SOURCE', accessor: 'leadSource', render: (val) => <Tag variant="gray" label={val || 'Industry Partner'} /> },
-            { header: 'STATUS', accessor: 'priority', render: (val) => <Tag variant={val === 'hot' ? 'red' : val === 'warm' ? 'amber' : 'blue'} label={(val || 'COLD').toUpperCase()} /> },
+            { header: 'SOURCE', accessor: 'leadSource', render: (val) => <Tag variant="gray" label={val || 'Direct'} /> },
+            { header: 'STATUS', accessor: 'status', render: (val) => <Tag variant={val === 'converted' ? 'green' : (val === 'meeting_virtual' || val === 'meeting_direct') ? 'blue' : val === 'followup' ? 'amber' : 'gray'} label={(val || 'NEW').toUpperCase()} /> },
+            { header: 'PRIORITY', accessor: 'priority', render: (val) => <Tag variant={val === 'hot' ? 'red' : val === 'warm' ? 'amber' : 'blue'} label={(val || 'COLD').toUpperCase()} /> },
             { header: 'RNR', accessor: 'rnrCount', render: (val) => <span className="mono text-[11px] font-bold text-amber">{val ? `${val}x RNR` : '--'}</span> },
-            { header: 'REVENUE', accessor: 'expectedRevenue', render: (val) => <span className="mono font-bold text-[13px]">{"\u20B9"}{(val / 100000).toFixed(1)}L</span> },
-            { header: 'ACTION', accessor: '_id', render: (id, row, idx) => <Button size="xs" variant="blue" onClick={() => { setCurrentLeadIdx(idx); }}>Work Lead</Button>, align: 'right' }
+            { header: 'REVENUE', accessor: 'expectedRevenue', render: (val) => <span className="mono font-bold text-[13px]">{"\u20B9"}{((val || 0) / 100000).toFixed(1)}L</span> },
+            {
+              header: 'ACTION', accessor: '_id',
+              render: (id, row) => (
+                <Button size="xs" variant="blue" onClick={() => {
+                  const idx = myLeads.findIndex(l => l._id === id);
+                  if (idx !== -1) setCurrentLeadIdx(idx);
+                }}>Work Lead</Button>
+              ),
+              align: 'right'
+            }
           ]}
-          data={myLeads}
+          data={allMyLeads}
+          emptyMessage="No leads found. Add your first lead above."
         />
       </div>
 

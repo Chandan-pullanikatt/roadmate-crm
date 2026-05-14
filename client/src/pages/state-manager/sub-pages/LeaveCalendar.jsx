@@ -102,8 +102,22 @@ const LeaveCalendar = () => {
     onError: (err) => toast.error(err.response?.data?.message || "Failed to send request")
   });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const handleApply = (e) => {
     e.preventDefault();
+    if (!leaveForm.fromDate || !leaveForm.toDate) {
+      toast.error('Please select leave dates');
+      return;
+    }
+    if (leaveForm.fromDate < todayStr || leaveForm.toDate < todayStr) {
+      toast.error('Past dates cannot be selected for leave');
+      return;
+    }
+    if (leaveForm.toDate < leaveForm.fromDate) {
+      toast.error('To Date must be on or after the From Date');
+      return;
+    }
     applyMutation.mutate(leaveForm);
   };
 
@@ -265,19 +279,25 @@ const LeaveCalendar = () => {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-text-muted tracking-widest px-1">From Date</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       className="w-full bg-surface2/50 border border-border/50 rounded-xl px-4 py-3 text-[13px] font-bold outline-none focus:border-blue/50 transition-all"
+                      min={todayStr}
                       value={leaveForm.fromDate}
-                      onChange={e => setLeaveForm({...leaveForm, fromDate: e.target.value})}
+                      onChange={e => setLeaveForm({
+                        ...leaveForm,
+                        fromDate: e.target.value,
+                        toDate: leaveForm.toDate && leaveForm.toDate < e.target.value ? e.target.value : leaveForm.toDate
+                      })}
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-text-muted tracking-widest px-1">To Date</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       className="w-full bg-surface2/50 border border-border/50 rounded-xl px-4 py-3 text-[13px] font-bold outline-none focus:border-blue/50 transition-all"
+                      min={leaveForm.fromDate || todayStr}
                       value={leaveForm.toDate}
                       onChange={e => setLeaveForm({...leaveForm, toDate: e.target.value})}
                       required

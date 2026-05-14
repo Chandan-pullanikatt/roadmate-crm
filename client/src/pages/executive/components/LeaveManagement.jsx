@@ -38,6 +38,8 @@ const LeaveManagement = () => {
     enabled: !!currentUser?.state
   });
 
+  const today = new Date().toISOString().split('T')[0];
+
   const requestMutation = useMutation({
     mutationFn: (data) => leaveApi.createLeave(data),
     onSuccess: () => {
@@ -50,6 +52,22 @@ const LeaveManagement = () => {
       addToast(err.response?.data?.message || "Request failed", "error");
     }
   });
+
+  const handleLeaveSubmit = () => {
+    if (!leaveForm.fromDate || !leaveForm.toDate) {
+      addToast('Please select leave dates', 'warning');
+      return;
+    }
+    if (leaveForm.fromDate < today || leaveForm.toDate < today) {
+      addToast('Past dates cannot be selected for leave', 'warning');
+      return;
+    }
+    if (leaveForm.toDate < leaveForm.fromDate) {
+      addToast('To Date must be on or after the From Date', 'warning');
+      return;
+    }
+    requestMutation.mutate(leaveForm);
+  };
 
   // Calendar helpers
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -166,11 +184,27 @@ const LeaveManagement = () => {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="form-label">From Date</label>
-                <input type="date" className="form-input" value={leaveForm.fromDate} onChange={(e) => setLeaveForm({...leaveForm, fromDate: e.target.value})} />
+                <input
+                  type="date"
+                  className="form-input"
+                  min={today}
+                  value={leaveForm.fromDate}
+                  onChange={(e) => setLeaveForm({
+                    ...leaveForm,
+                    fromDate: e.target.value,
+                    toDate: leaveForm.toDate && leaveForm.toDate < e.target.value ? e.target.value : leaveForm.toDate
+                  })}
+                />
               </div>
               <div>
                 <label className="form-label">To Date</label>
-                <input type="date" className="form-input" value={leaveForm.toDate} onChange={(e) => setLeaveForm({...leaveForm, toDate: e.target.value})} />
+                <input
+                  type="date"
+                  className="form-input"
+                  min={leaveForm.fromDate || today}
+                  value={leaveForm.toDate}
+                  onChange={(e) => setLeaveForm({...leaveForm, toDate: e.target.value})}
+                />
               </div>
             </div>
             <div className="mb-4">
@@ -188,12 +222,12 @@ const LeaveManagement = () => {
             </div>
             <div className="flex justify-end gap-3">
               <button className="btn btn-outline" onClick={() => setIsRequestModalOpen(false)}>Cancel</button>
-              <button 
-                className="btn btn-orange" 
-                disabled={requestMutation.isLoading}
-                onClick={() => requestMutation.mutate(leaveForm)}
+              <button
+                className="btn btn-orange"
+                disabled={requestMutation.isPending}
+                onClick={handleLeaveSubmit}
               >
-                {requestMutation.isLoading ? "Submitting..." : "Submit Request"}
+                {requestMutation.isPending ? "Submitting..." : "Submit Request"}
               </button>
             </div>
           </div>
