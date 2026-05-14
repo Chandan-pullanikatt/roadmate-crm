@@ -65,6 +65,19 @@ const leadSchema = new mongoose.Schema({
   },
   regionType: { type: String, enum: ['Panchayat', 'Municipality', 'Corporation', ''], default: '' },
   region: { type: String },
+
+  // Client-specified bulk upload fields
+  leadHandling: { type: String },
+  messagedStatus: { type: String },
+  lastContactDate: { type: Date },
+  partnershipCategory: { type: String },
+  followUpNotes: { type: String },
+  followUpCount: { type: Number, default: 0 },
+  nextAction: { type: String },
+  outcome: { type: String },
+  blockingDate: { type: Date },
+  fullAmountReceivedDate: { type: Date },
+  reasonForLost: { type: String },
 }, { timestamps: true });
 
 // Performance Indexes

@@ -705,57 +705,76 @@ const GlobalModals = () => {
               <div className="text-[11px] font-bold text-[#1f2937] uppercase tracking-[0.2em] whitespace-nowrap">Allocation</div>
               <div className="h-[1px] w-full bg-border"></div>
             </div>
-            <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+
+            {isIndustryManager ? (
+              /* Industry managers only assign to their own executives */
               <div className="space-y-2">
-                <label className="form-label">Assign to State Manager</label>
-                <select
-                  className="select"
-                  value={leadFormData.managerId}
-                  onChange={(e)=>setLeadFormData({
-                    ...leadFormData,
-                    managerId: e.target.value,
-                    industryManagerId: '',
-                    ownerId: ''
-                  })}
-                >
-                  <option value="">Select State Manager</option>
-                  {managers
-                    .filter(m => !leadFormData.state || m.state === leadFormData.state)
-                    .map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="form-label">Assign to Industry Manager</label>
-                <select
-                  className="select"
-                  value={leadFormData.industryManagerId}
-                  onChange={(e)=>setLeadFormData({
-                    ...leadFormData,
-                    industryManagerId: e.target.value,
-                    ownerId: ''
-                  })}
-                  disabled={!leadFormData.managerId}
-                >
-                  <option value="">{leadFormData.managerId ? 'Select Industry Manager' : 'Select State Manager first'}</option>
-                  {leadIndustryManagerOptions.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>)}
-                </select>
-                {leadFormData.managerId && leadIndustryManagerOptions.length === 0 && (
-                  <p className="text-[11px] text-amber font-medium">No industry managers report to {selectedLeadStateManager?.name || 'this state manager'}.</p>
-                )}
-              </div>
-              <div className="space-y-2 col-span-2">
                 <label className="form-label">Assign to District Executive</label>
                 <select
                   className="select"
                   value={leadFormData.ownerId}
-                  onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}
-                  disabled={!leadFormData.industryManagerId}
+                  onChange={(e) => setLeadFormData({ ...leadFormData, ownerId: e.target.value })}
                 >
-                  <option value="">{leadFormData.industryManagerId ? 'Select District Executive' : 'Select Industry Manager first'}</option>
-                  {leadExecutiveOptions.map(ex => <option key={ex._id} value={ex._id}>{ex.name} ({ex.district || ex.state})</option>)}
+                  <option value="">Leave unassigned</option>
+                  {executives
+                    .filter(ex => ex.reportingTo === currentUser?._id || ex.reportingTo?.toString() === currentUser?._id?.toString())
+                    .map(ex => <option key={ex._id} value={ex._id}>{ex.name} ({ex.district || ex.state})</option>)}
                 </select>
               </div>
-            </div>
+            ) : (
+              /* Founder / State Manager — full SM → IM → Executive cascade */
+              <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+                <div className="space-y-2">
+                  <label className="form-label">Assign to State Manager</label>
+                  <select
+                    className="select"
+                    value={leadFormData.managerId}
+                    onChange={(e)=>setLeadFormData({
+                      ...leadFormData,
+                      managerId: e.target.value,
+                      industryManagerId: '',
+                      ownerId: ''
+                    })}
+                  >
+                    <option value="">Select State Manager</option>
+                    {managers
+                      .filter(m => !leadFormData.state || m.state === leadFormData.state)
+                      .map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="form-label">Assign to Industry Manager</label>
+                  <select
+                    className="select"
+                    value={leadFormData.industryManagerId}
+                    onChange={(e)=>setLeadFormData({
+                      ...leadFormData,
+                      industryManagerId: e.target.value,
+                      ownerId: ''
+                    })}
+                    disabled={!leadFormData.managerId}
+                  >
+                    <option value="">{leadFormData.managerId ? 'Select Industry Manager' : 'Select State Manager first'}</option>
+                    {leadIndustryManagerOptions.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>)}
+                  </select>
+                  {leadFormData.managerId && leadIndustryManagerOptions.length === 0 && (
+                    <p className="text-[11px] text-amber font-medium">No industry managers report to {selectedLeadStateManager?.name || 'this state manager'}.</p>
+                  )}
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <label className="form-label">Assign to District Executive</label>
+                  <select
+                    className="select"
+                    value={leadFormData.ownerId}
+                    onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}
+                    disabled={!leadFormData.industryManagerId}
+                  >
+                    <option value="">{leadFormData.industryManagerId ? 'Select District Executive' : 'Select Industry Manager first'}</option>
+                    {leadExecutiveOptions.map(ex => <option key={ex._id} value={ex._id}>{ex.name} ({ex.district || ex.state})</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
           )}
 

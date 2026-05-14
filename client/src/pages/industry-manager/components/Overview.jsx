@@ -13,15 +13,46 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { useToast } from '../../../context/ToastContext';
 
+const getCurrentDefaultValue = (tab) => {
+  const now = new Date();
+  if (tab === 'week') {
+    const week = Math.ceil(now.getDate() / 7);
+    return `Week ${week > 5 ? 5 : week}`;
+  }
+  if (tab === 'month') return now.toLocaleString('en-US', { month: 'long' });
+  if (tab === 'quarter') return `Q${Math.floor(now.getMonth() / 3) + 1}`;
+  if (tab === 'year') return String(now.getFullYear());
+  return '';
+};
+
+const getDropdownOptions = (tab) => {
+  if (tab === 'today') return [];
+  if (tab === 'week') return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+  if (tab === 'month') return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  if (tab === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'];
+  if (tab === 'year') {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => String(y - i));
+  }
+  return [];
+};
+
 const Overview = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [funnelPeriod, setFunnelPeriod] = useState('month');
+  const [summaryTab, setSummaryTab] = useState('month');
+  const [summaryPeriodValue, setSummaryPeriodValue] = useState(() => getCurrentDefaultValue('month'));
+
+  const handleTabChange = (t) => {
+    setSummaryTab(t);
+    setSummaryPeriodValue(getCurrentDefaultValue(t));
+  };
 
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['dashboard', 'industry-manager', summaryTab, summaryPeriodValue],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard(summaryTab, summaryPeriodValue).then(res => res.data),
+    staleTime: 0,
     placeholderData: (prev) => prev
   });
 
@@ -44,6 +75,7 @@ const Overview = () => {
   if (isLoading && !dashData) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
+  const periodStats = dashData?.periodStats || {};
   const team = dashData?.executivePerformance || [];
   const leadStats = dashData?.leadStats || {};
   const events = dashData?.upcomingEvents || [];
@@ -78,24 +110,49 @@ const Overview = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-border/60 shadow-sm">
-            <div className="flex -space-x-3 px-2">
-                {team.slice(0, 4).map((exec, i) => (
-                    <div key={i} className={`w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm av-${i % 5}`}>
-                        {getInitials(exec.name)}
-                    </div>
-                ))}
-                {team.length > 4 && (
-                    <div className="w-10 h-10 rounded-full border-2 border-white bg-surface2 flex items-center justify-center text-[10px] font-bold text-text-muted shadow-sm">
-                        +{team.length - 4}
-                    </div>
-                )}
-            </div>
-            <div className="h-8 w-px bg-border/60" />
-            <div className="pr-4 pl-2">
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-tight">Total Team</div>
-                <div className="text-sm font-bold text-purple">{team.length} Executives</div>
-            </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Period filter */}
+          <div className="flex bg-surface2 p-1 rounded-xl border border-border/40">
+            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+              <button
+                key={t}
+                onClick={() => handleTabChange(t)}
+                className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {summaryTab !== 'today' && (
+            <select
+              value={summaryPeriodValue}
+              onChange={(e) => setSummaryPeriodValue(e.target.value)}
+              className="bg-white border border-border rounded-xl px-3 py-1.5 text-[11px] font-bold text-text-secondary outline-none focus:border-purple shadow-sm"
+            >
+              {getDropdownOptions(summaryTab).map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          )}
+          <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-border/60 shadow-sm">
+              <div className="flex -space-x-3 px-2">
+                  {team.slice(0, 4).map((exec, i) => (
+                      <div key={i} className={`w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm av-${i % 5}`}>
+                          {getInitials(exec.name)}
+                      </div>
+                  ))}
+                  {team.length > 4 && (
+                      <div className="w-10 h-10 rounded-full border-2 border-white bg-surface2 flex items-center justify-center text-[10px] font-bold text-text-muted shadow-sm">
+                          +{team.length - 4}
+                      </div>
+                  )}
+              </div>
+              <div className="h-8 w-px bg-border/60" />
+              <div className="pr-4 pl-2">
+                  <div className="text-[10px] font-bold text-text-muted uppercase tracking-tight">Total Team</div>
+                  <div className="text-sm font-bold text-purple">{team.length} Executives</div>
+              </div>
+          </div>
         </div>
       </div>
 
@@ -117,13 +174,13 @@ const Overview = () => {
             deltaLabel="vs last month"
             colorClass="teal" 
         />
-        <StatCard 
-            label="Total Leads" 
-            value={stats.totalLeads || 0} 
-            delta={`\u2191 ${leadStats.new || 0} new this week`}
+        <StatCard
+            label="Total Leads"
+            value={periodStats.totalLeads ?? stats.totalLeads ?? 0}
+            delta={`\u2191 ${periodStats.new ?? leadStats.new ?? 0} new`}
             deltaType="up"
-            deltaLabel=""
-            colorClass="amber" 
+            deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
+            colorClass="amber"
         />
         <StatCard 
             label="Average Growth" 

@@ -2,7 +2,7 @@ import api from './axios';
 
 export const dashboardApi = {
   getExecutiveDashboard: () => api.get('/dashboard/executive'),
-  getIndustryManagerDashboard: () => api.get('/dashboard/industry-manager'),
+  getIndustryManagerDashboard: (period, value) => api.get('/dashboard/industry-manager', { params: period ? { period, value } : {} }),
   getStateManagerDashboard: () => api.get('/dashboard/state-manager'),
   getFounderDashboard: (period, value) => api.get('/dashboard/founder', { params: { period, value } }),
   getReport: (type, params) => api.get(`/dashboard/reports/${type}`, { params }),

@@ -6,9 +6,14 @@ import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { useToast } from '../context/ToastContext';
 
-// Fix: Bulk Upload Template — added Lead ID for update support
-const EXPECTED_HEADERS = ['Lead ID', 'Lead Name', 'Phone Number', 'Alternate Phone', 'Email', 'Company', 'State', 'District', 'Region', 'Industry', 'Lead Source', 'Assigned To', 'Current Status', 'Sub-Status', 'Follow-Up Date', 'Remarks', 'Expected Revenue', 'Created Date'];
-const REQUIRED_HEADERS = ['Lead Name', 'Phone'];
+const EXPECTED_HEADERS = [
+  'Lead ID', 'Date', 'Name', 'District & Place', 'Contact Information',
+  'Lead Handing', 'Lead Source', 'Messaged Status', 'Status', 'Last Contact Date',
+  'Remarks', 'Partnership Category', 'Industry', 'Next Follow-Up Date', 'Follow-Up Notes',
+  'No. of Followups', 'Priority Level', 'Next Action', 'Lead Value', 'Outcome',
+  'Blocking Date', 'Full Amount Received Date', 'Reason for Lost Leads'
+];
+const REQUIRED_HEADERS = ['Name', 'Contact Information'];
 
 const BulkUploadModal = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
@@ -126,14 +131,14 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         const rowErrors = [];
 
         results.data.forEach((row, index) => {
-          const nameKey = Object.keys(row).find(k => k.toLowerCase().includes('name'));
-          const phoneKey = Object.keys(row).find(k => k.toLowerCase().includes('phone'));
+          const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name' || k.toLowerCase() === 'lead name');
+          const contactKey = Object.keys(row).find(k => k.toLowerCase().includes('contact'));
           const idKey = Object.keys(row).find(k => k.toLowerCase() === 'lead id' || k.toLowerCase() === 'id');
           const isUpdateRow = !!(idKey && row[idKey]?.trim());
 
-          // Update rows (with a Lead ID) don't require Name/Phone — server will match by ID or phone
-          if (!isUpdateRow && (!row[nameKey] || !row[phoneKey])) {
-            rowErrors.push(`Row ${index + 1}: Missing Name or Phone (required for new leads)`);
+          // Update rows (with a Lead ID) don't require Name/Contact — server will match by ID
+          if (!isUpdateRow && (!row[nameKey] || !row[contactKey])) {
+            rowErrors.push(`Row ${index + 1}: Missing Name or Contact Information (required for new leads)`);
           } else {
             validRows.push(row);
           }
@@ -153,10 +158,33 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
 
   const handleDownloadTemplate = () => {
     const headers = EXPECTED_HEADERS.join(',');
-    // Fix: Template — Lead ID is first column (leave blank for new leads, fill for updates)
-    const sampleRow = ',John Doe,9876543210,9876543211,john@example.com,Acme Corp,Maharashtra,Mumbai,West,Technology,Referral,,New,,15/06/2026,Looking for CRM solution,500000,01/01/2026';
-    const updateRow = '60d21b4967d0d8992e610c85,Jane Smith,9876543212,,,Acme Ltd,Kerala,Kochi,South,Finance,Referral,,Follow-up,,20/06/2026,Follow up required,300000,';
-    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + sampleRow + "\n" + updateRow;
+    // Lead ID blank = new lead; Lead ID filled = update existing lead
+    const sampleRow = [
+      '',                        // Lead ID (blank for new)
+      '01/01/2026',              // Date
+      'John Doe',                // Name
+      'Ernakulam - Kakkanad',    // District & Place
+      '9876543210',              // Contact Information
+      'Rajesh Kumar',            // Lead Handing
+      'Referral',                // Lead Source
+      'Yes',                     // Messaged Status
+      'New',                     // Status
+      '',                        // Last Contact Date
+      'Interested in partnership', // Remarks
+      'Gold',                    // Partnership Category
+      'Technology',              // Industry
+      '15/06/2026',              // Next Follow-Up Date
+      'Call back after Monday',  // Follow-Up Notes
+      '0',                       // No. of Followups
+      'Hot',                     // Priority Level
+      'Schedule meeting',        // Next Action
+      '500000',                  // Lead Value
+      '',                        // Outcome
+      '',                        // Blocking Date
+      '',                        // Full Amount Received Date
+      ''                         // Reason for Lost Leads
+    ].join(',');
+    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + sampleRow;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -191,31 +219,66 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         return isNaN(d.getTime()) ? undefined : d.toISOString();
       };
 
-      // Include Lead ID for update flow; if present the backend upserts by ID or phone match
       const leadId = getVal('lead id') || getVal('id');
-      const rawPhone = (getVal('phone number') || getVal('phone'))?.toString().replace(/\D/g, '');
-      const revenueRaw = getVal('expected revenue') || getVal('lead value') || getVal('revenue');
+      // Contact Information column holds the primary phone number
+      const rawPhone = (getVal('contact information') || getVal('phone number') || getVal('phone'))
+        ?.toString().replace(/\D/g, '');
+      const revenueRaw = getVal('lead value') || getVal('expected revenue') || getVal('revenue');
+
+      // District & Place column may be "Ernakulam - Kakkanad" — split on ' - ' or ','
+      const districtPlace = getVal('district & place') || getVal('district') || '';
+      const [districtPart, placePart] = districtPlace.includes(' - ')
+        ? districtPlace.split(' - ')
+        : districtPlace.includes(',')
+          ? districtPlace.split(',')
+          : [districtPlace, ''];
+
+      // Normalize status value
+      const rawStatus = getVal('status') || getVal('current status') || '';
+      const statusMap = {
+        'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
+        'follow up': 'followup', 'rnr': 'rnr', 'meeting': 'meeting_direct',
+        'meeting virtual': 'meeting_virtual', 'meeting direct': 'meeting_direct',
+        'converted': 'converted', 'blocking amount received': 'blocking_amount_received',
+        'full amount received': 'full_amount_received', 'agreement signed': 'agreement_signed',
+        'lost': 'lost', 'not interested': 'not_interested', 'escalated': 'escalated'
+      };
+      const normalizedStatus = statusMap[rawStatus.toLowerCase()] || 'new';
+
+      // Normalize priority
+      const rawPriority = (getVal('priority level') || getVal('priority') || '').toLowerCase();
+      const normalizedPriority = rawPriority.includes('hot') ? 'hot'
+        : rawPriority.includes('warm') ? 'warm'
+        : rawPriority.includes('cold') ? 'cold'
+        : 'cold';
+
       return {
         ...(leadId ? { _id: leadId } : {}),
         ...(allocationTargetId ? { ownerId: allocationTargetId } : {}),
-        name: getVal('lead name') || getVal('name'),
+        name: getVal('name') || getVal('lead name'),
         phone: rawPhone || undefined,
-        alternatePhone: getVal('alternate'),
-        email: getVal('email'),
-        company: getVal('company'),
-        state: getVal('state'),
-        district: getVal('district') || getVal('district & place'),
-        region: getVal('region'),
-        industry: getVal('industry'),
+        district: districtPart?.trim() || undefined,
+        region: placePart?.trim() || undefined,
+        state: getVal('state') || undefined,
+        industry: getVal('industry') || undefined,
         leadSource: getVal('lead source') || 'Bulk Upload',
-        assignedTo: getVal('assigned to') || getVal('lead handing'),
-        status: getVal('current status') || getVal('status') || getVal('messaged status'),
-        subStatus: getVal('sub-status') || getVal('sub status'),
-        followUpDate: parseDate(getVal('follow-up date') || getVal('next follow-up date') || getVal('follow up date')),
-        remarks: getVal('remarks') || getVal('follow-up notes') || getVal('notes'),
-        priority: getVal('priority level') || getVal('priority'),
+        leadHandling: getVal('lead handing') || getVal('lead handling') || undefined,
+        messagedStatus: getVal('messaged status') || undefined,
+        status: normalizedStatus,
+        lastContactDate: parseDate(getVal('last contact date')),
+        remarks: getVal('remarks') || undefined,
+        partnershipCategory: getVal('partnership category') || undefined,
+        followUpDate: parseDate(getVal('next follow-up date') || getVal('follow-up date')),
+        followUpNotes: getVal('follow-up notes') || getVal('followup notes') || undefined,
+        followUpCount: Number(getVal('no. of followups') || getVal('no of followups') || 0),
+        priority: normalizedPriority,
+        nextAction: getVal('next action') || undefined,
         expectedRevenue: revenueRaw ? Number(revenueRaw) : 0,
-        createdDate: parseDate(getVal('created date') || getVal('date')),
+        outcome: getVal('outcome') || undefined,
+        blockingDate: parseDate(getVal('blocking date')),
+        fullAmountReceivedDate: parseDate(getVal('full amount received date')),
+        reasonForLost: getVal('reason for lost leads') || getVal('reason for lost') || undefined,
+        createdDate: parseDate(getVal('date') || getVal('created date')),
       };
     });
 
@@ -237,7 +300,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         <div className="p-4 bg-blue-light/30 border border-blue/20 rounded-2xl flex gap-3 items-start">
           <span className="text-blue text-lg">ℹ️</span>
           <div className="text-xs text-text-secondary leading-relaxed">
-            Required columns: <span className="font-bold text-text-primary">Lead Name</span> and <span className="font-bold text-text-primary">Phone Number</span>. Missing either will skip that row.<br />
+            Required columns: <span className="font-bold text-text-primary">Name</span> and <span className="font-bold text-text-primary">Contact Information</span>. Missing either will skip that row.<br />
             To <span className="font-bold text-text-primary">update an existing lead</span>, include its <span className="font-bold text-text-primary">Lead ID</span> in the first column — the row will be treated as an update instead of a new insert.<br />
             <button type="button" onClick={handleDownloadTemplate} className="text-blue font-bold hover:underline mt-1 bg-transparent border-none cursor-pointer p-0">Download CSV Template</button>
           </div>

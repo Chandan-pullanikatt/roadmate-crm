@@ -151,6 +151,27 @@ const bulkCreateLeads = async (req, res) => {
           if (!isNaN(cDate.getTime())) normalized.createdAt = cDate;
         }
 
+        // New client-specified date fields
+        const parseDateField = (val) => {
+          if (!val) return undefined;
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? undefined : d;
+        };
+        if (item.lastContactDate) normalized.lastContactDate = parseDateField(item.lastContactDate);
+        if (item.blockingDate) normalized.blockingDate = parseDateField(item.blockingDate);
+        if (item.fullAmountReceivedDate) normalized.fullAmountReceivedDate = parseDateField(item.fullAmountReceivedDate);
+
+        // New string fields passed through normalizeLeadPayload already via spread,
+        // but explicitly set here for clarity
+        if (item.leadHandling) normalized.leadHandling = item.leadHandling;
+        if (item.messagedStatus) normalized.messagedStatus = item.messagedStatus;
+        if (item.partnershipCategory) normalized.partnershipCategory = item.partnershipCategory;
+        if (item.followUpNotes) normalized.followUpNotes = item.followUpNotes;
+        if (item.followUpCount !== undefined) normalized.followUpCount = Number(item.followUpCount) || 0;
+        if (item.nextAction) normalized.nextAction = item.nextAction;
+        if (item.outcome) normalized.outcome = item.outcome;
+        if (item.reasonForLost) normalized.reasonForLost = item.reasonForLost;
+
         // --- UPSERT LOGIC ---
         // Extract _id from payload (may be a MongoDB ObjectId or a custom string ID)
         const { _id: rawLeadId, ...insertPayload } = normalized;

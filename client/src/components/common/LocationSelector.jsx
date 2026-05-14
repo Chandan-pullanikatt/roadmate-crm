@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Country, State, City } from 'country-state-city';
+import KERALA_LOCAL_BODIES from '../../data/keralaLocalBodies';
 // City is used for fallback when district data isn't in INDIA_DISTRICTS
 
 const INDIA_DISTRICTS = {
@@ -54,6 +55,17 @@ const LocationSelector = ({
   }, [selectedCountryCode, selectedStateCode, states]);
 
   const isRegionEnabled = !disabled && !!value.district && !!value.regionType;
+
+  // Kerala local body options based on selected district + region type
+  const keralaRegionOptions = useMemo(() => {
+    if (value.country !== 'India' || value.state !== 'Kerala') return [];
+    if (!value.district || !value.regionType) return [];
+    const districtData = KERALA_LOCAL_BODIES[value.district];
+    if (!districtData) return [];
+    return districtData[value.regionType] || [];
+  }, [value.country, value.state, value.district, value.regionType]);
+
+  const useKeralaDropdown = keralaRegionOptions.length > 0;
 
   // Pre-fill country code from value
   useEffect(() => {
@@ -164,7 +176,7 @@ const LocationSelector = ({
           {errors.regionType && <p className={errorClass}>{errors.regionType}</p>}
         </div>
 
-        {/* Region — text input scoped to the selected district */}
+        {/* Region — dropdown for Kerala, text input for other states */}
         <div className="space-y-1">
           <label className={labelClass}>
             Region
@@ -174,20 +186,34 @@ const LocationSelector = ({
               </span>
             )}
           </label>
-          <input
-            type="text"
-            value={value.region || ''}
-            onChange={(e) => handleRegionChange({ target: { value: e.target.value } })}
-            disabled={!isRegionEnabled}
-            placeholder={
-              !value.district
-                ? 'Select District first'
-                : !value.regionType
-                  ? 'Select Region Type first'
-                  : `Enter ${value.regionType} name`
-            }
-            className={selectClass(errors.region)}
-          />
+          {useKeralaDropdown ? (
+            <select
+              value={value.region || ''}
+              onChange={handleRegionChange}
+              disabled={!isRegionEnabled}
+              className={selectClass(errors.region)}
+            >
+              <option value="">Select {value.regionType}</option>
+              {keralaRegionOptions.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={value.region || ''}
+              onChange={(e) => handleRegionChange({ target: { value: e.target.value } })}
+              disabled={!isRegionEnabled}
+              placeholder={
+                !value.district
+                  ? 'Select District first'
+                  : !value.regionType
+                    ? 'Select Region Type first'
+                    : `Enter ${value.regionType} name`
+              }
+              className={selectClass(errors.region)}
+            />
+          )}
           {errors.region && <p className={errorClass}>{errors.region}</p>}
         </div>
       </div>

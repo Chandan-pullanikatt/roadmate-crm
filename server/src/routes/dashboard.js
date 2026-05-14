@@ -368,9 +368,15 @@ router.get('/industry-manager', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: Industry Manager only' });
     }
 
+    // Accept optional period/value for time-filtered summary
+    const { period = 'month', value } = req.query;
+
     const { start: todayStart, end: todayEnd } = getDateRange('today');
     const { start: weekStart } = getDateRange('weekly');
     const { start: monthStart } = getDateRange('monthly');
+
+    // Selected period range used for lead stats & revenue summary
+    const { start: periodStart, end: periodEnd } = getDateRange(period, value);
 
     const prevMonthStart = new Date(monthStart);
     prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
@@ -459,18 +465,33 @@ router.get('/industry-manager', async (req, res) => {
       direct: meetingStats.find(s => s._id === 'meeting_done' || s._id === 'direct_meeting')?.count || 0
     };
 
-    // 5. Lead Stats & Funnel
-    const leads = await Lead.find({ industry: req.user.industry, state: req.user.state });
+    // 5. Lead Stats & Funnel — period-filtered when a period is selected
+    const baseLeadQuery = { industry: req.user.industry, state: req.user.state };
+    const periodLeadQuery = { ...baseLeadQuery, createdAt: { $gte: periodStart, $lte: periodEnd } };
+
+    const [allLeads, periodLeads] = await Promise.all([
+      Lead.find(baseLeadQuery),
+      Lead.find(periodLeadQuery)
+    ]);
+
+    // Overall funnel (all-time) for the pipeline card
     const leadStats = {
-      total: leads.length,
-      new: leads.filter(l => l.status === 'new').length,
-      hot: leads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
-      warm: leads.filter(l => l.priority === 'warm' && !['converted', 'lost'].includes(l.status)).length,
-      followup: leads.filter(l => l.status === 'followup').length,
-      converted: leads.filter(l => l.status === 'converted').length,
-      lost: leads.filter(l => l.status === 'lost').length,
-      rnr: leads.filter(l => l.status === 'rnr').length,
-      escalated: leads.filter(l => l.status === 'escalated').length,
+      total: allLeads.length,
+      new: allLeads.filter(l => l.status === 'new').length,
+      hot: allLeads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
+      warm: allLeads.filter(l => l.priority === 'warm' && !['converted', 'lost'].includes(l.status)).length,
+      followup: allLeads.filter(l => l.status === 'followup').length,
+      converted: allLeads.filter(l => l.status === 'converted').length,
+      lost: allLeads.filter(l => l.status === 'lost').length,
+      rnr: allLeads.filter(l => l.status === 'rnr').length,
+      escalated: allLeads.filter(l => l.status === 'escalated').length,
+    };
+
+    // Period-filtered summary stats shown in the stat cards
+    const periodStats = {
+      totalLeads: periodLeads.length,
+      converted: periodLeads.filter(l => l.status === 'converted').length,
+      new: periodLeads.filter(l => l.status === 'new').length,
     };
 
     // 6. Optimized Executive Performance (Bulk queries)
@@ -569,14 +590,14 @@ router.get('/industry-manager', async (req, res) => {
     }).populate('user', 'name role district');
 
     // 10. All Leads for Management Table
-    const allLeads = await Lead.find({ 
-      industry: req.user.industry, 
-      state: req.user.state 
+    const allLeadsPopulated = await Lead.find({
+      industry: req.user.industry,
+      state: req.user.state
     })
     .populate('owner', 'name')
     .sort({ createdAt: -1 });
 
-    const leadsFormatted = allLeads.map((l, idx) => ({
+    const leadsFormatted = allLeadsPopulated.map((l, idx) => ({
       _id: l._id,
       leadId: l.leadId || `RM-A${String(idx + 1).padStart(3, '0')}`,
       company: l.company || 'Private Client',
@@ -611,6 +632,8 @@ router.get('/industry-manager', async (req, res) => {
         meetings: meetings,
         rnrLeads: leadStats.rnr
       },
+      periodStats,
+      activePeriod: { period, value: value || null },
       executivePerformance,
       leads: leadsFormatted,
       leadStats,
