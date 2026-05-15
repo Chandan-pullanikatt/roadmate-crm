@@ -1,7 +1,7 @@
 import api from './axios';
 
 export const attendanceApi = {
-  startWork: () => api.post('/attendance/start'),
+  startWork: (data) => api.post('/attendance/start', data),
   endWork: (attendanceId) => api.post('/attendance/complete', { attendanceId }),
   completeWork: (attendanceId) => api.post('/attendance/complete', { attendanceId }),
   getTodayAttendance: () => api.get('/attendance/today'),

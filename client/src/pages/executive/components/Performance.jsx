@@ -2,20 +2,50 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { targetsApi } from '../../../api/targetsApi';
+import { useAuth } from '../../../hooks/useAuth';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const getDefaultValue = (filter) => {
+  const now = new Date();
+  if (filter === 'Week') return `Week ${Math.min(Math.ceil(now.getDate() / 7), 5)}`;
+  if (filter === 'Month') return MONTHS[now.getMonth()];
+  if (filter === 'Quarter') return `Q${Math.floor(now.getMonth() / 3) + 1}`;
+  if (filter === 'Year') return String(now.getFullYear());
+  return '';
+};
+
+const getOptions = (filter) => {
+  if (filter === 'Week') return ['Week 1','Week 2','Week 3','Week 4','Week 5'];
+  if (filter === 'Month') return MONTHS;
+  if (filter === 'Quarter') return ['Q1','Q2','Q3','Q4'];
+  if (filter === 'Year') {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => String(y - i));
+  }
+  return [];
+};
+
 const Performance = () => {
+  const { user } = useAuth();
   const [timeFilter, setTimeFilter] = useState('Month');
+  const [periodValue, setPeriodValue] = useState(() => getDefaultValue('Month'));
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
+  const handleFilterChange = (f) => {
+    setTimeFilter(f);
+    setPeriodValue(getDefaultValue(f));
+  };
+
   // 1. Fetch Performance Data
   const { data, isLoading } = useQuery({
-    queryKey: ['performance', 'executive', month, year],
-    queryFn: () => dashboardApi.getPerformance({ month, year }).then(res => res.data)
+    queryKey: ['performance', 'executive', timeFilter, periodValue],
+    queryFn: () => dashboardApi.getPerformance({ month, year, period: timeFilter.toLowerCase(), value: periodValue }).then(res => res.data)
   });
 
   const metrics = data?.metrics || {};
@@ -43,18 +73,29 @@ const Performance = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Summary & Reports</h1>
-          <p className="text-sm text-muted">Performance Summary {"\u00B7"} District Executive {"\u00B7"} Mohan R. {"\u00B7"} Mumbai</p>
+          <p className="text-sm text-muted">Performance Summary {"\u00B7"} District Executive {"\u00B7"} {user?.name || 'Executive'} {"\u00B7"} {user?.district || user?.state || ''}</p>
         </div>
-        <div className="flex bg-surface border border-border rounded-lg p-1">
-          {['Week', 'Month', 'Quarter', 'Year'].map(f => (
-            <button 
-              key={f}
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${timeFilter === f ? 'bg-[#FFFBEB] text-[#92400E] shadow-sm' : 'text-muted hover:bg-surface2'}`}
-              onClick={() => setTimeFilter(f)}
-            >
-              {f}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex bg-surface border border-border rounded-lg p-1">
+            {['Week', 'Month', 'Quarter', 'Year'].map(f => (
+              <button
+                key={f}
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${timeFilter === f ? 'bg-[#FFFBEB] text-[#92400E] shadow-sm' : 'text-muted hover:bg-surface2'}`}
+                onClick={() => handleFilterChange(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <select
+            value={periodValue}
+            onChange={(e) => setPeriodValue(e.target.value)}
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[11px] font-bold text-text-secondary outline-none focus:border-orange shadow-sm"
+          >
+            {getOptions(timeFilter).map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
         </div>
       </div>
 

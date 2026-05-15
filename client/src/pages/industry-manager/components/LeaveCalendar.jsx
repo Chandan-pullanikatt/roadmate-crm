@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Tag, Button, Avatar, Modal, DashboardSkeleton } from '../../../components/ui';
+import { Tag, Button, Avatar, DashboardSkeleton } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 
@@ -12,7 +12,6 @@ const LeaveCalendar = () => {
   const { addToast } = useToast();
 
   const [viewDate, setViewDate] = useState(new Date());
-  const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [leaveForm, setLeaveForm] = useState({
     type: 'Casual Leave',
     fromDate: '',
@@ -48,13 +47,6 @@ const LeaveCalendar = () => {
     placeholderData: (prev) => prev
   });
 
-  // 4. Leave Policy (fetched lazily when modal opens)
-  const { data: leavePolicy, isLoading: policyLoading } = useQuery({
-    queryKey: ['leave-policy', currentUser?.state],
-    queryFn: () => leaveApi.getLeavePolicy(currentUser.state).then(res => res.data),
-    enabled: showPolicyModal && !!currentUser?.state,
-    staleTime: 10 * 60 * 1000
-  });
 
   const userInfo = dashData?.user || currentUser || {};
 
@@ -143,7 +135,7 @@ const LeaveCalendar = () => {
           <h2 className="text-lg font-bold">Leave Calendar · {userInfo.industry} Team</h2>
           <p className="text-xs text-text-muted">Executive leave approvals - My leave request to State Manager</p>
         </div>
-        <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => setShowPolicyModal(true)}>
+        <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'leave-policy' }))}>
            📜 Leave Policy
         </Button>
       </div>
@@ -297,86 +289,6 @@ const LeaveCalendar = () => {
         </div>
       </div>
 
-      {/* Leave Policy Modal */}
-      <Modal
-        isOpen={showPolicyModal}
-        title="Leave Policy"
-        subtitle={`${currentUser?.state || ''} — ${new Date().getFullYear()}`}
-        onClose={() => setShowPolicyModal(false)}
-      >
-        {policyLoading ? (
-          <div className="py-12 text-center text-text-muted text-sm font-medium">Loading policy...</div>
-        ) : !leavePolicy ? (
-          <div className="py-12 text-center">
-            <div className="text-3xl mb-3">📋</div>
-            <div className="text-text-muted text-sm font-medium">No leave policy configured for {currentUser?.state || 'your state'} yet.</div>
-            <p className="text-xs text-text-muted mt-2">Contact the founder to set up the leave policy.</p>
-          </div>
-        ) : (
-          <div className="space-y-6 py-2">
-            {/* Leave Quotas */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-purple-light/30 border border-purple/10 rounded-2xl">
-                <div className="text-[10px] font-black text-purple uppercase tracking-widest mb-1">Paid Leave</div>
-                <div className="text-2xl font-black text-text-primary">{((leavePolicy.paidLeavesPerMonth || 0) * 12).toFixed(0)}</div>
-                <div className="text-[11px] text-text-muted font-medium">days per year ({leavePolicy.paidLeavesPerMonth || 0}/month)</div>
-              </div>
-              <div className="p-4 bg-amber-light/30 border border-amber/10 rounded-2xl">
-                <div className="text-[10px] font-black text-amber uppercase tracking-widest mb-1">Optional Holidays</div>
-                <div className="text-2xl font-black text-text-primary">{leavePolicy.optionalHolidayQuota || 0}</div>
-                <div className="text-[11px] text-text-muted font-medium">quota from optional list</div>
-              </div>
-            </div>
-
-            {/* Work Timing */}
-            {(leavePolicy.normalWorkStart || leavePolicy.ramadanWorkStart) && (
-              <div className="p-4 bg-surface2/50 border border-border/40 rounded-2xl space-y-2">
-                <div className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-3">Work Timings</div>
-                {leavePolicy.normalWorkStart && (
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-text-secondary">Normal hours</span>
-                    <span className="font-bold text-text-primary">{leavePolicy.normalWorkStart} – {leavePolicy.normalWorkEnd || '18:30'}</span>
-                  </div>
-                )}
-                {leavePolicy.ramadanWorkStart && (
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-text-secondary">Ramadan hours</span>
-                    <span className="font-bold text-text-primary">{leavePolicy.ramadanWorkStart} – {leavePolicy.ramadanWorkEnd || '17:30'}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Holidays List */}
-            {leavePolicy.holidays?.length > 0 && (
-              <div>
-                <div className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-3">
-                  Holidays ({leavePolicy.holidays.length})
-                </div>
-                <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1 scrollbar-hide">
-                  {leavePolicy.holidays.map((h, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-surface/40 border border-border/30">
-                      <div>
-                        <div className="text-sm font-bold text-text-primary">{h.name}</div>
-                        <div className="text-[11px] text-text-muted font-medium">
-                          {new Date(h.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </div>
-                      </div>
-                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                        h.type === 'optional' ? 'bg-amber-light text-amber' :
-                        h.type === 'national' ? 'bg-red-light text-red' :
-                        'bg-blue-light text-blue'
-                      }`}>
-                        {h.type || 'public'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };

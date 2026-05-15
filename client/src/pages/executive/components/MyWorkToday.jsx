@@ -85,6 +85,7 @@ const MyWorkToday = () => {
     onSuccess: () => {
       addToast("Great work today! All logs synchronized.", "success");
       refetchAttendance();
+      queryClient.invalidateQueries(['dashboard', 'executive']);
     }
   });
 

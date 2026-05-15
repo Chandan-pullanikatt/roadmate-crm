@@ -188,7 +188,7 @@ const Performance = () => {
                     <span className="text-[11px] font-black text-text-primary">{formatCurrency(exec.revenue)}</span>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="text-[11px] font-bold text-text-muted">{exec.leaves || 2}</span>
+                    <span className="text-[11px] font-bold text-text-muted">{exec.leaves ?? 0}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

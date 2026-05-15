@@ -107,8 +107,8 @@ const getLeaveBalance = async (user) => {
   }, {});
 
   return {
-    paid: (policy.paidLeave || 0) - (used.paid || 0),
-    optionalHoliday: (policy.optionalHolidays || 0) - (used.optional_holiday || 0)
+    paid: (policy.paidLeavesPerMonth || 0) - (used.paid || 0),
+    optionalHoliday: (policy.optionalHolidayQuota || 0) - (used.optional_holiday || 0)
   };
 };
 
@@ -487,11 +487,33 @@ router.get('/industry-manager', async (req, res) => {
       escalated: allLeads.filter(l => l.status === 'escalated').length,
     };
 
-    // Period-filtered summary stats shown in the stat cards
+    // Period-filtered activity stats (calls, meetings, revenue)
+    const [periodActivities, periodMeetingLeads, activeLeadsCount] = await Promise.all([
+      LeadActivity.find({
+        performedBy: { $in: teamIds },
+        createdAt: { $gte: periodStart, $lte: periodEnd }
+      }),
+      Lead.countDocuments({
+        industry: req.user.industry,
+        state: req.user.state,
+        meetingAt: { $gte: periodStart, $lte: periodEnd }
+      }),
+      // Active leads — live snapshot, not period-filtered
+      Lead.countDocuments({
+        owner: { $in: teamIds },
+        status: { $nin: ['converted', 'lost', 'not_interested'] }
+      })
+    ]);
+
     const periodStats = {
       totalLeads: periodLeads.length,
       converted: periodLeads.filter(l => l.status === 'converted').length,
       new: periodLeads.filter(l => l.status === 'new').length,
+      calls: periodActivities.filter(a => a.action === 'called').length,
+      meetings: periodMeetingLeads,
+      revenue: periodActivities
+        .filter(a => a.action === 'converted' && a.metadata?.revenue)
+        .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
     };
 
     // 6. Optimized Executive Performance (Bulk queries)
@@ -633,6 +655,7 @@ router.get('/industry-manager', async (req, res) => {
         rnrLeads: leadStats.rnr
       },
       periodStats,
+      activeLeads: activeLeadsCount,
       activePeriod: { period, value: value || null },
       executivePerformance,
       leads: leadsFormatted,
@@ -737,7 +760,16 @@ router.get('/state-manager', async (req, res) => {
             status: 'half-day'
         });
 
-        const totalWorkDays = 25; // standard
+        const totalWorkDays = (() => {
+            const y = monthStart.getFullYear(), m = monthStart.getMonth();
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            let count = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const day = new Date(y, m, d).getDay();
+                if (day !== 0 && day !== 6) count++;
+            }
+            return count;
+        })();
         const monthlyAttendanceRecords = await Attendance.countDocuments({
             user: { $in: executiveIds },
             date: { $gte: monthStart },
@@ -1854,14 +1886,13 @@ router.put('/salary/:id', async (req, res) => {
 router.get('/performance', async (req, res) => {
   try {
     const userId = req.user._id;
-    const { month, year } = req.query;
-    
-    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
-    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+    const { month, year, period, value } = req.query;
 
-    const start = new Date(targetYear, targetMonth - 1, 1);
-    const end = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
+    const { start, end } = getDateRange(period || 'month', value);
 
+    const now = new Date();
+    const targetMonth = month ? parseInt(month) : now.getMonth() + 1;
+    const targetYear = year ? parseInt(year) : now.getFullYear();
     const prevStart = new Date(targetYear, targetMonth - 2, 1);
     const prevEnd = new Date(targetYear, targetMonth - 1, 0, 23, 59, 59, 999);
 

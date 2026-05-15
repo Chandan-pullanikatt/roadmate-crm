@@ -76,6 +76,7 @@ const Overview = () => {
 
   const stats = dashData?.stats || {};
   const periodStats = dashData?.periodStats || {};
+  const activeLeads = dashData?.activeLeads ?? 0;
   const team = dashData?.executivePerformance || [];
   const leadStats = dashData?.leadStats || {};
   const events = dashData?.upcomingEvents || [];
@@ -156,40 +157,91 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Main Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-            label="District Executives" 
-            value={stats.totalExecutives || 0} 
-            delta={`${stats.activeToday || 0} active today`} 
+      {/* Main Stat Cards \u2014 8 cards, 4 per row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {/* Row 1 \u2014 Always live (not period-filtered) */}
+        <StatCard
+            label="District Executives"
+            value={stats.totalExecutives || 0}
+            delta={`${stats.activeToday || 0} active today`}
             deltaType="up"
             deltaLabel=""
-            colorClass="purple" 
-        />
-        <StatCard 
-            label="Total Revenue" 
-            value={formatCurrency(stats.revenue || 0)} 
-            delta={`${stats.revGrowth || 0}%`}
-            deltaType={stats.revGrowth >= 0 ? 'up' : 'down'}
-            deltaLabel="vs last month"
-            colorClass="teal" 
+            colorClass="purple"
         />
         <StatCard
-            label="Total Leads"
-            value={periodStats.totalLeads ?? stats.totalLeads ?? 0}
-            delta={`\u2191 ${periodStats.new ?? leadStats.new ?? 0} new`}
+            label="Active Leads"
+            value={activeLeads}
+            delta="Live pipeline"
             deltaType="up"
-            deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
-            colorClass="amber"
+            deltaLabel=""
+            colorClass="blue"
         />
-        <StatCard 
-            label="Average Growth" 
-            value={`${stats.avgWorkPct || 0}%`} 
+        <StatCard
+            label="Avg Team Growth"
+            value={`${stats.avgWorkPct || 0}%`}
             delta={`${stats.avgWorkGrowth >= 0 ? '\u2191' : '\u2193'} ${Math.abs(stats.avgWorkGrowth || 0)}%`}
             deltaType={stats.avgWorkGrowth >= 0 ? 'up' : 'down'}
             deltaLabel="this week"
-            colorClass="blue" 
+            colorClass="teal"
         />
+        <StatCard
+            label="Team Size"
+            value={team.length}
+            delta={`${stats.onLeaveToday || 0} on leave today`}
+            deltaType={stats.onLeaveToday > 0 ? 'down' : 'up'}
+            deltaLabel=""
+            colorClass="amber"
+        />
+
+        {/* Row 2 \u2014 Period-filtered */}
+        <StatCard
+            label="Total Leads"
+            value={periodStats.totalLeads ?? 0}
+            delta={`\u2191 ${periodStats.new ?? 0} new`}
+            deltaType="up"
+            deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
+            colorClass="purple"
+        />
+        <StatCard
+            label="Conversions"
+            value={periodStats.converted ?? 0}
+            delta={periodStats.totalLeads > 0
+              ? `${Math.round(((periodStats.converted ?? 0) / periodStats.totalLeads) * 100)}% rate`
+              : '0% rate'}
+            deltaType="up"
+            deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
+            colorClass="accent"
+        />
+        <StatCard
+            label="Total Calls"
+            value={periodStats.calls ?? 0}
+            delta="Calls made"
+            deltaType="up"
+            deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
+            colorClass="blue"
+        />
+        <StatCard
+            label="Meetings"
+            value={periodStats.meetings ?? 0}
+            delta="Scheduled"
+            deltaType="up"
+            deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
+            colorClass="teal"
+        />
+      </div>
+
+      {/* Period Revenue highlight */}
+      <div className="p-5 bg-white border border-border/40 rounded-2xl shadow-sm flex items-center justify-between">
+        <div>
+          <div className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Revenue \u2014 {summaryTab !== 'today' ? `${summaryPeriodValue || summaryTab}` : 'Today'}</div>
+          <div className="text-3xl font-black text-teal tracking-tight">{formatCurrency(periodStats.revenue ?? 0)}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Growth vs last period</div>
+          <div className={`text-lg font-black ${stats.revGrowth >= 0 ? 'text-accent' : 'text-red'}`}>
+            {stats.revGrowth >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.revGrowth || 0)}%
+          </div>
+        </div>
       </div>
 
       {/* Middle Section: Team & Funnel */}
