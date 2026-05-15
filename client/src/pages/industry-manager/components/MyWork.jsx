@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   StatCard, 
@@ -31,21 +31,22 @@ const MyWork = () => {
     placeholderData: (prev) => prev
   });
 
-  // 2. Fetch Lead Queue
-  const { data: queueData, isLoading: queueLoading } = useQuery({
-    queryKey: ['leads', 'my-queue'],
-    queryFn: () => leadsApi.getQueue().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+  // 2. Fetch All My Leads (used for both the active lead queue and the table)
+  const { data: allLeadsData, isLoading: queueLoading } = useQuery({
+    queryKey: ['leads', 'personal-list'],
+    queryFn: () => leadsApi.getLeads({ limit: 100 }).then(res => res.data),
+    staleTime: 0,
     placeholderData: (prev) => prev
   });
 
-  // 3. Fetch All My Leads for the table
-  const { data: allLeadsData } = useQuery({
-    queryKey: ['leads', 'personal-list'],
-    queryFn: () => leadsApi.getLeads({ owner: currentUser?._id, limit: 100 }).then(res => res.data),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev
-  });
+  // Refresh leads list when a lead is created/updated via modal
+  useEffect(() => {
+    const handleLeadRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
+    };
+    window.addEventListener('refresh-leads', handleLeadRefresh);
+    return () => window.removeEventListener('refresh-leads', handleLeadRefresh);
+  }, [queryClient]);
 
   const startWorkMutation = useMutation({
     mutationFn: attendanceApi.startWork,
@@ -66,8 +67,8 @@ const MyWork = () => {
   const transitionMutation = useMutation({
     mutationFn: (data) => leadsApi.transitionLead(data.id, data.action, data.payload),
     onSuccess: () => {
-      queryClient.invalidateQueries(['leads', 'my-queue']);
-      queryClient.invalidateQueries(['dashboard', 'executive']);
+      queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'executive'] });
       addToast("Lead updated", "success");
     }
   });
@@ -89,7 +90,7 @@ const MyWork = () => {
 
   const workStarted = !!dashData?.attendance?.workStartedAt && !dashData?.attendance?.workCompletedAt;
   const workCompleted = !!dashData?.attendance?.workCompletedAt;
-  const myQueue = queueData || [];
+  const myQueue = allLeadsData?.leads || [];
   const activeLead = myQueue[currentLeadIdx];
   const isQueueEmpty = myQueue.length === 0;
   const isLastLead = currentLeadIdx >= myQueue.length;
@@ -179,18 +180,18 @@ const MyWork = () => {
 
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-            label="My Leads Today" 
-            value={todayStats.totalLeads || 0} 
-            delta={`\u2192 ${todayStats.followups || 0} follow-ups, ${todayStats.totalLeads - todayStats.followups} new`} 
+        <StatCard
+            label="My Leads Today"
+            value={myQueue.length}
+            delta={`\u2192 ${todayStats.followups || 0} follow-ups`}
             deltaType="up"
             deltaLabel=""
-            colorClass="purple" 
+            colorClass="purple"
         />
-        <StatCard 
-            label="Completed Today" 
-            value={todayStats.completedLeads || 0} 
-            delta={`of ${todayStats.totalLeads || 0} total tasks`}
+        <StatCard
+            label="Completed Today"
+            value={todayStats.completedLeads || 0}
+            delta={`of ${myQueue.length} total leads`}
             deltaType="up"
             deltaLabel=""
             colorClass="green" 
@@ -309,7 +310,12 @@ const MyWork = () => {
                             <div className="text-[11px] text-text-muted truncate">{lead.district} {"\u00B7"} {lead.name}</div>
                         </div>
                         <div className="text-right shrink-0">
-                            <div className="text-[10px] font-bold text-text-muted">9:30 AM</div>
+                            <div className="text-[10px] font-bold text-text-muted">
+                              {(lead.meetingAt || lead.nextActionAt || lead.followUpDate)
+                                ? new Date(lead.meetingAt || lead.nextActionAt || lead.followUpDate)
+                                    .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : '—'}
+                            </div>
                             <div className="flex items-center justify-end gap-1 mt-0.5">
                                 <span className={`text-[9px] font-bold uppercase tracking-tighter ${lead.status === 'followup' ? 'text-amber' : 'text-blue'}`}>
                                     {lead.status?.replace('_', ' ')}
@@ -463,12 +469,12 @@ const MyWork = () => {
                   <div>
                       <div className="flex justify-between items-end mb-2 px-1">
                           <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Work Completion</span>
-                          <span className="text-sm font-black text-purple">{dashData?.attendance?.completionPct || 0}%</span>
+                          <span className="text-sm font-black text-purple">{Math.min(dashData?.attendance?.completionPct || 0, 100)}%</span>
                       </div>
                       <div className="h-2 bg-surface2 rounded-full overflow-hidden border border-border/50">
-                          <div 
-                            className="h-full bg-gradient-to-r from-purple to-purple-dark transition-all duration-1000" 
-                            style={{ width: `${dashData?.attendance?.completionPct || 0}%` }}
+                          <div
+                            className="h-full bg-gradient-to-r from-purple to-purple-dark transition-all duration-1000"
+                            style={{ width: `${Math.min(dashData?.attendance?.completionPct || 0, 100)}%` }}
                           />
                       </div>
                   </div>

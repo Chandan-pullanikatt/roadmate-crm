@@ -284,7 +284,11 @@ router.get('/queue', async (req, res) => {
     if (!['executive', 'industry_manager', 'state_manager'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Forbidden: Role not authorized to access queue' });
     }
-    const workflow = await leadService.getWorkflowData(req.user._id);
+    let targetUserId = req.user._id;
+    if (req.query.userId && ['industry_manager', 'state_manager', 'founder'].includes(req.user.role)) {
+      targetUserId = req.query.userId;
+    }
+    const workflow = await leadService.getWorkflowData(targetUserId);
     res.json(workflow);
   } catch (err) {
     res.status(500).json({ message: err.message });

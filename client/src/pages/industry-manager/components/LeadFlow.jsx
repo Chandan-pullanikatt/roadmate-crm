@@ -34,13 +34,13 @@ const LeadFlow = () => {
   // 3. Get Selected Executive's Queue & Activity
   const { data: queueData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'monitoring-queue', selectedExecId],
-    queryFn: () => leadsApi.getQueue(selectedExecId).then(res => res.data),
+    queryFn: () => leadsApi.getLeadQueue(selectedExecId).then(res => res.data),
     enabled: !!selectedExecId,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev
   });
 
-  const activeLead = queueData?.[0];
+  const activeLead = queueData?.currentLead;
   const selectedExec = executives?.find(e => e._id === selectedExecId);
   const userInfo = dashData?.user || {};
 
