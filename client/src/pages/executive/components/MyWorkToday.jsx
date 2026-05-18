@@ -204,11 +204,18 @@ const MyWorkToday = () => {
       </div>
 
       {/* Top Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, marginBottom: 20 }}>
         <MetricCard label="CONNECTED" value={`${stats.completedLeads || 0}/${stats.totalLeads || 0}`} color="#3B82F6" />
+        <MetricCard label="REVENUE TODAY" value={stats.revenueToday ? `₹${(stats.revenueToday / 100000).toFixed(2)}L` : '₹0'} color="#059669" />
+        <MetricCard label="HOT PIPELINE" value={stats.hotPipelineCount || 0} color="#DC2626" />
         <MetricCard label="CALLS" value={stats.calls || 0} color="#D97706" />
-        <MetricCard label="CONVERSIONS" value={stats.converted || 0} color="#059669" />
-        <MetricCard label="COMPLETION" value={`${stats.completionPct || 0}%`} color="#7C3AED" />
+        <MetricCard label="CONVERSIONS" value={stats.converted || 0} color="#7C3AED" />
+        <MetricCard
+          label="ATTENDANCE"
+          value={`${stats.completionPct || 0}%`}
+          color={stats.completionPct < 50 ? '#DC2626' : '#0891B2'}
+          sub={stats.completionPct < 50 ? '⚠️ Half-Day Payout' : null}
+        />
         <MetricCard label="POINTS" value={stats.points || 0} color="#EF4444" />
       </div>
 
@@ -315,10 +322,11 @@ const MiniStat = ({ label, value }) => (
   </div>
 );
 
-const MetricCard = ({ label, value, color }) => (
+const MetricCard = ({ label, value, color, sub }) => (
   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '14px 16px', borderRadius: 14, borderTop: `3px solid ${color}` }}>
     <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
     <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.5px' }}>{value}</div>
+    {sub && <div style={{ fontSize: 10, fontWeight: 700, color, marginTop: 3 }}>{sub}</div>}
   </div>
 );
 

@@ -195,7 +195,15 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'INSIGHTS',
           items: [
-            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' }
+            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' },
+            { label: 'Earnings & Payouts', path: '/dashboard?page=earnings', icon: 'earnings' }
+          ]
+        },
+        {
+          label: 'RESOURCES',
+          items: [
+            { label: 'Company Policies', path: '/dashboard?page=policies', icon: 'policies' },
+            { label: 'Hierarchy Status', path: '/dashboard?page=hierarchy', icon: 'hierarchy' }
           ]
         }
       ]
@@ -218,9 +226,10 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     page === 'meetings' ? 'My Meetings' :
     page === 'leads' ? 'My Leads' :
     page === 'leave-calendar' ? 'Leave Calendar' :
-    page === 'reports-v2' ? 'Summary & Reports' : 
+    page === 'reports-v2' ? 'Summary & Reports' :
     page === 'hierarchy' ? 'Hierarchy Status' :
-    page === 'earnings' ? 'Earnings & Payouts' : 'Dashboard'
+    page === 'earnings' ? 'Earnings & Payouts' :
+    page === 'policies' ? 'Company Policies' : 'Dashboard'
   ) : (pageTitle || (user?.role?.replace('_', ' ')?.toUpperCase() + ' Dashboard'));
 
   const dynamicSubtitle = isExecutive ? '' : (pageSubtitle || `${getDisplayPage(page)} · ${user?.state || 'Kerala'} · Management Portal`);

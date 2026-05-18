@@ -8,6 +8,8 @@ import Attendance from './components/Attendance';
 import LeaveManagement from './components/LeaveManagement';
 import Performance from './components/Performance';
 import HierarchyStatus from './components/HierarchyStatus';
+import Earnings from './components/Earnings';
+import CompanyPolicies from './components/CompanyPolicies';
 
 const ExecutiveDashboard = () => {
   const [searchParams] = useSearchParams();
@@ -24,6 +26,8 @@ const ExecutiveDashboard = () => {
       case 'reports-v2': return <Performance />;
       case 'performance': return <Performance />;
       case 'hierarchy': return <HierarchyStatus />;
+      case 'earnings': return <Earnings />;
+      case 'policies': return <CompanyPolicies />;
       default: return <MyWorkToday />;
     }
   };

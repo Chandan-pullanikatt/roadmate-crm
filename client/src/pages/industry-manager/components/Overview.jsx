@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  StatCard, 
-  Avatar, 
-  Button, 
-  Tag, 
+import { useNavigate } from 'react-router-dom';
+import {
+  StatCard,
+  Avatar,
+  Button,
+  Tag,
   LeadFunnel,
   MemberRow,
   DashboardSkeleton
@@ -40,6 +41,7 @@ const getDropdownOptions = (tab) => {
 const Overview = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [funnelPeriod, setFunnelPeriod] = useState('month');
   const [summaryTab, setSummaryTab] = useState('month');
   const [summaryPeriodValue, setSummaryPeriodValue] = useState(() => getCurrentDefaultValue('month'));
@@ -82,6 +84,8 @@ const Overview = () => {
   const events = dashData?.upcomingEvents || [];
   const leaves = dashData?.leaveRequests || [];
   const userInfo = dashData?.user || {};
+  const escalatedLeads = dashData?.escalatedLeads || [];
+  const recentLeads = dashData?.leads || [];
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `\u20B9${(val / 100000).toFixed(1)}L`;
@@ -157,6 +161,41 @@ const Overview = () => {
         </div>
       </div>
 
+      {/* Escalation Banner */}
+      {escalatedLeads.length > 0 && (
+        <div style={{
+          background: 'var(--amber-light)',
+          border: '1px solid #FCD34D',
+          borderRadius: 'var(--radius-sm)',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 13,
+          color: 'var(--amber)'
+        }}>
+          <span>\u26a0\ufe0f</span>
+          <span>
+            <strong>{escalatedLeads.length} Lead{escalatedLeads.length > 1 ? 's' : ''} Escalated from Executive</strong>
+            {escalatedLeads[0] && ` \u2014 ${escalatedLeads[0].company || escalatedLeads[0].name || ''} \u00b7 ${escalatedLeads[0].owner?.name || ''} \u00b7 Needs manager decision`}
+          </span>
+          <button
+            className="btn btn-xs btn-warn"
+            style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', borderRadius: 5, border: '1px solid #FCD34D', background: 'transparent', color: 'var(--amber)', cursor: 'pointer', fontWeight: 600 }}
+            onClick={() => navigate('/dashboard?page=leads')}
+          >
+            Review Lead
+          </button>
+          <button
+            className="btn btn-xs btn-outline"
+            style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}
+            onClick={() => navigate('/dashboard?page=leads')}
+          >
+            Escalate to State Manager
+          </button>
+        </div>
+      )}
+
       {/* Main Stat Cards \u2014 8 cards, 4 per row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {/* Row 1 \u2014 Always live (not period-filtered) */}
@@ -227,6 +266,22 @@ const Overview = () => {
             deltaType="up"
             deltaLabel={summaryTab !== 'today' ? `this ${summaryTab}` : 'today'}
             colorClass="teal"
+        />
+        <StatCard
+            label="RNR Leads"
+            value={leadStats.rnr ?? 0}
+            delta={leadStats.rnr > 0 ? '↑ Auto-reallocated' : '↑ All on track'}
+            deltaType={leadStats.rnr > 0 ? 'warn' : 'up'}
+            deltaLabel=""
+            colorClass="red"
+        />
+        <StatCard
+            label="Leave Requests"
+            value={leaves.length}
+            delta={leaves.length > 0 ? 'Needs approval' : 'All clear'}
+            deltaType={leaves.length > 0 ? 'warn' : 'up'}
+            deltaLabel=""
+            colorClass="orange"
         />
       </div>
 
@@ -461,6 +516,88 @@ const Overview = () => {
                 )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Lead Owner Mapping */}
+      <div className="card shadow-sm border-border/40">
+        <div className="card-header border-none px-8 pt-6 pb-4">
+          <div>
+            <h3 className="text-base font-bold text-text-primary tracking-tight">Lead Owner Mapping · {userInfo.industry} Executives</h3>
+            <p className="text-xs text-text-muted mt-0.5 font-medium">Map &amp; reassign leads · One-by-one delivery to executive</p>
+          </div>
+          <button
+            className="px-4 py-2 rounded-xl bg-purple text-white text-xs font-bold hover:opacity-90 transition-all shadow-lg shadow-purple/20"
+            onClick={() => navigate('/dashboard?page=leads')}
+          >
+            Manage Mapping
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          {recentLeads.length === 0 ? (
+            <div className="px-8 py-10 text-center text-text-muted text-sm">No leads to display.</div>
+          ) : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="bg-surface2/60 border-b border-border">
+                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Company</th>
+                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Contact</th>
+                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Assigned To</th>
+                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">District</th>
+                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Status</th>
+                  <th className="px-6 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentLeads.slice(0, 8).map((lead, idx) => (
+                  <tr key={lead._id || idx} className="border-b border-border/40 hover:bg-surface2/30 transition-colors">
+                    <td className="px-6 py-3 font-semibold">{lead.company || lead.name || '—'}</td>
+                    <td className="px-6 py-3 text-text-secondary">{lead.name || '—'}</td>
+                    <td className="px-6 py-3">
+                      {lead.owner ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-6 h-6 rounded-full bg-purple/10 text-purple text-[9px] font-bold flex items-center justify-center">
+                            {(lead.owner.name || lead.ownerName || '?').charAt(0)}
+                          </span>
+                          <span className="text-text-secondary text-[12px]">{lead.owner.name || lead.ownerName || 'Unassigned'}</span>
+                        </span>
+                      ) : (
+                        <span className="text-text-muted text-[12px] italic">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-3 text-text-secondary">{lead.district || '—'}</td>
+                    <td className="px-6 py-3">
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight
+                        ${lead.status === 'converted' ? 'bg-green/10 text-green' :
+                          lead.status === 'hot' ? 'bg-red/10 text-red' :
+                          lead.status === 'rnr' ? 'bg-surface2 text-text-muted' :
+                          'bg-amber-light text-amber'}`}>
+                        {lead.status || 'fresh'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <button
+                        className="text-[11px] font-bold text-purple hover:underline"
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'allocate-lead', leadId: lead._id }))}
+                      >
+                        Reassign
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {recentLeads.length > 8 && (
+            <div className="px-8 py-4 border-t border-border/40">
+              <button
+                className="text-xs font-bold text-purple hover:underline"
+                onClick={() => navigate('/dashboard?page=leads')}
+              >
+                View all {recentLeads.length} leads →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
