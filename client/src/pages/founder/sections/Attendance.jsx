@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { configApi } from '../../../api/configApi';
 import { Button, Tag } from '../../../components/ui';
 import { exportToCSV } from '../../../utils/exportUtils';
 
@@ -14,13 +15,19 @@ const Attendance = () => {
   // Fetch Attendance Summary
   const { data: attendanceSummary, isLoading: loadingAttendance } = useQuery({
     queryKey: ['attendance-summary', month, year, roleFilter],
-    queryFn: () => dashboardApi.getAttendanceSummary({ 
-      month, 
-      year, 
-      role: roleFilter === 'All' ? undefined : roleFilter.toLowerCase().replace(' ', '_') 
+    queryFn: () => dashboardApi.getAttendanceSummary({
+      month,
+      year,
+      role: roleFilter === 'All' ? undefined : roleFilter
     }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
+  });
+
+  const { data: workingHoursConfig } = useQuery({
+    queryKey: ['config', 'working-hours'],
+    queryFn: () => configApi.getConfig('working-hours').then(res => res.data?.value || {}),
+    staleTime: 10 * 60 * 1000
   });
 
   // Fetch Salary Data
@@ -131,15 +138,15 @@ const Attendance = () => {
                  <option key={m} value={m}>{getMonthName(m)} {year}</option>
                ))}
              </select>
-             <select 
+             <select
                className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none"
                value={roleFilter}
                onChange={e => setRoleFilter(e.target.value)}
              >
-               <option>All Roles</option>
-               <option>State Manager</option>
-               <option>Industry Manager</option>
-               <option>Executive</option>
+               <option value="All">All Roles</option>
+               <option value="state_manager">State Manager</option>
+               <option value="industry_manager">Industry Manager</option>
+               <option value="executive">Executive</option>
              </select>
              <Button variant="outline" size="sm" className="bg-white font-bold" onClick={handleExportAttendance}>Export</Button>
           </div>
@@ -155,10 +162,10 @@ const Attendance = () => {
               <span className="text-[13px] font-bold text-[#166534]">Working Hours Configuration</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="bg-[#dcfce7] text-[#166534] px-3 py-1 rounded-full text-[11px] font-bold border border-[#bbf7d0]">Normal: 9:30 AM</span>
-              <span className="bg-[#eff6ff] text-[#1e40af] px-3 py-1 rounded-full text-[11px] font-bold border border-[#dbeafe]">Ramadan: 9:00 AM</span>
-              <button className="bg-white border border-border px-4 py-1 rounded-lg text-[11px] font-bold ml-2 hover:bg-surface2 transition-all">Edit</button>
-              <span className="text-[10px] text-text-muted ml-4">Below 30% work → Leave | Below 70% → Half Day</span>
+              <span className="bg-[#dcfce7] text-[#166534] px-3 py-1 rounded-full text-[11px] font-bold border border-[#bbf7d0]">Normal: {workingHoursConfig?.normalStart || '9:30 AM'}</span>
+              <span className="bg-[#eff6ff] text-[#1e40af] px-3 py-1 rounded-full text-[11px] font-bold border border-[#dbeafe]">Ramadan: {workingHoursConfig?.ramadanStart || '9:00 AM'}</span>
+              <button className="bg-white border border-border px-4 py-1 rounded-lg text-[11px] font-bold ml-2 hover:bg-surface2 transition-all" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' }))}>Edit</button>
+              <span className="text-[10px] text-text-muted ml-4">Below {workingHoursConfig?.rules?.leaveThreshold ?? 30}% work → Leave | Below {workingHoursConfig?.rules?.halfDayThreshold ?? 70}% → Half Day</span>
             </div>
           </div>
 

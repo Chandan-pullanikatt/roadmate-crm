@@ -12,8 +12,8 @@ const IndustryManagers = () => {
   const [filterIndustry, setFilterIndustry] = useState('All');
 
   const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+    queryKey: ['dashboard', 'founder', viewType],
+    queryFn: () => dashboardApi.getFounderDashboard({ period: viewType }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -34,7 +34,7 @@ const IndustryManagers = () => {
   useEffect(() => {
     const handleRefreshUsers = () => {
       queryClient.invalidateQueries({ queryKey: ['users', 'industry-managers-global'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder', viewType] });
     };
     window.addEventListener('refresh-users', handleRefreshUsers);
     return () => window.removeEventListener('refresh-users', handleRefreshUsers);

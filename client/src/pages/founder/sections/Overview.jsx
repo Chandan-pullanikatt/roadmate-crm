@@ -42,7 +42,7 @@ const Overview = () => {
   // Fix: Founders Summary Time Filter — staleTime 0 ensures fresh API call on every period change
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', summaryTab, summaryPeriodValue],
-    queryFn: () => dashboardApi.getFounderDashboard(summaryTab, summaryPeriodValue).then(res => res.data),
+    queryFn: () => dashboardApi.getFounderDashboard({ period: summaryTab, value: summaryPeriodValue }).then(res => res.data),
     staleTime: 0,
     placeholderData: keepPreviousData
   });

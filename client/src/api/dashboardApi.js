@@ -4,7 +4,7 @@ export const dashboardApi = {
   getExecutiveDashboard: () => api.get('/dashboard/executive'),
   getIndustryManagerDashboard: (period, value) => api.get('/dashboard/industry-manager', { params: period ? { period, value } : {} }),
   getStateManagerDashboard: () => api.get('/dashboard/state-manager'),
-  getFounderDashboard: (period, value) => api.get('/dashboard/founder', { params: { period, value } }),
+  getFounderDashboard: (options = {}) => api.get('/dashboard/founder', { params: options }),
   getReport: (type, params) => api.get(`/dashboard/reports/${type}`, { params }),
   getAttendanceSummary: (params) => api.get('/dashboard/reports/attendance-summary', { params }),
   getMeetings: () => api.get('/dashboard/meetings'),

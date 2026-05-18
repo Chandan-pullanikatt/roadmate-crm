@@ -25,10 +25,10 @@ const getDateRange = (type, value) => {
   let end = new Date(now);
 
   const normalizeType = (t) => {
-    if (t === 'day') return 'today';
-    if (t === 'week') return 'weekly';
-    if (t === 'month') return 'monthly';
-    if (t === 'year') return 'yearly';
+    if (t === 'day' || t === 'daily' || t === 'today') return 'today';
+    if (t === 'week' || t === 'weekly') return 'weekly';
+    if (t === 'month' || t === 'monthly') return 'monthly';
+    if (t === 'year' || t === 'yearly') return 'yearly';
     return t;
   };
 
@@ -1514,7 +1514,10 @@ router.get('/founder', async (req, res) => {
         const allPerfUserIds = allPerformanceUsers.map(u => u._id);
 
         const [perfAttendance, perfActivities, perfLeadsCount] = await Promise.all([
-            Attendance.find({ user: { $in: allPerfUserIds }, date: { $gte: periodStart, $lte: periodEnd } }),
+            Attendance.aggregate([
+                { $match: { user: { $in: allPerfUserIds }, date: { $gte: periodStart, $lte: periodEnd } } },
+                { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
+            ]),
             LeadActivity.aggregate([
                 { $match: { performedBy: { $in: allPerfUserIds }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $group: {
@@ -1533,16 +1536,16 @@ router.get('/founder', async (req, res) => {
 
         const getPerformanceData = (role) => {
             return allPerformanceUsers.filter(u => u.role === role).map(u => {
-                const att = perfAttendance.find(a => a.user.toString() === u._id.toString());
+                const att = perfAttendance.find(a => a._id.toString() === u._id.toString());
                 const acts = perfActivities.find(a => a._id.toString() === u._id.toString()) || {};
                 const leads = perfLeadsCount.find(l => l._id?.toString() === u._id.toString()) || {};
-                
+
                 return {
                     _id: u._id,
                     name: u.name,
                     state: u.state,
                     industry: u.industry,
-                    workPct: att?.completionPct || 0,
+                    workPct: Math.round(att?.avgWorkPct || 0),
                     leads: leads.count || 0,
                     calls: acts.calls || 0,
                     meetings: acts.meetings || 0,
@@ -1713,17 +1716,17 @@ router.get('/reports/attendance-summary', async (req, res) => {
         const { month, year, role } = req.query;
         if (!month || !year) return res.status(400).json({ message: 'Month and year required' });
 
-        const start = new Date(year, month - 1, 1);
-        const end = new Date(year, month, 0, 23, 59, 59, 999);
+        const start = new Date(Number(year), Number(month) - 1, 1);
+        const end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
 
-        const usersQuery = { isActive: true };
-        if (role) usersQuery.role = role;
+        const usersQuery = { isActive: { $ne: false }, role: { $ne: 'founder' } };
+        if (role && role !== 'all') usersQuery.role = role;
 
         const users = await User.find(usersQuery).select('name role');
         const userIds = users.map(u => u._id);
 
         const summary = await Attendance.aggregate([
-            { $match: { 
+            { $match: {
                 user: { $in: userIds },
                 date: { $gte: start, $lte: end }
             }},
@@ -1733,17 +1736,28 @@ router.get('/reports/attendance-summary', async (req, res) => {
                 absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
                 halfDay: { $sum: { $cond: [{ $eq: ['$status', 'half_day'] }, 1, 0] } },
                 leave: { $sum: { $cond: [{ $eq: ['$status', 'leave'] }, 1, 0] } },
-                avgWorkPct: { $avg: '$completionPct' }
+                avgWorkPct: { $avg: '$completionPct' },
+                wfhDays: { $sum: { $cond: ['$isWFH', 1, 0] } },
+                avgLateMinutes: { $avg: '$lateLoginMinutes' },
+                avgEarlyExitMinutes: { $avg: '$earlyExitMinutes' }
             }}
         ]);
 
         const data = users.map(u => {
             const stats = summary.find(s => s._id.toString() === u._id.toString()) || {
-                present: 0, absent: 0, halfDay: 0, leave: 0, avgWorkPct: 0
+                present: 0, absent: 0, halfDay: 0, leave: 0, avgWorkPct: 0,
+                wfhDays: 0, avgLateMinutes: 0, avgEarlyExitMinutes: 0
             };
             return {
                 user: u,
-                ...stats
+                present: stats.present,
+                absent: stats.absent,
+                halfDay: stats.halfDay,
+                leave: stats.leave,
+                avgWorkPct: Math.round(stats.avgWorkPct || 0),
+                wfhDays: stats.wfhDays || 0,
+                avgLateMinutes: Math.round(stats.avgLateMinutes || 0),
+                avgEarlyExitMinutes: Math.round(stats.avgEarlyExitMinutes || 0)
             };
         });
 

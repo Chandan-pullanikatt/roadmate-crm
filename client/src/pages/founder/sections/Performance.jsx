@@ -34,7 +34,7 @@ const Performance = () => {
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', viewType, subValue],
-    queryFn: () => dashboardApi.getFounderDashboard(apiPeriod, subValue || undefined).then(res => res.data),
+    queryFn: () => dashboardApi.getFounderDashboard({ period: apiPeriod, value: subValue || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
