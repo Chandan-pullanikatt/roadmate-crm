@@ -258,7 +258,7 @@ const Overview = () => {
             {"\u20B9"}{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
           </div>
           <div className="text-[12px] font-medium text-teal flex items-center justify-between">
-            <span>{"\u2191"} 18.4% MoM</span>
+            <span>{(stats.revGrowth ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.revGrowth ?? 0)}% MoM</span>
             <span className="text-[10px] font-bold text-blue underline">View Analysis</span>
           </div>
         </div>

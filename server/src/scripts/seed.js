@@ -47,7 +47,7 @@ const seedUsers = async () => {
     const exec = await User.create({
       name: 'Hospitality Executive',
       email: 'exec@roadmate.com',
-      password: 'Test@1234',
+      password: 'Test@12345',
       role: 'executive',
       state: 'Kerala',
       industry: 'Hospitality',

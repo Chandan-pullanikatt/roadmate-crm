@@ -7,6 +7,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../context/ToastContext';
 import { useSocket } from '../../../hooks/useSocket';
 import LeadWizard from './LeadWizard';
+import ExecCallFeedbackModal from './ExecCallFeedbackModal';
 
 const MyWorkToday = () => {
   const queryClient = useQueryClient();
@@ -98,6 +99,30 @@ const MyWorkToday = () => {
   const isWorking = !!attendanceData?.attendance?.workStartedAt && !attendanceData?.attendance?.workCompletedAt;
   const userName = user?.name || dashData?.user?.name || 'Executive';
 
+  // Working state constants/flags (used both below and in the JSX)
+  const CONFIRM_SUBSTATUS = ['pre_meeting_confirm', 'day_before_confirm', 'day_before_queued', '30m_confirm_queued'];
+  const isConfirmTask = !!(lead?.subStatus && CONFIRM_SUBSTATUS.includes(lead.subStatus));
+  const isVirtualLead = lead?.status === 'meeting_virtual';
+
+  // Feedback modal state — must be here (before early returns) per Rules of Hooks
+  const [feedbackModal, setFeedbackModal] = useState({ open: false, outcome: null });
+  const openFeedback = (outcome) => setFeedbackModal({ open: true, outcome });
+  const closeFeedback  = () => setFeedbackModal({ open: false, outcome: null });
+
+  const handleLeadComplete = () => {
+    queryClient.invalidateQueries(['leads', 'workflow']);
+    queryClient.invalidateQueries(['dashboard', 'executive']);
+  };
+
+  // Per-lead interaction history — also must be at top level
+  const { data: leadActivity } = useQuery({
+    queryKey: ['lead-activity', lead?._id],
+    queryFn: () => leadsApi.getLeadActivity(lead._id).then(r => r.data),
+    enabled: !!lead?._id && !isConfirmTask,
+    staleTime: 60 * 1000,
+  });
+  const recentHistory = leadActivity?.activities || [];
+
   // ─── STATE: Not Started ───
   if (!attendanceData?.attendance?.workStartedAt) {
     return (
@@ -176,12 +201,7 @@ const MyWorkToday = () => {
     );
   }
 
-  // ─── STATE: Working — Lead-by-Lead Wizard ───
-  const handleLeadComplete = () => {
-    queryClient.invalidateQueries(['leads', 'workflow']);
-    queryClient.invalidateQueries(['dashboard', 'executive']);
-  };
-
+  // ─── STATE: Working — Active Lead Card ───
   return (
     <div className="animate-in" style={{ animationDuration: '0.5s' }}>
       {/* Page Header */}
@@ -219,33 +239,221 @@ const MyWorkToday = () => {
         <MetricCard label="POINTS" value={stats.points || 0} color="#EF4444" />
       </div>
 
-      {/* Main Wizard Layout */}
-      <div className="wizard-layout">
-        {/* Left: Lead Wizard */}
+      {/* Main Layout: lead card (wide) + sidebar */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'flex-start' }}>
+
+        {/* LEFT: Active Lead Card */}
         <div>
           {isLoading ? (
+            /* Loading skeleton */
             <div className="wizard-lead-card">
               <div className="wizard-lead-body" style={{ textAlign: 'center', padding: 60 }}>
                 <div className="shimmer" style={{ width: 200, height: 24, borderRadius: 8, margin: '0 auto 12px' }}></div>
                 <div className="shimmer" style={{ width: 300, height: 16, borderRadius: 8, margin: '0 auto' }}></div>
               </div>
             </div>
+          ) : isConfirmTask ? (
+            /* Meeting confirmation task — keep existing wizard */
+            <LeadWizard lead={lead} onComplete={handleLeadComplete} queueLength={workflow?.queueLength || 0} currentIndex={1} />
+          ) : lead ? (
+            /* Normal lead — 2-col card matching design */
+            <div className="wizard-lead-card">
+              {/* Card header */}
+              <div className="wizard-lead-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span className={`tag ${lead.status?.includes('meeting_virtual') ? 'tag-blue' : lead.status?.includes('meeting_direct') ? 'tag-amber' : 'tag-gray'}`} style={{ fontSize: 10 }}>
+                    {lead.status?.includes('meeting') ? (lead.status.includes('virtual') ? '🎥 Virtual Meeting' : '🤝 Direct Meeting') : 'Call Lead'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    TASK {(workflow?.queueLength || 1) - (workflow?.queueLength || 1) + 1} OF {workflow?.queueLength || 1}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {lead.rnrCount > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--amber)' }}>RNR ×{lead.rnrCount}</span>
+                  )}
+                  <button
+                    className="btn-xs"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600 }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'lead-history', leadId: lead._id, leadName: lead.company || lead.name } }))}
+                  >
+                    📋 Full History
+                  </button>
+                </div>
+              </div>
+
+              {/* 2-column body */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', borderTop: 'none' }}>
+
+                {/* LEFT panel: lead info + actions */}
+                <div className="wizard-lead-body" style={{ borderRight: '1px solid var(--border)', paddingRight: 24 }}>
+                  {/* Lead name & badges */}
+                  <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 8 }}>{lead.company || lead.name}</h2>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                    {lead.priority === 'hot' && <span className="tag tag-red" style={{ fontSize: 10 }}>HOT Lead</span>}
+                    {lead.industry && <span className="tag tag-gray" style={{ fontSize: 10 }}>{lead.industry}</span>}
+                    {lead.source && <span className="tag tag-gray" style={{ fontSize: 10 }}>Ref: {lead.source}</span>}
+                    {lead.meetingAt && (
+                      <span className={`tag ${isVirtualLead ? 'tag-blue' : 'tag-amber'}`} style={{ fontSize: 10 }}>
+                        {isVirtualLead ? '🎥 Virtual' : '📍 Direct'} · {new Date(lead.meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Client brief / notes */}
+                  {lead.notes && (
+                    <div style={{ padding: '12px 14px', background: 'var(--blue-light)', borderRadius: 10, borderLeft: '4px solid var(--blue)', marginBottom: 16 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--blue)', marginBottom: 4, fontSize: 13 }}>Client Brief</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{lead.notes}</div>
+                    </div>
+                  )}
+
+                  {/* Virtual meeting link */}
+                  {isVirtualLead && lead.meetingLink && (
+                    <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lead.meetingLink}</span>
+                      <a href={lead.meetingLink} target="_blank" rel="noopener noreferrer"
+                        className="wizard-btn wizard-btn-primary" style={{ padding: '4px 12px', fontSize: 11, textDecoration: 'none' }}>
+                        Join →
+                      </a>
+                    </div>
+                  )}
+
+                  {/* 2×2 Action buttons */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
+                    {/* Top-left: Join Meeting (virtual) or Call Done */}
+                    {isVirtualLead && lead.meetingLink ? (
+                      <a
+                        href={lead.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--blue)', background: 'var(--blue)', color: 'white', textDecoration: 'none', cursor: 'pointer', textAlign: 'center' }}
+                      >
+                        <span style={{ fontSize: 22 }}>🎥</span>
+                        <strong style={{ fontSize: 12 }}>Join Meeting</strong>
+                        <span style={{ fontSize: 10, opacity: 0.85 }}>Open in Zoom / Meet</span>
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => openFeedback('connected')}
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                        className="btn-action-exec"
+                      >
+                        <span style={{ fontSize: 22 }}>📞</span>
+                        <strong style={{ fontSize: 12 }}>Call Done</strong>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Log call outcome</span>
+                      </button>
+                    )}
+
+                    {/* Top-right: Update Lead */}
+                    <button
+                      onClick={() => openFeedback(null)}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                      className="btn-action-exec"
+                    >
+                      <span style={{ fontSize: 22 }}>✏️</span>
+                      <strong style={{ fontSize: 12 }}>Update Lead</strong>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Edit & set status</span>
+                    </button>
+
+                    {/* Bottom-left: No Reach (RNR) */}
+                    <button
+                      onClick={() => openFeedback('rnr')}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                      className="btn-action-exec"
+                    >
+                      <span style={{ fontSize: 22 }}>📵</span>
+                      <strong style={{ fontSize: 12 }}>No Reach (RNR)</strong>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Retry Logic #{(lead.rnrCount || 0) + 1}</span>
+                    </button>
+
+                    {/* Bottom-right: Escalate */}
+                    <button
+                      onClick={() => openFeedback('escalate')}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                      className="btn-action-exec"
+                    >
+                      <span style={{ fontSize: 22 }}>⚠️</span>
+                      <strong style={{ fontSize: 12 }}>Escalate</strong>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>To Manager</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* RIGHT panel: history + lead details */}
+                <div className="wizard-lead-body" style={{ paddingLeft: 20 }}>
+                  {/* Interaction History */}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                      Interaction History
+                    </div>
+                    <div style={{ position: 'relative', paddingLeft: 18 }}>
+                      <div style={{ position: 'absolute', left: 4, top: 4, bottom: 4, width: 2, background: 'var(--border)' }} />
+                      {recentHistory.length > 0 ? recentHistory.slice(0, 4).map((a, i) => (
+                        <div key={i} style={{ position: 'relative', marginBottom: 14, fontSize: 12 }}>
+                          <div style={{ position: 'absolute', left: -18, top: 3, width: 10, height: 10, borderRadius: '50%', background: i === 0 ? 'var(--blue)' : 'white', border: `2px solid ${i === 0 ? 'var(--blue)' : 'var(--border)'}` }} />
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+                            {new Date(a.createdAt || a.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })},{' '}
+                            {new Date(a.createdAt || a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                            {a.action?.replace(/_/g, ' ')}
+                            {a.note ? ` — ${a.note.slice(0, 55)}${a.note.length > 55 ? '…' : ''}` : ''}
+                          </div>
+                        </div>
+                      )) : (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No activity yet for this lead.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Lead Details */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                      Lead Details
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      <div><b>Contact:</b> {lead.name}</div>
+                      {lead.phone && <div><b>Phone:</b> {lead.phone}</div>}
+                      {lead.email && <div><b>Email:</b> {lead.email}</div>}
+                      {lead.district && <div><b>District:</b> {lead.district}</div>}
+                      {lead.expectedRevenue > 0 && <div><b>Revenue Potential:</b> ₹{(lead.expectedRevenue / 100000).toFixed(1)}L / Yr</div>}
+                    </div>
+                  </div>
+
+                  {/* Meeting details button */}
+                  {lead.meetingAt && (
+                    <button
+                      style={{ width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                      onClick={() => openFeedback(isVirtualLead ? 'schedule_virtual' : 'direct_meeting')}
+                    >
+                      📅 Meeting Details & Reschedule
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
-            <LeadWizard
-              lead={lead}
-              onComplete={handleLeadComplete}
-              queueLength={workflow?.queueLength || 0}
-              currentIndex={1}
-            />
+            /* No lead / queue empty */
+            <div className="wizard-lead-card">
+              <div className="wizard-lead-body" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <div className="wizard-complete-anim">
+                  <div style={{ fontSize: 56, marginBottom: 16 }}>✨</div>
+                  <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>All Tasks Completed!</h2>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Great work! Check your pipeline or take a break.</p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Right: Queue + Meetings + Feed */}
+        {/* RIGHT: Queue + Meetings + Feed */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Task Queue */}
           <div className="wizard-sidebar-card">
             <div className="wizard-sidebar-header">
-              Daily Queue ({workflow?.queueLength || 0} leads)
+              Daily Task Sequence
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer', marginLeft: 'auto' }}>View All</span>
             </div>
             {tasks.length > 0 ? tasks.slice(0, 6).map((t, i) => (
               <div key={t.id} className={`wizard-queue-item ${i === 0 ? 'current' : ''}`}>
@@ -276,18 +484,21 @@ const MyWorkToday = () => {
                     <div style={{ fontSize: 12, fontWeight: 700 }}>{m.name}</div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{m.type === 'Virtual' ? '🎥' : '📍'} {m.type}</div>
                   </div>
+                  <span className={`tag ${m.type === 'Virtual' ? 'tag-blue' : 'tag-amber'}`} style={{ fontSize: 9 }}>
+                    {m.status || 'Confirm'}
+                  </span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Recent Activity */}
+          {/* Live Activity Feed */}
           <div className="wizard-sidebar-card">
-            <div className="wizard-sidebar-header">Live Feed</div>
+            <div className="wizard-sidebar-header">Live Activity Feed</div>
             {activities.length > 0 ? activities.slice(0, 4).map(a => (
               <div key={a.id} className="wizard-queue-item" style={{ gap: 10 }}>
-                <div style={{ fontSize: 16 }}>
-                  {a.action === 'converted' ? '🤝' : a.action?.includes('meeting') ? '📅' : a.action === 'called' ? '📞' : '⚡'}
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: a.action === 'converted' ? 'var(--green-light)' : a.action?.includes('meeting') ? 'var(--amber-light)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                  {a.action === 'converted' ? '💰' : a.action?.includes('meeting') ? '📅' : a.action === 'called' ? '📞' : '⚡'}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, fontWeight: 700 }}>{a.leadName}</div>
@@ -302,6 +513,17 @@ const MyWorkToday = () => {
           </div>
         </div>
       </div>
+
+      {/* Call Feedback Modal */}
+      {lead && (
+        <ExecCallFeedbackModal
+          isOpen={feedbackModal.open}
+          onClose={closeFeedback}
+          lead={lead}
+          initialOutcome={feedbackModal.outcome}
+          onSuccess={handleLeadComplete}
+        />
+      )}
     </div>
   );
 };

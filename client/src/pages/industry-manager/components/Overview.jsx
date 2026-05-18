@@ -578,7 +578,7 @@ const Overview = () => {
                     <td className="px-6 py-3">
                       <button
                         className="text-[11px] font-bold text-purple hover:underline"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'allocate-lead', leadId: lead._id }))}
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'allocate-lead', leadData: lead } }))}
                       >
                         Reassign
                       </button>

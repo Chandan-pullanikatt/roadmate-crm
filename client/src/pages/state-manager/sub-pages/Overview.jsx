@@ -113,7 +113,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Industry Managers</div>
           <div className="text-[28px] font-black text-text-primary mt-1">{stats.industryManagersCount}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {"\u2191"} 1 added this month
+             {stats.newManagersThisMonth > 0 ? `\u2191 ${stats.newManagersThisMonth} added this month` : '\u2191 All active'}
           </div>
         </div>
 
@@ -122,7 +122,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Total Revenue · {user.state}</div>
           <div className="text-[28px] font-black text-teal mt-1">{formatCurrency(stats.totalRevenue)}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {"\u2191"} 14% vs last month
+             {(stats.revGrowth ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.revGrowth ?? 0)}% vs last month
           </div>
         </div>
 
@@ -131,7 +131,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Active Leads</div>
           <div className="text-[28px] font-black text-[#D97706] mt-1">{stats.activeLeads}</div>
           <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             {"\u2192"} {Math.floor(stats.activeLeads * 0.15)} follow-ups today
+             \u2192 {stats.followupsToday ?? 0} follow-ups today
           </div>
         </div>
 
@@ -140,7 +140,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Converted This Month</div>
           <div className="text-[28px] font-black text-green mt-1">{stats.convertedThisMonth}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {"\u2191"} 9 vs last month
+             {(stats.convGrowth ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.convGrowth ?? 0).toFixed(1)}% rate vs last month
           </div>
         </div>
 
@@ -149,7 +149,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">District Executives</div>
           <div className="text-[28px] font-black text-purple mt-1">{stats.districtExecutivesCount}</div>
           <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             Across 5 industries
+             Across {stats.industriesCount ?? 0} industries
           </div>
         </div>
 
@@ -158,7 +158,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Pending Leave Approvals</div>
           <div className="text-[28px] font-black text-red mt-1">{stats.pendingLeaves}</div>
           <div className="text-[11.5px] font-bold text-red mt-2 flex items-center gap-1">
-             {"\u2191"} Needs attention
+             {stats.pendingLeaves > 0 ? `\u2191 ${stats.pendingLeaves} need attention` : '\u2191 All clear'}
           </div>
         </div>
 
@@ -167,7 +167,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Calls This Week</div>
           <div className="text-[28px] font-black text-teal mt-1">{stats.callsThisWeek}</div>
           <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {"\u2191"} 18% vs last week
+             {(stats.callsGrowthWeek ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.callsGrowthWeek ?? 0)}% vs last week
           </div>
         </div>
 
@@ -176,7 +176,7 @@ const Overview = () => {
           <div className="text-[13px] font-bold text-text-muted">Meetings Scheduled</div>
           <div className="text-[28px] font-black text-[#92400E] mt-1">{stats.meetingsScheduled}</div>
           <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             {"\u2192"} 4 virtual, 10 direct
+             \u2192 {stats.meetingsVirtual ?? 0} virtual, {stats.meetingsDirect ?? 0} direct
           </div>
         </div>
       </div>

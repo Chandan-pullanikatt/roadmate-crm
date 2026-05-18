@@ -726,11 +726,27 @@ router.get('/state-manager', async (req, res) => {
             performedBy: { $in: executiveIds }
         });
 
-        const meetingsScheduled = await Lead.countDocuments({
-            state: req.user.state,
-            status: 'meeting_scheduled',
-            meetingAt: { $gte: todayStart }
+        const { start: prevWeekStart, end: prevWeekEnd } = (() => {
+            const s = new Date(weekStart); s.setDate(s.getDate() - 7);
+            const e = new Date(weekStart); e.setMilliseconds(e.getMilliseconds() - 1);
+            return { start: s, end: e };
+        })();
+        const prevWeekCalls = await LeadActivity.countDocuments({
+            action: 'called',
+            createdAt: { $gte: prevWeekStart, $lte: prevWeekEnd },
+            performedBy: { $in: executiveIds }
         });
+        const callsGrowthWeek = prevWeekCalls > 0
+            ? Math.round(((callsThisWeek - prevWeekCalls) / prevWeekCalls) * 100)
+            : (callsThisWeek > 0 ? 100 : 0);
+
+        const [meetingsVirtual, meetingsDirect, meetingsScheduled, followupsToday, newManagersThisMonth] = await Promise.all([
+            Lead.countDocuments({ state: req.user.state, status: 'meeting_virtual', meetingAt: { $gte: todayStart } }),
+            Lead.countDocuments({ state: req.user.state, status: 'meeting_direct',  meetingAt: { $gte: todayStart } }),
+            Lead.countDocuments({ state: req.user.state, status: { $in: ['meeting_virtual', 'meeting_direct', 'meeting_scheduled'] }, meetingAt: { $gte: todayStart } }),
+            Lead.countDocuments({ state: req.user.state, status: 'followup', nextActionAt: { $gte: todayStart, $lte: todayEnd } }),
+            User.countDocuments({ state: req.user.state, role: 'industry_manager', createdAt: { $gte: monthStart } }),
+        ]);
 
         // 3a. District Executive Specific Stats
         const todayAttendance = await Attendance.find({
@@ -808,8 +824,12 @@ router.get('/state-manager', async (req, res) => {
     const prevConvRate = prevMonthLeads > 0 ? (prevMonthConv / prevMonthLeads) * 100 : 0;
     const convGrowth = currentConvRate - prevConvRate;
 
+        const industriesCount = [...new Set(managers.map(m => m.industry).filter(Boolean))].length;
+
         const stats = {
             industryManagersCount: managers.length,
+            newManagersThisMonth,
+            industriesCount,
             totalRevenue,
             activeLeads: activeLeadsCount,
             convertedThisMonth,
@@ -817,6 +837,11 @@ router.get('/state-manager', async (req, res) => {
             pendingLeaves: pendingLeavesCount,
             callsThisWeek,
             meetingsScheduled,
+            meetingsScheduled,
+            meetingsVirtual,
+            meetingsDirect,
+            followupsToday,
+            callsGrowthWeek,
             revGrowth: Math.round(revGrowth * 10) / 10,
             convRate: Math.round(currentConvRate * 10) / 10,
             convGrowth: Math.round(convGrowth * 10) / 10,
@@ -1155,8 +1180,26 @@ router.get('/revenue', verifyToken, async (req, res) => {
       }
     ]);
 
+    // Previous period for growth calculation
+    const periodMs = end - start;
+    const prevStart = new Date(start.getTime() - periodMs);
+    const prevEnd   = new Date(start);
+    const prevQuery = { action: 'converted', createdAt: { $gte: prevStart, $lte: prevEnd } };
+    const prevRevAgg = [...revenueAggregation];
+    prevRevAgg[0] = { $match: prevQuery }; // replace the first $match
+    const prevRevenueData = await LeadActivity.aggregate([
+      ...prevRevAgg,
+      { $group: { _id: null, totalRevenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } }, count: { $sum: 1 } } }
+    ]);
+    const prevSummary = prevRevenueData[0] || { totalRevenue: 0, count: 0 };
+    const currentSummary = revenueData[0] || { totalRevenue: 0, count: 0, avgDealValue: 0 };
+    const growthPct = prevSummary.totalRevenue > 0
+      ? Math.round(((currentSummary.totalRevenue - prevSummary.totalRevenue) / prevSummary.totalRevenue) * 1000) / 10
+      : (currentSummary.totalRevenue > 0 ? 100 : 0);
+    const countGrowth = currentSummary.count - prevSummary.count;
+
     res.json({
-      summary: revenueData[0] || { totalRevenue: 0, count: 0, avgDealValue: 0 },
+      summary: { ...currentSummary, growthPct, countGrowth, previousCount: prevSummary.count },
       byCategory,
       byState,
       byIndustry,
@@ -1258,6 +1301,17 @@ router.get('/founder', async (req, res) => {
         const salesStaff = getStaffObj('executive');
         const pendingLeavesCount = await Leave.countDocuments({ status: 'pending' });
 
+        // Revenue growth vs previous month
+        const prevMonthStartF = new Date(monthStart);
+        prevMonthStartF.setMonth(prevMonthStartF.getMonth() - 1);
+        const prevMonthRevenueF = await LeadActivity.aggregate([
+            { $match: { action: 'converted', createdAt: { $gte: prevMonthStartF, $lt: monthStart } } },
+            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
+        ]).then(r => r[0]?.total || 0);
+        const revGrowthF = prevMonthRevenueF > 0
+            ? Math.round(((totalRevenue - prevMonthRevenueF) / prevMonthRevenueF) * 100 * 10) / 10
+            : (totalRevenue > 0 ? 100 : 0);
+
         const stats = {
             totalLeads,
             leadsToday,
@@ -1265,6 +1319,7 @@ router.get('/founder', async (req, res) => {
             converted: totalConversions,
             convertedThisMonth,
             revenue: totalRevenue,
+            revGrowth: revGrowthF,
             totalCalls,
             reachRate: Math.round(reachRate * 10) / 10,
             conversionRate: Math.round(conversionRate * 10) / 10,

@@ -110,7 +110,7 @@ const RevenueDashboard = () => {
           <div className="text-3xl font-black text-text-primary mb-1">{formatCurrency(summary.totalRevenue)}</div>
           <div className="text-[11px] font-bold text-teal flex items-center gap-1">
              <span className="w-4 h-4 bg-teal/10 rounded-full flex items-center justify-center">↑</span>
-             <span>12.5% from previous {period}</span>
+             <span>{(summary.growthPct ?? 0) >= 0 ? '↑' : '↓'} {Math.abs(summary.growthPct ?? 0)}% from previous {period}</span>
           </div>
         </div>
 
@@ -120,7 +120,7 @@ const RevenueDashboard = () => {
           <div className="text-3xl font-black text-text-primary mb-1">{summary.count}</div>
           <div className="text-[11px] font-bold text-blue flex items-center gap-1">
              <span className="w-4 h-4 bg-blue/10 rounded-full flex items-center justify-center">↑</span>
-             <span>{Math.round(summary.count * 0.2)} new this {period}</span>
+             <span>{(summary.countGrowth ?? 0) >= 0 ? '+' : ''}{summary.countGrowth ?? 0} vs previous {period}</span>
           </div>
         </div>
 
