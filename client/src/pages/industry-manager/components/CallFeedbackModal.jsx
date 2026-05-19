@@ -28,9 +28,6 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState(TIME_SLOTS[0]);
-  const [isCustomDate, setIsCustomDate] = useState(false);
-  const [customDate, setCustomDate] = useState('');
-  const [customReason, setCustomReason] = useState('');
   const [meetingType, setMeetingType] = useState('direct');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
@@ -67,9 +64,6 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     setNotes('');
     setStrategyNote('');
     setFollowUpDate('');
-    setCustomDate('');
-    setCustomReason('');
-    setIsCustomDate(false);
     setMeetingDate('');
     setMeetingTime('');
     setMeetingLink('');
@@ -94,14 +88,11 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
 
       } else if (selectedOutcome === 'followup') {
         await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes });
-        const dateValue = isCustomDate ? customDate : followUpDate;
-        if (dateValue) {
+        if (followUpDate) {
           await transitionMutation.mutateAsync({
             action: 'set_followup_date',
-            followUpDate: dateValue,
+            followUpDate,
             followUpTime,
-            isCustom: isCustomDate,
-            customReason: isCustomDate ? customReason : undefined,
           });
         }
         addToast('Follow-up scheduled.', 'success');
@@ -208,7 +199,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         {selectedOutcome === 'followup' && (
           <div className="space-y-3 p-4 bg-amber-light/20 border border-amber/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
             <label className={lbl + ' text-amber'}>📅 Follow-up Details</label>
-            {!isCustomDate && suggestedDates?.dates?.length > 0 && (
+            {suggestedDates?.dates?.length > 0 && (
               <div>
                 <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Suggested Dates</div>
                 <div className="flex flex-wrap gap-2">
@@ -226,34 +217,27 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
                       {d.label}
                     </button>
                   ))}
-                  <button
-                    onClick={() => setIsCustomDate(true)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold border border-dashed border-border text-text-muted hover:border-amber hover:text-amber cursor-pointer transition-all"
-                  >
-                    + Custom Date
-                  </button>
                 </div>
-              </div>
-            )}
-            {isCustomDate && (
-              <div className="space-y-3">
-                <div>
-                  <label className={lbl}>Reason for Custom Date</label>
-                  <input className={inp} placeholder="Reason required for custom dates…" value={customReason} onChange={e => setCustomReason(e.target.value)} />
-                </div>
-                <div>
-                  <label className={lbl}>Custom Date</label>
-                  <input type="date" className={inp} value={customDate} onChange={e => setCustomDate(e.target.value)} />
-                </div>
-                <button onClick={() => setIsCustomDate(false)} className="text-xs text-text-muted hover:text-text-primary cursor-pointer">← Back to suggestions</button>
               </div>
             )}
             <div>
-              <label className={lbl}>Preferred Time</label>
-              <select className={inp} value={followUpTime} onChange={e => setFollowUpTime(e.target.value)}>
-                {TIME_SLOTS.map(s => <option key={s}>{s}</option>)}
-              </select>
+              <label className={lbl}>Follow-up Date</label>
+              <input
+                type="date"
+                className={inp}
+                value={followUpDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => setFollowUpDate(e.target.value)}
+              />
             </div>
+            {followUpDate && (
+              <div>
+                <label className={lbl}>Preferred Time</label>
+                <select className={inp} value={followUpTime} onChange={e => setFollowUpTime(e.target.value)}>
+                  {TIME_SLOTS.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         )}
 
