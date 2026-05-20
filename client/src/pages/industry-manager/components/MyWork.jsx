@@ -279,11 +279,11 @@ const MyWork = () => {
                           <span className="text-[11px] font-bold text-text-secondary group-hover:text-blue">Meeting Set</span>
                         </button>
                         <button
-                          onClick={() => openModal('update-lead', { leadData: activeLead })}
+                          onClick={() => setCurrentLeadIdx(prev => prev + 1)}
                           className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-purple hover:bg-purple/5 transition-all group cursor-pointer"
                         >
-                          <span className="text-xl">⬆️</span>
-                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-purple">Escalate</span>
+                          <span className="text-xl">⏭️</span>
+                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-purple">Skip for Now</span>
                         </button>
                       </div>
                     </div>
