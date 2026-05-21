@@ -13,6 +13,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { tasksApi } from '../../../api/tasksApi';
+import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 import CallFeedbackModal from './CallFeedbackModal';
@@ -38,9 +39,12 @@ const MyWork = () => {
 
   const [currentLeadIdx, setCurrentLeadIdx] = useState(0);
   const [tableFilter, setTableFilter] = useState('All');
+  const [showAllLeads, setShowAllLeads] = useState(false);
   const [taskFilter, setTaskFilter] = useState('All');
   const [summaryModal, setSummaryModal] = useState(null);
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
+  const [allocateOpen, setAllocateOpen] = useState(false);
+  const [allocateExecId, setAllocateExecId] = useState('');
   const [strategyNote, setStrategyNote] = useState('');
 
   // Call feedback modal state
@@ -78,6 +82,25 @@ const MyWork = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', 'my-allocated'] });
       addToast('Task marked as done!', 'success');
     },
+  });
+
+  // Team executives under current IM (for inline allocate modal)
+  const { data: teamExecsData } = useQuery({
+    queryKey: ['users', 'team-execs', currentUser?._id],
+    queryFn: () => usersApi.getUsers({ role: 'executive', reportingTo: currentUser._id }).then(r => r.data),
+    enabled: allocateOpen && !!currentUser?._id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allocateLeadMutation = useMutation({
+    mutationFn: ({ leadId, execId }) => leadsApi.allocateLead(leadId, execId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
+      addToast('Lead allocated successfully!', 'success');
+      setAllocateOpen(false);
+      setAllocateExecId('');
+    },
+    onError: (err) => addToast(err?.response?.data?.message || 'Allocation failed', 'error'),
   });
 
   // 4. Fetch lead activity for the active lead
@@ -143,7 +166,11 @@ const MyWork = () => {
   const filteredLeads = useMemo(() => {
     const leads = allLeadsData?.leads || [];
     if (tableFilter === 'All') return leads;
-    if (tableFilter === 'Hot') return leads.filter(l => l.priority === 'hot');
+    if (tableFilter === 'Hot')     return leads.filter(l => l.priority === 'hot');
+    if (tableFilter === 'Warm')    return leads.filter(l => l.priority === 'warm');
+    if (tableFilter === 'Cold')    return leads.filter(l => l.priority === 'cold');
+    if (tableFilter === 'Meeting') return leads.filter(l => l.status === 'meeting_direct' || l.status === 'meeting_virtual');
+    if (tableFilter === 'Blocking') return leads.filter(l => l.status === 'blocking_amount_received');
     return leads.filter(l => l.status === tableFilter.toLowerCase());
   }, [allLeadsData, tableFilter]);
 
@@ -315,7 +342,7 @@ const MyWork = () => {
                 />
                 {workStarted && activeLead && (
                   <button
-                    onClick={() => openModal('allocate-lead', { leadData: activeLead })}
+                    onClick={() => { setAllocateOpen(true); setAllocateExecId(''); }}
                     className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border border-purple/20 text-purple rounded-lg hover:bg-purple/5 transition-colors"
                   >
                     Allocate
@@ -648,10 +675,10 @@ const MyWork = () => {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex bg-surface2 p-1 rounded-lg border border-border/40">
-              {['All', 'Hot', 'Follow-up', 'RNR', 'Converted'].map(tab => (
+              {['All', 'Hot', 'Warm', 'Cold', 'Follow-up', 'Meeting', 'Blocking', 'RNR', 'Converted'].map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setTableFilter(tab)}
+                  onClick={() => { setTableFilter(tab); setShowAllLeads(false); }}
                   className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md transition-all ${tableFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
                 >
                   {tab}
@@ -678,7 +705,7 @@ const MyWork = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {filteredLeads.map((lead, idx) => (
+              {(showAllLeads ? filteredLeads : filteredLeads.slice(0, 5)).map((lead, idx) => (
                 <tr key={lead._id} className="hover:bg-surface2/30 transition-colors group">
                   <td className="px-5 py-3.5 text-[10px] font-bold text-text-muted">MN-{String(idx + 1).padStart(2, '0')}</td>
                   <td className="px-5 py-3.5">
@@ -731,6 +758,18 @@ const MyWork = () => {
           {filteredLeads.length === 0 && (
             <div className="p-14 text-center text-text-muted italic text-sm">No leads found with this filter</div>
           )}
+          {filteredLeads.length > 5 && (
+            <div className="px-5 py-3.5 border-t border-border/40 bg-surface2/30 text-center">
+              <button
+                onClick={() => setShowAllLeads(v => !v)}
+                className="text-[11px] font-bold text-purple hover:underline transition-colors"
+              >
+                {showAllLeads
+                  ? `Show less ↑`
+                  : `View All ${filteredLeads.length} leads ↓`}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -743,12 +782,13 @@ const MyWork = () => {
             <div className="font-bold text-sm text-text-primary">My Performance · This Month</div>
           </div>
           <div className="p-6 space-y-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                { label: 'Total Calls',  value: monthlyStats.totalCalls || 0,    color: 'text-blue' },
-                { label: 'Meetings',     value: monthlyStats.totalMeetings || 0, color: 'text-teal' },
-                { label: 'Conversions',  value: monthlyStats.converted || 0,     color: 'text-green' },
-                { label: 'Revenue',      value: formatCurrency(monthlyStats.revenue || 0), color: 'text-purple' },
+                { label: 'Total Calls',   value: monthlyStats.totalCalls || 0,    color: 'text-blue' },
+                { label: 'Meetings',      value: monthlyStats.totalMeetings || 0, color: 'text-teal' },
+                { label: 'Conversions',   value: monthlyStats.converted || 0,     color: 'text-green' },
+                { label: 'Blocking Amt',  value: (allLeadsData?.leads || []).filter(l => l.status === 'blocking_amount_received').length, color: 'text-amber' },
+                { label: 'Revenue',       value: formatCurrency(monthlyStats.revenue || 0), color: 'text-purple' },
               ].map(stat => (
                 <div key={stat.label} className="p-4 bg-surface2 rounded-2xl text-center border border-border/40">
                   <div className={`text-2xl font-black ${stat.color}`}>{stat.value}</div>
@@ -960,6 +1000,54 @@ const MyWork = () => {
           </Modal>
         );
       })()}
+
+      {/* Team Allocate Modal — shows only executives under current IM */}
+      {activeLead && allocateOpen && (
+        <Modal
+          isOpen
+          title="Allocate Lead"
+          subtitle="Assign to an executive in your team"
+          onClose={() => { setAllocateOpen(false); setAllocateExecId(''); }}
+          className="max-w-sm"
+        >
+          <div className="p-3 bg-surface2 rounded-xl border border-border/40 mb-5">
+            <div className="text-sm font-bold text-text-primary">{activeLead.company || activeLead.name}</div>
+            <div className="text-[11px] text-text-muted mt-0.5">{activeLead.district} · {activeLead.phone}</div>
+          </div>
+
+          <div className="space-y-2 mb-6">
+            <label className="block text-xs font-bold text-text-secondary mb-1.5">
+              Select Executive <span className="text-red">*</span>
+            </label>
+            <select
+              className="select w-full"
+              value={allocateExecId}
+              onChange={e => setAllocateExecId(e.target.value)}
+            >
+              <option value="">— Choose from your team —</option>
+              {(teamExecsData || []).map(ex => (
+                <option key={ex._id} value={ex._id}>{ex.name} · {ex.district || ex.state}</option>
+              ))}
+            </select>
+            {teamExecsData?.length === 0 && (
+              <p className="text-[11px] text-amber font-medium mt-1">No executives found in your team.</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
+            <Button variant="outline" onClick={() => { setAllocateOpen(false); setAllocateExecId(''); }}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-purple text-white border-none"
+              disabled={!allocateExecId || allocateLeadMutation.isPending}
+              onClick={() => allocateLeadMutation.mutate({ leadId: activeLead._id, execId: allocateExecId })}
+            >
+              {allocateLeadMutation.isPending ? 'Allocating…' : 'Allocate'}
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       {/* Lead Detail Modal */}
       {activeLead && leadDetailOpen && (

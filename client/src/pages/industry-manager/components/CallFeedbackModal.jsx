@@ -42,6 +42,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const [meetingLink, setMeetingLink] = useState('');
   const [inviteeId, setInviteeId] = useState('');
   const [strategyNote, setStrategyNote] = useState('');
+  const [activeTip, setActiveTip] = useState(null);
 
   // Sync outcome and priority when lead/modal opens
   useEffect(() => {
@@ -215,7 +216,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
           <label className={lbl}>Lead Priority</label>
           <div className="flex gap-2">
             {PRIORITIES.map(p => (
-              <div key={p.id} className="flex-1 relative group">
+              <div key={p.id} className="flex-1 relative">
                 <button
                   type="button"
                   onClick={() => setPriority(p.id)}
@@ -229,10 +230,18 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
                 >
                   {p.icon} {p.label}
                 </button>
-                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">!</span>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary hidden group-hover:block pointer-events-none">
-                  <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.def}
-                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setActiveTip(activeTip === p.id ? null : p.id); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 select-none hover:bg-sky-600 transition-colors"
+                >
+                  !
+                </button>
+                {activeTip === p.id && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary">
+                    <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.def}
+                  </div>
+                )}
               </div>
             ))}
           </div>
