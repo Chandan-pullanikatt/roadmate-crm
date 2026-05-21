@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { 
   StatCard, 
@@ -14,7 +15,11 @@ import { useToast } from '../../../context/ToastContext';
 const LeadManagement = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState('all');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('status') || 'all';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -104,14 +109,15 @@ const LeadManagement = () => {
   const userInfo = dashData?.user || {};
 
   const tabs = [
-    { id: 'all', label: 'All', count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
-    { id: 'new', label: 'New', count: counts?.new || 0 },
-    { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
-    { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
-    { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
-    { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
-    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 },
-    { id: 'escalated', label: 'Escalated', count: counts?.escalated || 0 }
+    { id: 'all',                      label: 'All',              count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
+    { id: 'new',                      label: 'New',              count: counts?.new || 0 },
+    { id: 'followup',                 label: 'Follow-up',        count: counts?.followup || 0 },
+    { id: 'meeting',                  label: 'Meeting',          count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
+    { id: 'converted',                label: 'Converted',        count: counts?.converted || 0 },
+    { id: 'blocking_amount_received', label: 'Blocking Amount',  count: counts?.blocking_amount_received || 0 },
+    { id: 'lost',                     label: 'Lost',             count: counts?.lost || 0 },
+    { id: 'rnr',                      label: 'RNR',              count: counts?.rnr || 0 },
+    { id: 'escalated',                label: 'Escalated',        count: counts?.escalated || 0 },
   ];
 
   const formatCurrency = (val) => {

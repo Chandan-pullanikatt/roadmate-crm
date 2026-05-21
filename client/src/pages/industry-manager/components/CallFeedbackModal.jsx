@@ -6,12 +6,13 @@ import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 
 const OUTCOMES = [
-  { id: 'connected',    icon: '✅', label: 'Connected',        color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
-  { id: 'followup',     icon: '📞', label: 'Follow-up',        color: '#B45309', bg: '#FEF3C7', border: '#FCD34D' },
-  { id: 'meeting',      icon: '🎥', label: 'Schedule Meeting', color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
-  { id: 'rnr',          icon: '📵', label: 'RNR',              color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-  { id: 'converted',    icon: '🏆', label: 'Converted!',       color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
-  { id: 'not_interested', icon: '✗', label: 'Not Interested',  color: '#9B1C1C', bg: '#FEF2F2', border: '#FECACA' },
+  { id: 'connected',               icon: '✅', label: 'Connected',          color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
+  { id: 'followup',                icon: '📞', label: 'Follow-up',          color: '#B45309', bg: '#FEF3C7', border: '#FCD34D' },
+  { id: 'meeting',                 icon: '🎥', label: 'Schedule Meeting',   color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
+  { id: 'rnr',                     icon: '📵', label: 'RNR',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { id: 'blocking_amount_received',icon: '💰', label: 'Blocking Amount',    color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
+  { id: 'converted',               icon: '🏆', label: 'Converted!',         color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
+  { id: 'not_interested',          icon: '✗',  label: 'Not Interested',     color: '#9B1C1C', bg: '#FEF2F2', border: '#FECACA' },
 ];
 
 const TIME_SLOTS = [
@@ -31,7 +32,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const { addToast } = useToast();
 
   const [selectedOutcome, setSelectedOutcome] = useState(initialOutcome);
-  const [priority, setPriority] = useState('warm');
+  const [priority, setPriority] = useState(null);
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState(TIME_SLOTS[0]);
@@ -42,10 +43,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const [inviteeId, setInviteeId] = useState('');
   const [strategyNote, setStrategyNote] = useState('');
 
-  // Sync initialOutcome and priority when lead/modal changes
+  // Sync outcome and priority when lead/modal opens
   useEffect(() => {
     setSelectedOutcome(initialOutcome);
-    setPriority(lead?.priority || 'warm');
+    setPriority(lead?.priority || null);
   }, [initialOutcome, isOpen, lead]);
 
   const { data: suggestedDates } = useQuery({
@@ -81,33 +82,39 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
 
   const handleSubmit = async () => {
     if (!selectedOutcome) {
-      addToast('Please select a call outcome first', 'warning');
+      addToast('Please select a call outcome first.', 'warning');
+      return;
+    }
+    if (!priority) {
+      addToast('Please select a lead priority (Hot / Warm / Cold).', 'warning');
+      return;
+    }
+    if (!notes.trim()) {
+      addToast('Remarks are required — note what happened in this call.', 'warning');
+      return;
+    }
+    if (selectedOutcome === 'followup' && !followUpDate) {
+      addToast('Please set a follow-up date.', 'warning');
       return;
     }
 
     try {
       if (selectedOutcome === 'connected') {
-        await transitionMutation.mutateAsync({ action: 'mark_called', priority });
+        await transitionMutation.mutateAsync({ action: 'mark_called', note: notes, priority });
         addToast('Call logged as connected.', 'success');
 
       } else if (selectedOutcome === 'rnr') {
-        await transitionMutation.mutateAsync({ action: 'mark_rnr', priority });
+        await transitionMutation.mutateAsync({ action: 'mark_rnr', note: notes, priority });
         addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
 
       } else if (selectedOutcome === 'followup') {
         await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes, priority });
-        if (followUpDate) {
-          await transitionMutation.mutateAsync({
-            action: 'set_followup_date',
-            followUpDate,
-            followUpTime,
-          });
-        }
+        await transitionMutation.mutateAsync({ action: 'set_followup_date', followUpDate, followUpTime });
         addToast('Follow-up scheduled.', 'success');
 
       } else if (selectedOutcome === 'meeting') {
-        if (!meetingDate) { addToast('Please set a meeting date', 'warning'); return; }
-        if (meetingType === 'virtual' && !meetingLink) { addToast('Please add a meeting link', 'warning'); return; }
+        if (!meetingDate) { addToast('Please set a meeting date.', 'warning'); return; }
+        if (meetingType === 'virtual' && !meetingLink) { addToast('Please add a meeting link.', 'warning'); return; }
         const nextAction = meetingType === 'virtual' ? 'schedule_virtual' : 'direct_meeting';
         const payload = {
           action: 'set_feedback',
@@ -120,6 +127,15 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         if (inviteeId) payload.meetingInvitees = [inviteeId];
         await transitionMutation.mutateAsync(payload);
         addToast('Meeting scheduled!', 'success');
+
+      } else if (selectedOutcome === 'blocking_amount_received') {
+        await transitionMutation.mutateAsync({
+          action: 'set_feedback',
+          nextAction: 'blocking_amount_received',
+          note: notes,
+          priority,
+        });
+        addToast('💰 Blocking amount received logged!', 'success');
 
       } else if (selectedOutcome === 'converted') {
         await transitionMutation.mutateAsync({
@@ -213,7 +229,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
                 >
                   {p.icon} {p.label}
                 </button>
-                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">i</span>
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">!</span>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary hidden group-hover:block pointer-events-none">
                   <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.def}
                 </div>

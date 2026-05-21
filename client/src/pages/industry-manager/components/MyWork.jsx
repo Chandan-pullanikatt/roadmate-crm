@@ -1,26 +1,46 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   StatCard,
   Button,
   Tag,
   Avatar,
+  Modal,
   DashboardSkeleton
 } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { tasksApi } from '../../../api/tasksApi';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 import CallFeedbackModal from './CallFeedbackModal';
+
+const PRIORITY_DOT = { high: 'bg-red', medium: 'bg-amber', low: 'bg-blue' };
+const PRIORITY_STYLE = {
+  high:   'bg-red/10 text-red',
+  medium: 'bg-amber/10 text-amber',
+  low:    'bg-blue/10 text-blue',
+};
+const TASK_STATUS_STYLE = {
+  pending:     'bg-amber-light text-amber',
+  in_progress: 'bg-blue-light text-blue',
+  completed:   'bg-accent-light text-accent',
+  overdue:     'bg-red/10 text-red',
+};
 
 const MyWork = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const [currentLeadIdx, setCurrentLeadIdx] = useState(0);
   const [tableFilter, setTableFilter] = useState('All');
+  const [taskFilter, setTaskFilter] = useState('All');
+  const [summaryModal, setSummaryModal] = useState(null);
+  const [leadDetailOpen, setLeadDetailOpen] = useState(false);
   const [strategyNote, setStrategyNote] = useState('');
 
   // Call feedback modal state
@@ -44,7 +64,23 @@ const MyWork = () => {
     placeholderData: (prev) => prev
   });
 
-  // 3. Fetch lead activity for the active lead
+  // 3. Fetch allocated tasks for this executive
+  const { data: tasksData } = useQuery({
+    queryKey: ['tasks', 'my-allocated'],
+    queryFn: () => tasksApi.getTasks({ limit: 50 }).then(res => res.data),
+    staleTime: 2 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
+
+  const completeTaskMutation = useMutation({
+    mutationFn: (id) => tasksApi.completeTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my-allocated'] });
+      addToast('Task marked as done!', 'success');
+    },
+  });
+
+  // 4. Fetch lead activity for the active lead
   const activeLead = (allLeadsData?.leads || [])[currentLeadIdx];
   const { data: activityData } = useQuery({
     queryKey: ['lead-activity', activeLead?._id],
@@ -95,6 +131,12 @@ const MyWork = () => {
   const workStarted = !!dashData?.attendance?.workStartedAt && !dashData?.attendance?.workCompletedAt;
   const workCompleted = !!dashData?.attendance?.workCompletedAt;
   const myQueue = allLeadsData?.leads || [];
+
+  const completionPct = workCompleted
+    ? Math.min(Math.round(dashData?.attendance?.completionPct || 0), 100)
+    : Math.round(((dashData?.todayStats?.completedLeads || 0) / Math.max(myQueue.length, 1)) * 100);
+  const pctColor = completionPct >= 70 ? 'text-accent' : completionPct >= 30 ? 'text-amber' : 'text-red';
+  const barColor = completionPct >= 70 ? 'bg-accent' : completionPct >= 30 ? 'bg-amber' : 'bg-red';
   const isQueueEmpty = myQueue.length === 0;
   const isLastLead = currentLeadIdx >= myQueue.length;
 
@@ -104,6 +146,13 @@ const MyWork = () => {
     if (tableFilter === 'Hot') return leads.filter(l => l.priority === 'hot');
     return leads.filter(l => l.status === tableFilter.toLowerCase());
   }, [allLeadsData, tableFilter]);
+
+  const filteredTasks = useMemo(() => {
+    const tasks = tasksData?.tasks || [];
+    if (taskFilter === 'All') return tasks;
+    if (taskFilter === 'In Progress') return tasks.filter(t => t.status === 'in_progress');
+    return tasks.filter(t => t.status === taskFilter.toLowerCase());
+  }, [tasksData, taskFilter]);
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -148,6 +197,25 @@ const MyWork = () => {
             <span className={`w-2 h-2 rounded-full ${workStarted ? 'bg-green animate-pulse' : 'bg-amber'}`} />
             {workStarted ? 'Work Active' : workCompleted ? 'Work Ended' : 'Work Not Started'}
           </span>
+
+          {/* Work Completion % — shown once work has started */}
+          {(workStarted || workCompleted) && (
+            <div className="flex flex-col items-center gap-1 px-1 min-w-[56px]">
+              <span className={`text-base font-black leading-none tabular-nums ${pctColor}`}>
+                {completionPct}%
+              </span>
+              <div className="w-full h-1.5 bg-surface2 rounded-full overflow-hidden border border-border/40">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                  style={{ width: `${completionPct}%` }}
+                />
+              </div>
+              <span className="text-[9px] text-text-muted uppercase tracking-widest font-bold leading-none">
+                {workCompleted ? 'Final' : 'Live'}
+              </span>
+            </div>
+          )}
+
           <Button
             className={`${workStarted ? 'bg-red' : 'bg-purple'} text-white border-none rounded-xl px-6 h-9 font-bold`}
             onClick={() => workStarted ? endWorkMutation.mutate(dashData?.attendance?._id) : startWorkMutation.mutate()}
@@ -167,18 +235,59 @@ const MyWork = () => {
               }
             })}
           >
-            + Onboard Executive
+            + Create Executive
           </Button>
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="My Leads Today" value={myQueue.length} delta={`→ ${todayStats.followups || 0} follow-ups`} deltaType="up" colorClass="purple" />
-        <StatCard label="Completed Today" value={todayStats.completedLeads || 0} delta={`of ${myQueue.length} total`} deltaType="up" colorClass="green" />
-        <StatCard label="My Calls This Week" value={weeklyStats.calls || 0} delta={`↑ ${weeklyStats.callGrowth || 0} vs last week`} deltaType="up" colorClass="blue" />
-        <StatCard label="My Conversions" value={monthlyStats.converted || 0} delta="This month" deltaType="up" colorClass="teal" />
-      </div>
+      {/* ── SUMMARY CARDS (5 clickable) ── */}
+      {(() => {
+        const blockingLeads = (allLeadsData?.leads || []).filter(l => l.status === 'blocking_amount_received');
+        const conversionLeads = (allLeadsData?.leads || []).filter(l => l.status === 'converted');
+
+        const cards = [
+          { id: 'my-leads',    label: 'My Leads Today',    value: myQueue.length,                  delta: `${todayStats.followups || 0} follow-ups pending`,                                                            color: '#7C3AED' },
+          { id: 'completed',   label: 'Completed Today',   value: todayStats.completedLeads || 0,  delta: `of ${myQueue.length} total leads`,                                                                             color: '#059669' },
+          { id: 'calls',       label: 'Calls This Week',   value: weeklyStats.calls || 0,          delta: `${(weeklyStats.callGrowth || 0) >= 0 ? '+' : ''}${weeklyStats.callGrowth || 0} vs last week`,                 color: '#2563EB' },
+          { id: 'conversions', label: 'My Conversions',    value: monthlyStats.converted || 0,     delta: 'This month',                                                                                                   color: '#0D9488' },
+          { id: 'blocking',    label: 'Blocking Amount',   value: blockingLeads.length,            delta: 'Amount received',                                                                                              color: '#D97706' },
+        ];
+
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            {cards.map((card) => (
+              <button
+                key={card.id}
+                onClick={() => setSummaryModal(card.id)}
+                className="group relative text-left w-full bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-border2 transition-all overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple/20"
+              >
+                {/* Top accent bar */}
+                <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl" style={{ background: card.color }} />
+
+                <div className="pt-1">
+                  <div className="text-[10px] sm:text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 sm:mb-3 leading-tight">
+                    {card.label}
+                  </div>
+                  <div
+                    className="text-2xl sm:text-3xl font-black leading-none mb-1.5 sm:mb-2 tabular-nums"
+                    style={{ color: card.color }}
+                  >
+                    {card.value}
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] font-medium text-text-muted leading-tight truncate">
+                    {card.delta}
+                  </div>
+                </div>
+
+                {/* Hover arrow */}
+                <span className="absolute bottom-3 right-3 text-[10px] font-bold opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: card.color }}>
+                  Details →
+                </span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ── MAIN TWO-COLUMN: Active Lead | Queue + Sources ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -199,10 +308,20 @@ const MyWork = () => {
                   </div>
                 </div>
               </div>
-              <Tag
-                variant={workStarted && activeLead ? (activeLead.priority === 'hot' ? 'red' : 'blue') : 'surface2'}
-                label={workStarted && activeLead ? activeLead.priority?.toUpperCase() || 'NORMAL' : 'Waiting'}
-              />
+              <div className="flex items-center gap-2">
+                <Tag
+                  variant={workStarted && activeLead ? (activeLead.priority === 'hot' ? 'red' : 'blue') : 'surface2'}
+                  label={workStarted && activeLead ? activeLead.priority?.toUpperCase() || 'NORMAL' : 'Waiting'}
+                />
+                {workStarted && activeLead && (
+                  <button
+                    onClick={() => openModal('allocate-lead', { leadData: activeLead })}
+                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border border-purple/20 text-purple rounded-lg hover:bg-purple/5 transition-colors"
+                  >
+                    Allocate
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Card Body */}
@@ -230,7 +349,13 @@ const MyWork = () => {
                 <div className="animate-in slide-in-from-bottom-2 duration-300">
                   {/* Lead header */}
                   <div className="mb-5">
-                    <h4 className="text-xl font-bold text-text-primary tracking-tight">{activeLead.company || activeLead.name}</h4>
+                    <button
+                      onClick={() => setLeadDetailOpen(true)}
+                      className="text-xl font-bold text-text-primary tracking-tight hover:text-purple transition-colors text-left group"
+                    >
+                      {activeLead.company || activeLead.name}
+                      <span className="ml-2 text-[11px] font-semibold text-text-muted opacity-0 group-hover:opacity-60 transition-opacity">↗ Details</span>
+                    </button>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs text-text-muted">Contact: <span className="font-semibold text-text-primary">{activeLead.name}</span></span>
                       <span className="w-1 h-1 rounded-full bg-border2" />
@@ -384,6 +509,129 @@ const MyWork = () => {
                 ))}
                 <Tag variant="purple" label="District Partner Leads" className="w-full justify-center py-2 mt-1" />
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── ALLOCATED TASKS ── */}
+      <div className="card overflow-hidden">
+        <div className="px-6 py-5 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="font-bold text-sm text-text-primary">Allocated Tasks</div>
+            <div className="text-[11px] text-text-muted mt-0.5">
+              Tasks assigned to you · {(tasksData?.tasks || []).filter(t => t.status !== 'completed').length} pending
+            </div>
+          </div>
+          <div className="flex bg-surface2 p-1 rounded-lg border border-border/40">
+            {['All', 'Pending', 'In Progress', 'Overdue'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setTaskFilter(tab)}
+                className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md transition-all ${taskFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-surface2/50 border-b border-border/50">
+              <tr>
+                {['', 'Task', 'Assigned By', 'Due Date', 'Priority', 'Status', ''].map((h, i) => (
+                  <th key={i} className="px-5 py-3.5 text-[10px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+              {filteredTasks.map((task) => {
+                const isOverdue = task.status === 'overdue';
+                const isDone = task.status === 'completed';
+                return (
+                  <tr
+                    key={task._id}
+                    className={`transition-colors group ${isOverdue ? 'bg-red/5 hover:bg-red/10' : 'hover:bg-surface2/30'}`}
+                  >
+                    {/* Priority dot */}
+                    <td className="pl-5 pr-2 py-3.5 w-6">
+                      <span
+                        className={`block w-2 h-2 rounded-full ${PRIORITY_DOT[task.priority] || 'bg-border2'}`}
+                        title={task.priority}
+                      />
+                    </td>
+
+                    {/* Task title + description */}
+                    <td className="px-5 py-3.5 max-w-[300px]">
+                      <div className={`text-sm font-bold truncate ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}`}>
+                        {task.title}
+                      </div>
+                      {task.description && (
+                        <div className="text-[11px] text-text-muted mt-0.5 truncate max-w-[260px]">
+                          {task.description}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Assigned by */}
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-purple/10 text-purple text-[9px] font-bold flex items-center justify-center shrink-0">
+                          {task.assignedBy?.name?.charAt(0) || '?'}
+                        </span>
+                        <span className="text-xs text-text-secondary font-medium">
+                          {task.assignedBy?.name || '—'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Due date */}
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className={`text-xs font-bold ${isOverdue ? 'text-red' : 'text-text-primary'}`}>
+                        {new Date(task.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                      <div className="text-[10px] text-text-muted mt-0.5">{task.endTime}</div>
+                    </td>
+
+                    {/* Priority badge */}
+                    <td className="px-5 py-3.5">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-tight ${PRIORITY_STYLE[task.priority] || 'bg-surface2 text-text-muted'}`}>
+                        {task.priority}
+                      </span>
+                    </td>
+
+                    {/* Status badge */}
+                    <td className="px-5 py-3.5">
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${TASK_STATUS_STYLE[task.status] || 'bg-surface2 text-text-muted'}`}>
+                        {task.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+
+                    {/* Action */}
+                    <td className="px-5 py-3.5">
+                      {!isDone && (
+                        <button
+                          onClick={() => completeTaskMutation.mutate(task._id)}
+                          disabled={completeTaskMutation.isPending}
+                          className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-accent/30 text-accent rounded-lg hover:bg-accent/5 transition-colors disabled:opacity-40"
+                        >
+                          Mark Done
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {filteredTasks.length === 0 && (
+            <div className="py-14 text-center">
+              <div className="text-3xl mb-3">📋</div>
+              <p className="text-sm font-medium text-text-muted">
+                {taskFilter === 'All' ? 'No tasks allocated yet' : `No ${taskFilter.toLowerCase()} tasks`}
+              </p>
             </div>
           )}
         </div>
@@ -565,6 +813,237 @@ const MyWork = () => {
           </div>
         </div>
       </div>
+
+      {/* ── SUMMARY DETAIL MODAL ── */}
+      {(() => {
+        if (!summaryModal) return null;
+
+        const allLeads = allLeadsData?.leads || [];
+        const blockingLeads = allLeads.filter(l => l.status === 'blocking_amount_received');
+        const conversionLeads = allLeads.filter(l => l.status === 'converted');
+
+        const CONFIG = {
+          'my-leads': {
+            title: 'My Leads Today',
+            subtitle: `${myQueue.length} leads in your queue`,
+            color: '#7C3AED',
+            leads: myQueue.slice(0, 20),
+            navTarget: '/dashboard?page=leads',
+            emptyMsg: 'No leads in your queue today.',
+          },
+          completed: {
+            title: 'Completed Today',
+            subtitle: `${todayStats.completedLeads || 0} leads actioned today`,
+            color: '#059669',
+            leads: (() => {
+              const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+              return allLeads.filter(l => new Date(l.updatedAt) >= todayMidnight).slice(0, 20);
+            })(),
+            navTarget: '/dashboard?page=leads&status=followup',
+            emptyMsg: 'No completed leads found for today.',
+          },
+          calls: {
+            title: 'Calls This Week',
+            subtitle: `${weeklyStats.calls || 0} calls made`,
+            color: '#2563EB',
+            leads: [],
+            navTarget: '/dashboard?page=calls',
+            emptyMsg: 'Call-by-call log available on the calls page.',
+            statOnly: true,
+          },
+          conversions: {
+            title: 'My Conversions',
+            subtitle: `${monthlyStats.converted || 0} conversions this month`,
+            color: '#0D9488',
+            leads: conversionLeads.slice(0, 20),
+            navTarget: '/dashboard?page=leads&status=converted',
+            emptyMsg: 'No conversions recorded yet.',
+          },
+          blocking: {
+            title: 'Blocking Amount Received',
+            subtitle: `${blockingLeads.length} leads with blocking payment`,
+            color: '#D97706',
+            leads: blockingLeads.slice(0, 20),
+            navTarget: '/dashboard?page=leads&status=blocking_amount_received',
+            emptyMsg: 'No blocking amount received yet.',
+          },
+        };
+
+        const cfg = CONFIG[summaryModal];
+        if (!cfg) return null;
+
+        return (
+          <Modal
+            isOpen
+            title={cfg.title}
+            subtitle={cfg.subtitle}
+            onClose={() => setSummaryModal(null)}
+            className="max-w-lg"
+          >
+            {/* Top stat highlight */}
+            <div
+              className="rounded-xl p-4 mb-5 flex items-center gap-4"
+              style={{ background: `${cfg.color}12`, border: `1px solid ${cfg.color}30` }}
+            >
+              <div className="text-4xl font-black tabular-nums" style={{ color: cfg.color }}>
+                {summaryModal === 'my-leads' ? myQueue.length
+                  : summaryModal === 'completed' ? (todayStats.completedLeads || 0)
+                  : summaryModal === 'calls' ? (weeklyStats.calls || 0)
+                  : summaryModal === 'conversions' ? (monthlyStats.converted || 0)
+                  : blockingLeads.length}
+              </div>
+              <div>
+                <div className="text-sm font-bold text-text-primary">{cfg.title}</div>
+                <div className="text-xs text-text-muted mt-0.5">{cfg.subtitle}</div>
+              </div>
+            </div>
+
+            {/* Lead list OR stat-only message */}
+            {cfg.statOnly ? (
+              <div className="py-8 text-center">
+                <div className="text-3xl mb-3">
+                  {summaryModal === 'completed' ? '✅' : '📞'}
+                </div>
+                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+              </div>
+            ) : cfg.leads.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="text-3xl mb-3">📋</div>
+                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
+                {cfg.leads.map((lead, i) => (
+                  <div
+                    key={lead._id || i}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                  >
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
+                      style={{ background: cfg.color }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-text-primary truncate">
+                        {lead.company || lead.name}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate">
+                        {lead.district || '—'} · {lead.name}
+                      </div>
+                    </div>
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md shrink-0"
+                      style={{ background: `${cfg.color}15`, color: cfg.color }}
+                    >
+                      {lead.status?.replace(/_/g, ' ') || 'new'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* View Full Details CTA */}
+            <div className="mt-6 pt-4 border-t border-border/50 flex justify-end">
+              <button
+                onClick={() => {
+                  setSummaryModal(null);
+                  navigate(cfg.navTarget);
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                style={{ background: cfg.color }}
+              >
+                View Full Details
+                <span className="text-base leading-none">→</span>
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* Lead Detail Modal */}
+      {activeLead && leadDetailOpen && (
+        <Modal
+          isOpen
+          title={activeLead.company || activeLead.name}
+          subtitle={`${activeLead.district || '—'} · ${activeLead.phone}`}
+          onClose={() => setLeadDetailOpen(false)}
+          className="max-w-lg"
+        >
+          {/* Info tiles */}
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            {[
+              { label: 'Source',   value: activeLead.source || 'District Partner' },
+              { label: 'Priority', value: activeLead.priority?.toUpperCase() || '—' },
+              { label: 'Status',   value: activeLead.status?.replace(/_/g, ' ') || '—' },
+              { label: 'Phone',    value: activeLead.phone || '—' },
+            ].map(f => (
+              <div key={f.label} className="p-3 rounded-xl bg-surface2 border border-border/40">
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
+                <div className="text-sm font-bold text-text-primary">{f.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* All handlers who touched this lead */}
+          {recentActivity.length > 0 && (() => {
+            const seen = new Set();
+            const handlers = recentActivity
+              .map(a => a.performedBy)
+              .filter(p => p && !seen.has(p._id || p) && seen.add(p._id || p));
+            return handlers.length > 0 ? (
+              <div className="mb-5">
+                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">All Handlers</div>
+                <div className="flex flex-wrap gap-2">
+                  {handlers.map((p, i) => (
+                    <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple/5 border border-purple/10">
+                      <span className="w-5 h-5 rounded-full bg-purple/10 text-purple text-[9px] font-bold flex items-center justify-center">
+                        {(p.name || p)?.[0] || '?'}
+                      </span>
+                      <span className="text-[11px] font-bold text-text-primary">{p.name || p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+
+          {/* Remarks history */}
+          <div>
+            <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Full Remarks History</div>
+            <div className="relative pl-4 max-h-[280px] overflow-y-auto pr-1 -mr-2">
+              <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
+              {recentActivity.length > 0 ? (
+                recentActivity.map((a, i) => (
+                  <div key={i} className="relative mb-4">
+                    <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${i === 0 ? 'bg-purple' : 'bg-border2'}`} />
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <div className="text-[10px] font-bold text-text-primary">
+                        {new Date(a.createdAt || a.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {a.performedBy?.name && (
+                        <span className="text-[9px] font-bold text-purple bg-purple/5 px-1.5 py-0.5 rounded-md">
+                          {a.performedBy.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] font-semibold text-text-secondary">
+                      {a.action?.replace(/_/g, ' ')}
+                    </div>
+                    {a.note && (
+                      <div className="text-[11px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
+                        {a.note}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-sm text-text-muted italic">No activity recorded yet.</div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Call Feedback Modal */}
       {activeLead && (

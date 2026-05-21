@@ -258,13 +258,14 @@ const GlobalModals = () => {
           });
         } else {
           const prefill = data.prefill || {};
-          setExecFormData(prev => ({ 
-            ...prev, 
+          setExecFormData(prev => ({
+            ...prev,
             _id: undefined,
             role: prefill.role || data.role || 'industry-manager',
-            name: '', email: '', phone: '', 
-            state: prefill.state || '', 
-            industry: prefill.industry || '', 
+            roleLocked: !!prefill.role,
+            name: '', email: '', phone: '',
+            state: prefill.state || '',
+            industry: prefill.industry || '',
             reportingTo: prefill.reportingTo || '',
             dateOfJoining: '', basicSalary: '', aadhaarNumber: '', panNumber: '', documents: []
           }));
@@ -1057,17 +1058,24 @@ const GlobalModals = () => {
       </Modal>
 
       {/* CREATE EXECUTIVE MODAL */}
-      <Modal 
-        isOpen={activeModal === 'create-exec'} 
-        title={execFormData._id ? "Edit Account" : "Create Executive / Industry Manager"} 
-        subtitle={execFormData._id ? "Update staff account information" : "Add new staff account with role assignment"}
+      <Modal
+        isOpen={activeModal === 'create-exec'}
+        title={
+          execFormData._id
+            ? "Edit Account"
+            : execFormData.roleLocked && execFormData.role === 'executive'
+              ? "Create Executive"
+              : "Create Executive / Industry Manager"
+        }
+        subtitle={execFormData._id ? "Update staff account information" : "Add new District Executive account"}
         onClose={handleCloseModal}
         className="modal-lg"
       >
 
         <form onSubmit={handleExecSubmit} className="space-y-8 py-2">
           <div className="grid grid-cols-2 gap-x-10 gap-y-6">
-            {/* Role */}
+            {/* Role — hidden when locked to a specific role (e.g. Industry Manager context) */}
+            {!execFormData.roleLocked && (
             <div className="space-y-2">
               <label className="form-label">Role <span className="text-red">*</span></label>
               <select className="select" value={execFormData.role} onChange={(e) => setExecFormData({...execFormData, role: e.target.value})} required>
@@ -1075,6 +1083,7 @@ const GlobalModals = () => {
                 <option value="executive">District Executive</option>
               </select>
             </div>
+            )}
 
             <div className="space-y-2">
               <label className="form-label">Reports To</label>
