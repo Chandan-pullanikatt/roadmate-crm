@@ -20,6 +20,10 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     return params.get('status') || 'all';
   });
+  const [priorityFilter, setPriorityFilter] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('priority') || '';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -48,9 +52,10 @@ const LeadManagement = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'industry-list', activeTab, debouncedSearch, page],
+    queryKey: ['leads', 'industry-list', activeTab, priorityFilter, debouncedSearch, page],
     queryFn: () => leadsApi.getLeads({
       status: activeTab === 'all' ? undefined : activeTab,
+      priority: priorityFilter || undefined,
       search: debouncedSearch,
       page,
       limit: 20
@@ -223,16 +228,26 @@ const LeadManagement = () => {
       {/* Main Table Card */}
       <div className="card shadow-lg shadow-purple/5 border-border/40 overflow-hidden">
         <div className="card-header border-none px-8 pt-8 pb-4 flex flex-col sm:flex-row justify-between gap-4">
-          <div className="flex bg-surface2 p-1 rounded-xl border border-border/40 overflow-x-auto">
-            {tabs.map(tab => (
-                <button 
-                    key={tab.id}
-                    onClick={() => { setActiveTab(tab.id); setPage(1); }}
-                    className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === tab.id ? 'bg-white shadow-sm text-[#0f766e]' : 'text-text-muted hover:text-text-primary'}`}
-                >
-                  {tab.label} <span className="ml-1 opacity-50">{tab.count}</span>
-                </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex bg-surface2 p-1 rounded-xl border border-border/40 overflow-x-auto">
+              {tabs.map(tab => (
+                  <button
+                      key={tab.id}
+                      onClick={() => { setActiveTab(tab.id); setPage(1); }}
+                      className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === tab.id ? 'bg-white shadow-sm text-[#0f766e]' : 'text-text-muted hover:text-text-primary'}`}
+                  >
+                    {tab.label} <span className="ml-1 opacity-50">{tab.count}</span>
+                  </button>
+              ))}
+            </div>
+            {priorityFilter && (
+              <button
+                onClick={() => { setPriorityFilter(''); setPage(1); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red/10 text-red border border-red/20 text-[10px] font-black uppercase tracking-wider whitespace-nowrap hover:bg-red/20 transition-colors"
+              >
+                🔥 Hot Priority <span className="opacity-60">✕</span>
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="rounded-xl h-10 px-6 font-bold border-border/60 text-[10px] uppercase tracking-widest" onClick={() => openModal('bulk-upload')}>

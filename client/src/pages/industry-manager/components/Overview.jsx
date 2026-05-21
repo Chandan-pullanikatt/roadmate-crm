@@ -4,23 +4,101 @@ import { useNavigate } from 'react-router-dom';
 import {
   Tag,
   LeadFunnel,
-  DashboardSkeleton
+  DashboardSkeleton,
+  Modal
 } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
+import { leadsApi } from '../../../api/leadsApi';
+import { usersApi } from '../../../api/usersApi';
+import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+
+const FILTER_PERIODS = [
+  { key: 'year',    label: 'Year'    },
+  { key: 'quarter', label: 'Quarter' },
+  { key: 'month',   label: 'Month'   },
+  { key: 'week',    label: 'Week'    },
+  { key: 'day',     label: 'Day'     },
+];
+
+const PERIOD_SUB_OPTIONS = {
+  month: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  quarter: ['Q1','Q2','Q3','Q4'],
+  year: (() => {
+    const y = new Date().getFullYear();
+    return [String(y), String(y - 1), String(y - 2), String(y - 3)];
+  })(),
+};
 
 const Overview = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [funnelPeriod, setFunnelPeriod] = useState('month');
+  const [period, setPeriod] = useState('month');
+  const [periodValue, setPeriodValue] = useState('');
+  const [execModal, setExecModal] = useState(null); // { exec, type: 'calls' | 'converted' | 'hot' }
+  const [eventModal, setEventModal] = useState(null); // event object from upcomingEvents
+  const [reassignModal, setReassignModal] = useState(null); // lead object
+  const [reassignExecId, setReassignExecId] = useState('');
+  const [summaryModal, setSummaryModal] = useState(null); // stat card id
+
+  const handlePeriodChange = (key) => {
+    setPeriod(key);
+    setPeriodValue('');
+  };
 
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
+    queryKey: ['dashboard', 'industry-manager', period, periodValue],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard(period, periodValue || undefined).then(res => res.data),
     staleTime: 0,
     placeholderData: (prev) => prev
+  });
+
+  const { data: execModalLeads = [], isFetching: execLeadsLoading } = useQuery({
+    queryKey: ['exec-modal-leads', execModal?.exec?._id, execModal?.type],
+    queryFn: () => {
+      const params = { owner: execModal.exec._id, limit: 200 };
+      if (execModal.type === 'hot') params.priority = 'hot';
+      if (execModal.type === 'converted') params.status = 'converted';
+      return leadsApi.getLeads(params).then(r => r.data.leads || []);
+    },
+    enabled: !!execModal,
+    staleTime: 0,
+  });
+
+  const { data: meetingModalLeads = [], isFetching: meetingLeadsLoading } = useQuery({
+    queryKey: ['leads', 'summary-meetings'],
+    queryFn: () => leadsApi.getLeads({ status: 'meeting', limit: 100 }).then(r => r.data.leads || []),
+    enabled: summaryModal === 'meetings',
+    staleTime: 0,
+  });
+
+  const { data: eventActivity = [], isFetching: eventActivityLoading } = useQuery({
+    queryKey: ['lead-activity', eventModal?.leadId],
+    queryFn: () => leadsApi.getLeadActivity(eventModal.leadId).then(r => r.data.activities || []),
+    enabled: !!eventModal?.leadId,
+    staleTime: 0,
+  });
+
+  const { data: teamExecs = [], isLoading: teamExecsLoading } = useQuery({
+    queryKey: ['users', 'team-execs', currentUser?._id],
+    queryFn: () => usersApi.getUsers({ role: 'executive', reportingTo: currentUser._id }).then(r => r.data),
+    enabled: !!reassignModal && !!currentUser?._id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: ({ leadId, execId }) => leadsApi.allocateLead(leadId, execId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
+      addToast('Lead reassigned successfully', 'success');
+      setReassignModal(null);
+      setReassignExecId('');
+    },
+    onError: (err) => addToast(err?.response?.data?.message || 'Reassignment failed', 'error'),
   });
 
   const approveMutation = useMutation({
@@ -60,79 +138,90 @@ const Overview = () => {
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
-  const convDelta = (periodStats.converted ?? 0) - (stats.convertedLastMonth ?? 0);
+  const convDelta = (stats.convertedThisMonth ?? 0) - (stats.convertedLastMonth ?? 0);
+  const periodLabel = FILTER_PERIODS.find(p => p.key === period)?.label || 'Period';
 
   const statCards = [
     {
+      id: 'executives',
       color: 'var(--purple)',
       label: 'District Executives',
       value: stats.totalExecutives || 0,
       valueColor: 'var(--purple)',
       delta: `↑ ${stats.activeToday >= stats.totalExecutives && stats.totalExecutives > 0 ? 'All' : (stats.activeToday || 0)} active · ${userInfo.industry || ''}`,
       deltaColor: 'var(--accent)',
+      navOnly: true,
       page: 'team'
     },
     {
+      id: 'revenue',
       color: 'var(--accent)',
       label: `Revenue · ${userInfo.industry || ''} · ${userInfo.state || ''}`,
-      value: formatCurrency(stats.revenue || 0),
+      value: formatCurrency(periodStats.revenue || 0),
       valueColor: 'var(--accent)',
-      delta: `${(stats.revGrowth ?? 0) >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(stats.revGrowth || 0))}% vs last month`,
-      deltaColor: (stats.revGrowth ?? 0) >= 0 ? 'var(--accent)' : 'var(--red)',
-      page: 'reports'
+      delta: period === 'month'
+        ? `${(stats.revGrowth ?? 0) >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(stats.revGrowth || 0))}% vs last month`
+        : `→ This ${periodLabel.toLowerCase()}`,
+      deltaColor: period === 'month'
+        ? ((stats.revGrowth ?? 0) >= 0 ? 'var(--accent)' : 'var(--red)')
+        : 'var(--text-muted)',
     },
     {
+      id: 'total-leads',
       color: '#D97706',
       label: 'Total Leads',
-      value: stats.totalLeads || 0,
+      value: leadStats.total || 0,
       valueColor: '#D97706',
       delta: `→ ${leadStats.followup || 0} follow-ups today`,
       deltaColor: 'var(--text-muted)',
-      page: 'leads'
     },
     {
+      id: 'converted',
       color: 'var(--teal)',
       label: 'Converted This Month',
-      value: periodStats.converted ?? 0,
+      value: stats.convertedThisMonth ?? 0,
       valueColor: 'var(--teal)',
       delta: `${convDelta > 0 ? '↑' : convDelta < 0 ? '↓' : '→'} ${Math.abs(convDelta)} vs last month`,
       deltaColor: convDelta >= 0 ? 'var(--accent)' : 'var(--red)',
-      page: 'leads'
     },
     {
+      id: 'calls',
       color: 'var(--blue)',
       label: 'Calls This Week',
       value: stats.callsThisWeek || 0,
       valueColor: 'var(--blue)',
       delta: `${(stats.callGrowth ?? 0) >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(stats.callGrowth || 0))}% vs last week`,
       deltaColor: (stats.callGrowth ?? 0) >= 0 ? 'var(--accent)' : 'var(--red)',
-      page: 'calls'
+      statOnly: true,
+      navPage: 'calls',
     },
     {
+      id: 'meetings',
       color: 'var(--teal)',
       label: 'Meetings',
-      value: stats.meetings?.total || 0,
+      value: periodStats.meetings || 0,
       valueColor: 'var(--teal)',
-      delta: `→ ${stats.meetings?.virtual || 0} virtual, ${stats.meetings?.direct || 0} direct`,
+      delta: '→ Currently in meeting stage',
       deltaColor: 'var(--text-muted)',
-      page: 'meetings'
     },
     {
+      id: 'hot',
       color: 'var(--red)',
-      label: 'RNR Leads',
-      value: leadStats.rnr ?? 0,
+      label: 'Hot Leads',
+      value: periodStats.hot ?? 0,
       valueColor: 'var(--red)',
-      delta: (leadStats.rnr ?? 0) > 0 ? `↑ ${leadStats.escalated || 0} auto-reallocated` : '↑ All on track',
-      deltaColor: (leadStats.rnr ?? 0) > 0 ? 'var(--amber)' : 'var(--accent)',
-      page: 'leads'
+      delta: (periodStats.hot ?? 0) > 0 ? `→ Needs immediate attention` : '↑ No hot leads',
+      deltaColor: (periodStats.hot ?? 0) > 0 ? 'var(--red)' : 'var(--accent)',
     },
     {
+      id: 'leaves',
       color: 'var(--orange)',
       label: 'Leave Requests',
       value: leaves.length,
       valueColor: 'var(--orange)',
       delta: leaves.length > 0 ? 'Needs approval' : 'All clear',
       deltaColor: leaves.length > 0 ? 'var(--amber)' : 'var(--accent)',
+      navOnly: true,
       page: 'approvals'
     }
   ];
@@ -175,6 +264,37 @@ const Overview = () => {
         </div>
       </div>
 
+      {/* Period Filter */}
+      <div className="flex items-center justify-end gap-3">
+        {PERIOD_SUB_OPTIONS[period] && (
+          <select
+            value={periodValue}
+            onChange={e => setPeriodValue(e.target.value)}
+            className="h-9 px-3 rounded-xl border border-border/60 bg-white text-[11px] font-bold text-text-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-purple/20 cursor-pointer"
+          >
+            <option value="">Current {FILTER_PERIODS.find(p => p.key === period)?.label}</option>
+            {PERIOD_SUB_OPTIONS[period].map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        )}
+        <div className="flex items-center gap-1 bg-surface2/60 p-1 rounded-2xl border border-border/40">
+          {FILTER_PERIODS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => handlePeriodChange(key)}
+              className={`px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                period === key
+                  ? 'bg-white shadow-sm text-purple border border-border/40'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Escalation Banner */}
       {escalatedLeads.length > 0 && (
         <div style={{
@@ -212,10 +332,10 @@ const Overview = () => {
 
       {/* 8 Stat Cards — 4 per row, matching design */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {statCards.map((card, idx) => (
+        {statCards.map((card) => (
           <div
-            key={idx}
-            onClick={() => navigate(`/dashboard?page=${card.page}`)}
+            key={card.id}
+            onClick={() => card.navOnly ? navigate(`/dashboard?page=${card.page}`) : setSummaryModal(card.id)}
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
@@ -289,20 +409,29 @@ const Overview = () => {
                       </div>
                     </div>
                     <div className="w-48 flex items-center justify-end gap-3 pr-2">
-                      <div className="text-right">
+                      <button
+                        className="text-right hover:opacity-70 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); setExecModal({ exec, type: 'calls' }); }}
+                      >
                         <div className="text-[10px] font-bold text-blue uppercase">Calls</div>
-                        <div className="text-sm font-bold">{exec.calls}</div>
-                      </div>
+                        <div className="text-sm font-bold hover:text-blue transition-colors">{exec.calls}</div>
+                      </button>
                       <div className="w-px h-6 bg-border/40 mx-1" />
-                      <div className="text-right">
+                      <button
+                        className="text-right hover:opacity-70 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); setExecModal({ exec, type: 'converted' }); }}
+                      >
                         <div className="text-[10px] font-bold text-accent uppercase">Conv</div>
-                        <div className="text-sm font-bold">{exec.converted}</div>
-                      </div>
+                        <div className="text-sm font-bold hover:text-accent transition-colors">{exec.converted}</div>
+                      </button>
                       <div className="w-px h-6 bg-border/40 mx-1" />
-                      <div className="text-right">
-                        <div className="text-[10px] font-bold text-red uppercase">RNR</div>
-                        <div className="text-sm font-bold">{exec.rnrCount}</div>
-                      </div>
+                      <button
+                        className="text-right hover:opacity-70 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); setExecModal({ exec, type: 'hot' }); }}
+                      >
+                        <div className="text-[10px] font-bold text-red uppercase">Hot</div>
+                        <div className="text-sm font-bold hover:text-red transition-colors">{exec.hotCount ?? 0}</div>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -370,7 +499,7 @@ const Overview = () => {
           <div className="card-body px-4 pt-4 pb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {events.slice(0, 6).map((ev, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-surface/40 border border-border/30 hover:border-purple/30 hover:bg-white hover:shadow-md transition-all cursor-pointer group flex items-center gap-4">
+                <div key={idx} onClick={() => setEventModal(ev)} className="p-4 rounded-2xl bg-surface/40 border border-border/30 hover:border-purple/30 hover:bg-white hover:shadow-md transition-all cursor-pointer group flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all group-hover:scale-110 ${ev.type === 'meeting' ? 'bg-teal-light text-teal shadow-teal/10' : 'bg-blue-light text-blue shadow-blue/10'}`}>
                     {ev.type === 'meeting' ? (ev.status?.includes('virtual') ? '🎥' : '🤝') : '📞'}
                   </div>
@@ -522,7 +651,7 @@ const Overview = () => {
                     <td className="px-6 py-3">
                       <button
                         className="text-[11px] font-bold text-purple hover:underline"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'allocate-lead', leadData: lead } }))}
+                        onClick={() => { setReassignModal(lead); setReassignExecId(''); }}
                       >
                         Reassign
                       </button>
@@ -544,6 +673,436 @@ const Overview = () => {
           )}
         </div>
       </div>
+      {/* Summary Card Drill-down Modal */}
+      {summaryModal && (() => {
+        const convertedLeads = recentLeads.filter(l => l.status === 'CONVERTED');
+        const hotLeads       = recentLeads.filter(l => l.priority === 'hot' && !['CONVERTED', 'LOST'].includes(l.status));
+        const meetingLeads   = recentLeads.filter(l => l.status?.includes('MEETING'));
+
+        const CONFIG = {
+          revenue: {
+            title: 'Revenue — Converted Leads',
+            subtitle: `${formatCurrency(periodStats.revenue || 0)} · ${convertedLeads.length} conversions`,
+            color: 'var(--accent)',
+            value: formatCurrency(periodStats.revenue || 0),
+            leads: convertedLeads,
+            emptyMsg: 'No converted leads found.',
+            navTarget: '/dashboard?page=reports',
+          },
+          'total-leads': {
+            title: 'Total Leads',
+            subtitle: `${recentLeads.length} leads in your territory`,
+            color: '#D97706',
+            value: recentLeads.length,
+            leads: recentLeads,
+            emptyMsg: 'No leads found.',
+            navTarget: '/dashboard?page=leads',
+          },
+          converted: {
+            title: 'Converted This Month',
+            subtitle: `${convertedLeads.length} conversions`,
+            color: 'var(--teal)',
+            value: convertedLeads.length,
+            leads: convertedLeads,
+            emptyMsg: 'No converted leads found.',
+            navTarget: '/dashboard?page=leads&status=converted',
+          },
+          calls: {
+            title: 'Calls This Week',
+            subtitle: `${stats.callsThisWeek || 0} calls made`,
+            color: 'var(--blue)',
+            value: stats.callsThisWeek || 0,
+            leads: [],
+            statOnly: true,
+            emptyMsg: 'Call-by-call log available on the calls page.',
+            navTarget: '/dashboard?page=calls',
+          },
+          meetings: {
+            title: 'Meetings',
+            subtitle: `${meetingModalLeads.length} leads currently in meeting stage`,
+            color: 'var(--teal)',
+            value: meetingLeadsLoading ? '…' : meetingModalLeads.length,
+            leads: meetingModalLeads,
+            loading: meetingLeadsLoading,
+            emptyMsg: 'No leads currently in meeting stage.',
+            navTarget: '/dashboard?page=leads&status=meeting',
+          },
+          hot: {
+            title: 'Hot Leads',
+            subtitle: `${hotLeads.length} leads needing immediate attention`,
+            color: 'var(--red)',
+            value: hotLeads.length,
+            leads: hotLeads,
+            emptyMsg: 'No hot leads right now.',
+            navTarget: '/dashboard?page=leads&priority=hot',
+          },
+        };
+
+        const cfg = CONFIG[summaryModal];
+        if (!cfg) return null;
+
+        return (
+          <Modal
+            isOpen
+            title={cfg.title}
+            subtitle={cfg.subtitle}
+            onClose={() => setSummaryModal(null)}
+            className="max-w-lg"
+          >
+            {/* Stat highlight */}
+            <div
+              className="rounded-xl p-4 mb-5 flex items-center gap-4"
+              style={{ background: `${cfg.color}12`, border: `1px solid ${cfg.color}30` }}
+            >
+              <div className="text-4xl font-black tabular-nums" style={{ color: cfg.color }}>
+                {cfg.value}
+              </div>
+              <div>
+                <div className="text-sm font-bold text-text-primary">{cfg.title}</div>
+                <div className="text-xs text-text-muted mt-0.5">{cfg.subtitle}</div>
+              </div>
+            </div>
+
+            {/* Lead list or stat-only */}
+            {cfg.statOnly ? (
+              <div className="py-8 text-center">
+                <div className="text-3xl mb-3">📞</div>
+                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+              </div>
+            ) : cfg.loading ? (
+              <div className="py-10 text-center text-text-muted text-sm">Loading leads…</div>
+            ) : cfg.leads.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="text-3xl mb-3">📋</div>
+                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 -mr-2">
+                {cfg.leads.map((lead, i) => (
+                  <div
+                    key={lead._id || i}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                  >
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
+                      style={{ background: cfg.color }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-text-primary truncate">
+                        {lead.company || lead.name}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate">
+                        {lead.district || '—'} · {lead.name} · {lead.owner?.name || (typeof lead.owner === 'string' ? lead.owner : 'Unassigned')}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md"
+                        style={{ background: `${cfg.color}15`, color: cfg.color }}
+                      >
+                        {lead.status?.replace(/_/g, ' ') || 'new'}
+                      </span>
+                      {lead.priority && (
+                        <span className="text-[9px] font-bold text-text-muted uppercase">
+                          {lead.priority}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 pt-4 border-t border-border/50 flex justify-end">
+              <button
+                onClick={() => { setSummaryModal(null); navigate(cfg.navTarget); }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                style={{ background: cfg.color }}
+              >
+                View Full Details →
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* Lead Reassign Modal */}
+      {reassignModal && (
+        <Modal
+          isOpen
+          title="Reassign Lead"
+          subtitle="Assign to an executive in your team"
+          onClose={() => { setReassignModal(null); setReassignExecId(''); }}
+          className="max-w-sm"
+        >
+          {/* Lead info */}
+          <div className="p-3 bg-surface2/60 rounded-xl border border-border/40 mb-5">
+            <div className="text-sm font-bold text-text-primary">{reassignModal.company || reassignModal.name}</div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="text-[11px] text-text-muted">{reassignModal.district || '—'}</span>
+              {reassignModal.owner && reassignModal.owner !== 'Unassigned' && (
+                <>
+                  <span className="text-text-muted opacity-30">·</span>
+                  <span className="text-[11px] text-text-muted">Currently: <span className="font-bold text-text-primary">{reassignModal.owner}</span></span>
+                </>
+              )}
+              <span className={`ml-auto px-2 py-0.5 rounded text-[9px] font-bold uppercase
+                ${reassignModal.status === 'CONVERTED' ? 'bg-green/10 text-green' :
+                  reassignModal.priority === 'hot' ? 'bg-red/10 text-red' :
+                  'bg-amber-light text-amber'}`}>
+                {reassignModal.status?.toLowerCase() || 'fresh'}
+              </span>
+            </div>
+          </div>
+
+          {/* Executive dropdown — only this IM's team */}
+          <div className="space-y-2 mb-6">
+            <label className="block text-xs font-bold text-text-secondary">
+              Assign To <span className="text-red">*</span>
+            </label>
+            <select
+              className="select w-full"
+              value={reassignExecId}
+              onChange={e => setReassignExecId(e.target.value)}
+              disabled={teamExecsLoading}
+            >
+              <option value="">
+                {teamExecsLoading ? 'Loading executives…' : '— Choose from your team —'}
+              </option>
+              {teamExecs.map(ex => (
+                <option key={ex._id} value={ex._id}>
+                  {ex.name}{ex.district ? ` · ${ex.district}` : ''}
+                </option>
+              ))}
+            </select>
+            {!teamExecsLoading && teamExecs.length === 0 && (
+              <p className="text-[11px] text-amber font-medium">No executives found in your team.</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
+            <button
+              className="px-4 py-2 rounded-xl text-xs font-bold border border-border text-text-secondary hover:bg-surface2 transition-all"
+              onClick={() => { setReassignModal(null); setReassignExecId(''); }}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-5 py-2 rounded-xl text-xs font-bold bg-purple text-white hover:opacity-90 transition-all disabled:opacity-40"
+              disabled={!reassignExecId || reassignMutation.isPending}
+              onClick={() => reassignMutation.mutate({ leadId: reassignModal._id, execId: reassignExecId })}
+            >
+              {reassignMutation.isPending ? 'Reassigning…' : 'Reassign Lead'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Event Detail Modal */}
+      {eventModal && (
+        <Modal
+          isOpen
+          title={eventModal.name}
+          subtitle={`${eventModal.company} · ${eventModal.ownerName || '—'}`}
+          onClose={() => setEventModal(null)}
+          className="max-w-lg"
+        >
+          {/* Time + type banner */}
+          <div className={`rounded-xl p-4 mb-5 flex items-center gap-4 ${eventModal.type === 'meeting' ? 'bg-teal/8 border border-teal/20' : 'bg-blue/8 border border-blue/20'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 ${eventModal.type === 'meeting' ? 'bg-teal-light' : 'bg-blue-light'}`}>
+              {eventModal.type === 'meeting' ? (eventModal.status?.includes('virtual') ? '🎥' : '🤝') : '📞'}
+            </div>
+            <div>
+              <div className={`text-base font-black ${eventModal.type === 'meeting' ? 'text-teal' : 'text-blue'}`}>
+                {new Date(eventModal.time).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+              <div className="text-sm font-bold text-text-muted mt-0.5">
+                {new Date(eventModal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <span className={`ml-3 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${eventModal.type === 'meeting' ? 'bg-teal/10 text-teal' : 'bg-blue/10 text-blue'}`}>
+                  {eventModal.type === 'meeting' ? (eventModal.status?.includes('virtual') ? 'Virtual Meeting' : 'Direct Meeting') : 'Follow-up'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Lead / Customer info grid */}
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            {[
+              { label: 'Company',   value: eventModal.company },
+              { label: 'Contact',   value: eventModal.contactName || '—' },
+              { label: 'Phone',     value: eventModal.phone || '—' },
+              { label: 'District',  value: eventModal.district || '—' },
+              { label: 'Owner',     value: eventModal.ownerName || '—' },
+              { label: 'Priority',  value: eventModal.priority?.toUpperCase() || '—', colored: true },
+            ].map(f => (
+              <div key={f.label} className="p-3 rounded-xl bg-surface2 border border-border/40">
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
+                <div className={`text-sm font-bold ${f.colored && eventModal.priority === 'hot' ? 'text-red' : f.colored && eventModal.priority === 'warm' ? 'text-amber' : 'text-text-primary'}`}>
+                  {f.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Notes */}
+          {eventModal.notes && (
+            <div className="mb-5 p-3 bg-surface2/60 rounded-xl border border-border/40">
+              <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">Notes</div>
+              <p className="text-sm text-text-secondary leading-relaxed">{eventModal.notes}</p>
+            </div>
+          )}
+
+          {/* Activity history */}
+          <div>
+            <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Recent Activity</div>
+            {eventActivityLoading ? (
+              <div className="py-6 text-center text-sm text-text-muted">Loading history…</div>
+            ) : eventActivity.length === 0 ? (
+              <div className="py-6 text-center text-sm text-text-muted italic">No activity recorded yet.</div>
+            ) : (
+              <div className="relative pl-4 max-h-[220px] overflow-y-auto pr-1 -mr-2">
+                <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
+                {eventActivity.slice(0, 8).map((a, i) => (
+                  <div key={i} className="relative mb-3.5">
+                    <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${i === 0 ? 'bg-purple' : 'bg-border2'}`} />
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <div className="text-[10px] font-bold text-text-primary">
+                        {new Date(a.createdAt || a.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {a.performedBy?.name && (
+                        <span className="text-[9px] font-bold text-purple bg-purple/5 px-1.5 py-0.5 rounded-md">
+                          {a.performedBy.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] font-semibold text-text-secondary">{a.action?.replace(/_/g, ' ')}</div>
+                    {a.note && (
+                      <div className="text-[11px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
+                        {a.note}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Executive Detail Modal */}
+      {execModal && (() => {
+        const { exec, type } = execModal;
+
+        const EXEC_MODAL_CONFIG = {
+          calls: {
+            title: `All Leads — ${exec.name}`,
+            subtitle: `${exec.calls} calls this month · ${execModalLeads.length} leads assigned`,
+            color: 'var(--blue)',
+            emptyMsg: 'No leads assigned to this executive.',
+            navTarget: '/dashboard?page=calls',
+          },
+          converted: {
+            title: `Converted — ${exec.name}`,
+            subtitle: `${execModalLeads.length} converted leads`,
+            color: 'var(--teal)',
+            emptyMsg: 'No converted leads found for this executive.',
+            navTarget: '/dashboard?page=leads',
+          },
+          hot: {
+            title: `Hot Leads — ${exec.name}`,
+            subtitle: `${execModalLeads.length} active hot leads`,
+            color: 'var(--red)',
+            emptyMsg: 'No active hot leads for this executive.',
+            navTarget: '/dashboard?page=leads',
+          },
+        };
+
+        const cfg = EXEC_MODAL_CONFIG[type];
+        if (!cfg) return null;
+
+        return (
+          <Modal
+            isOpen
+            title={cfg.title}
+            subtitle={cfg.subtitle}
+            onClose={() => setExecModal(null)}
+            className="max-w-lg"
+          >
+            {/* Stat highlight */}
+            <div
+              className="rounded-xl p-4 mb-5 flex items-center gap-4"
+              style={{ background: `${cfg.color}12`, border: `1px solid ${cfg.color}30` }}
+            >
+              <div className="text-4xl font-black tabular-nums" style={{ color: cfg.color }}>
+                {execLeadsLoading ? '…' : execModalLeads.length}
+              </div>
+              <div>
+                <div className="text-sm font-bold text-text-primary">{exec.name}</div>
+                <div className="text-xs text-text-muted mt-0.5">{exec.district} · {cfg.subtitle}</div>
+              </div>
+            </div>
+
+            {/* Lead list */}
+            {execLeadsLoading ? (
+              <div className="py-10 text-center text-text-muted text-sm">Loading leads…</div>
+            ) : execModalLeads.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="text-3xl mb-3">📋</div>
+                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
+                {execModalLeads.map((lead, i) => (
+                  <div
+                    key={lead._id || i}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                  >
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
+                      style={{ background: cfg.color }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-text-primary truncate">
+                        {lead.company || lead.name}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate">
+                        {lead.district || '—'} · {lead.name}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md"
+                        style={{ background: `${cfg.color}15`, color: cfg.color }}
+                      >
+                        {lead.status?.replace(/_/g, ' ') || 'new'}
+                      </span>
+                      {lead.priority && (
+                        <span className="text-[9px] font-bold text-text-muted uppercase">
+                          {lead.priority}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 pt-4 border-t border-border/50 flex justify-end">
+              <button
+                onClick={() => { setExecModal(null); navigate(cfg.navTarget); }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                style={{ background: cfg.color }}
+              >
+                View Full Details →
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 };

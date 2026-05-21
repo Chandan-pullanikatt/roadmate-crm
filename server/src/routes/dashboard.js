@@ -466,7 +466,8 @@ router.get('/industry-manager', async (req, res) => {
     };
 
     // 5. Lead Stats & Funnel — period-filtered when a period is selected
-    const baseLeadQuery = { industry: req.user.industry, state: req.user.state };
+    // Scoped to industry only (no state), matching the leads API behaviour for IM role
+    const baseLeadQuery = { industry: req.user.industry };
     const periodLeadQuery = { ...baseLeadQuery, createdAt: { $gte: periodStart, $lte: periodEnd } };
 
     const [allLeads, periodLeads] = await Promise.all([
@@ -487,16 +488,16 @@ router.get('/industry-manager', async (req, res) => {
       escalated: allLeads.filter(l => l.status === 'escalated').length,
     };
 
-    // Period-filtered activity stats (calls, meetings, revenue)
+    // Period-filtered activity stats (calls, revenue) + live meeting count (status-based, not date-based)
     const [periodActivities, periodMeetingLeads, activeLeadsCount] = await Promise.all([
       LeadActivity.find({
         performedBy: { $in: teamIds },
         createdAt: { $gte: periodStart, $lte: periodEnd }
       }),
+      // Count leads currently in meeting stage — matches the Lead Management meeting tab exactly
       Lead.countDocuments({
         industry: req.user.industry,
-        state: req.user.state,
-        meetingAt: { $gte: periodStart, $lte: periodEnd }
+        status: { $in: ['meeting_virtual', 'meeting_direct'] }
       }),
       // Active leads — live snapshot, not period-filtered
       Lead.countDocuments({
@@ -509,6 +510,7 @@ router.get('/industry-manager', async (req, res) => {
       totalLeads: periodLeads.length,
       converted: periodLeads.filter(l => l.status === 'converted').length,
       new: periodLeads.filter(l => l.status === 'new').length,
+      hot: periodLeads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
       calls: periodActivities.filter(a => a.action === 'called').length,
       meetings: periodMeetingLeads,
       revenue: periodActivities
@@ -549,7 +551,7 @@ router.get('/industry-manager', async (req, res) => {
         revenue: userActs
           .filter(a => a.action === 'converted' && a.metadata?.revenue)
           .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
-        rnrCount: activeLeads.reduce((sum, l) => sum + (l.rnrCount || 0), 0),
+        hotCount: activeLeads.filter(l => l.priority === 'hot').length,
         leadsCount: activeLeads.length,
         followupsCount: activeLeads.filter(l => l.status === 'followup').length,
         isWorking: !!att?.workStartedAt && !att?.workCompletedAt,
@@ -584,7 +586,6 @@ router.get('/industry-manager', async (req, res) => {
     // 7. Escalated Leads
     const escalatedLeads = await Lead.find({
       industry: req.user.industry,
-      state: req.user.state,
       escalatedTo: req.user._id,
       status: { $nin: ['converted', 'lost'] }
     }).populate('owner', 'name');
@@ -592,7 +593,6 @@ router.get('/industry-manager', async (req, res) => {
     // 8. Upcoming Events
     const upcomingLeads = await Lead.find({
       industry: req.user.industry,
-      state: req.user.state,
       $or: [
         { meetingAt: { $gte: todayStart } },
         { nextActionAt: { $gte: todayStart } }
@@ -603,12 +603,19 @@ router.get('/industry-manager', async (req, res) => {
     .populate('owner', 'name');
 
     const upcomingEvents = upcomingLeads.map(l => ({
+      leadId: l._id,
       type: l.status.includes('meeting') ? 'meeting' : 'followup',
       name: l.status.includes('meeting') ? `Meeting - ${l.company || l.name}` : `Follow-up - ${l.company || l.name}`,
       ownerName: l.owner?.name,
+      ownerId: l.owner?._id,
       company: l.company || 'Private Client',
+      contactName: l.name,
+      phone: l.phone,
+      district: l.district,
+      priority: l.priority,
       time: l.meetingAt || l.nextActionAt,
-      status: l.status
+      status: l.status,
+      notes: l.notes || l.remarks || '',
     }));
 
     // 9. Leave Requests
@@ -619,8 +626,7 @@ router.get('/industry-manager', async (req, res) => {
 
     // 10. All Leads for Management Table
     const allLeadsPopulated = await Lead.find({
-      industry: req.user.industry,
-      state: req.user.state
+      industry: req.user.industry
     })
     .populate('owner', 'name')
     .sort({ createdAt: -1 });
