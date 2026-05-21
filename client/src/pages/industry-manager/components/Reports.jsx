@@ -86,8 +86,8 @@ const formatData = (type, data) => {
   }
   if (type === 'revenue') {
     return data.map(r => ({
-      Date:         r._id || '',
-      Conversions:  r.count ?? 0,
+      Date:          r._id || '',
+      Conversions:   r.count ?? 0,
       Total_Revenue: r.totalRevenue ?? 0,
     }));
   }
@@ -106,6 +106,8 @@ const FILENAMES = {
 const Reports = () => {
   const [loading, setLoading] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [preview, setPreview] = useState(null); // { type, rows }
+  const [previewLoading, setPreviewLoading] = useState(null);
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
 
@@ -128,19 +130,40 @@ const Reports = () => {
     );
   }, [searchTerm]);
 
-  const generateReport = async (type) => {
+  const fetchData = async (type) => {
+    const res = type === 'rnr'
+      ? await dashboardApi.getReport('leads', { status: 'rnr' })
+      : await dashboardApi.getReport(type);
+    const rows = res.data?.data || [];
+    return formatData(type, rows);
+  };
+
+  const handleView = async (type) => {
+    if (preview?.type === type) {
+      setPreview(null);
+      return;
+    }
+    setPreviewLoading(type);
+    try {
+      const rows = await fetchData(type);
+      if (!rows.length) {
+        addToast('No data available to preview', 'warning');
+      } else {
+        setPreview({ type, rows });
+      }
+    } catch {
+      addToast('Failed to load preview', 'error');
+    } finally {
+      setPreviewLoading(null);
+    }
+  };
+
+  const handleDownload = async (type) => {
     if (loading) return;
     setLoading(type);
     try {
-      // RNR reuses the leads endpoint with a status filter
-      const res = type === 'rnr'
-        ? await dashboardApi.getReport('leads', { status: 'rnr' })
-        : await dashboardApi.getReport(type);
-
-      // All endpoints return { data: [...], pagination, summary }
-      const rows = res.data?.data || [];
-      const formatted = formatData(type, rows);
-      downloadCSV(formatted, FILENAMES[type], addToast);
+      const rows = await fetchData(type);
+      downloadCSV(rows, FILENAMES[type], addToast);
     } catch {
       addToast('Failed to generate report', 'error');
     } finally {
@@ -150,10 +173,13 @@ const Reports = () => {
 
   const handleExportAll = async () => {
     for (const card of reportCards) {
-      await generateReport(card.type);
+      await handleDownload(card.type);
       await new Promise(r => setTimeout(r, 400));
     }
   };
+
+  const previewCard = preview ? reportCards.find(c => c.type === preview.type) : null;
+  const previewHeaders = preview?.rows?.length ? Object.keys(preview.rows[0]) : [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-12">
@@ -185,7 +211,7 @@ const Reports = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Reports · {userInfo.industry} · {userInfo.state}</h2>
-          <p className="text-xs text-text-muted">Click any card to download · CSV format</p>
+          <p className="text-xs text-text-muted">View data inline or download as CSV</p>
         </div>
         <Button
           className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-widest shadow-lg shadow-purple/10"
@@ -198,31 +224,104 @@ const Reports = () => {
 
       {/* Reports Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCards.map((card) => (
-          <div
-            key={card.type}
-            onClick={() => generateReport(card.type)}
-            className={`card p-10 flex flex-col items-center text-center group hover:border-purple/30 transition-all shadow-lg shadow-purple/5 border-border/40 ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-          >
-            <div className="w-16 h-16 rounded-3xl bg-surface2 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 group-hover:bg-purple-light/20 transition-all duration-500 shadow-inner">
-              {loading === card.type ? (
-                <div className="w-6 h-6 border-2 border-purple border-t-transparent rounded-full animate-spin" />
-              ) : card.icon}
+        {filteredCards.map((card) => {
+          const isActive = preview?.type === card.type;
+          return (
+            <div
+              key={card.type}
+              className={`card p-8 flex flex-col items-center text-center group transition-all shadow-lg shadow-purple/5 border-border/40 ${isActive ? 'border-purple/40 bg-purple-light/5' : ''}`}
+            >
+              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-3xl mb-5 transition-all duration-500 shadow-inner ${isActive ? 'bg-purple-light/20 scale-110' : 'bg-surface2 group-hover:scale-110 group-hover:bg-purple-light/20'}`}>
+                {(loading === card.type || previewLoading === card.type) ? (
+                  <div className="w-6 h-6 border-2 border-purple border-t-transparent rounded-full animate-spin" />
+                ) : card.icon}
+              </div>
+              <h3 className={`text-base font-black mb-1 uppercase tracking-tight transition-colors ${isActive ? 'text-purple' : 'text-text-primary group-hover:text-purple'}`}>
+                {card.title}
+              </h3>
+              <p className="text-[10px] text-text-muted font-bold uppercase tracking-tighter opacity-60 leading-relaxed mb-5">
+                {card.sub}
+              </p>
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => handleView(card.type)}
+                  disabled={!!previewLoading || !!loading}
+                  className={`flex-1 py-2 text-[11px] font-bold rounded-xl transition-all ${isActive ? 'bg-purple text-white' : 'bg-blue/10 text-blue hover:bg-blue hover:text-white'}`}
+                >
+                  {previewLoading === card.type ? 'Loading...' : isActive ? 'Hide' : 'View'}
+                </button>
+                <button
+                  onClick={() => handleDownload(card.type)}
+                  disabled={!!loading || !!previewLoading}
+                  className="flex-1 py-2 text-[11px] font-bold bg-surface2 text-text-muted rounded-xl hover:bg-text-primary hover:text-white transition-all"
+                >
+                  {loading === card.type ? 'Downloading...' : 'Download'}
+                </button>
+              </div>
             </div>
-            <h3 className="text-lg font-black text-text-primary mb-2 uppercase tracking-tight group-hover:text-purple transition-colors">
-              {card.title}
-            </h3>
-            <p className="text-[11px] text-text-muted font-bold uppercase tracking-tighter opacity-60 leading-relaxed">
-              {card.sub}
-            </p>
-          </div>
-        ))}
+          );
+        })}
         {filteredCards.length === 0 && (
           <div className="col-span-3 py-16 text-center text-text-muted italic">
             No reports match "{searchTerm}"
           </div>
         )}
       </div>
+
+      {/* Preview Panel */}
+      {preview && previewCard && (
+        <div className="card border-border/40 shadow-lg shadow-purple/5 overflow-hidden animate-in fade-in duration-300">
+          <div className="px-8 pt-6 pb-4 flex items-center justify-between border-b border-border/40">
+            <div>
+              <h3 className="text-sm font-black text-text-primary uppercase tracking-tight">
+                {previewCard.icon} {previewCard.title} — Preview
+              </h3>
+              <p className="text-[10px] text-text-muted mt-0.5">
+                Showing first {Math.min(preview.rows.length, 20)} of {preview.rows.length} rows
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleDownload(preview.type)}
+                disabled={!!loading}
+                className="px-4 py-2 text-[11px] font-bold bg-purple text-white rounded-xl hover:opacity-90 transition-all shadow-lg shadow-purple/20"
+              >
+                {loading === preview.type ? 'Downloading...' : 'Download CSV'}
+              </button>
+              <button
+                onClick={() => setPreview(null)}
+                className="w-8 h-8 rounded-lg bg-surface2 text-text-muted hover:bg-surface3 flex items-center justify-center text-sm font-bold transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface2/40 border-b border-border/40">
+                  {previewHeaders.map(h => (
+                    <th key={h} className="px-5 py-3 text-[9px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">
+                      {h.replace(/_/g, ' ')}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {preview.rows.slice(0, 20).map((row, i) => (
+                  <tr key={i} className="hover:bg-purple-light/5 transition-colors">
+                    {previewHeaders.map(h => (
+                      <td key={h} className="px-5 py-3 text-[11px] text-text-secondary whitespace-nowrap">
+                        {row[h] !== undefined && row[h] !== '' ? String(row[h]) : '—'}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

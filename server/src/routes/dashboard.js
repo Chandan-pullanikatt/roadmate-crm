@@ -575,6 +575,12 @@ router.get('/industry-manager', async (req, res) => {
 
     const below30Count = executivePerformance.filter(e => e.completionPct < 30 && e.isWorking).length;
 
+    const convertedLastMonth = await LeadActivity.countDocuments({
+      action: 'converted',
+      performedBy: { $in: teamIds },
+      createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd }
+    });
+
     // 7. Escalated Leads
     const escalatedLeads = await Lead.find({
       industry: req.user.industry,
@@ -652,7 +658,8 @@ router.get('/industry-manager', async (req, res) => {
         callsThisWeek: currentCalls,
         callGrowth: Math.round(callGrowth),
         meetings: meetings,
-        rnrLeads: leadStats.rnr
+        rnrLeads: leadStats.rnr,
+        convertedLastMonth
       },
       periodStats,
       activeLeads: activeLeadsCount,

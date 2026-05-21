@@ -27,12 +27,20 @@ const generatePresignedUpload = async (key, contentType, expiresIn = 900) => {
 /**
  * Generate a presigned URL for downloading/viewing a file from R2
  */
-const generatePresignedDownload = async (key, expiresIn = 3600) => {
-  const command = new GetObjectCommand({
+const generatePresignedDownload = async (key, expiresIn = 3600, disposition) => {
+  const params = {
     Bucket: process.env.R2_BUCKET_NAME,
     Key: key,
-  });
+  };
 
+  if (disposition === 'inline') {
+    params.ResponseContentDisposition = 'inline';
+  } else if (disposition === 'attachment') {
+    const filename = key.split('/').pop();
+    params.ResponseContentDisposition = `attachment; filename="${filename}"`;
+  }
+
+  const command = new GetObjectCommand(params);
   const downloadUrl = await getSignedUrl(r2Client, command, { expiresIn });
   return downloadUrl;
 };

@@ -86,9 +86,6 @@ const Attendance = () => {
           <p className="text-xs text-text-muted">All {executives.length} district executives · Work %, leaves, salary</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' }))}>
-                Edit Working Hours
-            </Button>
             <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={exportRegister}>
                 Export
             </Button>
@@ -123,9 +120,9 @@ const Attendance = () => {
 
         <div className="card p-6 border-l-4 border-purple shadow-sm hover:shadow-md transition-shadow">
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Working Hours</div>
-            <div className="text-2xl font-black text-purple">9:30 AM</div>
+            <div className="text-xl font-black text-purple">9:30 AM – 6:30 PM</div>
             <div className="mt-2 text-[10px] font-bold text-text-muted uppercase tracking-tighter">
-                Standard hours
+                Standard working hours
             </div>
         </div>
       </div>

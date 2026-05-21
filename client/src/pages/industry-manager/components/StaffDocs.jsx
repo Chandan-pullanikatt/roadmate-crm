@@ -87,17 +87,35 @@ const StaffDocs = () => {
     return 'Misc';
   };
 
-  const openDocument = async (doc) => {
+  const viewDocument = async (doc) => {
     if (!doc.fileKey) {
       addToast('This document is missing its storage key', 'error');
       return;
     }
-
     try {
-      const res = await uploadApi.getPresignedDownload(doc.fileKey);
+      const res = await uploadApi.getPresignedDownload(doc.fileKey, 'inline');
       window.open(res.data.downloadUrl, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      addToast(err.response?.data?.message || 'Unable to open document', 'error');
+      addToast(err.response?.data?.message || 'Unable to view document', 'error');
+    }
+  };
+
+  const downloadDocument = async (doc) => {
+    if (!doc.fileKey) {
+      addToast('This document is missing its storage key', 'error');
+      return;
+    }
+    try {
+      const res = await uploadApi.getPresignedDownload(doc.fileKey, 'attachment');
+      const a = document.createElement('a');
+      a.href = res.data.downloadUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Unable to download document', 'error');
     }
   };
 
@@ -153,22 +171,38 @@ const StaffDocs = () => {
               <div className="flex flex-wrap gap-4 pl-1">
                 {Array.isArray(exec.documents) && exec.documents.length > 0 ? (
                   exec.documents.map((doc, dIdx) => (
-                    <button
-                      type="button"
+                    <div
                       key={`${exec._id}-${dIdx}`}
-                      className="w-44 bg-surface2/50 border border-border/40 rounded-xl p-4 flex items-center gap-3 group hover:bg-white hover:shadow-md transition-all cursor-pointer text-left"
-                      onClick={() => openDocument(doc)}
+                      className="w-48 bg-surface2/50 border border-border/40 rounded-xl p-3 flex flex-col gap-3 group hover:bg-white hover:shadow-md transition-all"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-white shadow-inner flex items-center justify-center text-[11px] font-black">
-                        {getDocIcon(doc.name)}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-white shadow-inner flex items-center justify-center text-[11px] font-black flex-shrink-0">
+                          {getDocIcon(doc.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black text-text-primary leading-tight truncate">{doc.name}</p>
+                          <p className="text-[9px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">
+                            {getDocCategory(doc.name)} · {new Date(doc.uploadedAt || exec.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[11px] font-black text-text-primary leading-tight">{doc.name}</p>
-                        <p className="text-[9px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">
-                          {getDocCategory(doc.name)} · {new Date(doc.uploadedAt || exec.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' })}
-                        </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => viewDocument(doc)}
+                          className="flex-1 py-1.5 text-[10px] font-bold bg-blue/10 text-blue rounded-lg hover:bg-blue hover:text-white transition-all"
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadDocument(doc)}
+                          className="flex-1 py-1.5 text-[10px] font-bold bg-surface3 text-text-muted rounded-lg hover:bg-text-primary hover:text-white transition-all"
+                        >
+                          Download
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   ))
                 ) : (
                   <div className="w-44 bg-surface2/40 border border-border/40 rounded-xl p-4 flex items-center justify-center text-center text-[11px] font-bold text-text-muted">

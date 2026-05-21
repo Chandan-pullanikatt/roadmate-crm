@@ -56,13 +56,13 @@ router.post('/presign', verifyToken, async (req, res) => {
  */
 router.get('/url', verifyToken, async (req, res) => {
   try {
-    const key = req.query.key;
-    
+    const { key, disposition } = req.query;
+
     if (!key) {
       return res.status(400).json({ message: 'File key is required' });
     }
 
-    const downloadUrl = await generatePresignedDownload(key);
+    const downloadUrl = await generatePresignedDownload(key, 3600, disposition);
 
     res.json({
       downloadUrl,
