@@ -106,7 +106,7 @@ const Overview = () => {
       valueColor: 'var(--blue)',
       delta: `${(stats.callGrowth ?? 0) >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(stats.callGrowth || 0))}% vs last week`,
       deltaColor: (stats.callGrowth ?? 0) >= 0 ? 'var(--accent)' : 'var(--red)',
-      page: 'performance'
+      page: 'calls'
     },
     {
       color: 'var(--teal)',
@@ -115,7 +115,7 @@ const Overview = () => {
       valueColor: 'var(--teal)',
       delta: `→ ${stats.meetings?.virtual || 0} virtual, ${stats.meetings?.direct || 0} direct`,
       deltaColor: 'var(--text-muted)',
-      page: 'performance'
+      page: 'meetings'
     },
     {
       color: 'var(--red)',

@@ -1927,6 +1927,46 @@ router.get('/reports/leaves', async (req, res) => {
 });
 
 
+// GET /api/dashboard/reports/activities?type=calls|meetings&page=1&limit=30
+router.get('/reports/activities', async (req, res) => {
+    try {
+        const { type = 'calls', page = 1, limit = 30 } = req.query;
+
+        // Scope to IM's team
+        const userScope = {};
+        applyScope(req, userScope);
+        const teamUsers = await User.find({ ...userScope, role: 'executive' }).select('_id name district');
+        const teamIds = teamUsers.map(u => u._id);
+
+        // Action filter
+        let actionMatch;
+        if (type === 'calls') {
+            actionMatch = { action: 'called' };
+        } else {
+            actionMatch = { action: { $regex: /meeting/i } };
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const [activities, total] = await Promise.all([
+            LeadActivity.find({ performedBy: { $in: teamIds }, ...actionMatch })
+                .populate('lead', 'name company phone district priority status')
+                .populate('performedBy', 'name district')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit)),
+            LeadActivity.countDocuments({ performedBy: { $in: teamIds }, ...actionMatch })
+        ]);
+
+        res.json({
+            data: activities,
+            pagination: { total, page: Number(page), pages: Math.ceil(total / Number(limit)) }
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 /**
  * PUT /api/salary/:id
  * Founder only: Update incentives

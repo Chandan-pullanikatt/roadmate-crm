@@ -15,6 +15,8 @@ import CreateExecutive from './components/CreateExecutive';
 import Performance from './components/Performance';
 import MyPerformance from './components/MyPerformance';
 import Reports from './components/Reports';
+import CallsDetail from './components/CallsDetail';
+import MeetingsDetail from './components/MeetingsDetail';
 import Tasks from '../founder/sections/Tasks';
 
 
@@ -41,6 +43,8 @@ const IndDashboard = () => {
       case 'create-executive': return <CreateExecutive />;
       case 'performance': return <Performance />;
       case 'my-performance': return <MyPerformance />;
+      case 'calls': return <CallsDetail />;
+      case 'meetings': return <MeetingsDetail />;
       case 'reports': return <Reports />;
       case 'tasks':   return <Tasks />;
 

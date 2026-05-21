@@ -6,6 +6,7 @@ export const dashboardApi = {
   getStateManagerDashboard: () => api.get('/dashboard/state-manager'),
   getFounderDashboard: (options = {}) => api.get('/dashboard/founder', { params: options }),
   getReport: (type, params) => api.get(`/dashboard/reports/${type}`, { params }),
+  getActivities: (type, params) => api.get('/dashboard/reports/activities', { params: { type, ...params } }),
   getAttendanceSummary: (params) => api.get('/dashboard/reports/attendance-summary', { params }),
   getMeetings: () => api.get('/dashboard/meetings'),
   getPerformance: (params) => api.get('/dashboard/performance', { params }),
