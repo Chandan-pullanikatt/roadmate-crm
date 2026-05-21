@@ -75,11 +75,13 @@ const leadService = {
         lead.status = 'called';
         lead.lastCallAt = new Date();
         activityData.action = 'called';
+        if (data.priority) lead.priority = data.priority;
         break;
 
-      case 'set_feedback':
+      case 'set_feedback': {
         const { nextAction, note } = data;
         lead.feedback.push({ note, createdBy: performedBy._id });
+        if (data.priority) lead.priority = data.priority;
         
         if (nextAction === 'followup') {
           lead.status = 'followup';
@@ -147,9 +149,12 @@ const leadService = {
           activityData.action = 'agreement_signed';
         }
         break;
+      }
 
       case 'mark_rnr': {
+        const wasFollowup = lead.status === 'followup';
         lead.rnrCount = (lead.rnrCount || 0) + 1;
+        if (data.priority) lead.priority = data.priority;
         activityData.action = 'rnr';
 
         // ── Special case: Direct Meeting lead on the DAY of the meeting ──────
@@ -168,7 +173,19 @@ const leadService = {
           break; // skip normal RNR escalation
         }
 
-        // ── Normal RNR path ──────────────────────────────────────────────────
+        // ── Follow-up RNR: re-queue only, no auto-escalation ─────────────────
+        if (wasFollowup) {
+          lead.status = 'followup'; // keep status as followup
+          const nextDay = new Date();
+          nextDay.setDate(nextDay.getDate() + 1);
+          nextDay.setHours(10, 0, 0, 0);
+          lead.nextActionAt = nextDay;
+          activityData.action = 'rnr';
+          activityData.note = `RNR during follow-up #${lead.rnrCount}. Re-queued for next day — no auto-escalation.`;
+          break;
+        }
+
+        // ── Normal RNR path (new leads) ──────────────────────────────────────
         lead.status = 'rnr';
 
         if (lead.rnrCount === 1) {

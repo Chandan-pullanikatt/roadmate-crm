@@ -6,10 +6,17 @@ import { useQueryClient } from '@tanstack/react-query';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 
+const PRIORITIES = [
+  { id: 'hot',  icon: '🔥', label: 'Hot',  color: '#B45309', bg: '#FEF3C7', border: '#FCD34D', def: 'Interested, budget available, meeting done' },
+  { id: 'warm', icon: '☀️', label: 'Warm', color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE', def: 'Interested but undecided' },
+  { id: 'cold', icon: '❄️', label: 'Cold', color: '#6B7280', bg: '#F3F4F6', border: '#D1D5DB', def: 'Not ready / no response' },
+];
+
 const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const [priority, setPriority] = useState('warm');
   const [formData, setFormData] = useState({
     status: 'new',
     nextActionAt: '',
@@ -23,6 +30,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
 
   useEffect(() => {
     if (lead) {
+      setPriority(lead.priority || 'warm');
       setFormData({
         status: lead.status || 'new',
         nextActionAt: lead.nextActionAt ? new Date(lead.nextActionAt).toISOString().split('T')[0] : '',
@@ -42,6 +50,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     try {
       const payload = {
         status: formData.status,
+        priority,
         nextActionAt: formData.nextActionAt,
         convertedAt: formData.expectedOnboarding,
         notes: formData.notes,
@@ -161,6 +170,34 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
             </div>
           </div>
         )}
+
+        {/* Priority selector */}
+        <div className="space-y-1.5">
+          <label className="form-label">Lead Priority</label>
+          <div className="flex gap-2">
+            {PRIORITIES.map(p => (
+              <div key={p.id} className="flex-1 relative group">
+                <button
+                  type="button"
+                  onClick={() => setPriority(p.id)}
+                  style={{
+                    background: priority === p.id ? p.bg : 'var(--surface)',
+                    color: priority === p.id ? p.color : 'var(--text-secondary)',
+                    border: `1.5px solid ${priority === p.id ? p.border : 'var(--border)'}`,
+                    fontWeight: priority === p.id ? 700 : 500,
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-xs cursor-pointer transition-all hover:opacity-90 pr-6"
+                >
+                  {p.icon} {p.label}
+                </button>
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">i</span>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary hidden group-hover:block pointer-events-none">
+                  <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.def}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div className="space-y-1">
           <label className="form-label">Notes / Last Action</label>

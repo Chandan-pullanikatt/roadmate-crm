@@ -23,11 +23,21 @@ const PAYMENT_IDS = new Set(['blocking_amount_received', 'full_amount_received',
 
 const TIME_SLOTS = ['Morning (9–11 AM)', 'Afternoon (1–3 PM)', 'Evening (4–6 PM)'];
 
+const PRIORITIES = [
+  { id: 'hot',  icon: '🔥', label: 'Hot',  color: '#DC2626', bg: '#FEF2F2', border: '#FECACA',
+    desc: 'Interested, budget available, meeting done' },
+  { id: 'warm', icon: '☀️', label: 'Warm', color: '#B45309', bg: '#FEF3C7', border: '#FCD34D',
+    desc: 'Interested but undecided' },
+  { id: 'cold', icon: '❄️', label: 'Cold', color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE',
+    desc: 'Not ready / no response' },
+];
+
 const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuccess }) => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
 
   const [selectedOutcome, setSelectedOutcome] = useState(initialOutcome);
+  const [priority, setPriority]               = useState(lead?.priority || 'warm');
   const [notes, setNotes]                     = useState('');
   const [strategyNote, setStrategyNote]       = useState('');
   const [followUpDate, setFollowUpDate]       = useState('');
@@ -44,7 +54,8 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
   useEffect(() => {
     setSelectedOutcome(initialOutcome);
-  }, [initialOutcome, isOpen]);
+    setPriority(lead?.priority || 'warm');
+  }, [initialOutcome, isOpen, lead?.priority]);
 
   const { data: suggestedDates } = useQuery({
     queryKey: ['suggested-dates'],
@@ -70,6 +81,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     setNotes(''); setStrategyNote(''); setFollowUpDate(''); setCustomDate('');
     setCustomReason(''); setIsCustomDate(false); setMeetingDate(''); setMeetingTime('');
     setMeetingLink(''); setInviteeId(''); setEscalateTo(''); setEscalateReason('');
+    setShowPriorityTip(false);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -79,15 +91,15 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
     try {
       if (selectedOutcome === 'connected') {
-        await transitionMutation.mutateAsync({ action: 'mark_called' });
+        await transitionMutation.mutateAsync({ action: 'mark_called', priority });
         addToast('Call logged as connected.', 'success');
 
       } else if (selectedOutcome === 'rnr') {
-        await transitionMutation.mutateAsync({ action: 'mark_rnr' });
+        await transitionMutation.mutateAsync({ action: 'mark_rnr', priority });
         addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
 
       } else if (selectedOutcome === 'followup') {
-        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes });
+        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes, priority });
         const dateVal = isCustomDate ? customDate : followUpDate;
         if (dateVal) {
           await transitionMutation.mutateAsync({
@@ -107,6 +119,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           action: 'set_feedback',
           nextAction: 'schedule_virtual',
           note: notes,
+          priority,
           meetingAt: `${meetingDate}T${meetingTime || '10:00'}`,
           meetingLink,
           ...(inviteeId ? { meetingInvitees: [inviteeId] } : {}),
@@ -119,6 +132,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           action: 'set_feedback',
           nextAction: 'direct_meeting',
           note: notes,
+          priority,
           meetingAt: `${meetingDate}T${meetingTime || '10:00'}`,
           ...(inviteeId ? { meetingInvitees: [inviteeId] } : {}),
         });
@@ -129,12 +143,13 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           action: 'set_feedback',
           nextAction: 'converted',
           note: notes,
+          priority,
           strategyNote: strategyNote || notes,
         });
         addToast('🎉 Lead Converted! Great work!', 'success');
 
       } else if (PAYMENT_IDS.has(selectedOutcome)) {
-        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: selectedOutcome, note: notes });
+        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: selectedOutcome, note: notes, priority });
         const labels = {
           blocking_amount_received: '💰 Blocking amount received!',
           full_amount_received:     '✅ Full amount received!',
@@ -147,6 +162,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           action: 'set_feedback',
           nextAction: 'not_interested',
           note: notes,
+          priority,
           strategyNote: strategyNote || notes,
         });
         addToast('Lead marked as Not Interested.', 'warning');
@@ -213,6 +229,34 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
               >
                 {o.icon} {o.label}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Lead Priority */}
+        <div>
+          <label className={lbl}>Lead Priority</label>
+          <div className="flex gap-2">
+            {PRIORITIES.map(p => (
+              <div key={p.id} className="flex-1 relative group">
+                <button
+                  type="button"
+                  onClick={() => setPriority(p.id)}
+                  style={{
+                    background: priority === p.id ? p.bg : 'var(--surface)',
+                    color: priority === p.id ? p.color : 'var(--text-secondary)',
+                    border: `1.5px solid ${priority === p.id ? p.border : 'var(--border)'}`,
+                    fontWeight: priority === p.id ? 700 : 500,
+                  }}
+                  className="w-full px-3 py-2 rounded-xl text-xs cursor-pointer transition-all hover:opacity-90 pr-6"
+                >
+                  {p.icon} {p.label}
+                </button>
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">i</span>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary hidden group-hover:block pointer-events-none">
+                  <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.desc}
+                </div>
+              </div>
             ))}
           </div>
         </div>
