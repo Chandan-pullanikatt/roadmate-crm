@@ -596,8 +596,7 @@ const Overview = () => {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="bg-surface2/60 border-b border-border">
-                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Company</th>
-                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Contact</th>
+                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Name</th>
                   <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Assigned To</th>
                   <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">District</th>
                   <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Status</th>
@@ -606,9 +605,14 @@ const Overview = () => {
               </thead>
               <tbody>
                 {recentLeads.slice(0, 8).map((lead, idx) => (
-                  <tr key={lead._id || idx} className="border-b border-border/40 hover:bg-surface2/30 transition-colors">
-                    <td className="px-6 py-3 font-semibold">{lead.company || lead.name || '—'}</td>
-                    <td className="px-6 py-3 text-text-secondary">{lead.name || '—'}</td>
+                  <tr
+                    key={lead._id || idx}
+                    className="border-b border-border/40 hover:bg-surface2/30 transition-colors cursor-pointer group"
+                    onClick={() => lead._id && navigate(`/leads/${lead._id}`)}
+                  >
+                    <td className="px-6 py-3 font-semibold text-text-primary group-hover:text-purple transition-colors">
+                      {lead.name || lead.company || '—'}
+                    </td>
                     <td className="px-6 py-3">
                       {lead.owner && lead.owner !== 'Unassigned' ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -631,8 +635,9 @@ const Overview = () => {
                         {lead.status || 'fresh'}
                       </span>
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
                       <button
+                        type="button"
                         className="text-[11px] font-bold text-purple hover:underline"
                         onClick={() => { setReassignModal(lead); setReassignExecId(''); }}
                       >
