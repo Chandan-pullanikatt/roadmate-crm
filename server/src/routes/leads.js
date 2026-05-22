@@ -369,7 +369,19 @@ router.get('/suggested-dates', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { status, priority, owner, state, industry, search, page = 1, limit = 10 } = req.query;
+    const {
+      status,
+      priority,
+      owner,
+      state,
+      industry,
+      search,
+      period,
+      value,
+      excludeStatuses,
+      page = 1,
+      limit = 10
+    } = req.query;
     const query = {};
 
     // Search query
@@ -395,7 +407,68 @@ router.get('/', async (req, res) => {
     if (status) {
       query.status = normalizeStatusFilter(status);
     }
+    if (period) {
+      const getDateRange = (type, periodValue) => {
+        const now = new Date();
+        let start = new Date(now);
+        let end = new Date(now);
+        const normalized = type === 'day' ? 'today' : type === 'week' ? 'weekly' : type === 'month' ? 'monthly' : type;
+
+        if (normalized === 'today') {
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+        } else if (normalized === 'weekly') {
+          if (periodValue && periodValue.startsWith('Week ')) {
+            const weekNum = parseInt(periodValue.split(' ')[1]);
+            start.setDate(1 + (weekNum - 1) * 7);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(start);
+            if (weekNum === 4 || weekNum === 5) end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+            else {
+              end.setDate(start.getDate() + 6);
+              end.setHours(23, 59, 59, 999);
+            }
+          } else {
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+            start.setDate(diff);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+          }
+        } else if (normalized === 'monthly') {
+          if (periodValue) {
+            const monthMap = { January: 0, February: 1, March: 2, April: 3, May: 4, June: 5, July: 6, August: 7, September: 8, October: 9, November: 10, December: 11 };
+            const monthIdx = monthMap[periodValue];
+            if (monthIdx !== undefined) start.setMonth(monthIdx);
+          }
+          start.setDate(1);
+          start.setHours(0, 0, 0, 0);
+          end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+        } else if (normalized === 'quarter') {
+          const qMap = { Q1: 0, Q2: 3, Q3: 6, Q4: 9 };
+          const qMonth = qMap[periodValue] !== undefined ? qMap[periodValue] : Math.floor(now.getMonth() / 3) * 3;
+          start.setMonth(qMonth, 1);
+          start.setHours(0, 0, 0, 0);
+          end = new Date(start.getFullYear(), qMonth + 3, 0, 23, 59, 59, 999);
+        } else if (normalized === 'year') {
+          const year = periodValue ? parseInt(periodValue) : now.getFullYear();
+          start = new Date(year, 0, 1);
+          end = new Date(year, 11, 31, 23, 59, 59, 999);
+        }
+        return { start, end };
+      };
+      const { start, end } = getDateRange(period, value);
+      query.createdAt = { $gte: start, $lte: end };
+    }
     if (priority) query.priority = priority;
+    if (excludeStatuses) {
+      const excluded = String(excludeStatuses).split(',').map(s => normalizeStatusValue(s)).filter(Boolean);
+      if (excluded.length) {
+        query.status = query.status && typeof query.status === 'object'
+          ? query.status
+          : { ...(query.status ? { $eq: query.status } : {}), $nin: excluded };
+      }
+    }
     if (owner === 'unassigned' || owner === 'none') {
       query.$and = [
         ...(query.$and || []),

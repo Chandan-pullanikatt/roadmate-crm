@@ -10,8 +10,6 @@ import {
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { leadsApi } from '../../../api/leadsApi';
-import { usersApi } from '../../../api/usersApi';
-import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 
 const FILTER_PERIODS = [
@@ -24,6 +22,7 @@ const FILTER_PERIODS = [
 
 const PERIOD_SUB_OPTIONS = {
   month: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  week: ['Week 1','Week 2','Week 3','Week 4'],
   quarter: ['Q1','Q2','Q3','Q4'],
   year: (() => {
     const y = new Date().getFullYear();
@@ -35,8 +34,6 @@ const Overview = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
-  const [funnelPeriod, setFunnelPeriod] = useState('month');
   const [period, setPeriod] = useState('month');
   const [periodValue, setPeriodValue] = useState('');
   const [execModal, setExecModal] = useState(null); // { exec, type: 'calls' | 'converted' | 'hot' }
@@ -57,37 +54,11 @@ const Overview = () => {
     placeholderData: (prev) => prev
   });
 
-  const { data: execModalLeads = [], isFetching: execLeadsLoading } = useQuery({
-    queryKey: ['exec-modal-leads', execModal?.exec?._id, execModal?.type],
-    queryFn: () => {
-      const params = { owner: execModal.exec._id, limit: 200 };
-      if (execModal.type === 'hot') params.priority = 'hot';
-      if (execModal.type === 'converted') params.status = 'converted';
-      return leadsApi.getLeads(params).then(r => r.data.leads || []);
-    },
-    enabled: !!execModal,
-    staleTime: 0,
-  });
-
-  const { data: meetingModalLeads = [], isFetching: meetingLeadsLoading } = useQuery({
-    queryKey: ['leads', 'summary-meetings'],
-    queryFn: () => leadsApi.getLeads({ status: 'meeting', limit: 100 }).then(r => r.data.leads || []),
-    enabled: summaryModal === 'meetings',
-    staleTime: 0,
-  });
-
   const { data: eventActivity = [], isFetching: eventActivityLoading } = useQuery({
     queryKey: ['lead-activity', eventModal?.leadId],
     queryFn: () => leadsApi.getLeadActivity(eventModal.leadId).then(r => r.data.activities || []),
     enabled: !!eventModal?.leadId,
     staleTime: 0,
-  });
-
-  const { data: teamExecs = [], isLoading: teamExecsLoading } = useQuery({
-    queryKey: ['users', 'team-execs', currentUser?._id],
-    queryFn: () => usersApi.getUsers({ role: 'executive', reportingTo: currentUser._id }).then(r => r.data),
-    enabled: !!reassignModal && !!currentUser?._id,
-    staleTime: 5 * 60 * 1000,
   });
 
   const reassignMutation = useMutation({
@@ -129,6 +100,24 @@ const Overview = () => {
   const userInfo = dashData?.user || {};
   const escalatedLeads = dashData?.escalatedLeads || [];
   const recentLeads = dashData?.leads || [];
+  const summaryDrilldowns = dashData?.summaryDrilldowns || {};
+  const summaryCounts = {
+    executives: summaryDrilldowns.executives?.count ?? stats.totalExecutives ?? 0,
+    revenue: summaryDrilldowns.revenue?.count ?? 0,
+    totalLeads: summaryDrilldowns.totalLeads?.count ?? periodStats.totalLeads ?? 0,
+    converted: summaryDrilldowns.converted?.count ?? stats.convertedThisMonth ?? 0,
+    calls: summaryDrilldowns.calls?.count ?? stats.callsThisWeek ?? 0,
+    meetings: summaryDrilldowns.meetings?.count ?? periodStats.meetings ?? 0,
+    hot: summaryDrilldowns.hot?.count ?? periodStats.hot ?? 0,
+    leaves: summaryDrilldowns.leaves?.count ?? leaves.length,
+  };
+  const goToLead = (leadId) => {
+    if (!leadId) return;
+    setSummaryModal(null);
+    setExecModal(null);
+    setEventModal(null);
+    navigate(`/leads/${leadId}`);
+  };
 
   const formatCurrency = (val) => {
     if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -140,13 +129,17 @@ const Overview = () => {
 
   const convDelta = (stats.convertedThisMonth ?? 0) - (stats.convertedLastMonth ?? 0);
   const periodLabel = FILTER_PERIODS.find(p => p.key === period)?.label || 'Period';
+  const selectedPeriodQuery = `period=${encodeURIComponent(period)}${periodValue ? `&value=${encodeURIComponent(periodValue)}` : ''}`;
+  const funnelTotal = leadStats.total || 0;
+  const funnelPct = (value) => funnelTotal > 0 ? Math.min(100, Math.max(0, ((value || 0) / funnelTotal) * 100)) : 0;
+  const conversionRate = funnelTotal > 0 ? Math.round(((leadStats.converted || 0) / funnelTotal) * 100) : 0;
 
   const statCards = [
     {
       id: 'executives',
       color: 'var(--purple)',
       label: 'District Executives',
-      value: stats.totalExecutives || 0,
+      value: summaryCounts.executives,
       valueColor: 'var(--purple)',
       delta: `↑ ${stats.activeToday >= stats.totalExecutives && stats.totalExecutives > 0 ? 'All' : (stats.activeToday || 0)} active · ${userInfo.industry || ''}`,
       deltaColor: 'var(--accent)',
@@ -170,16 +163,16 @@ const Overview = () => {
       id: 'total-leads',
       color: '#D97706',
       label: 'Total Leads',
-      value: leadStats.total || 0,
+      value: summaryCounts.totalLeads,
       valueColor: '#D97706',
-      delta: `→ ${leadStats.followup || 0} follow-ups today`,
+      delta: `→ This ${periodLabel.toLowerCase()}`,
       deltaColor: 'var(--text-muted)',
     },
     {
       id: 'converted',
       color: 'var(--teal)',
       label: 'Converted This Month',
-      value: stats.convertedThisMonth ?? 0,
+      value: summaryCounts.converted,
       valueColor: 'var(--teal)',
       delta: `${convDelta > 0 ? '↑' : convDelta < 0 ? '↓' : '→'} ${Math.abs(convDelta)} vs last month`,
       deltaColor: convDelta >= 0 ? 'var(--accent)' : 'var(--red)',
@@ -188,7 +181,7 @@ const Overview = () => {
       id: 'calls',
       color: 'var(--blue)',
       label: 'Calls This Week',
-      value: stats.callsThisWeek || 0,
+      value: summaryCounts.calls,
       valueColor: 'var(--blue)',
       delta: `${(stats.callGrowth ?? 0) >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(stats.callGrowth || 0))}% vs last week`,
       deltaColor: (stats.callGrowth ?? 0) >= 0 ? 'var(--accent)' : 'var(--red)',
@@ -199,7 +192,7 @@ const Overview = () => {
       id: 'meetings',
       color: 'var(--teal)',
       label: 'Meetings',
-      value: periodStats.meetings || 0,
+      value: summaryCounts.meetings,
       valueColor: 'var(--teal)',
       delta: '→ Currently in meeting stage',
       deltaColor: 'var(--text-muted)',
@@ -208,7 +201,7 @@ const Overview = () => {
       id: 'hot',
       color: 'var(--red)',
       label: 'Hot Leads',
-      value: periodStats.hot ?? 0,
+      value: summaryCounts.hot,
       valueColor: 'var(--red)',
       delta: (periodStats.hot ?? 0) > 0 ? `→ Needs immediate attention` : '↑ No hot leads',
       deltaColor: (periodStats.hot ?? 0) > 0 ? 'var(--red)' : 'var(--accent)',
@@ -217,7 +210,7 @@ const Overview = () => {
       id: 'leaves',
       color: 'var(--orange)',
       label: 'Leave Requests',
-      value: leaves.length,
+      value: summaryCounts.leaves,
       valueColor: 'var(--orange)',
       delta: leaves.length > 0 ? 'Needs approval' : 'All clear',
       deltaColor: leaves.length > 0 ? 'var(--amber)' : 'var(--accent)',
@@ -445,39 +438,29 @@ const Overview = () => {
           <div className="card-header border-none px-8 pt-8">
             <div>
               <h3 className="text-xl font-bold text-text-primary tracking-tight">Lead Funnel</h3>
-              <p className="text-sm text-text-muted mt-1 font-medium">Pipeline breakdown</p>
-            </div>
-            <div className="bg-surface2 p-1 rounded-xl flex gap-1 border border-border/40">
-              <button
-                onClick={() => setFunnelPeriod('month')}
-                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${funnelPeriod === 'month' ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
-              >Month</button>
-              <button
-                onClick={() => setFunnelPeriod('week')}
-                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${funnelPeriod === 'week' ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
-              >Week</button>
+              <p className="text-sm text-text-muted mt-1 font-medium">Complete live pipeline breakdown</p>
             </div>
           </div>
           <div className="card-body px-8 pt-4 pb-8">
             <LeadFunnel stages={[
-              { label: 'Total Leads', val: leadStats.total || 0, pct: 100, color: 'var(--purple)' },
-              { label: 'Hot Leads', val: leadStats.hot || 0, pct: (leadStats.hot / leadStats.total) * 100, color: 'var(--red)' },
-              { label: 'Warm Leads', val: leadStats.warm || 0, pct: (leadStats.warm / leadStats.total) * 100, color: 'var(--amber)' },
-              { label: 'Follow-ups', val: leadStats.followup || 0, pct: (leadStats.followup / leadStats.total) * 100, color: 'var(--blue)' },
-              { label: 'Meetings', val: (stats.meetings?.total || 0), pct: ((stats.meetings?.total || 0) / leadStats.total) * 100, color: 'var(--teal)' },
-              { label: 'Converted', val: leadStats.converted || 0, pct: (leadStats.converted / leadStats.total) * 100, color: 'var(--green)' },
+              { label: 'Total Leads', val: funnelTotal, pct: funnelTotal > 0 ? 100 : 0, color: 'var(--purple)' },
+              { label: 'Hot Leads', val: leadStats.hot || 0, pct: funnelPct(leadStats.hot), color: 'var(--red)' },
+              { label: 'Warm Leads', val: leadStats.warm || 0, pct: funnelPct(leadStats.warm), color: 'var(--amber)' },
+              { label: 'Follow-ups', val: leadStats.followup || 0, pct: funnelPct(leadStats.followup), color: 'var(--blue)' },
+              { label: 'Meetings', val: leadStats.meetings || 0, pct: funnelPct(leadStats.meetings), color: 'var(--teal)' },
+              { label: 'Converted', val: leadStats.converted || 0, pct: funnelPct(leadStats.converted), color: 'var(--green)' },
             ]} />
             <div className="mt-8 pt-6 border-t border-border/40">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Conversion Rate</div>
                 <div className="text-lg font-black text-purple">
-                  {leadStats.total > 0 ? Math.round((leadStats.converted / leadStats.total) * 100) : 0}%
+                  {conversionRate}%
                 </div>
               </div>
               <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden border border-border/40">
                 <div
                   className="h-full bg-purple transition-all duration-1000 ease-out shadow-sm"
-                  style={{ width: `${leadStats.total > 0 ? (leadStats.converted / leadStats.total) * 100 : 0}%` }}
+                  style={{ width: `${conversionRate}%` }}
                 />
               </div>
             </div>
@@ -675,28 +658,32 @@ const Overview = () => {
       </div>
       {/* Summary Card Drill-down Modal */}
       {summaryModal && (() => {
-        const convertedLeads = recentLeads.filter(l => l.status === 'CONVERTED');
-        const hotLeads       = recentLeads.filter(l => l.priority === 'hot' && !['CONVERTED', 'LOST'].includes(l.status));
-        const meetingLeads   = recentLeads.filter(l => l.status?.includes('MEETING'));
+        const drilldown = summaryDrilldowns || {};
+        const revenueLeads = drilldown.revenue?.leads || [];
+        const totalLeads = drilldown.totalLeads?.leads || [];
+        const convertedLeads = drilldown.converted?.leads || [];
+        const callRows = drilldown.calls?.rows || [];
+        const meetingLeads = drilldown.meetings?.leads || [];
+        const hotLeads = drilldown.hot?.leads || [];
 
         const CONFIG = {
           revenue: {
             title: 'Revenue — Converted Leads',
-            subtitle: `${formatCurrency(periodStats.revenue || 0)} · ${convertedLeads.length} conversions`,
+            subtitle: `${formatCurrency(periodStats.revenue || 0)} · ${revenueLeads.length} conversions`,
             color: 'var(--accent)',
             value: formatCurrency(periodStats.revenue || 0),
-            leads: convertedLeads,
+            leads: revenueLeads,
             emptyMsg: 'No converted leads found.',
-            navTarget: '/dashboard?page=reports',
+            navTarget: `/dashboard?page=leads&status=converted&${selectedPeriodQuery}`,
           },
           'total-leads': {
             title: 'Total Leads',
-            subtitle: `${recentLeads.length} leads in your territory`,
+            subtitle: `${totalLeads.length} leads in this ${periodLabel.toLowerCase()}`,
             color: '#D97706',
-            value: recentLeads.length,
-            leads: recentLeads,
+            value: totalLeads.length,
+            leads: totalLeads,
             emptyMsg: 'No leads found.',
-            navTarget: '/dashboard?page=leads',
+            navTarget: `/dashboard?page=leads&${selectedPeriodQuery}`,
           },
           converted: {
             title: 'Converted This Month',
@@ -705,25 +692,23 @@ const Overview = () => {
             value: convertedLeads.length,
             leads: convertedLeads,
             emptyMsg: 'No converted leads found.',
-            navTarget: '/dashboard?page=leads&status=converted',
+            navTarget: '/dashboard?page=leads&status=converted&period=month',
           },
           calls: {
             title: 'Calls This Week',
-            subtitle: `${stats.callsThisWeek || 0} calls made`,
+            subtitle: `${callRows.length} calls made`,
             color: 'var(--blue)',
-            value: stats.callsThisWeek || 0,
-            leads: [],
-            statOnly: true,
-            emptyMsg: 'Call-by-call log available on the calls page.',
-            navTarget: '/dashboard?page=calls',
+            value: callRows.length,
+            callRows,
+            emptyMsg: 'No calls found for this week.',
+            navTarget: '/dashboard?page=calls&period=week',
           },
           meetings: {
             title: 'Meetings',
-            subtitle: `${meetingModalLeads.length} leads currently in meeting stage`,
+            subtitle: `${meetingLeads.length} leads currently in meeting stage`,
             color: 'var(--teal)',
-            value: meetingLeadsLoading ? '…' : meetingModalLeads.length,
-            leads: meetingModalLeads,
-            loading: meetingLeadsLoading,
+            value: meetingLeads.length,
+            leads: meetingLeads,
             emptyMsg: 'No leads currently in meeting stage.',
             navTarget: '/dashboard?page=leads&status=meeting',
           },
@@ -734,7 +719,7 @@ const Overview = () => {
             value: hotLeads.length,
             leads: hotLeads,
             emptyMsg: 'No hot leads right now.',
-            navTarget: '/dashboard?page=leads&priority=hot',
+            navTarget: `/dashboard?page=leads&priority=hot&excludeStatuses=converted,lost&${selectedPeriodQuery}`,
           },
         };
 
@@ -764,13 +749,52 @@ const Overview = () => {
             </div>
 
             {/* Lead list or stat-only */}
-            {cfg.statOnly ? (
-              <div className="py-8 text-center">
-                <div className="text-3xl mb-3">📞</div>
-                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
-              </div>
-            ) : cfg.loading ? (
+            {cfg.loading ? (
               <div className="py-10 text-center text-text-muted text-sm">Loading leads…</div>
+            ) : cfg.callRows ? (
+              cfg.callRows.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="text-3xl mb-3">📞</div>
+                  <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 -mr-2">
+                  {cfg.callRows.map((row, i) => {
+                    const lead = row.lead;
+                    return (
+                      <div
+                        key={row._id || lead?._id || i}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => goToLead(lead?._id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') goToLead(lead?._id); }}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-purple/40 hover:bg-purple-light/10 transition-colors cursor-pointer"
+                      >
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
+                          style={{ background: cfg.color }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-text-primary truncate">
+                            {lead?.company || lead?.name || 'Unknown Lead'}
+                          </div>
+                          <div className="text-[11px] text-text-muted truncate">
+                            {row.performedBy?.name || '—'} · {lead?.district || '—'} · {row.note || 'Call logged'}
+                          </div>
+                        </div>
+                        <span
+                          className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md shrink-0"
+                          style={{ background: `${cfg.color}15`, color: cfg.color }}
+                        >
+                          called
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             ) : cfg.leads.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="text-3xl mb-3">📋</div>
@@ -781,7 +805,11 @@ const Overview = () => {
                 {cfg.leads.map((lead, i) => (
                   <div
                     key={lead._id || i}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => goToLead(lead._id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') goToLead(lead._id); }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-purple/40 hover:bg-purple-light/10 transition-colors cursor-pointer"
                   >
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
@@ -866,19 +894,18 @@ const Overview = () => {
               className="select w-full"
               value={reassignExecId}
               onChange={e => setReassignExecId(e.target.value)}
-              disabled={teamExecsLoading}
             >
               <option value="">
-                {teamExecsLoading ? 'Loading executives…' : '— Choose from your team —'}
+                — Choose from your district executives —
               </option>
-              {teamExecs.map(ex => (
+              {team.map(ex => (
                 <option key={ex._id} value={ex._id}>
                   {ex.name}{ex.district ? ` · ${ex.district}` : ''}
                 </option>
               ))}
             </select>
-            {!teamExecsLoading && teamExecs.length === 0 && (
-              <p className="text-[11px] text-amber font-medium">No executives found in your team.</p>
+            {team.length === 0 && (
+              <p className="text-[11px] text-amber font-medium">No district executives are assigned under this industry manager.</p>
             )}
           </div>
 
@@ -930,8 +957,7 @@ const Overview = () => {
           {/* Lead / Customer info grid */}
           <div className="grid grid-cols-2 gap-3 mb-5">
             {[
-              { label: 'Company',   value: eventModal.company },
-              { label: 'Contact',   value: eventModal.contactName || '—' },
+              { label: 'Name',      value: eventModal.contactName || eventModal.name || '—' },
               { label: 'Phone',     value: eventModal.phone || '—' },
               { label: 'District',  value: eventModal.district || '—' },
               { label: 'Owner',     value: eventModal.ownerName || '—' },
@@ -994,28 +1020,29 @@ const Overview = () => {
       {/* Executive Detail Modal */}
       {execModal && (() => {
         const { exec, type } = execModal;
+        const execModalRows = exec.drilldowns?.[type] || [];
 
         const EXEC_MODAL_CONFIG = {
           calls: {
-            title: `All Leads — ${exec.name}`,
-            subtitle: `${exec.calls} calls this month · ${execModalLeads.length} leads assigned`,
+            title: `Calls — ${exec.name}`,
+            subtitle: `${exec.calls} calls this month · ${execModalRows.length} call records`,
             color: 'var(--blue)',
-            emptyMsg: 'No leads assigned to this executive.',
-            navTarget: '/dashboard?page=calls',
+            emptyMsg: 'No call records found for this executive.',
+            navTarget: `/dashboard?page=calls&userId=${encodeURIComponent(exec._id)}&executive=${encodeURIComponent(exec.name)}&period=month`,
           },
           converted: {
             title: `Converted — ${exec.name}`,
-            subtitle: `${execModalLeads.length} converted leads`,
+            subtitle: `${execModalRows.length} converted leads`,
             color: 'var(--teal)',
             emptyMsg: 'No converted leads found for this executive.',
-            navTarget: '/dashboard?page=leads',
+            navTarget: `/dashboard?page=leads&owner=${encodeURIComponent(exec._id)}&status=converted&period=month`,
           },
           hot: {
             title: `Hot Leads — ${exec.name}`,
-            subtitle: `${execModalLeads.length} active hot leads`,
+            subtitle: `${execModalRows.length} active hot leads`,
             color: 'var(--red)',
             emptyMsg: 'No active hot leads for this executive.',
-            navTarget: '/dashboard?page=leads',
+            navTarget: `/dashboard?page=leads&owner=${encodeURIComponent(exec._id)}&priority=hot&excludeStatuses=converted,lost`,
           },
         };
 
@@ -1036,7 +1063,7 @@ const Overview = () => {
               style={{ background: `${cfg.color}12`, border: `1px solid ${cfg.color}30` }}
             >
               <div className="text-4xl font-black tabular-nums" style={{ color: cfg.color }}>
-                {execLeadsLoading ? '…' : execModalLeads.length}
+                {execModalRows.length}
               </div>
               <div>
                 <div className="text-sm font-bold text-text-primary">{exec.name}</div>
@@ -1045,19 +1072,23 @@ const Overview = () => {
             </div>
 
             {/* Lead list */}
-            {execLeadsLoading ? (
-              <div className="py-10 text-center text-text-muted text-sm">Loading leads…</div>
-            ) : execModalLeads.length === 0 ? (
+            {execModalRows.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="text-3xl mb-3">📋</div>
                 <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
-                {execModalLeads.map((lead, i) => (
+                {execModalRows.map((row, i) => {
+                  const lead = type === 'calls' ? row.lead : row;
+                  return (
                   <div
-                    key={lead._id || i}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                    key={row._id || lead?._id || i}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => goToLead(lead?._id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') goToLead(lead?._id); }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-purple/40 hover:bg-purple-light/10 transition-colors cursor-pointer"
                   >
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
@@ -1067,10 +1098,12 @@ const Overview = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold text-text-primary truncate">
-                        {lead.company || lead.name}
+                        {lead?.company || lead?.name || 'Unknown Lead'}
                       </div>
                       <div className="text-[11px] text-text-muted truncate">
-                        {lead.district || '—'} · {lead.name}
+                        {type === 'calls'
+                          ? `${lead?.district || '—'} · ${row.note || 'Call logged'}`
+                          : `${lead?.district || '—'} · ${lead?.name || '—'}`}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
@@ -1078,16 +1111,16 @@ const Overview = () => {
                         className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md"
                         style={{ background: `${cfg.color}15`, color: cfg.color }}
                       >
-                        {lead.status?.replace(/_/g, ' ') || 'new'}
+                        {type === 'calls' ? 'called' : (lead?.status?.replace(/_/g, ' ') || 'new')}
                       </span>
-                      {lead.priority && (
+                      {lead?.priority && (
                         <span className="text-[9px] font-bold text-text-muted uppercase">
                           {lead.priority}
                         </span>
                       )}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
 

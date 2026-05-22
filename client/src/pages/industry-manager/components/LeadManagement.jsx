@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { 
   StatCard, 
@@ -13,6 +13,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
 
 const LeadManagement = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const location = useLocation();
@@ -24,6 +25,10 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     return params.get('priority') || '';
   });
+  const ownerFilter = useMemo(() => new URLSearchParams(location.search).get('owner') || '', [location.search]);
+  const periodFilter = useMemo(() => new URLSearchParams(location.search).get('period') || '', [location.search]);
+  const periodValueFilter = useMemo(() => new URLSearchParams(location.search).get('value') || '', [location.search]);
+  const excludeStatusesFilter = useMemo(() => new URLSearchParams(location.search).get('excludeStatuses') || '', [location.search]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -52,10 +57,14 @@ const LeadManagement = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'industry-list', activeTab, priorityFilter, debouncedSearch, page],
+    queryKey: ['leads', 'industry-list', activeTab, priorityFilter, ownerFilter, periodFilter, periodValueFilter, excludeStatusesFilter, debouncedSearch, page],
     queryFn: () => leadsApi.getLeads({
       status: activeTab === 'all' ? undefined : activeTab,
       priority: priorityFilter || undefined,
+      owner: ownerFilter || undefined,
+      period: periodFilter || undefined,
+      value: periodValueFilter || undefined,
+      excludeStatuses: excludeStatusesFilter || undefined,
       search: debouncedSearch,
       page,
       limit: 20
@@ -69,6 +78,11 @@ const LeadManagement = () => {
     try {
       const res = await leadsApi.getLeads({
         status: activeTab === 'all' ? undefined : activeTab,
+        priority: priorityFilter || undefined,
+        owner: ownerFilter || undefined,
+        period: periodFilter || undefined,
+        value: periodValueFilter || undefined,
+        excludeStatuses: excludeStatusesFilter || undefined,
         search: debouncedSearch,
         limit: 9999
       });
@@ -283,7 +297,13 @@ const LeadManagement = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-black text-text-primary group-hover:text-purple transition-colors">{lead.company || lead.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/leads/${lead._id}`)}
+                        className="text-sm font-black text-text-primary group-hover:text-purple transition-colors text-left"
+                      >
+                        {lead.company || lead.name}
+                      </button>
                       <span className="text-[10px] font-bold text-text-muted">{lead.name}</span>
                     </div>
                   </td>

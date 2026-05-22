@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, Tag, DashboardSkeleton } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 
@@ -21,6 +22,13 @@ const outcomeLabel = (action, note) => {
 };
 
 const CallsDetail = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const userIdFilter = queryParams.get('userId') || '';
+  const periodFilter = queryParams.get('period') || '';
+  const periodValueFilter = queryParams.get('value') || '';
+  const executiveName = queryParams.get('executive') || '';
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
 
@@ -32,8 +40,14 @@ const CallsDetail = () => {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['activities', 'calls', page],
-    queryFn: () => dashboardApi.getActivities('calls', { page, limit: 30 }).then(r => r.data),
+    queryKey: ['activities', 'calls', userIdFilter, periodFilter, periodValueFilter, page],
+    queryFn: () => dashboardApi.getActivities('calls', {
+      userId: userIdFilter || undefined,
+      period: periodFilter || undefined,
+      value: periodValueFilter || undefined,
+      page,
+      limit: 30
+    }).then(r => r.data),
     staleTime: 2 * 60 * 1000,
     placeholderData: prev => prev
   });
@@ -61,7 +75,9 @@ const CallsDetail = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Call Log</h1>
-          <p className="text-sm text-text-muted">All calls · Outcomes · Feedback · {userInfo.industry} team</p>
+          <p className="text-sm text-text-muted">
+            {executiveName ? `${executiveName} · ` : ''}All calls · Outcomes · Feedback · {userInfo.industry} team
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -108,9 +124,13 @@ const CallsDetail = () => {
               {filtered.map((a, idx) => (
                 <tr key={a._id || idx} className="hover:bg-purple-light/5 transition-colors group">
                   <td className="px-8 py-4">
-                    <div className="font-bold text-xs text-text-primary group-hover:text-purple transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => a.lead?._id && navigate(`/leads/${a.lead._id}`)}
+                      className="font-bold text-xs text-text-primary group-hover:text-purple transition-colors text-left"
+                    >
                       {a.lead?.company || a.lead?.name || 'Unknown Lead'}
-                    </div>
+                    </button>
                     {a.lead?.company && a.lead?.name && (
                       <div className="text-[10px] text-text-muted">{a.lead.name}</div>
                     )}
