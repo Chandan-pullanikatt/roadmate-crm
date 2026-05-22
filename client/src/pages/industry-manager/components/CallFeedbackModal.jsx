@@ -65,8 +65,11 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const transitionMutation = useMutation({
     mutationFn: (data) => leadsApi.transitionLead(lead._id, data.action, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['leads', 'personal-list']);
-      queryClient.invalidateQueries(['dashboard', 'executive']);
+      queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'executive'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
+      queryClient.invalidateQueries({ queryKey: ['activities'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['lead-activity'] });
     },
   });
 

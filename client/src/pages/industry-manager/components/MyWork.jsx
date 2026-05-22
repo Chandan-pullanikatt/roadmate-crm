@@ -64,7 +64,7 @@ const MyWork = () => {
   const { data: imDashData } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
     queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
     placeholderData: (prev) => prev
   });
 
@@ -1200,7 +1200,9 @@ const MyWork = () => {
           lead={activeLead}
           initialOutcome={feedbackModal.outcome}
           onSuccess={() => {
-            // Move to next lead after feedback is submitted
+            queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
+            queryClient.invalidateQueries({ queryKey: ['activities'], exact: false });
+            queryClient.invalidateQueries({ queryKey: ['lead-activity', activeLead._id] });
             setCurrentLeadIdx(prev => prev + 1);
           }}
         />

@@ -470,6 +470,7 @@ router.get('/industry-manager', async (req, res) => {
       isActive: { $ne: false }
     }).select('_id name district state industry');
     const teamIds = teamUsers.map(u => u._id);
+    const callActorIds = [req.user._id, ...teamIds];
 
     const activeAttendances = await Attendance.find({
       user: { $in: teamIds },
@@ -505,7 +506,7 @@ router.get('/industry-manager', async (req, res) => {
       { 
         $match: { 
           action: 'called', 
-          performedBy: { $in: teamIds },
+          performedBy: { $in: callActorIds },
           createdAt: { $gte: prevWeekStart }
         } 
       },
@@ -573,7 +574,7 @@ router.get('/industry-manager', async (req, res) => {
     // Period-filtered activity stats (calls, revenue) + live meeting count (status-based, not date-based)
     const [periodActivities, periodMeetingLeads, activeLeadsCount] = await Promise.all([
       LeadActivity.find({
-        performedBy: { $in: teamIds },
+        performedBy: { $in: callActorIds },
         createdAt: { $gte: periodStart, $lte: periodEnd }
       }),
       // Count leads currently in meeting stage — matches the Lead Management meeting tab exactly
@@ -816,7 +817,7 @@ router.get('/industry-manager', async (req, res) => {
       }).populate({ path: 'lead', populate: { path: 'owner', select: 'name' } }).sort({ createdAt: -1 }),
       LeadActivity.find({
         action: 'called',
-        performedBy: { $in: teamIds },
+        performedBy: { $in: callActorIds },
         createdAt: { $gte: weekStart, $lte: todayEnd }
       })
         .populate('lead', 'leadId name company phone district priority status createdAt updatedAt')
@@ -1848,6 +1849,22 @@ const applyScope = (req, query) => {
     else if (req.user.role === 'state_manager') query.state = req.user.state;
 };
 
+/** Executives reporting to an industry manager */
+const getIndustryManagerExecutiveIds = async (managerId) => {
+    const teamUsers = await User.find({
+        role: 'executive',
+        reportingTo: managerId,
+        isActive: { $ne: false }
+    }).select('_id');
+    return teamUsers.map(u => u._id);
+};
+
+/** IM personal calls + team executive calls (used for weekly call summary & activity log) */
+const getIndustryManagerCallActorIds = async (managerId) => {
+    const teamIds = await getIndustryManagerExecutiveIds(managerId);
+    return [managerId, ...teamIds];
+};
+
 // GET /api/dashboard/reports/leads
 router.get('/reports/leads', async (req, res) => {
     try {
@@ -2161,17 +2178,15 @@ router.get('/reports/activities', async (req, res) => {
         if (req.user.role === 'executive') {
             scopedIds = [req.user._id];
         } else if (req.user.role === 'industry_manager') {
-            const teamUsers = await User.find({
-                role: 'executive',
-                reportingTo: req.user._id,
-                isActive: { $ne: false }
-            }).select('_id name district');
-            const teamIds = teamUsers.map(u => u._id);
+            const callActorIds = await getIndustryManagerCallActorIds(req.user._id);
+            const teamIds = callActorIds.slice(1);
             if (userId) {
-                const allowed = teamIds.some(id => id.toString() === String(userId));
+                const allowed =
+                    req.user._id.toString() === String(userId) ||
+                    teamIds.some(id => id.toString() === String(userId));
                 scopedIds = allowed ? [userId] : [];
             } else {
-                scopedIds = teamIds;
+                scopedIds = callActorIds;
             }
         } else {
             const userScope = {};
