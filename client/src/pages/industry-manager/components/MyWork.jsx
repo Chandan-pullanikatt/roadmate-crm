@@ -200,6 +200,7 @@ const MyWork = () => {
   const todayStats = dashData?.todayStats || {};
   const weeklyStats = dashData?.weeklyStats || {};
   const monthlyStats = dashData?.monthlyStats || {};
+  const summaryDrilldowns = dashData?.summaryDrilldowns || {};
 
   const recentActivity = activityData?.activities || [];
 
@@ -269,15 +270,12 @@ const MyWork = () => {
 
       {/* ── SUMMARY CARDS (5 clickable) ── */}
       {(() => {
-        const blockingLeads = (allLeadsData?.leads || []).filter(l => l.status === 'blocking_amount_received');
-        const conversionLeads = (allLeadsData?.leads || []).filter(l => l.status === 'converted');
-
         const cards = [
-          { id: 'my-leads',    label: 'My Leads Today',    value: myQueue.length,                  delta: `${todayStats.followups || 0} follow-ups pending`,                                                            color: '#7C3AED' },
-          { id: 'completed',   label: 'Completed Today',   value: todayStats.completedLeads || 0,  delta: `of ${myQueue.length} total leads`,                                                                             color: '#059669' },
-          { id: 'calls',       label: 'Calls This Week',   value: weeklyStats.calls || 0,          delta: `${(weeklyStats.callGrowth || 0) >= 0 ? '+' : ''}${weeklyStats.callGrowth || 0} vs last week`,                 color: '#2563EB' },
-          { id: 'conversions', label: 'My Conversions',    value: monthlyStats.converted || 0,     delta: 'This month',                                                                                                   color: '#0D9488' },
-          { id: 'blocking',    label: 'Blocking Amount',   value: blockingLeads.length,            delta: 'Amount received',                                                                                              color: '#D97706' },
+          { id: 'my-leads',    label: 'My Leads Today',    value: summaryDrilldowns.myLeads?.count ?? myQueue.length,          delta: `${todayStats.followups || 0} follow-ups pending`, color: '#7C3AED' },
+          { id: 'completed',   label: 'Completed Today',   value: summaryDrilldowns.completed?.count ?? 0,                     delta: `of ${myQueue.length} total leads`,              color: '#059669' },
+          { id: 'calls',       label: 'Calls This Week',   value: summaryDrilldowns.calls?.count ?? 0,                         delta: `${(weeklyStats.callGrowth || 0) >= 0 ? '+' : ''}${weeklyStats.callGrowth || 0} vs last week`, color: '#2563EB' },
+          { id: 'conversions', label: 'My Conversions',    value: summaryDrilldowns.conversions?.count ?? 0,                   delta: 'This month',                                    color: '#0D9488' },
+          { id: 'blocking',    label: 'Blocking Amount',   value: summaryDrilldowns.blocking?.count ?? 0,                      delta: 'Amount received',                               color: '#D97706' },
         ];
 
         return (
@@ -858,45 +856,44 @@ const MyWork = () => {
       {(() => {
         if (!summaryModal) return null;
 
-        const allLeads = allLeadsData?.leads || [];
-        const blockingLeads = allLeads.filter(l => l.status === 'blocking_amount_received');
-        const conversionLeads = allLeads.filter(l => l.status === 'converted');
+        const drilldowns = summaryDrilldowns || {};
+        const myLeads = drilldowns.myLeads?.leads || myQueue;
+        const completedLeads = drilldowns.completed?.leads || [];
+        const callRows = drilldowns.calls?.rows || [];
+        const conversionLeads = drilldowns.conversions?.leads || [];
+        const blockingLeads = drilldowns.blocking?.leads || [];
 
         const CONFIG = {
           'my-leads': {
             title: 'My Leads Today',
-            subtitle: `${myQueue.length} leads in your queue`,
+            subtitle: `${myLeads.length} leads in your queue`,
             color: '#7C3AED',
-            leads: myQueue.slice(0, 20),
+            leads: myLeads.slice(0, 20),
             navTarget: '/dashboard?page=leads',
             emptyMsg: 'No leads in your queue today.',
           },
           completed: {
             title: 'Completed Today',
-            subtitle: `${todayStats.completedLeads || 0} leads actioned today`,
+            subtitle: `${completedLeads.length} leads actioned today`,
             color: '#059669',
-            leads: (() => {
-              const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-              return allLeads.filter(l => new Date(l.updatedAt) >= todayMidnight).slice(0, 20);
-            })(),
-            navTarget: '/dashboard?page=leads&status=followup',
+            leads: completedLeads.slice(0, 20),
+            navTarget: '/dashboard?page=leads&completedToday=true',
             emptyMsg: 'No completed leads found for today.',
           },
           calls: {
             title: 'Calls This Week',
-            subtitle: `${weeklyStats.calls || 0} calls made`,
+            subtitle: `${callRows.length} calls made`,
             color: '#2563EB',
-            leads: [],
-            navTarget: '/dashboard?page=calls',
-            emptyMsg: 'Call-by-call log available on the calls page.',
-            statOnly: true,
+            callRows,
+            navTarget: '/dashboard?page=calls&period=week',
+            emptyMsg: 'No calls found this week.',
           },
           conversions: {
             title: 'My Conversions',
             subtitle: `${monthlyStats.converted || 0} conversions this month`,
             color: '#0D9488',
             leads: conversionLeads.slice(0, 20),
-            navTarget: '/dashboard?page=leads&status=converted',
+            navTarget: '/dashboard?page=leads&status=converted&period=month',
             emptyMsg: 'No conversions recorded yet.',
           },
           blocking: {
@@ -927,9 +924,9 @@ const MyWork = () => {
             >
               <div className="text-4xl font-black tabular-nums" style={{ color: cfg.color }}>
                 {summaryModal === 'my-leads' ? myQueue.length
-                  : summaryModal === 'completed' ? (todayStats.completedLeads || 0)
-                  : summaryModal === 'calls' ? (weeklyStats.calls || 0)
-                  : summaryModal === 'conversions' ? (monthlyStats.converted || 0)
+                  : summaryModal === 'completed' ? completedLeads.length
+                  : summaryModal === 'calls' ? callRows.length
+                  : summaryModal === 'conversions' ? conversionLeads.length
                   : blockingLeads.length}
               </div>
               <div>
@@ -939,13 +936,36 @@ const MyWork = () => {
             </div>
 
             {/* Lead list OR stat-only message */}
-            {cfg.statOnly ? (
-              <div className="py-8 text-center">
-                <div className="text-3xl mb-3">
-                  {summaryModal === 'completed' ? '✅' : '📞'}
+            {cfg.callRows ? (
+              cfg.callRows.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="text-3xl mb-3">📞</div>
+                  <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
                 </div>
-                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
-              </div>
+              ) : (
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
+                  {cfg.callRows.map((row, i) => {
+                    const lead = row.lead;
+                    return (
+                      <div
+                        key={row._id || lead?._id || i}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                      >
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0" style={{ background: cfg.color }}>
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-text-primary truncate">{lead?.name || lead?.company || 'Unknown Lead'}</div>
+                          <div className="text-[11px] text-text-muted truncate">{lead?.district || '—'} · {row.note || 'Call logged'}</div>
+                        </div>
+                        <span className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md shrink-0" style={{ background: `${cfg.color}15`, color: cfg.color }}>
+                          called
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             ) : cfg.leads.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="text-3xl mb-3">📋</div>

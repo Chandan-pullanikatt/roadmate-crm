@@ -819,10 +819,10 @@ const Overview = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold text-text-primary truncate">
-                        {lead.company || lead.name}
+                        {lead.name || lead.company || 'Unnamed Lead'}
                       </div>
                       <div className="text-[11px] text-text-muted truncate">
-                        {lead.district || '—'} · {lead.name} · {lead.owner?.name || (typeof lead.owner === 'string' ? lead.owner : 'Unassigned')}
+                        {lead.district || '—'} · {lead.company || 'No company'} · {lead.owner?.name || (typeof lead.owner === 'string' ? lead.owner : 'Unassigned')}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">

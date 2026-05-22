@@ -379,6 +379,7 @@ router.get('/', async (req, res) => {
       period,
       value,
       excludeStatuses,
+      completedToday,
       page = 1,
       limit = 10
     } = req.query;
@@ -468,6 +469,18 @@ router.get('/', async (req, res) => {
           ? query.status
           : { ...(query.status ? { $eq: query.status } : {}), $nin: excluded };
       }
+    }
+    if (completedToday === 'true') {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+      const leadIds = await LeadActivity.distinct('lead', {
+        performedBy: req.user._id,
+        createdAt: { $gte: start, $lte: end },
+        action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted'] }
+      });
+      query._id = { $in: leadIds };
     }
     if (owner === 'unassigned' || owner === 'none') {
       query.$and = [

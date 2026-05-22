@@ -29,6 +29,7 @@ const LeadManagement = () => {
   const periodFilter = useMemo(() => new URLSearchParams(location.search).get('period') || '', [location.search]);
   const periodValueFilter = useMemo(() => new URLSearchParams(location.search).get('value') || '', [location.search]);
   const excludeStatusesFilter = useMemo(() => new URLSearchParams(location.search).get('excludeStatuses') || '', [location.search]);
+  const completedTodayFilter = useMemo(() => new URLSearchParams(location.search).get('completedToday') || '', [location.search]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -57,7 +58,7 @@ const LeadManagement = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'industry-list', activeTab, priorityFilter, ownerFilter, periodFilter, periodValueFilter, excludeStatusesFilter, debouncedSearch, page],
+    queryKey: ['leads', 'industry-list', activeTab, priorityFilter, ownerFilter, periodFilter, periodValueFilter, excludeStatusesFilter, completedTodayFilter, debouncedSearch, page],
     queryFn: () => leadsApi.getLeads({
       status: activeTab === 'all' ? undefined : activeTab,
       priority: priorityFilter || undefined,
@@ -65,6 +66,7 @@ const LeadManagement = () => {
       period: periodFilter || undefined,
       value: periodValueFilter || undefined,
       excludeStatuses: excludeStatusesFilter || undefined,
+      completedToday: completedTodayFilter || undefined,
       search: debouncedSearch,
       page,
       limit: 20
@@ -83,6 +85,7 @@ const LeadManagement = () => {
         period: periodFilter || undefined,
         value: periodValueFilter || undefined,
         excludeStatuses: excludeStatusesFilter || undefined,
+        completedToday: completedTodayFilter || undefined,
         search: debouncedSearch,
         limit: 9999
       });

@@ -137,16 +137,65 @@ router.get('/executive', async (req, res) => {
     // Attendance data for completionPct
     const attendance = await Attendance.findOne({ user: req.user._id, date: { $gte: todayStart, $lte: todayEnd } });
 
+    const formatLeadSummary = (lead) => lead ? ({
+      _id: lead._id,
+      leadId: lead.leadId,
+      name: lead.name,
+      company: lead.company || '',
+      phone: lead.phone,
+      district: lead.district,
+      status: lead.status,
+      priority: lead.priority,
+      updatedAt: lead.updatedAt,
+      createdAt: lead.createdAt
+    }) : null;
+
+    const formatActivitySummary = (activity) => ({
+      _id: activity._id,
+      action: activity.action,
+      note: activity.note,
+      createdAt: activity.createdAt,
+      lead: formatLeadSummary(activity.lead)
+    });
+
+    const completedTodayActivities = await LeadActivity.find({
+      performedBy: req.user._id,
+      createdAt: { $gte: todayStart, $lte: todayEnd },
+      action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted'] }
+    })
+      .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
+      .sort({ createdAt: -1 });
+
+    const completedTodayMap = new Map();
+    completedTodayActivities.forEach(activity => {
+      if (activity.lead && !completedTodayMap.has(activity.lead._id.toString())) {
+        completedTodayMap.set(activity.lead._id.toString(), formatLeadSummary(activity.lead));
+      }
+    });
+    const completedTodayLeads = Array.from(completedTodayMap.values());
+
+    const weeklyCallActivities = await LeadActivity.find({
+      performedBy: req.user._id,
+      action: 'called',
+      createdAt: { $gte: weekStart }
+    })
+      .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
+      .sort({ createdAt: -1 });
+
+    const monthlyConversionActivityDocs = await LeadActivity.find({
+      performedBy: req.user._id,
+      action: 'converted',
+      createdAt: { $gte: monthStart }
+    })
+      .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
+      .sort({ createdAt: -1 });
+
     const todayStats = {
       totalLeads: attendance ? attendance.totalLeads : await Lead.countDocuments({ 
         owner: req.user._id, 
         status: { $nin: ['converted', 'lost', 'not_interested'] } 
       }),
-      completedLeads: await LeadActivity.distinct('lead', {
-        performedBy: req.user._id,
-        createdAt: { $gte: todayStart },
-        action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted'] }
-      }).then(res => res.length),
+      completedLeads: completedTodayLeads.length,
       calls: todayActivities.filter(a => a.action === 'called').length,
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
@@ -188,7 +237,7 @@ router.get('/executive', async (req, res) => {
 
     const monthlyStats = {
       totalLeads: await Lead.countDocuments({ owner: req.user._id, createdAt: { $gte: monthStart } }),
-      converted: monthlyActivities.filter(a => a.action === 'converted').length,
+      converted: monthlyConversionActivityDocs.length,
       revenue: monthlyActivities
         .filter(a => a.action === 'converted' && a.metadata?.revenue)
         .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
@@ -246,6 +295,33 @@ router.get('/executive', async (req, res) => {
     .limit(5)
     .populate('lead', 'company name');
 
+    const blockingLeads = myLeads
+      .filter(lead => lead.status === 'blocking_amount_received')
+      .map(formatLeadSummary);
+
+    const summaryDrilldowns = {
+      myLeads: {
+        count: myLeads.length,
+        leads: myLeads.map(formatLeadSummary)
+      },
+      completed: {
+        count: completedTodayLeads.length,
+        leads: completedTodayLeads
+      },
+      calls: {
+        count: weeklyCallActivities.length,
+        rows: weeklyCallActivities.map(formatActivitySummary)
+      },
+      conversions: {
+        count: monthlyConversionActivityDocs.length,
+        leads: monthlyConversionActivityDocs.map(a => formatLeadSummary(a.lead)).filter(Boolean)
+      },
+      blocking: {
+        count: blockingLeads.length,
+        leads: blockingLeads
+      }
+    };
+
     res.json({
       user: { name: req.user.name, state: req.user.state, industry: req.user.industry },
       todayStats,
@@ -254,6 +330,7 @@ router.get('/executive', async (req, res) => {
         callGrowth
       },
       monthlyStats,
+      summaryDrilldowns,
       workStarted: !!attendance?.workStartedAt && !attendance?.workCompletedAt,
       attendance: {
         _id: attendance?._id,
@@ -528,7 +605,7 @@ router.get('/industry-manager', async (req, res) => {
       return {
         _id: l._id,
         leadId: l.leadId || `RM-A${String(idx + 1).padStart(3, '0')}`,
-        company: l.company || 'Private Client',
+        company: l.company || '',
         name: l.name,
         district: l.district,
         owner: l.owner?.name || 'Unassigned',
@@ -657,7 +734,7 @@ router.get('/industry-manager', async (req, res) => {
       name: l.status.includes('meeting') ? `Meeting - ${l.company || l.name}` : `Follow-up - ${l.company || l.name}`,
       ownerName: l.owner?.name,
       ownerId: l.owner?._id,
-      company: l.company || 'Private Client',
+      company: l.company || '',
       contactName: l.name,
       phone: l.phone,
       district: l.district,
@@ -683,7 +760,7 @@ router.get('/industry-manager', async (req, res) => {
     const leadsFormatted = allLeadsPopulated.map((l, idx) => ({
       _id: l._id,
       leadId: l.leadId || `RM-A${String(idx + 1).padStart(3, '0')}`,
-      company: l.company || 'Private Client',
+      company: l.company || '',
       name: l.name,
       district: l.district,
       owner: l.owner?.name || 'Unassigned',
@@ -2080,15 +2157,19 @@ router.get('/reports/activities', async (req, res) => {
     try {
         const { type = 'calls', page = 1, limit = 30, userId, period, value } = req.query;
 
-        // Scope to IM's team
-        const userScope = {};
-        applyScope(req, userScope);
-        const teamUsers = await User.find({ ...userScope, role: 'executive' }).select('_id name district');
-        const teamIds = teamUsers.map(u => u._id);
-        let scopedIds = teamIds;
-        if (userId) {
-            const allowed = teamIds.some(id => id.toString() === String(userId));
-            scopedIds = allowed ? [userId] : [];
+        let scopedIds = [];
+        if (req.user.role === 'executive') {
+            scopedIds = [req.user._id];
+        } else {
+            const userScope = {};
+            applyScope(req, userScope);
+            const teamUsers = await User.find({ ...userScope, role: 'executive' }).select('_id name district');
+            const teamIds = teamUsers.map(u => u._id);
+            scopedIds = teamIds;
+            if (userId) {
+                const allowed = teamIds.some(id => id.toString() === String(userId));
+                scopedIds = allowed ? [userId] : [];
+            }
         }
 
         // Action filter

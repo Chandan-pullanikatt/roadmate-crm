@@ -43,7 +43,7 @@ const LeadDetail = () => {
     );
   }
 
-  const displayName = lead.company || lead.name;
+  const displayName = lead.name || lead.company;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
@@ -71,7 +71,7 @@ const LeadDetail = () => {
           <div className="p-5 grid grid-cols-1 gap-3">
             {[
               ['Name', lead.name],
-              ['Company', lead.company || 'Private Client'],
+              ['Company', lead.company || '—'],
               ['Phone', lead.phone],
               ['Email', lead.email || '—'],
               ['District', lead.district || '—'],
