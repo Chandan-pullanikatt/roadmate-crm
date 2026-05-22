@@ -52,10 +52,18 @@ const MyWork = () => {
   const openFeedback = (outcome) => setFeedbackModal({ open: true, outcome });
   const closeFeedback = () => setFeedbackModal({ open: false, outcome: null });
 
-  // 1. Fetch Personal Stats
+  // 1. Fetch Personal Stats (work attendance, personal completions)
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', 'executive'],
     queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev
+  });
+
+  // Team stats — same source as Overview / Calls detail page
+  const { data: imDashData } = useQuery({
+    queryKey: ['dashboard', 'industry-manager'],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev
   });
@@ -151,6 +159,18 @@ const MyWork = () => {
     }));
   };
 
+  const goToLead = (leadId) => {
+    if (!leadId) return;
+    navigate(`/leads/${leadId}`);
+  };
+
+  /** Prefer non-empty drilldown list; executive API often returns [] while industry leads live in myQueue */
+  const pickLeads = (drilldownLeads, fallback) =>
+    Array.isArray(drilldownLeads) && drilldownLeads.length > 0 ? drilldownLeads : fallback;
+
+  const pickCallRows = (rows, fallback = []) =>
+    Array.isArray(rows) && rows.length > 0 ? rows : fallback;
+
   const workStarted = !!dashData?.attendance?.workStartedAt && !dashData?.attendance?.workCompletedAt;
   const workCompleted = !!dashData?.attendance?.workCompletedAt;
   const myQueue = allLeadsData?.leads || [];
@@ -201,6 +221,10 @@ const MyWork = () => {
   const weeklyStats = dashData?.weeklyStats || {};
   const monthlyStats = dashData?.monthlyStats || {};
   const summaryDrilldowns = dashData?.summaryDrilldowns || {};
+  const imDrilldowns = imDashData?.summaryDrilldowns || {};
+  const teamCallRows = pickCallRows(imDrilldowns.calls?.rows, []);
+  const teamCallsCount = imDrilldowns.calls?.count ?? teamCallRows.length;
+  const teamCallGrowth = imDashData?.stats?.callGrowth ?? weeklyStats.callGrowth ?? 0;
 
   const recentActivity = activityData?.activities || [];
 
@@ -270,12 +294,13 @@ const MyWork = () => {
 
       {/* ── SUMMARY CARDS (5 clickable) ── */}
       {(() => {
+        const blockingCount = myQueue.filter(l => l.status === 'blocking_amount_received').length;
         const cards = [
-          { id: 'my-leads',    label: 'My Leads Today',    value: summaryDrilldowns.myLeads?.count ?? myQueue.length,          delta: `${todayStats.followups || 0} follow-ups pending`, color: '#7C3AED' },
+          { id: 'my-leads',    label: 'My Leads Today',    value: myQueue.length,                                              delta: `${todayStats.followups || 0} follow-ups pending`, color: '#7C3AED' },
           { id: 'completed',   label: 'Completed Today',   value: summaryDrilldowns.completed?.count ?? 0,                     delta: `of ${myQueue.length} total leads`,              color: '#059669' },
-          { id: 'calls',       label: 'Calls This Week',   value: summaryDrilldowns.calls?.count ?? 0,                         delta: `${(weeklyStats.callGrowth || 0) >= 0 ? '+' : ''}${weeklyStats.callGrowth || 0} vs last week`, color: '#2563EB' },
+          { id: 'calls',       label: 'Calls This Week',   value: teamCallsCount,                                              delta: `${teamCallGrowth >= 0 ? '+' : ''}${teamCallGrowth} vs last week`, color: '#2563EB' },
           { id: 'conversions', label: 'My Conversions',    value: summaryDrilldowns.conversions?.count ?? 0,                   delta: 'This month',                                    color: '#0D9488' },
-          { id: 'blocking',    label: 'Blocking Amount',   value: summaryDrilldowns.blocking?.count ?? 0,                      delta: 'Amount received',                               color: '#D97706' },
+          { id: 'blocking',    label: 'Blocking Amount',   value: summaryDrilldowns.blocking?.count || blockingCount,          delta: 'Amount received',                               color: '#D97706' },
         ];
 
         return (
@@ -704,10 +729,14 @@ const MyWork = () => {
             </thead>
             <tbody className="divide-y divide-border/30">
               {(showAllLeads ? filteredLeads : filteredLeads.slice(0, 5)).map((lead, idx) => (
-                <tr key={lead._id} className="hover:bg-surface2/30 transition-colors group">
+                <tr
+                  key={lead._id}
+                  className="hover:bg-surface2/30 transition-colors group cursor-pointer"
+                  onClick={() => goToLead(lead._id)}
+                >
                   <td className="px-5 py-3.5 text-[10px] font-bold text-text-muted">MN-{String(idx + 1).padStart(2, '0')}</td>
                   <td className="px-5 py-3.5">
-                    <div className="text-sm font-bold text-text-primary">{lead.company || lead.name}</div>
+                    <div className="text-sm font-bold text-text-primary group-hover:text-purple transition-colors">{lead.company || lead.name}</div>
                     <div className="text-[11px] text-text-muted mt-0.5">{lead.name} · {lead.phone}</div>
                   </td>
                   <td className="px-5 py-3.5 text-sm text-text-secondary">{lead.district || '—'}</td>
@@ -733,15 +762,17 @@ const MyWork = () => {
                   <td className="px-5 py-3.5 font-mono text-xs font-bold text-text-primary">
                     {lead.expectedRevenue ? formatCurrency(lead.expectedRevenue) : '—'}
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2 justify-end">
                       <button
+                        type="button"
                         onClick={() => openModal('update-lead', { leadData: lead })}
                         className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg hover:bg-surface2 transition-colors"
                       >
                         Update
                       </button>
                       <button
+                        type="button"
                         onClick={() => openModal('allocate-lead', { leadData: lead })}
                         className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-purple/20 text-purple rounded-lg hover:bg-purple/5 transition-colors"
                       >
@@ -857,11 +888,14 @@ const MyWork = () => {
         if (!summaryModal) return null;
 
         const drilldowns = summaryDrilldowns || {};
-        const myLeads = drilldowns.myLeads?.leads || myQueue;
-        const completedLeads = drilldowns.completed?.leads || [];
-        const callRows = drilldowns.calls?.rows || [];
-        const conversionLeads = drilldowns.conversions?.leads || [];
-        const blockingLeads = drilldowns.blocking?.leads || [];
+        const myLeads = pickLeads(drilldowns.myLeads?.leads, myQueue);
+        const completedLeads = pickLeads(drilldowns.completed?.leads, []);
+        const callRows = pickCallRows(imDrilldowns.calls?.rows, []);
+        const conversionLeads = pickLeads(drilldowns.conversions?.leads, []);
+        const blockingLeads = pickLeads(
+          drilldowns.blocking?.leads,
+          myQueue.filter(l => l.status === 'blocking_amount_received')
+        );
 
         const CONFIG = {
           'my-leads': {
@@ -885,7 +919,7 @@ const MyWork = () => {
             subtitle: `${callRows.length} calls made`,
             color: '#2563EB',
             callRows,
-            navTarget: '/dashboard?page=calls&period=week',
+            navTarget: '/dashboard?page=calls&period=weekly',
             emptyMsg: 'No calls found this week.',
           },
           conversions: {
@@ -923,7 +957,7 @@ const MyWork = () => {
               style={{ background: `${cfg.color}12`, border: `1px solid ${cfg.color}30` }}
             >
               <div className="text-4xl font-black tabular-nums" style={{ color: cfg.color }}>
-                {summaryModal === 'my-leads' ? myQueue.length
+                {summaryModal === 'my-leads' ? myLeads.length
                   : summaryModal === 'completed' ? completedLeads.length
                   : summaryModal === 'calls' ? callRows.length
                   : summaryModal === 'conversions' ? conversionLeads.length
@@ -974,9 +1008,14 @@ const MyWork = () => {
             ) : (
               <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
                 {cfg.leads.map((lead, i) => (
-                  <div
+                  <button
+                    type="button"
                     key={lead._id || i}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-border2 transition-colors"
+                    onClick={() => {
+                      setSummaryModal(null);
+                      goToLead(lead._id);
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border/40 hover:border-purple/30 hover:bg-purple-light/10 transition-colors text-left cursor-pointer"
                   >
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black text-white shrink-0"
@@ -998,7 +1037,7 @@ const MyWork = () => {
                     >
                       {lead.status?.replace(/_/g, ' ') || 'new'}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

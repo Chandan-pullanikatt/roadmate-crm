@@ -2160,6 +2160,19 @@ router.get('/reports/activities', async (req, res) => {
         let scopedIds = [];
         if (req.user.role === 'executive') {
             scopedIds = [req.user._id];
+        } else if (req.user.role === 'industry_manager') {
+            const teamUsers = await User.find({
+                role: 'executive',
+                reportingTo: req.user._id,
+                isActive: { $ne: false }
+            }).select('_id name district');
+            const teamIds = teamUsers.map(u => u._id);
+            if (userId) {
+                const allowed = teamIds.some(id => id.toString() === String(userId));
+                scopedIds = allowed ? [userId] : [];
+            } else {
+                scopedIds = teamIds;
+            }
         } else {
             const userScope = {};
             applyScope(req, userScope);
