@@ -6,6 +6,7 @@ const leadService = require('../services/leadService');
 const notificationService = require('../services/notificationService');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
+const User = require('../models/User');
 
 // Protect all routes
 router.use(verifyToken);
@@ -78,7 +79,6 @@ const normalizeLeadPayload = (payload = {}) => {
 
 const bulkCreateLeads = async (req, res) => {
   try {
-    const User = require('../models/User');
     const insertedLeads = [];
     const updatedLeads = [];
     const errors = [];
@@ -303,12 +303,14 @@ router.get('/counts', async (req, res) => {
     const query = {};
     const { owner } = req.query;
 
-    // Scoping based on role
+    // Scoping based on role.
+    // Skip broad scope for owner=self to avoid cross-role assignment mismatches.
+    const skipBroadScope = (owner === 'self');
     if (req.user.role === 'executive') {
       query.owner = req.user._id;
-    } else if (req.user.role === 'state_manager') {
+    } else if (req.user.role === 'state_manager' && !skipBroadScope) {
       query.state = req.user.state;
-    } else if (req.user.role === 'industry_manager') {
+    } else if (req.user.role === 'industry_manager' && !skipBroadScope) {
       query.industry = req.user.industry;
     }
 
@@ -404,12 +406,16 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    // Scoping based on role
+    // Scoping based on role.
+    // When owner=self the explicit owner filter already scopes to this user,
+    // so skip the broad industry/state scope to avoid false-negative mismatches
+    // on leads created cross-role (e.g. SM creates and assigns to an IM).
+    const skipBroadScope = (owner === 'self');
     if (req.user.role === 'executive') {
       query.owner = req.user._id;
-    } else if (req.user.role === 'state_manager') {
+    } else if (req.user.role === 'state_manager' && !skipBroadScope) {
       query.state = req.user.state;
-    } else if (req.user.role === 'industry_manager') {
+    } else if (req.user.role === 'industry_manager' && !skipBroadScope) {
       query.industry = req.user.industry;
     }
 
@@ -542,12 +548,24 @@ router.post('/', async (req, res) => {
     if (req.user.role === 'executive' && !payload.owner) {
       payload.owner = req.user._id;
     }
-    // Always scope to creator's state/industry — prevents mismatched leads that become invisible to the creator
+    // Always scope to creator's state — prevents mismatched leads
     if (req.user.role === 'state_manager') {
       payload.state = req.user.state;
     }
     if (req.user.role === 'industry_manager') {
       payload.industry = req.user.industry;
+    }
+    // When a lead is assigned to another user (cross-role), inherit their industry/state
+    // so the lead is always visible to the person it's assigned to.
+    // E.g. SM creates a lead and assigns it to an IM — the lead must carry the IM's industry.
+    if (payload.owner) {
+      try {
+        const ownerUser = await User.findById(payload.owner).select('industry state');
+        if (ownerUser) {
+          if (!payload.industry && ownerUser.industry) payload.industry = ownerUser.industry;
+          if (!payload.state   && ownerUser.state)    payload.state   = ownerUser.state;
+        }
+      } catch (_) { /* non-fatal — lead still saves */ }
     }
     const lead = new Lead({
       ...payload,

@@ -708,15 +708,18 @@ const GlobalModals = () => {
             </div>
 
             {isIndustryManager ? (
-              /* Industry managers only assign to their own executives */
+              /* Industry managers can assign to themselves or to their own executives */
               <div className="space-y-2">
-                <label className="form-label">Assign to District Executive</label>
+                <label className="form-label">Assign To</label>
                 <select
                   className="select"
                   value={leadFormData.ownerId}
                   onChange={(e) => setLeadFormData({ ...leadFormData, ownerId: e.target.value })}
                 >
                   <option value="">Leave unassigned</option>
+                  <option value={currentUser?._id}>
+                    👤 Myself ({currentUser?.name})
+                  </option>
                   {executives
                     .filter(ex => ex.reportingTo === currentUser?._id || ex.reportingTo?.toString() === currentUser?._id?.toString())
                     .map(ex => <option key={ex._id} value={ex._id}>{ex.name} ({ex.district || ex.state})</option>)}
@@ -748,11 +751,16 @@ const GlobalModals = () => {
                   <select
                     className="select"
                     value={leadFormData.industryManagerId}
-                    onChange={(e)=>setLeadFormData({
-                      ...leadFormData,
-                      industryManagerId: e.target.value,
-                      ownerId: ''
-                    })}
+                    onChange={(e) => {
+                      const selectedIM = leadIndustryManagerOptions.find(m => m._id === e.target.value);
+                      setLeadFormData({
+                        ...leadFormData,
+                        industryManagerId: e.target.value,
+                        // Auto-inherit industry from the selected IM so the lead is visible to them
+                        industry: selectedIM?.industry || leadFormData.industry,
+                        ownerId: ''
+                      });
+                    }}
                     disabled={!leadFormData.managerId}
                   >
                     <option value="">{leadFormData.managerId ? 'Select Industry Manager' : 'Select State Manager first'}</option>

@@ -58,9 +58,10 @@ const LeadManagement = ({ ownerScope }) => {
     placeholderData: keepPreviousData
   });
 
+  // When ownerScope is set, scope the counts to that same filter so tabs are accurate
   const { data: counts } = useQuery({
-    queryKey: ['leads', 'counts'],
-    queryFn: () => leadsApi.getCounts().then(res => res.data),
+    queryKey: ['leads', 'counts', ownerFilter],
+    queryFn: () => leadsApi.getCounts(ownerFilter ? { owner: ownerFilter } : undefined).then(res => res.data),
     staleTime: 5 * 60 * 1000
   });
 
@@ -220,37 +221,38 @@ const LeadManagement = ({ ownerScope }) => {
         </div>
       </div>
 
-      {/* Summary Stat Cards */}
+      {/* Summary Stat Cards
+          When ownerScope is active use counts (already scoped) instead of dashboard stats
+          which always return industry-wide totals.                                          */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-            label="Total Leads" 
-            value={stats.totalLeads || 0} 
-            delta="In Database" 
+        <StatCard
+            label="Total Leads"
+            value={ownerScope ? total : (stats.totalLeads || 0)}
+            delta={ownerScope === 'self' ? 'My assigned leads' : ownerScope === 'team' ? 'Team leads' : 'In Database'}
             deltaType="up"
-            colorClass="purple" 
+            colorClass="purple"
         />
-        <StatCard 
-            label="Hot Pipeline" 
-            value={stats.hotLeads || 0} 
-            delta={`${Math.round((stats.hotLeads / (stats.totalLeads || 1)) * 100) || 0}%`}
+        <StatCard
+            label="Hot Pipeline"
+            value={ownerScope ? (counts?.hot || 0) : (stats.hotLeads || 0)}
+            delta={`${Math.round(((ownerScope ? (counts?.hot || 0) : (stats.hotLeads || 0)) / ((ownerScope ? total : stats.totalLeads) || 1)) * 100) || 0}%`}
             deltaLabel="of total"
             deltaType="up"
-            colorClass="red" 
+            colorClass="red"
         />
-        <StatCard 
-            label="Converted" 
-            value={stats.convertedThisMonth || 0} 
-            delta="This month"
+        <StatCard
+            label="Converted"
+            value={ownerScope ? (counts?.converted || 0) : (stats.convertedThisMonth || 0)}
+            delta={ownerScope ? 'Total converted' : 'This month'}
             deltaType="up"
-            colorClass="green" 
+            colorClass="green"
         />
-        <StatCard 
-            label="Total Revenue" 
-            value={formatCurrency(stats.revenue || 0)} 
-            delta={`${stats.revGrowth || 0}%`}
-            deltaLabel="growth"
-            deltaType={stats.revGrowth >= 0 ? "up" : "down"}
-            colorClass="teal" 
+        <StatCard
+            label="Follow-up"
+            value={ownerScope ? (counts?.followup || 0) : (stats.revenue ? formatCurrency(stats.revenue) : 0)}
+            delta={ownerScope ? 'Pending follow-ups' : `${stats.revGrowth || 0}% growth`}
+            deltaType="up"
+            colorClass="teal"
         />
       </div>
 
