@@ -12,7 +12,12 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
 
-const LeadManagement = () => {
+/**
+ * ownerScope: 'self'  → IM's own leads only
+ *             'team'  → leads owned by DEs under the IM (excludes IM's own)
+ *             undefined → no extra owner filter (legacy / founder view)
+ */
+const LeadManagement = ({ ownerScope }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -25,7 +30,9 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     return params.get('priority') || '';
   });
-  const ownerFilter = useMemo(() => new URLSearchParams(location.search).get('owner') || '', [location.search]);
+  const urlOwner = useMemo(() => new URLSearchParams(location.search).get('owner') || '', [location.search]);
+  // ownerScope prop takes precedence over URL param
+  const ownerFilter = ownerScope || urlOwner;
   const periodFilter = useMemo(() => new URLSearchParams(location.search).get('period') || '', [location.search]);
   const periodValueFilter = useMemo(() => new URLSearchParams(location.search).get('value') || '', [location.search]);
   const excludeStatusesFilter = useMemo(() => new URLSearchParams(location.search).get('excludeStatuses') || '', [location.search]);
@@ -180,10 +187,15 @@ const LeadManagement = () => {
              <span className="text-text-muted text-[10px] font-bold uppercase tracking-wider">Lead Management</span>
           </div>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
-            Lead Database
+            {ownerScope === 'self' ? 'My Leads' : ownerScope === 'team' ? 'Team Leads' : 'Lead Database'}
           </h1>
           <p className="text-sm text-text-muted mt-1 font-medium">
-            Managing {total} Leads <span className="mx-2 opacity-30">·</span> {userInfo.industry} <span className="mx-2 opacity-30">·</span> {userInfo.state}
+            {ownerScope === 'self'
+              ? `My own leads · ${total} total`
+              : ownerScope === 'team'
+              ? `District Executive leads · ${total} total`
+              : `Managing ${total} Leads`}
+            <span className="mx-2 opacity-30">·</span> {userInfo.industry} <span className="mx-2 opacity-30">·</span> {userInfo.state}
           </p>
         </div>
         

@@ -12,6 +12,7 @@ import Reports from './sections/Reports';
 import ExpectedOnboarding from './sections/ExpectedOnboarding';
 import Targets from './sections/Targets';
 import Tasks from './sections/Tasks';
+import Sop from './sections/Sop';
 
 import './founder.css';
 
@@ -34,6 +35,7 @@ const FounderDashboard = () => {
       case 'leads-onboarding': return <ExpectedOnboarding />;
       case 'targets': return <Targets />;
       case 'tasks':   return <Tasks />;
+      case 'sop':     return <Sop />;
 
       default: return <Overview />;
     }

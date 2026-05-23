@@ -107,6 +107,7 @@ app.use('/api/tasks',   require('./routes/tasks'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/sop', require('./routes/sop'));
 
 // Global Error Handler
 app.use(errorHandler);

@@ -317,6 +317,15 @@ router.get('/counts', async (req, res) => {
         ...(query.$and || []),
         { $or: [{ owner: null }, { owner: { $exists: false } }] }
       ];
+    } else if (owner === 'self') {
+      query.owner = req.user._id;
+    } else if (owner === 'team') {
+      query.$and = [
+        ...(query.$and || []),
+        { owner: { $ne: req.user._id } },
+        { owner: { $ne: null } },
+        { owner: { $exists: true } }
+      ];
     } else if (owner) {
       query.owner = owner;
     }
@@ -486,6 +495,17 @@ router.get('/', async (req, res) => {
       query.$and = [
         ...(query.$and || []),
         { $or: [{ owner: null }, { owner: { $exists: false } }] }
+      ];
+    } else if (owner === 'self') {
+      // IM's own leads only
+      query.owner = req.user._id;
+    } else if (owner === 'team') {
+      // Leads owned by team members (exclude the requesting manager)
+      query.$and = [
+        ...(query.$and || []),
+        { owner: { $ne: req.user._id } },
+        { owner: { $ne: null } },
+        { owner: { $exists: true } }
       ];
     } else if (owner) {
       query.owner = owner;

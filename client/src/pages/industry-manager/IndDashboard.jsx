@@ -8,6 +8,7 @@ import DistrictExecutives from './components/DistrictExecutives';
 import LeadManagement from './components/LeadManagement';
 import LeadFlow from './components/LeadFlow';
 import Attendance from './components/Attendance';
+import MyAttendance from './components/MyAttendance';
 import LeaveApprovals from './components/LeaveApprovals';
 import LeaveCalendar from './components/LeaveCalendar';
 import StaffDocs from './components/StaffDocs';
@@ -17,6 +18,7 @@ import MyPerformance from './components/MyPerformance';
 import Reports from './components/Reports';
 import CallsDetail from './components/CallsDetail';
 import MeetingsDetail from './components/MeetingsDetail';
+import SopViewer from './components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
 
 
@@ -31,22 +33,33 @@ const IndDashboard = () => {
 
   const renderContent = () => {
     switch (activePage) {
-      case 'overview': return <Overview />;
-      case 'my-work': return <MyWork />;
-      case 'team': return <DistrictExecutives />;
-      case 'leads': return <LeadManagement />;
-      case 'lead-flow': return <LeadFlow />;
-      case 'attendance': return <Attendance />;
-      case 'approvals': return <LeaveApprovals />;
-      case 'calendar': return <LeaveCalendar />;
-      case 'staff-docs': return <StaffDocs />;
+      // ── My Works ──────────────────────────────────────────
+      case 'overview':        return <Overview />;
+      case 'my-work':         return <MyWork />;
+      case 'my-leads':        return <LeadManagement ownerScope="self" />;
+      case 'my-performance':  return <MyPerformance />;
+      case 'my-attendance':   return <MyAttendance />;
+      case 'my-sop':          return <SopViewer role="industry_manager" />;
+
+      // ── Team ──────────────────────────────────────────────
+      case 'team':            return <DistrictExecutives />;
+      case 'leads':           return <LeadManagement ownerScope="team" />;
+      case 'performance':     return <Performance />;
+      case 'attendance':      return <Attendance />;
+      case 'staff-docs':      return <StaffDocs />;
+      case 'team-sop':        return <SopViewer role="executive" />;
+
+      // ── Management ────────────────────────────────────────
+      case 'tasks':           return <Tasks />;
+      case 'lead-flow':       return <LeadFlow />;
+      case 'calendar':        return <LeaveCalendar />;
+      case 'reports':         return <Reports />;
+
+      // ── Legacy / misc ─────────────────────────────────────
+      case 'approvals':       return <LeaveApprovals />;
       case 'create-executive': return <CreateExecutive />;
-      case 'performance': return <Performance />;
-      case 'my-performance': return <MyPerformance />;
-      case 'calls': return <CallsDetail />;
-      case 'meetings': return <MeetingsDetail />;
-      case 'reports': return <Reports />;
-      case 'tasks':   return <Tasks />;
+      case 'calls':           return <CallsDetail />;
+      case 'meetings':        return <MeetingsDetail />;
 
       default: return <Overview />;
     }

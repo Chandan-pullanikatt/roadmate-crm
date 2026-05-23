@@ -96,6 +96,12 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' }
           ]
+        },
+        {
+          label: 'SOP',
+          items: [
+            { label: 'Manage SOPs', path: '/dashboard?page=sop', icon: 'reports' }
+          ]
         }
       ]
     },
@@ -146,31 +152,34 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
       avatarClass: 'av-ind',
       sections: [
         {
-          label: 'Main',
+          label: 'My Works',
           items: [
-            { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', special: true },
-            { label: 'District Executives', path: '/dashboard?page=team', icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'purple' },
-            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads) },
-            { label: 'Lead Task Flow', path: '/dashboard?page=lead-flow', icon: 'leads' }
+            { label: 'Overview',         path: '/dashboard?page=overview',       icon: 'overview' },
+            { label: 'My Work',          path: '/dashboard?page=my-work',        icon: 'my-work', special: true },
+            { label: 'Lead Management',  path: '/dashboard?page=my-leads',       icon: 'leads' },
+            { label: 'My Performance',   path: '/dashboard?page=my-performance', icon: 'performance' },
+            { label: 'Attendance',       path: '/dashboard?page=my-attendance',  icon: 'attendance' },
+            { label: 'SOP',              path: '/dashboard?page=my-sop',         icon: 'reports' },
           ]
         },
         {
           label: 'Team',
           items: [
-            { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
-            { label: 'Staff Performance', path: '/dashboard?page=performance', icon: 'performance' },
-            { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
-            { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
-            { label: 'Staff Documents', path: '/dashboard?page=staff-docs', icon: 'reports' }
+            { label: 'Overview',         path: '/dashboard?page=team',           icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'purple' },
+            { label: 'Lead Management',  path: '/dashboard?page=leads',          icon: 'leads', badge: getBadge(stats.totalLeads) },
+            { label: 'Staff Performance', path: '/dashboard?page=performance',   icon: 'performance' },
+            { label: 'Attendance',       path: '/dashboard?page=attendance',     icon: 'attendance' },
+            { label: 'Staff Documents',  path: '/dashboard?page=staff-docs',     icon: 'reports' },
+            { label: 'SOP',              path: '/dashboard?page=team-sop',       icon: 'reports' },
           ]
         },
         {
           label: 'Management',
           items: [
-            { label: 'Tasks', path: '/dashboard?page=tasks', icon: 'work' },
-            { label: 'Create Executive', path: '/dashboard?page=create-executive', icon: 'executives' },
-            { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' }
+            { label: 'Task',             path: '/dashboard?page=tasks',          icon: 'work' },
+            { label: 'Lead Task Flow',   path: '/dashboard?page=lead-flow',      icon: 'leads' },
+            { label: 'Leave Calendar',   path: '/dashboard?page=calendar',       icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
+            { label: 'Reports',          path: '/dashboard?page=reports',        icon: 'reports' },
           ]
         }
       ]
