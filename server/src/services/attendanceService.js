@@ -139,11 +139,12 @@ const attendanceService = {
     if (!attendance) throw new Error('Attendance record not found');
     if (attendance.workCompletedAt) throw new Error('Work already completed for today');
 
-    // 1. Count completed leads (activity logs created today by user)
+    // 1. Count completed leads (activity logs created today by user with completed actions)
     // We group by lead to avoid counting multiple activities on the same lead as multiple completions
     const completedLeadsIds = await LeadActivity.distinct('lead', {
       performedBy: userId,
-      createdAt: { $gte: todayStart, $lte: todayEnd }
+      createdAt: { $gte: todayStart, $lte: todayEnd },
+      action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'] }
     });
     
     const completedLeadsCount = completedLeadsIds.length;

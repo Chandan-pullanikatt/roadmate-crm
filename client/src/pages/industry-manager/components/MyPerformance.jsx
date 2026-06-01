@@ -72,7 +72,8 @@ const MyPerformance = () => {
     }));
 
   const conversionRate = totalLeads > 0 ? ((counts.converted || 0) / totalLeads * 100).toFixed(1) : 0;
-  const completionPct = totalLeads > 0 ? Math.round(((counts.converted || 0) / totalLeads) * 100) : 0;
+  // Show monthly work completion from dashboard data (includes all engagements: calls, meetings, conversions, blocking amounts, etc.)
+  const completionPct = imStats?.completionPct || 0;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">

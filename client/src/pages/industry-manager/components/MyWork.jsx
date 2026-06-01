@@ -1193,6 +1193,7 @@ const MyWork = () => {
           lead={activeLead}
           initialOutcome={feedbackModal.outcome}
           onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
             queryClient.invalidateQueries({ queryKey: ['activities'], exact: false });
             queryClient.invalidateQueries({ queryKey: ['lead-activity', activeLead._id] });

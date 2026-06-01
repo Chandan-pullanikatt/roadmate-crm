@@ -161,7 +161,7 @@ router.get('/executive', async (req, res) => {
     const completedTodayActivities = await LeadActivity.find({
       performedBy: req.user._id,
       createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted'] }
+      action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'] }
     })
       .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
       .sort({ createdAt: -1 });
@@ -865,9 +865,42 @@ router.get('/industry-manager', async (req, res) => {
       }
     };
 
+    // Get Industry Manager's own stats for MyPerformance (monthly)
+    // Calculate directly from lead activities (not from attendance records which may have stale data)
+    const imMonthlyActivities = await LeadActivity.find({
+      performedBy: req.user._id,
+      createdAt: { $gte: monthStart, $lte: todayEnd }
+    }).populate('lead', '_id');
+
+    // Count unique leads completed this month (same logic as MyWork)
+    const imCompletedLeadsSet = new Set();
+    imMonthlyActivities.forEach(activity => {
+      if (['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'].includes(activity.action) && activity.lead) {
+        imCompletedLeadsSet.add(activity.lead._id.toString());
+      }
+    });
+    const imCompletedLeadsCount = imCompletedLeadsSet.size;
+
+    // Get IM's currently active leads (denominator - current active leads owned by IM)
+    const imCurrentActiveLeads = await Lead.countDocuments({
+      owner: req.user._id,
+      status: { $nin: ['converted', 'lost', 'not_interested'] }
+    });
+
+    // If IM has no active leads, show monthly completed as percentage of all-time leads
+    const imTotalLeadsForDenom = imCurrentActiveLeads > 0 
+      ? imCurrentActiveLeads 
+      : await Lead.countDocuments({ owner: req.user._id });
+
+    // Calculate completion % from actual unique completed leads (same as MyWork)
+    const imCompletionPct = imTotalLeadsForDenom > 0 
+      ? Math.round((imCompletedLeadsCount / imTotalLeadsForDenom) * 100) 
+      : 0;
+
     res.json({
       user: { name: req.user.name, state: req.user.state, industry: req.user.industry },
       stats: {
+        completionPct: imCompletionPct,
         totalExecutives: teamUsers.length,
         activeToday: activeAttendances.length,
         avgWorkPct: Math.round(avgWorkPct),

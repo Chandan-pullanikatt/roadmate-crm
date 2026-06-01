@@ -260,6 +260,7 @@ const leadService = {
             activityData.action = 'lost';
             activityData.note = `Auto-lost: no available executive in ${lead.state}/${lead.industry} after ${lead.rnrCount} RNR attempts`;
           }
+        }
         break;
       }
 
