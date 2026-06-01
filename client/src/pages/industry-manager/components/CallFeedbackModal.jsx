@@ -89,13 +89,16 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
       addToast('Please select a call outcome first.', 'warning');
       return;
     }
-    if (!priority) {
-      addToast('Please select a lead priority (Hot / Warm / Cold).', 'warning');
-      return;
-    }
-    if (!notes.trim()) {
-      addToast('Remarks are required — note what happened in this call.', 'warning');
-      return;
+    // RNR: priority and notes are optional
+    if (selectedOutcome !== 'rnr') {
+      if (!priority) {
+        addToast('Please select a lead priority (Hot / Warm / Cold).', 'warning');
+        return;
+      }
+      if (!notes.trim()) {
+        addToast('Remarks are required — note what happened in this call.', 'warning');
+        return;
+      }
     }
     if (selectedOutcome === 'followup' && !followUpDate) {
       addToast('Please set a follow-up date.', 'warning');
@@ -108,7 +111,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         addToast('Call logged as connected.', 'success');
 
       } else if (selectedOutcome === 'rnr') {
-        await transitionMutation.mutateAsync({ action: 'mark_rnr', note: notes, priority });
+        await transitionMutation.mutateAsync({ action: 'mark_rnr', note: notes || '', priority: priority || null });
         addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
 
       } else if (selectedOutcome === 'followup') {
@@ -177,6 +180,74 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const inp = 'w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:border-purple focus:ring-2 focus:ring-purple/10 outline-none transition-all bg-white';
   const lbl = 'block text-xs font-bold text-text-secondary mb-1.5';
 
+  // Filter outcomes based on initial action
+  const getAvailableOutcomes = () => {
+    if (initialOutcome === 'connected') {
+      // Call Done: exclude 'connected' and 'rnr', show only post-call outcomes
+      return OUTCOMES.filter(o => !['connected', 'rnr'].includes(o.id));
+    }
+    return OUTCOMES;
+  };
+
+  const availableOutcomes = getAvailableOutcomes();
+
+  // RNR confirmation modal: minimal UI
+  if (initialOutcome === 'rnr' && isOpen) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="Ring Not Responded"
+        subtitle="Confirm RNR status"
+        className="max-w-md"
+      >
+        <div className="space-y-5">
+          {/* Lead context */}
+          <div className="bg-surface2 px-4 py-3 rounded-xl text-sm">
+            <strong className="text-text-primary">{lead?.company || lead?.name}</strong>
+            <span className="text-text-muted"> · {lead?.name}{lead?.district ? ` · ${lead.district}` : ''}</span>
+          </div>
+
+          {/* Message */}
+          <div className="p-4 bg-red/5 border border-red/20 rounded-xl">
+            <p className="text-sm text-text-primary leading-relaxed">
+              📵 Mark this lead as <strong>RNR (Ring Not Responded)</strong>?
+            </p>
+            <p className="text-xs text-text-muted mt-2">
+              The call will be logged, and the lead will be automatically re-queued for retry.
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+            <button
+              onClick={handleClose}
+              className="px-5 py-2.5 rounded-xl border border-border text-sm font-bold text-text-secondary hover:bg-surface2 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await transitionMutation.mutateAsync({ action: 'mark_rnr', note: '', priority: null });
+                  addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
+                  handleClose();
+                  if (onSuccess) onSuccess();
+                } catch (err) {
+                  addToast('Failed to save: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), 'error');
+                }
+              }}
+              disabled={transitionMutation.isPending}
+              className="px-6 py-2.5 rounded-xl bg-red text-white text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-red/20 disabled:opacity-50"
+            >
+              {transitionMutation.isPending ? 'Submitting…' : 'Confirm RNR'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -196,7 +267,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         <div>
           <label className={lbl}>Call Outcome</label>
           <div className="flex flex-wrap gap-2 mt-1">
-            {OUTCOMES.map(o => (
+            {availableOutcomes.map(o => (
               <button
                 key={o.id}
                 onClick={() => setSelectedOutcome(o.id)}
@@ -214,7 +285,8 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
           </div>
         </div>
 
-        {/* Priority selector */}
+        {/* Priority selector — hidden for RNR */}
+        {selectedOutcome !== 'rnr' && (
         <div>
           <label className={lbl}>Lead Priority</label>
           <div className="flex gap-2">
@@ -249,8 +321,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
             ))}
           </div>
         </div>
+        )}
 
-        {/* Notes — always shown */}
+        {/* Notes — hidden for RNR */}
+        {selectedOutcome !== 'rnr' && (
         <div>
           <label className={lbl}>Feedback / Important Notes</label>
           <textarea
@@ -261,6 +335,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
             placeholder="What happened in this call? Key points from conversation…"
           />
         </div>
+        )}
 
         {/* Follow-up section */}
         {selectedOutcome === 'followup' && (

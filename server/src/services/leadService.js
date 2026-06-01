@@ -73,6 +73,7 @@ const leadService = {
     switch (action) {
       case 'mark_called':
         lead.status = 'called';
+        lead.hasBeenEngaged = true; // Mark as engaged once called
         lead.lastCallAt = new Date();
         activityData.action = 'called';
         if (data.priority) lead.priority = data.priority;
@@ -82,6 +83,9 @@ const leadService = {
         const { nextAction, note } = data;
         lead.feedback.push({ note, createdBy: performedBy._id });
         if (data.priority) lead.priority = data.priority;
+        
+        // Mark as engaged for all feedback actions (these represent actual engagement)
+        lead.hasBeenEngaged = true;
         
         if (nextAction === 'followup') {
           lead.status = 'followup';
@@ -209,6 +213,23 @@ const leadService = {
           twoDaysLater.setHours(rHour3, 0, 0, 0);
           lead.nextActionAt = twoDaysLater;
         } else if (lead.rnrCount >= 4) {
+          // ── Auto-reallocation: Only for NEW, UNINGAGED leads ──────────────
+          // Leads that have been connected, in follow-up, or in meetings should 
+          // NEVER be auto-reallocated, no matter how many RNRs. They must stay 
+          // with their assigned executive until manually marked as Lost.
+          if (lead.hasBeenEngaged) {
+            // Lead has been engaged → keep it with current owner, just re-queue
+            lead.status = 'rnr';
+            const nextRetryDay = new Date();
+            nextRetryDay.setDate(nextRetryDay.getDate() + 1);
+            nextRetryDay.setHours(10, 0, 0, 0);
+            lead.nextActionAt = nextRetryDay;
+            activityData.action = 'rnr'; // Keep action as RNR
+            activityData.note = `RNR #${lead.rnrCount}. Lead has been engaged—no auto-reallocation. Re-queued for next day.`;
+            break;
+          }
+
+          // Lead has NOT been engaged (still new) → attempt reallocation
           // Capture previous owner BEFORE reassigning
           const previousOwnerId = lead.owner;
 
@@ -239,7 +260,6 @@ const leadService = {
             activityData.action = 'lost';
             activityData.note = `Auto-lost: no available executive in ${lead.state}/${lead.industry} after ${lead.rnrCount} RNR attempts`;
           }
-        }
         break;
       }
 

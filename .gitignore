@@ -27,3 +27,5 @@ Thumbs.db
 # HTML Reference files (optional, if you want to keep them out of git)
 roadmate-crm-*.html
 .claude
+
+.grill

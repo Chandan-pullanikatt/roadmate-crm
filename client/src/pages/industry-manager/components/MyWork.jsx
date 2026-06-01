@@ -430,8 +430,8 @@ const MyWork = () => {
                         ))}
                       </div>
 
-                      {/* 2×2 action buttons */}
-                      <div className="grid grid-cols-2 gap-2.5">
+                      {/* 3 action buttons */}
+                      <div className="grid grid-cols-3 gap-2.5">
                         <button
                           onClick={() => openFeedback('connected')}
                           className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-green hover:bg-green/5 transition-all group cursor-pointer"
@@ -445,13 +445,6 @@ const MyWork = () => {
                         >
                           <span className="text-xl">📵</span>
                           <span className="text-[11px] font-bold text-text-secondary group-hover:text-red">RNR</span>
-                        </button>
-                        <button
-                          onClick={() => openFeedback('meeting')}
-                          className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-blue hover:bg-blue/5 transition-all group cursor-pointer"
-                        >
-                          <span className="text-xl">📅</span>
-                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-blue">Meeting Set</span>
                         </button>
                         <button
                           onClick={() => setCurrentLeadIdx(prev => prev + 1)}

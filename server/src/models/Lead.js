@@ -28,6 +28,7 @@ const leadSchema = new mongoose.Schema({
   industry: { type: String },
   leadSource: { type: String },
   rnrCount: { type: Number, default: 0 },
+  hasBeenEngaged: { type: Boolean, default: false }, // True if lead has ever moved to engaged status (called, followup, meeting, etc.)
   nextActionAt: { type: Date },
   followUpDate: { type: Date },
   followUpTime: { type: String },

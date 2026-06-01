@@ -322,11 +322,10 @@ router.get('/counts', async (req, res) => {
     } else if (owner === 'self') {
       query.owner = req.user._id;
     } else if (owner === 'team') {
+      // Include all leads not owned by this IM — unassigned (null) leads are part of the team view
       query.$and = [
         ...(query.$and || []),
-        { owner: { $ne: req.user._id } },
-        { owner: { $ne: null } },
-        { owner: { $exists: true } }
+        { owner: { $ne: req.user._id } }
       ];
     } else if (owner) {
       query.owner = owner;
@@ -506,12 +505,10 @@ router.get('/', async (req, res) => {
       // IM's own leads only
       query.owner = req.user._id;
     } else if (owner === 'team') {
-      // Leads owned by team members (exclude the requesting manager)
+      // Leads not owned by this IM — includes unassigned (null) leads since those belong to the team view
       query.$and = [
         ...(query.$and || []),
-        { owner: { $ne: req.user._id } },
-        { owner: { $ne: null } },
-        { owner: { $exists: true } }
+        { owner: { $ne: req.user._id } }
       ];
     } else if (owner) {
       query.owner = owner;

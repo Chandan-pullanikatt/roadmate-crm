@@ -36,28 +36,28 @@ const MyPerformance = () => {
   const { user } = useAuth();
 
   const { data: countsData, isLoading: countsLoading } = useQuery({
-    queryKey: ['leads', 'counts'],
-    queryFn: () => leadsApi.getCounts().then(res => res.data),
+    queryKey: ['leads', 'counts', 'self'],
+    queryFn: () => leadsApi.getCounts({ owner: 'self' }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
-    queryKey: ['dashboard', 'executive'],
-    queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
+    queryKey: ['dashboard', 'industry-manager', 'personal'],
+    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: recentLeadsData } = useQuery({
-    queryKey: ['leads', 'personal-recent'],
-    queryFn: () => leadsApi.getLeads({ limit: 20 }).then(res => res.data),
+    queryKey: ['leads', 'personal-recent', 'self'],
+    queryFn: () => leadsApi.getLeads({ owner: 'self', limit: 20 }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
   });
 
   if (countsLoading || dashLoading) return <DashboardSkeleton />;
 
   const counts = countsData || {};
-  const monthly = dashData?.monthlyStats || {};
-  const today = dashData?.todayStats || {};
+  const imStats = dashData?.stats || {};
+  const periodStats = dashData?.periodStats || {};
   const recentLeads = recentLeadsData?.leads || [];
 
   const totalLeads = Object.values(counts).reduce((sum, c) => sum + (c || 0), 0);
@@ -72,6 +72,7 @@ const MyPerformance = () => {
     }));
 
   const conversionRate = totalLeads > 0 ? ((counts.converted || 0) / totalLeads * 100).toFixed(1) : 0;
+  const completionPct = totalLeads > 0 ? Math.round(((counts.converted || 0) / totalLeads) * 100) : 0;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
@@ -158,21 +159,21 @@ const MyPerformance = () => {
           <p className="text-[12px] text-text-muted mb-6">This month's activity summary</p>
           
           <div className="space-y-5 flex-1">
-            <ProgressMetric label="Calls Made" value={monthly.totalCalls || 0} target={100} color="#8B5CF6" />
-            <ProgressMetric label="Meetings Set" value={monthly.totalMeetings || 0} target={20} color="#3B82F6" />
-            <ProgressMetric label="Conversions" value={monthly.converted || 0} target={10} color="#10B981" />
-            <ProgressMetric label="Follow-Ups" value={today.followups || 0} target={30} color="#F59E0B" />
+            <ProgressMetric label="Calls This Week" value={imStats.callsThisWeek || 0} target={50} color="#8B5CF6" />
+            <ProgressMetric label="Meetings" value={periodStats.meetings || 0} target={20} color="#3B82F6" />
+            <ProgressMetric label="Converted" value={imStats.convertedThisMonth || 0} target={10} color="#10B981" />
+            <ProgressMetric label="Follow-Up Pending" value={counts.followup || 0} target={30} color="#F59E0B" />
           </div>
 
           <div className="mt-auto pt-6 border-t border-border">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Overall Completion</span>
-              <span className="text-sm font-black text-purple">{dashData?.attendance?.completionPct || 0}%</span>
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Conversion Rate</span>
+              <span className="text-sm font-black text-purple">{completionPct}%</span>
             </div>
             <div className="h-2.5 bg-surface2 rounded-full overflow-hidden border border-border/50">
-              <div 
-                className="h-full bg-gradient-to-r from-purple to-blue transition-all duration-1000 rounded-full" 
-                style={{ width: `${Math.min(dashData?.attendance?.completionPct || 0, 100)}%` }}
+              <div
+                className="h-full bg-gradient-to-r from-purple to-blue transition-all duration-1000 rounded-full"
+                style={{ width: `${Math.min(completionPct, 100)}%` }}
               ></div>
             </div>
           </div>
