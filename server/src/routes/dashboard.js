@@ -274,6 +274,24 @@ router.get('/executive', async (req, res) => {
 
     // 7. Lead Sources Breakdown
     const myLeads = await Lead.find({ owner: userId });
+
+    // Monthly lead review progress: unique leads actioned this month / all leads in IM's industry
+    const [monthlyReviewedLeadIds, monthlyTotalLeads] = await Promise.all([
+      LeadActivity.distinct('lead', {
+        performedBy: req.user._id,
+        createdAt: { $gte: monthStart },
+        action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'] },
+        lead: { $ne: null }
+      }),
+      Lead.countDocuments({ industry: req.user.industry })
+    ]);
+    const monthlyReviewedCount = monthlyReviewedLeadIds.length;
+    monthlyStats.reviewedLeads = monthlyReviewedCount;
+    monthlyStats.totalAllLeads = monthlyTotalLeads;
+    monthlyStats.completionPct = monthlyTotalLeads > 0
+      ? Math.round((monthlyReviewedCount / monthlyTotalLeads) * 100)
+      : 0;
+
     const leadSourcesMap = myLeads.reduce((acc, lead) => {
       const source = lead.source || 'Other';
       acc[source] = (acc[source] || 0) + 1;

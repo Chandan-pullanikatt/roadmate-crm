@@ -820,13 +820,18 @@ const MyWork = () => {
             </div>
             <div>
               <div className="flex justify-between items-end mb-2">
-                <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Work Completion</span>
-                <span className="text-sm font-black text-purple">{Math.min(dashData?.attendance?.completionPct || 0, 100)}%</span>
+                <div>
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Monthly Lead Review</span>
+                  <div className="text-[10px] text-text-muted mt-0.5">
+                    {monthlyStats.reviewedLeads || 0} of {monthlyStats.totalAllLeads || 0} leads reviewed
+                  </div>
+                </div>
+                <span className="text-sm font-black text-purple">{Math.min(monthlyStats.completionPct || 0, 100)}%</span>
               </div>
               <div className="h-2 bg-surface2 rounded-full overflow-hidden border border-border/40">
                 <div
                   className="h-full bg-gradient-to-r from-purple to-purple-dark transition-all duration-1000"
-                  style={{ width: `${Math.min(dashData?.attendance?.completionPct || 0, 100)}%` }}
+                  style={{ width: `${Math.min(monthlyStats.completionPct || 0, 100)}%` }}
                 />
               </div>
             </div>
