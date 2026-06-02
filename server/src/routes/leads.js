@@ -541,8 +541,9 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const payload = normalizeLeadPayload(req.body);
-    // Executives always own the leads they create
-    if (req.user.role === 'executive' && !payload.owner) {
+    // Executives and industry managers own the leads they create,
+    // unless the lead is explicitly being assigned to someone else.
+    if (['executive', 'industry_manager'].includes(req.user.role) && !payload.owner) {
       payload.owner = req.user._id;
     }
     // Always scope to creator's state — prevents mismatched leads

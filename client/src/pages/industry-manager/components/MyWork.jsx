@@ -31,13 +31,21 @@ const TASK_STATUS_STYLE = {
   overdue:     'bg-red/10 text-red',
 };
 
+// Closed statuses are removed from the active work queue so a completed lead
+// (e.g. "Blocking Amount Received") can never resurface and get overwritten.
+const CLOSED_STATUSES = [
+  'converted', 'lost', 'not_interested',
+  'blocking_amount_received', 'full_amount_received', 'agreement_signed',
+];
+
 const MyWork = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const [currentLeadIdx, setCurrentLeadIdx] = useState(0);
+  const [activeLeadId, setActiveLeadId] = useState(null);
+  const [queueComplete, setQueueComplete] = useState(false);
   const [tableFilter, setTableFilter] = useState('All');
   const [showAllLeads, setShowAllLeads] = useState(false);
   const [taskFilter, setTaskFilter] = useState('All');
@@ -60,18 +68,10 @@ const MyWork = () => {
     placeholderData: (prev) => prev
   });
 
-  // Team stats — same source as Overview / Calls detail page
-  const { data: imDashData } = useQuery({
-    queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
-    staleTime: 30 * 1000,
-    placeholderData: (prev) => prev
-  });
-
   // 2. Fetch All My Leads
   const { data: allLeadsData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'personal-list'],
-    queryFn: () => leadsApi.getLeads({ limit: 100 }).then(res => res.data),
+    queryFn: () => leadsApi.getLeads({ owner: 'self', limit: 100 }).then(res => res.data),
     staleTime: 0,
     placeholderData: (prev) => prev
   });
@@ -111,8 +111,41 @@ const MyWork = () => {
     onError: (err) => addToast(err?.response?.data?.message || 'Allocation failed', 'error'),
   });
 
-  // 4. Fetch lead activity for the active lead
-  const activeLead = (allLeadsData?.leads || [])[currentLeadIdx];
+  // 4. Active work queue — owned leads with open statuses only.
+  //    The active lead is tracked by _id (not array position) so a refetch or a
+  //    tab-switch remount can never resurface a completed lead as the active one.
+  const workQueue = useMemo(
+    () => (allLeadsData?.leads || []).filter(l => !CLOSED_STATUSES.includes(l.status)),
+    [allLeadsData]
+  );
+  const activeLead = workQueue.find(l => l._id === activeLeadId) || null;
+  const activeIndex = workQueue.findIndex(l => l._id === activeLeadId);
+
+  // Keep the active selection valid: default to the first open lead, and recover
+  // automatically when the current lead leaves the queue (actioned, allocated, etc.)
+  useEffect(() => {
+    if (queueComplete) return;
+    if (workQueue.length === 0) {
+      if (activeLeadId !== null) setActiveLeadId(null);
+      return;
+    }
+    if (!activeLeadId || !workQueue.some(l => l._id === activeLeadId)) {
+      setActiveLeadId(workQueue[0]._id);
+    }
+  }, [workQueue, activeLeadId, queueComplete]);
+
+  // Advance to the next open lead after handling the current one.
+  const advanceToNext = () => {
+    const idx = workQueue.findIndex(l => l._id === activeLeadId);
+    const next = idx >= 0 ? workQueue[idx + 1] : workQueue[0];
+    if (next) {
+      setActiveLeadId(next._id);
+    } else {
+      setQueueComplete(true);
+      setActiveLeadId(null);
+    }
+  };
+
   const { data: activityData } = useQuery({
     queryKey: ['lead-activity', activeLead?._id],
     queryFn: () => leadsApi.getLeadActivity(activeLead._id).then(r => r.data),
@@ -180,8 +213,7 @@ const MyWork = () => {
     : Math.round(((dashData?.todayStats?.completedLeads || 0) / Math.max(myQueue.length, 1)) * 100);
   const pctColor = completionPct >= 70 ? 'text-accent' : completionPct >= 30 ? 'text-amber' : 'text-red';
   const barColor = completionPct >= 70 ? 'bg-accent' : completionPct >= 30 ? 'bg-amber' : 'bg-red';
-  const isQueueEmpty = myQueue.length === 0;
-  const isLastLead = currentLeadIdx >= myQueue.length;
+  const isQueueEmpty = workQueue.length === 0;
 
   const filteredLeads = useMemo(() => {
     const leads = allLeadsData?.leads || [];
@@ -221,10 +253,11 @@ const MyWork = () => {
   const weeklyStats = dashData?.weeklyStats || {};
   const monthlyStats = dashData?.monthlyStats || {};
   const summaryDrilldowns = dashData?.summaryDrilldowns || {};
-  const imDrilldowns = imDashData?.summaryDrilldowns || {};
-  const teamCallRows = pickCallRows(imDrilldowns.calls?.rows, []);
-  const teamCallsCount = imDrilldowns.calls?.count ?? teamCallRows.length;
-  const teamCallGrowth = imDashData?.stats?.callGrowth ?? weeklyStats.callGrowth ?? 0;
+  // "My Work" is the IM's personal workspace — keep every metric on the same
+  // personal source (executive dashboard) so counts don't flip between caches.
+  const personalCallRows = pickCallRows(summaryDrilldowns.calls?.rows, []);
+  const personalCallsCount = summaryDrilldowns.calls?.count ?? personalCallRows.length;
+  const personalCallGrowth = weeklyStats.callGrowth ?? 0;
 
   const recentActivity = activityData?.activities || [];
 
@@ -298,7 +331,7 @@ const MyWork = () => {
         const cards = [
           { id: 'my-leads',    label: 'My Leads Today',    value: myQueue.length,                                              delta: `${todayStats.followups || 0} follow-ups pending`, color: '#7C3AED' },
           { id: 'completed',   label: 'Completed Today',   value: summaryDrilldowns.completed?.count ?? 0,                     delta: `of ${myQueue.length} total leads`,              color: '#059669' },
-          { id: 'calls',       label: 'Calls This Week',   value: teamCallsCount,                                              delta: `${teamCallGrowth >= 0 ? '+' : ''}${teamCallGrowth} vs last week`, color: '#2563EB' },
+          { id: 'calls',       label: 'Calls This Week',   value: personalCallsCount,                                          delta: `${personalCallGrowth >= 0 ? '+' : ''}${personalCallGrowth} vs last week`, color: '#2563EB' },
           { id: 'conversions', label: 'My Conversions',    value: summaryDrilldowns.conversions?.count ?? 0,                   delta: 'This month',                                    color: '#0D9488' },
           { id: 'blocking',    label: 'Blocking Amount',   value: summaryDrilldowns.blocking?.count || blockingCount,          delta: 'Amount received',                               color: '#D97706' },
         ];
@@ -353,7 +386,7 @@ const MyWork = () => {
                   <div className="font-bold text-sm text-text-primary">Active Lead</div>
                   <div className="text-[11px] text-text-muted">
                     {workStarted && activeLead
-                      ? `${currentLeadIdx + 1} of ${myQueue.length} leads`
+                      ? `${activeIndex + 1} of ${workQueue.length} leads`
                       : 'Start work to load your first lead'}
                   </div>
                 </div>
@@ -388,11 +421,15 @@ const MyWork = () => {
                   <h4 className="text-base font-bold">Queue Completed!</h4>
                   <p className="text-xs text-text-muted mt-1">You've worked through all your tasks for now.</p>
                 </div>
-              ) : isLastLead ? (
+              ) : queueComplete ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
                   <div className="text-4xl">🙌</div>
                   <h4 className="text-base font-bold">End of Queue</h4>
-                  <Button variant="outline" onClick={() => setCurrentLeadIdx(0)} className="rounded-xl px-5 h-9 font-bold">Restart Queue</Button>
+                  <Button variant="outline" onClick={() => { setQueueComplete(false); setActiveLeadId(workQueue[0]?._id ?? null); }} className="rounded-xl px-5 h-9 font-bold">Restart Queue</Button>
+                </div>
+              ) : !activeLead ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="text-sm text-text-muted italic">Loading next lead…</div>
                 </div>
               ) : (
                 /* Active lead: 2-column layout */
@@ -447,7 +484,7 @@ const MyWork = () => {
                           <span className="text-[11px] font-bold text-text-secondary group-hover:text-red">RNR</span>
                         </button>
                         <button
-                          onClick={() => setCurrentLeadIdx(prev => prev + 1)}
+                          onClick={advanceToNext}
                           className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-purple hover:bg-purple/5 transition-all group cursor-pointer"
                         >
                           <span className="text-xl">⏭️</span>
@@ -497,11 +534,11 @@ const MyWork = () => {
               </div>
             </div>
             <div className="divide-y divide-border/40 max-h-[280px] overflow-y-auto">
-              {myQueue.map((lead, idx) => (
+              {workQueue.map((lead, idx) => (
                 <div
                   key={lead._id}
-                  onClick={() => setCurrentLeadIdx(idx)}
-                  className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-all hover:bg-surface2/60 ${currentLeadIdx === idx ? 'bg-purple-light/20 border-l-4 border-purple' : 'border-l-4 border-transparent'}`}
+                  onClick={() => { setQueueComplete(false); setActiveLeadId(lead._id); }}
+                  className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-all hover:bg-surface2/60 ${activeLead?._id === lead._id ? 'bg-purple-light/20 border-l-4 border-purple' : 'border-l-4 border-transparent'}`}
                 >
                   <div className="text-[10px] font-bold text-text-muted w-5 shrink-0">{idx + 1}</div>
                   <div className="flex-1 min-w-0">
@@ -888,7 +925,7 @@ const MyWork = () => {
         const drilldowns = summaryDrilldowns || {};
         const myLeads = pickLeads(drilldowns.myLeads?.leads, myQueue);
         const completedLeads = pickLeads(drilldowns.completed?.leads, []);
-        const callRows = pickCallRows(imDrilldowns.calls?.rows, []);
+        const callRows = pickCallRows(drilldowns.calls?.rows, []);
         const conversionLeads = pickLeads(drilldowns.conversions?.leads, []);
         const blockingLeads = pickLeads(
           drilldowns.blocking?.leads,
@@ -1199,10 +1236,11 @@ const MyWork = () => {
           initialOutcome={feedbackModal.outcome}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard', 'executive'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
             queryClient.invalidateQueries({ queryKey: ['activities'], exact: false });
-            queryClient.invalidateQueries({ queryKey: ['lead-activity', activeLead._id] });
-            setCurrentLeadIdx(prev => prev + 1);
+            queryClient.invalidateQueries({ queryKey: ['lead-activity', activeLead?._id] });
+            advanceToNext();
           }}
         />
       )}
