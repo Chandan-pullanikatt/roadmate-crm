@@ -144,7 +144,7 @@ const attendanceService = {
     const completedLeadsIds = await LeadActivity.distinct('lead', {
       performedBy: userId,
       createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'] }
+      action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
     });
     
     const completedLeadsCount = completedLeadsIds.length;

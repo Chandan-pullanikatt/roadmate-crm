@@ -492,7 +492,7 @@ router.get('/', async (req, res) => {
       const leadIds = await LeadActivity.distinct('lead', {
         performedBy: req.user._id,
         createdAt: { $gte: start, $lte: end },
-        action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted'] }
+        action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
       });
       query._id = { $in: leadIds };
     }

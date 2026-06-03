@@ -161,7 +161,7 @@ router.get('/executive', async (req, res) => {
     const completedTodayActivities = await LeadActivity.find({
       performedBy: req.user._id,
       createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'] }
+      action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
     })
       .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
       .sort({ createdAt: -1 });
@@ -275,16 +275,21 @@ router.get('/executive', async (req, res) => {
     // 7. Lead Sources Breakdown
     const myLeads = await Lead.find({ owner: userId });
 
-    // Monthly lead review progress: unique leads actioned this month / all leads in IM's industry
-    const [monthlyReviewedLeadIds, monthlyTotalLeads] = await Promise.all([
-      LeadActivity.distinct('lead', {
-        performedBy: req.user._id,
-        createdAt: { $gte: monthStart },
-        action: { $in: ['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'] },
-        lead: { $ne: null }
-      }),
-      Lead.countDocuments({ industry: req.user.industry })
-    ]);
+    // Monthly lead review progress: of the IM's OWN leads created this month,
+    // how many has he worked (any genuine interaction). Numerator is constrained
+    // to the denominator set so the bar can never exceed 100%.
+    const monthLeadIds = await Lead.find({
+      owner: req.user._id,
+      createdAt: { $gte: monthStart }
+    }).distinct('_id');
+
+    const monthlyReviewedLeadIds = await LeadActivity.distinct('lead', {
+      performedBy: req.user._id,
+      createdAt: { $gte: monthStart },
+      action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] },
+      lead: { $in: monthLeadIds }
+    });
+    const monthlyTotalLeads = monthLeadIds.length;
     const monthlyReviewedCount = monthlyReviewedLeadIds.length;
     monthlyStats.reviewedLeads = monthlyReviewedCount;
     monthlyStats.totalAllLeads = monthlyTotalLeads;
@@ -893,7 +898,7 @@ router.get('/industry-manager', async (req, res) => {
     // Count unique leads completed this month (same logic as MyWork)
     const imCompletedLeadsSet = new Set();
     imMonthlyActivities.forEach(activity => {
-      if (['called', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received'].includes(activity.action) && activity.lead) {
+      if (['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'].includes(activity.action) && activity.lead) {
         imCompletedLeadsSet.add(activity.lead._id.toString());
       }
     });
