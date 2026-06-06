@@ -82,6 +82,8 @@ const bulkCreateLeads = async (req, res) => {
     const insertedLeads = [];
     const updatedLeads = [];
     const errors = [];
+    // Cache owner lookups so a 300-row upload doesn't issue 300 identical queries.
+    const ownerScopeCache = new Map();
 
     const statusMap = {
       'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
@@ -171,6 +173,22 @@ const bulkCreateLeads = async (req, res) => {
         if (item.nextAction) normalized.nextAction = item.nextAction;
         if (item.outcome) normalized.outcome = item.outcome;
         if (item.reasonForLost) normalized.reasonForLost = item.reasonForLost;
+
+        // Scope the lead to its owner's industry/state. Dashboards filter leads by
+        // the manager's industry, so a lead assigned to a manager/executive MUST
+        // carry that owner's industry (and state) or it stays invisible to them.
+        if (normalized.owner) {
+          const ownerKey = String(normalized.owner);
+          let ownerScope = ownerScopeCache.get(ownerKey);
+          if (ownerScope === undefined) {
+            ownerScope = await User.findById(normalized.owner).select('industry state').lean();
+            ownerScopeCache.set(ownerKey, ownerScope || null);
+          }
+          if (ownerScope) {
+            if (ownerScope.industry) normalized.industry = ownerScope.industry;
+            if (ownerScope.state) normalized.state = ownerScope.state;
+          }
+        }
 
         // --- UPSERT LOGIC ---
         // Extract _id from payload (may be a MongoDB ObjectId or a custom string ID)
@@ -303,11 +321,18 @@ router.get('/counts', async (req, res) => {
     const query = {};
     const { owner } = req.query;
 
+    // These counts run through aggregation pipelines, which (unlike .find/.countDocuments)
+    // do NOT auto-cast string ids to ObjectId. Cast every owner id explicitly or $match
+    // silently matches nothing — the bug behind "All 0 / New 0" while the list showed leads.
+    const toOwnerId = (v) => {
+      try { return new mongoose.Types.ObjectId(v); } catch { return v; }
+    };
+
     // Scoping based on role.
     // Skip broad scope for owner=self to avoid cross-role assignment mismatches.
     const skipBroadScope = (owner === 'self');
     if (req.user.role === 'executive') {
-      query.owner = req.user._id;
+      query.owner = toOwnerId(req.user._id);
     } else if (req.user.role === 'state_manager' && !skipBroadScope) {
       query.state = req.user.state;
     } else if (req.user.role === 'industry_manager' && !skipBroadScope) {
@@ -320,24 +345,35 @@ router.get('/counts', async (req, res) => {
         { $or: [{ owner: null }, { owner: { $exists: false } }] }
       ];
     } else if (owner === 'self') {
-      query.owner = req.user._id;
+      query.owner = toOwnerId(req.user._id);
     } else if (owner === 'team') {
       // Include all leads not owned by this IM — unassigned (null) leads are part of the team view
       query.$and = [
         ...(query.$and || []),
-        { owner: { $ne: req.user._id } }
+        { owner: { $ne: toOwnerId(req.user._id) } }
       ];
     } else if (owner) {
-      query.owner = owner;
+      query.owner = toOwnerId(owner);
     }
 
-    const counts = await Lead.aggregate([
-      { $match: query },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
+    const [statusCounts, priorityCounts, total] = await Promise.all([
+      Lead.aggregate([
+        { $match: query },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      // Priority (hot/warm/cold) is a separate axis from status. The UI shows a
+      // "Hot Pipeline" figure that excludes closed leads, so mirror that here.
+      Lead.aggregate([
+        { $match: { ...query, status: { $nin: ['converted', 'lost'] } } },
+        { $group: { _id: '$priority', count: { $sum: 1 } } }
+      ]),
+      Lead.countDocuments(query)
     ]);
 
     const result = {
+      total,
       new: 0,
+      called: 0,
       followup: 0,
       meeting_virtual: 0,
       meeting_direct: 0,
@@ -347,11 +383,20 @@ router.get('/counts', async (req, res) => {
       agreement_signed: 0,
       lost: 0,
       rnr: 0,
-      escalated: 0
+      not_interested: 0,
+      escalated: 0,
+      hot: 0,
+      warm: 0,
+      cold: 0
     };
 
-    counts.forEach(c => {
+    statusCounts.forEach(c => {
       if (result.hasOwnProperty(c._id)) {
+        result[c._id] = c.count;
+      }
+    });
+    priorityCounts.forEach(c => {
+      if (c._id === 'hot' || c._id === 'warm' || c._id === 'cold') {
         result[c._id] = c.count;
       }
     });
@@ -608,12 +653,19 @@ router.patch('/bulk-allocate', async (req, res) => {
       return res.status(400).json({ message: 'leadIds array and assignedTo are required' });
     }
 
+    // Re-scope to the assignee's industry/state so the leads stay visible to them.
+    const assignee = await User.findById(assignedTo).select('industry state').lean();
+    const scopeUpdate = {};
+    if (assignee?.industry) scopeUpdate.industry = assignee.industry;
+    if (assignee?.state) scopeUpdate.state = assignee.state;
+
     const result = await Lead.updateMany(
       { _id: { $in: leadIds } },
-      { 
+      {
         owner: assignedTo,
         allocatedBy: req.user._id,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        ...scopeUpdate
       }
     );
 
@@ -669,6 +721,12 @@ router.put('/:id/allocate', async (req, res) => {
     const oldOwner = lead.owner;
     lead.owner = ownerId;
     lead.allocatedBy = req.user._id;
+    // Re-scope to the new owner's industry/state so the lead stays visible to them.
+    const newOwner = await User.findById(ownerId).select('industry state').lean();
+    if (newOwner) {
+      if (newOwner.industry) lead.industry = newOwner.industry;
+      if (newOwner.state) lead.state = newOwner.state;
+    }
     await lead.save();
 
     await LeadActivity.create({

@@ -202,9 +202,15 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     
     // Map CSV rows to API payload
     const payload = parsedData.rows.map(row => {
-      // Helper to find key case-insensitively
+      // Helper to find key case-insensitively.
+      // Prefer an EXACT header match before falling back to a substring match —
+      // otherwise getVal('status') would wrongly grab "Messaged Status", which
+      // silently dropped every imported lead's real Status (all became "new").
       const getVal = (keyStr) => {
-        const k = Object.keys(row).find(k => k.toLowerCase().includes(keyStr.toLowerCase()));
+        const target = keyStr.toLowerCase();
+        const keys = Object.keys(row);
+        const exact = keys.find(k => k.toLowerCase().trim() === target);
+        const k = exact || keys.find(k => k.toLowerCase().includes(target));
         return k ? row[k]?.trim() : undefined;
       };
 

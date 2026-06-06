@@ -71,7 +71,7 @@ const MyWork = () => {
   // 2. Fetch All My Leads
   const { data: allLeadsData, isLoading: queueLoading } = useQuery({
     queryKey: ['leads', 'personal-list'],
-    queryFn: () => leadsApi.getLeads({ owner: 'self', limit: 100 }).then(res => res.data),
+    queryFn: () => leadsApi.getLeads({ owner: 'self', limit: 2000 }).then(res => res.data),
     staleTime: 0,
     placeholderData: (prev) => prev
   });
@@ -218,11 +218,13 @@ const MyWork = () => {
   const filteredLeads = useMemo(() => {
     const leads = allLeadsData?.leads || [];
     if (tableFilter === 'All') return leads;
-    if (tableFilter === 'Hot')     return leads.filter(l => l.priority === 'hot');
-    if (tableFilter === 'Warm')    return leads.filter(l => l.priority === 'warm');
-    if (tableFilter === 'Cold')    return leads.filter(l => l.priority === 'cold');
-    if (tableFilter === 'Meeting') return leads.filter(l => l.status === 'meeting_direct' || l.status === 'meeting_virtual');
+    if (tableFilter === 'Hot')      return leads.filter(l => l.priority === 'hot');
+    if (tableFilter === 'Warm')     return leads.filter(l => l.priority === 'warm');
+    if (tableFilter === 'Cold')     return leads.filter(l => l.priority === 'cold');
+    if (tableFilter === 'Meeting')  return leads.filter(l => l.status === 'meeting_direct' || l.status === 'meeting_virtual');
     if (tableFilter === 'Blocking') return leads.filter(l => l.status === 'blocking_amount_received');
+    // DB stores the status as "followup" (no hyphen) — the tab label has one.
+    if (tableFilter === 'Follow-up') return leads.filter(l => l.status === 'followup');
     return leads.filter(l => l.status === tableFilter.toLowerCase());
   }, [allLeadsData, tableFilter]);
 
