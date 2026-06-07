@@ -59,10 +59,10 @@ const LeadManagement = ({ ownerScope }) => {
   });
 
   // When ownerScope is set, scope the counts to that same filter so tabs are accurate
-  const { data: counts } = useQuery({
+  const { data: counts, isFetching: countsFetching } = useQuery({
     queryKey: ['leads', 'counts', ownerFilter],
     queryFn: () => leadsApi.getCounts(ownerFilter ? { owner: ownerFilter } : undefined).then(res => res.data),
-    staleTime: 5 * 60 * 1000
+    staleTime: 0
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
@@ -139,7 +139,7 @@ const LeadManagement = ({ ownerScope }) => {
   const userInfo = dashData?.user || {};
 
   const tabs = [
-    { id: 'all',                      label: 'All',              count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
+    { id: 'all',                      label: 'All',              count: counts?.total || 0 },
     { id: 'new',                      label: 'New',              count: counts?.new || 0 },
     { id: 'followup',                 label: 'Follow-up',        count: counts?.followup || 0 },
     { id: 'meeting',                  label: 'Meeting',          count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
@@ -173,7 +173,7 @@ const LeadManagement = ({ ownerScope }) => {
     }));
   };
 
-  if (isLoading && !dashData) return <DashboardSkeleton />;
+  if ((isLoading || !counts) && (isFetching || countsFetching)) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">
@@ -187,8 +187,16 @@ const LeadManagement = ({ ownerScope }) => {
              <span className="text-text-muted opacity-30">/</span>
              <span className="text-text-muted text-[10px] font-bold uppercase tracking-wider">Lead Management</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
+          <h1 className="text-3xl font-extrabold text-text-primary tracking-tight flex items-center gap-3">
             {ownerScope === 'self' ? 'My Leads' : ownerScope === 'team' ? 'Team Leads' : 'Lead Database'}
+            {(isFetching || countsFetching) && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-text-muted bg-surface2 px-2 py-0.5 rounded-full">
+                <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
+                </svg>
+                Loading
+              </span>
+            )}
           </h1>
           <p className="text-sm text-text-muted mt-1 font-medium">
             {ownerScope === 'self'
@@ -231,6 +239,7 @@ const LeadManagement = ({ ownerScope }) => {
             delta={ownerScope === 'self' ? 'My assigned leads' : ownerScope === 'team' ? 'Team leads' : 'In Database'}
             deltaType="up"
             colorClass="purple"
+            loading={isFetching || countsFetching}
         />
         <StatCard
             label="Hot Pipeline"
@@ -239,6 +248,7 @@ const LeadManagement = ({ ownerScope }) => {
             deltaLabel="of total"
             deltaType="up"
             colorClass="red"
+            loading={isFetching || countsFetching}
         />
         <StatCard
             label="Converted"
@@ -246,6 +256,7 @@ const LeadManagement = ({ ownerScope }) => {
             delta={ownerScope ? 'Total converted' : 'This month'}
             deltaType="up"
             colorClass="green"
+            loading={isFetching || countsFetching}
         />
         <StatCard
             label="Follow-up"
@@ -253,6 +264,7 @@ const LeadManagement = ({ ownerScope }) => {
             delta={ownerScope ? 'Pending follow-ups' : `${stats.revGrowth || 0}% growth`}
             deltaType="up"
             colorClass="teal"
+            loading={isFetching || countsFetching}
         />
       </div>
 
@@ -267,7 +279,11 @@ const LeadManagement = ({ ownerScope }) => {
                       onClick={() => { setActiveTab(tab.id); setPage(1); }}
                       className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === tab.id ? 'bg-white shadow-sm text-[#0f766e]' : 'text-text-muted hover:text-text-primary'}`}
                   >
-                    {tab.label} <span className="ml-1 opacity-50">{tab.count}</span>
+                    {tab.label}{' '}
+                    {countsFetching
+                      ? <span className="ml-1 inline-block h-3 w-5 rounded animate-pulse bg-border/60 align-middle" />
+                      : <span className="ml-1 opacity-50">{tab.count}</span>
+                    }
                   </button>
               ))}
             </div>

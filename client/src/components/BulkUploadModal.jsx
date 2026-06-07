@@ -78,13 +78,17 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       const imported = res.data?.imported ?? 0;
       const updated = res.data?.updated ?? 0;
       const skipped = res.data?.skipped ?? 0;
+      const errors = res.data?.errors || [];
       const total = imported + updated;
       let msg = '';
       if (imported > 0 && updated > 0) msg = `${imported} leads created, ${updated} updated`;
       else if (imported > 0) msg = `Successfully imported ${imported} leads!`;
       else if (updated > 0) msg = `Successfully updated ${updated} leads!`;
       else msg = 'No leads processed';
-      if (skipped > 0) msg += ` (${skipped} skipped)`;
+      if (skipped > 0) {
+        const topReason = errors[0]?.reason || 'validation error';
+        msg += ` (${skipped} skipped — ${topReason}${errors.length > 1 ? ', and others' : ''})`;
+      }
       addToast(msg, total > 0 ? 'success' : 'error');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -247,9 +251,19 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         'meeting virtual': 'meeting_virtual', 'meeting direct': 'meeting_direct',
         'converted': 'converted', 'blocking amount received': 'blocking_amount_received',
         'full amount received': 'full_amount_received', 'agreement signed': 'agreement_signed',
-        'lost': 'lost', 'not interested': 'not_interested', 'escalated': 'escalated'
+        'lost': 'lost', 'not interested': 'not_interested', 'escalated': 'escalated',
+        'nri - whatsapp messaged/connected': 'called', 'nri': 'called',
+        'disconnected': 'rnr', 'disconnect': 'rnr',
+        'decision pending - future': 'followup', 'decision pending': 'followup', 'pending': 'followup',
+        'no budget': 'not_interested', 'budget issue': 'not_interested',
+        'duplicate': 'lost', 'duplicates': 'lost', 'dup': 'lost',
+        'business lead': 'new', 'business': 'new',
+        'not intersted': 'not_interested', 'not intrested': 'not_interested',
+        'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
+        'busy': 'rnr', 'not available': 'rnr', 'unreachable': 'rnr',
       };
-      const normalizedStatus = statusMap[rawStatus.toLowerCase()] || 'new';
+      // Pass raw status through if not in map — server handles unknown statuses
+      const normalizedStatus = statusMap[rawStatus.toLowerCase()] || rawStatus || undefined;
 
       // Normalize priority
       const rawPriority = (getVal('priority level') || getVal('priority') || '').toLowerCase();
@@ -261,7 +275,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       return {
         ...(leadId ? { _id: leadId } : {}),
         ...(allocationTargetId ? { ownerId: allocationTargetId } : {}),
-        name: getVal('name') || getVal('lead name'),
+        name: getVal('name') || getVal('lead name') || getVal('contact information') || 'Unknown',
         phone: rawPhone || undefined,
         district: districtPart?.trim() || undefined,
         region: placePart?.trim() || undefined,

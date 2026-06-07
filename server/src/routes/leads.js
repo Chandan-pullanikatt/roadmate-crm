@@ -104,19 +104,41 @@ const bulkCreateLeads = async (req, res) => {
       'call back': 'followup', 'callback': 'followup',
       'followup required': 'followup', 'interested': 'followup', 'intersted': 'followup',
       'connected': 'called', 'invalid': 'lost',
+      'nri - whatsapp messaged/connected': 'called', 'nri': 'called',
+      'disconnected': 'rnr', 'disconnect': 'rnr',
+      'decision pending - future': 'followup', 'decision pending': 'followup', 'pending': 'followup',
+      'no budget': 'not_interested', 'budget issue': 'not_interested',
+      'duplicate': 'lost', 'duplicates': 'lost', 'dup': 'lost',
+      'business lead': 'new', 'business': 'new',
+      'not interested': 'not_interested', 'not intersted': 'not_interested', 'not intrested': 'not_interested',
+      'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
+      'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',
     };
 
     for (let i = 0; i < req.body.length; i++) {
       const item = req.body[i];
       try {
         const normalized = normalizeLeadPayload(item);
+
+        // Skip rows missing phone — no way to contact the lead
+        if (!normalized.phone || !String(normalized.phone).trim()) {
+          errors.push({ row: i + 1, reason: 'Missing phone number' });
+          continue;
+        }
+        // Fallback for blank name
+        if (!normalized.name || !String(normalized.name).trim()) {
+          normalized.name = normalized.company || normalized.phone;
+        }
+
         normalized.allocatedBy = req.user._id;
+        // Default owner to the uploader so leads appear in their My Leads immediately
+        if (!normalized.owner) normalized.owner = req.user._id;
 
         // Enforce role-based scoping on bulk imports too
         if (req.user.role === 'state_manager') normalized.state = req.user.state;
         if (req.user.role === 'industry_manager') normalized.industry = req.user.industry;
 
-        // Handle "Assigned To" — lookup user by name
+        // Handle "Assigned To" — lookup user by name (overrides default owner above)
         if (item.assignedTo) {
           const assignee = await User.findOne({
             name: { $regex: new RegExp(`^${item.assignedTo.trim()}$`, 'i') }
@@ -126,10 +148,10 @@ const bulkCreateLeads = async (req, res) => {
           }
         }
 
-        // Status override
+        // Status override — if not in map, default to 'new' so enum validation never fails
         if (item.status) {
           const mappedStatus = statusMap[(item.status || '').toLowerCase().trim()];
-          if (mappedStatus) normalized.status = mappedStatus;
+          normalized.status = mappedStatus || 'new';
         }
 
         if (item.subStatus) normalized.subStatus = item.subStatus;

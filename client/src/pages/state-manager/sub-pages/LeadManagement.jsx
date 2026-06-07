@@ -90,7 +90,7 @@ const LeadManagement = () => {
   const totalPages = leadData?.totalPages || 1;
 
   const tabs = [
-    { id: 'all', label: 'All', count: Object.values(counts || {}).reduce((a, b) => a + b, 0) },
+    { id: 'all', label: 'All', count: counts?.total || 0 },
     { id: 'new', label: 'New', count: counts?.new || 0 },
     { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
     { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },

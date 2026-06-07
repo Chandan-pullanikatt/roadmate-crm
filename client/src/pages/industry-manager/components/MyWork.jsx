@@ -61,7 +61,7 @@ const MyWork = () => {
   const closeFeedback = () => setFeedbackModal({ open: false, outcome: null });
 
   // 1. Fetch Personal Stats (work attendance, personal completions)
-  const { data: dashData, isLoading: dashLoading } = useQuery({
+  const { data: dashData, isLoading: dashLoading, isFetching: dashFetching } = useQuery({
     queryKey: ['dashboard', 'executive'],
     queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
     staleTime: 5 * 60 * 1000,
@@ -69,7 +69,7 @@ const MyWork = () => {
   });
 
   // 2. Fetch All My Leads
-  const { data: allLeadsData, isLoading: queueLoading } = useQuery({
+  const { data: allLeadsData, isLoading: queueLoading, isFetching: queueFetching } = useQuery({
     queryKey: ['leads', 'personal-list'],
     queryFn: () => leadsApi.getLeads({ owner: 'self', limit: 2000 }).then(res => res.data),
     staleTime: 0,
@@ -249,7 +249,8 @@ const MyWork = () => {
     return 'text-purple';
   };
 
-  if ((dashLoading || queueLoading) && !dashData) return <DashboardSkeleton />;
+  if ((dashLoading || !dashData) && (dashFetching || queueFetching)) return <DashboardSkeleton />;
+  const isRefreshing = dashFetching || queueFetching;
 
   const todayStats = dashData?.todayStats || {};
   const weeklyStats = dashData?.weeklyStats || {};
@@ -269,8 +270,16 @@ const MyWork = () => {
       {/* Sub Header / Work Status */}
       <div className="bg-surface border border-border/60 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold text-text-primary">
+          <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
             My Work — {dashData?.user?.name} · {dashData?.user?.industry}
+            {isRefreshing && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-text-muted bg-surface2 px-2 py-0.5 rounded-full">
+                <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
+                </svg>
+                Loading
+              </span>
+            )}
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
             Your personal lead queue · District Partner leads · One-by-one execution
@@ -357,7 +366,9 @@ const MyWork = () => {
                     className="text-2xl sm:text-3xl font-black leading-none mb-1.5 sm:mb-2 tabular-nums"
                     style={{ color: card.color }}
                   >
-                    {card.value}
+                    {isRefreshing
+                      ? <div className="h-8 w-14 rounded-lg animate-pulse" style={{ backgroundColor: `${card.color}22` }} />
+                      : card.value}
                   </div>
                   <div className="text-[10px] sm:text-[11px] font-medium text-text-muted leading-tight truncate">
                     {card.delta}

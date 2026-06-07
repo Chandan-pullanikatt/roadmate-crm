@@ -60,7 +60,7 @@ const MyPerformance = () => {
   const periodStats = dashData?.periodStats || {};
   const recentLeads = recentLeadsData?.leads || [];
 
-  const totalLeads = Object.values(counts).reduce((sum, c) => sum + (c || 0), 0);
+  const totalLeads = counts?.total || 0;
 
   // Build pie data
   const pieData = Object.entries(counts)
