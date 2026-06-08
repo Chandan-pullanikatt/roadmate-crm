@@ -298,7 +298,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         blockingDate: parseDate(getVal('blocking date')),
         fullAmountReceivedDate: parseDate(getVal('full amount received date')),
         reasonForLost: getVal('reason for lost leads') || getVal('reason for lost') || undefined,
-        createdDate: parseDate(getVal('date') || getVal('created date')),
+        createdDate: parseDate(getVal('created date')),
       };
     });
 
