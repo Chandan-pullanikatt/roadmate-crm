@@ -972,8 +972,8 @@ router.get('/state-manager', async (req, res) => {
         const { start: monthStart } = getDateRange('monthly');
         const { start: weekStart } = getDateRange('weekly');
 
-        // 1. Industry Managers (Kerala)
-        const managers = await User.find({ state: req.user.state, role: 'industry_manager' });
+        // 1. Industry Managers reporting to this state manager
+        const managers = await User.find({ reportingTo: req.user._id, role: 'industry_manager' });
         const managerIds = managers.map(m => m._id);
 
         // 2. Executives & Teams
@@ -1034,7 +1034,7 @@ router.get('/state-manager', async (req, res) => {
             Lead.countDocuments({ state: req.user.state, status: 'meeting_direct',  meetingAt: { $gte: todayStart } }),
             Lead.countDocuments({ state: req.user.state, status: { $in: ['meeting_virtual', 'meeting_direct', 'meeting_scheduled'] }, meetingAt: { $gte: todayStart } }),
             Lead.countDocuments({ state: req.user.state, status: 'followup', nextActionAt: { $gte: todayStart, $lte: todayEnd } }),
-            User.countDocuments({ state: req.user.state, role: 'industry_manager', createdAt: { $gte: monthStart } }),
+            User.countDocuments({ reportingTo: req.user._id, role: 'industry_manager', createdAt: { $gte: monthStart } }),
         ]);
 
         // 3a. District Executive Specific Stats
