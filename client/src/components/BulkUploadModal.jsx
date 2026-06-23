@@ -23,6 +23,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const [parsedData, setParsedData] = useState(null); // { headers: [], rows: [] }
   const [errors, setErrors] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // { done, total }
   const [assignmentTargetId, setAssignmentTargetId] = useState('');
   const [selectedStateManagerId, setSelectedStateManagerId] = useState('');
   const [selectedIndustryManagerId, setSelectedIndustryManagerId] = useState('');
@@ -72,31 +73,60 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     setAssignmentTargetId(selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '');
   }, [selectedStateManagerId, selectedIndustryManagerId, selectedExecutiveId]);
 
+  // Upload in chunks: large CSVs (300+ rows) overran the request/gateway timeout and showed
+  // a bare "Failed" even though most rows were saved. Smaller batches finish quickly, survive
+  // a single slow request, and let us report exactly what was imported/updated/skipped.
+  const CHUNK_SIZE = 100;
+
   const bulkUploadMutation = useMutation({
-    mutationFn: (data) => leadsApi.bulkUpload(data),
-    onSuccess: (res) => {
-      const imported = res.data?.imported ?? 0;
-      const updated = res.data?.updated ?? 0;
-      const skipped = res.data?.skipped ?? 0;
-      const errors = res.data?.errors || [];
-      const total = imported + updated;
-      let msg = '';
-      if (imported > 0 && updated > 0) msg = `${imported} leads created, ${updated} updated`;
-      else if (imported > 0) msg = `Successfully imported ${imported} leads!`;
-      else if (updated > 0) msg = `Successfully updated ${updated} leads!`;
-      else msg = 'No leads processed';
-      if (skipped > 0) {
-        const topReason = errors[0]?.reason || 'validation error';
-        msg += ` (${skipped} skipped — ${topReason}${errors.length > 1 ? ', and others' : ''})`;
+    mutationFn: async (data) => {
+      const chunks = [];
+      for (let i = 0; i < data.length; i += CHUNK_SIZE) chunks.push(data.slice(i, i + CHUNK_SIZE));
+
+      const agg = { total: data.length, imported: 0, updated: 0, skipped: 0, failed: 0, errors: [] };
+      setUploadProgress({ done: 0, total: data.length });
+
+      for (let idx = 0; idx < chunks.length; idx++) {
+        try {
+          const res = await leadsApi.bulkUpload(chunks[idx]);
+          const d = res.data || {};
+          agg.imported += d.imported ?? 0;
+          agg.updated += d.updated ?? 0;
+          agg.skipped += d.skipped ?? 0;
+          if (Array.isArray(d.errors)) agg.errors.push(...d.errors);
+        } catch (e) {
+          // One slow/failed batch no longer dooms the whole upload — keep going.
+          agg.failed += chunks[idx].length;
+          agg.errors.push({ row: `batch ${idx + 1}`, reason: e.response?.data?.message || e.message || 'request failed/timed out' });
+        }
+        setUploadProgress({ done: Math.min((idx + 1) * CHUNK_SIZE, data.length), total: data.length });
       }
-      addToast(msg, total > 0 ? 'success' : 'error');
+      return agg;
+    },
+    onSuccess: (agg) => {
+      const processed = agg.imported + agg.updated;
+      let msg = '';
+      if (agg.imported > 0 && agg.updated > 0) msg = `${agg.imported} leads created, ${agg.updated} updated`;
+      else if (agg.imported > 0) msg = `Successfully imported ${agg.imported} leads!`;
+      else if (agg.updated > 0) msg = `Successfully updated ${agg.updated} leads!`;
+      else msg = 'No new leads processed';
+      if (agg.skipped > 0) {
+        const topReason = agg.errors.find(e => typeof e.row === 'number')?.reason || 'missing name/phone';
+        msg += ` · ${agg.skipped} skipped (${topReason})`;
+      }
+      if (agg.failed > 0) {
+        msg += ` · ${agg.failed} could not be sent — please re-upload just those rows`;
+      }
+      // Success unless literally nothing got through.
+      addToast(msg, processed > 0 ? (agg.failed > 0 ? 'warning' : 'success') : 'error');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
     },
     onError: (err) => {
       addToast(err.response?.data?.message || 'Failed to upload leads', 'error');
-    }
+    },
+    onSettled: () => setUploadProgress(null),
   });
 
   const handleFileChange = (e) => {
@@ -485,7 +515,9 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
             disabled={!parsedData || parsedData.rows.length === 0 || isProcessing}
             className="bg-blue shadow-lg shadow-blue/20"
           >
-            {isProcessing ? 'Processing...' : `Upload ${parsedData?.rows?.length || 0} Row${(parsedData?.rows?.length || 0) !== 1 ? 's' : ''}`}
+            {isProcessing
+              ? (uploadProgress ? `Uploading ${uploadProgress.done}/${uploadProgress.total}…` : 'Processing…')
+              : `Upload ${parsedData?.rows?.length || 0} Row${(parsedData?.rows?.length || 0) !== 1 ? 's' : ''}`}
           </Button>
         </div>
       </div>

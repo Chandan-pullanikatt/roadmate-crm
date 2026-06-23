@@ -82,6 +82,7 @@ const leadSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Performance Indexes
+leadSchema.index({ phone: 1 }); // bulk upload de-dupes by phone on every row — must be indexed
 leadSchema.index({ status: 1 });
 leadSchema.index({ priority: 1 });
 leadSchema.index({ owner: 1 });

@@ -131,7 +131,13 @@ const bulkCreateLeads = async (req, res) => {
         }
 
         normalized.allocatedBy = req.user._id;
-        // Default owner to the uploader so leads appear in their My Leads immediately
+        // Did this upload EXPLICITLY choose an owner (allocation dropdown -> ownerId, or
+        // "Assigned To" below)? If so we honor it everywhere. If not, we only default the
+        // owner for brand-new leads — an existing lead's owner must NEVER be silently
+        // reassigned on a plain re-upload (that bug let a Founder/admin re-upload steal
+        // every matched lead away from the Industry Manager who actually works it).
+        let explicitOwner = normalized.owner != null;
+        // Default owner to the uploader so new leads appear in their My Leads immediately
         if (!normalized.owner) normalized.owner = req.user._id;
 
         // Enforce role-based scoping on bulk imports too
@@ -145,6 +151,7 @@ const bulkCreateLeads = async (req, res) => {
           }).select('_id');
           if (assignee) {
             normalized.owner = assignee._id;
+            explicitOwner = true;
           }
         }
 
@@ -215,6 +222,13 @@ const bulkCreateLeads = async (req, res) => {
         // --- UPSERT LOGIC ---
         // Extract _id from payload (may be a MongoDB ObjectId or a custom string ID)
         const { _id: rawLeadId, ...insertPayload } = normalized;
+        // Updates must not touch owner/allocatedBy unless this upload explicitly chose an
+        // assignee — otherwise a re-upload reassigns existing leads to the uploader.
+        const updatePayload = { ...insertPayload };
+        if (!explicitOwner) {
+          delete updatePayload.owner;
+          delete updatePayload.allocatedBy;
+        }
         let lead = null;
         let isUpdate = false;
 
@@ -222,7 +236,7 @@ const bulkCreateLeads = async (req, res) => {
         if (rawLeadId && mongoose.Types.ObjectId.isValid(rawLeadId)) {
           lead = await Lead.findByIdAndUpdate(
             rawLeadId,
-            { $set: insertPayload },
+            { $set: updatePayload },
             { new: true, runValidators: false }
           );
           if (lead) isUpdate = true;
@@ -234,7 +248,7 @@ const bulkCreateLeads = async (req, res) => {
           if (existing) {
             lead = await Lead.findByIdAndUpdate(
               existing._id,
-              { $set: insertPayload },
+              { $set: updatePayload },
               { new: true, runValidators: false }
             );
             if (lead) isUpdate = true;
