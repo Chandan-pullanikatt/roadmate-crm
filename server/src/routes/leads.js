@@ -7,6 +7,7 @@ const notificationService = require('../services/notificationService');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
+const { getScopeOwnerIds, applyLeadScope } = require('../utils/hierarchy');
 
 // Protect all routes
 router.use(verifyToken);
@@ -364,33 +365,10 @@ router.get('/counts', async (req, res) => {
       try { return new mongoose.Types.ObjectId(v); } catch { return v; }
     };
 
-    // Scoping based on role.
-    // Skip broad scope for owner=self to avoid cross-role assignment mismatches.
-    const skipBroadScope = (owner === 'self');
-    if (req.user.role === 'executive') {
-      query.owner = toOwnerId(req.user._id);
-    } else if (req.user.role === 'state_manager' && !skipBroadScope) {
-      query.state = req.user.state;
-    } else if (req.user.role === 'industry_manager' && !skipBroadScope) {
-      query.industry = req.user.industry;
-    }
-
-    if (owner === 'unassigned' || owner === 'none') {
-      query.$and = [
-        ...(query.$and || []),
-        { $or: [{ owner: null }, { owner: { $exists: false } }] }
-      ];
-    } else if (owner === 'self') {
-      query.owner = toOwnerId(req.user._id);
-    } else if (owner === 'team') {
-      // Include all leads not owned by this IM — unassigned (null) leads are part of the team view
-      query.$and = [
-        ...(query.$and || []),
-        { owner: { $ne: toOwnerId(req.user._id) } }
-      ];
-    } else if (owner) {
-      query.owner = toOwnerId(owner);
-    }
+    // Hierarchy-based scoping: visibility follows the reporting tree (reportingTo),
+    // not the lead's industry/state field. Founder is unrestricted.
+    const scopeIds = await getScopeOwnerIds(req.user);
+    applyLeadScope(query, scopeIds, req.user._id, owner);
 
     const [statusCounts, priorityCounts, total] = await Promise.all([
       Lead.aggregate([
@@ -486,18 +464,9 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    // Scoping based on role.
-    // When owner=self the explicit owner filter already scopes to this user,
-    // so skip the broad industry/state scope to avoid false-negative mismatches
-    // on leads created cross-role (e.g. SM creates and assigns to an IM).
-    const skipBroadScope = (owner === 'self');
-    if (req.user.role === 'executive') {
-      query.owner = req.user._id;
-    } else if (req.user.role === 'state_manager' && !skipBroadScope) {
-      query.state = req.user.state;
-    } else if (req.user.role === 'industry_manager' && !skipBroadScope) {
-      query.industry = req.user.industry;
-    }
+    // Hierarchy-based scoping: visibility follows the reporting tree (reportingTo),
+    // not the lead's industry/state field. Applied after the other filters below.
+    const scopeIds = await getScopeOwnerIds(req.user);
 
     // Filters
     if (status) {
@@ -577,23 +546,10 @@ router.get('/', async (req, res) => {
       });
       query._id = { $in: leadIds };
     }
-    if (owner === 'unassigned' || owner === 'none') {
-      query.$and = [
-        ...(query.$and || []),
-        { $or: [{ owner: null }, { owner: { $exists: false } }] }
-      ];
-    } else if (owner === 'self') {
-      // IM's own leads only
-      query.owner = req.user._id;
-    } else if (owner === 'team') {
-      // Leads not owned by this IM — includes unassigned (null) leads since those belong to the team view
-      query.$and = [
-        ...(query.$and || []),
-        { owner: { $ne: req.user._id } }
-      ];
-    } else if (owner) {
-      query.owner = owner;
-    }
+    // Apply hierarchy visibility + the optional ?owner= filter together.
+    applyLeadScope(query, scopeIds, req.user._id, owner);
+
+    // industry/state remain available as UI display filters (not a security boundary).
     if (state) query.state = state;
     if (industry) query.industry = industry;
 
@@ -729,6 +685,20 @@ router.get('/:id', async (req, res) => {
       .populate('owner', 'name email')
       .populate('allocatedBy', 'name role');
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
+
+    // Enforce hierarchy visibility on direct-by-id access (prevents opening a
+    // peer's lead via its URL/ID). Founder (scopeIds === null) is unrestricted.
+    const scopeIds = await getScopeOwnerIds(req.user);
+    if (scopeIds !== null) {
+      const ownerId = String(lead.owner?._id || lead.owner || '');
+      const selfId = String(req.user._id);
+      const allowed =
+        (ownerId && scopeIds.some(id => String(id) === ownerId)) ||
+        (!ownerId && String(lead.allocatedBy?._id || lead.allocatedBy || '') === selfId) ||
+        String(lead.escalatedTo || '') === selfId;
+      if (!allowed) return res.status(404).json({ message: 'Lead not found' });
+    }
+
     res.json(lead);
   } catch (err) {
     res.status(500).json({ message: err.message });

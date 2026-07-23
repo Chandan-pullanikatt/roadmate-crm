@@ -3,6 +3,7 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const Lead = require('../models/Lead');
 const User = require('../models/User');
+const { getScopeOwnerIds } = require('../utils/hierarchy');
 
 router.use(verifyToken);
 
@@ -31,17 +32,20 @@ router.get('/', async (req, res) => {
       ]
     };
 
-    // Role-based scoping (mirrored from leads.js and users.js)
+    // Lead visibility follows the reporting tree (same rule as leads.js/dashboard.js),
+    // so peers can't surface each other's leads via search. Founder = unrestricted.
+    const scopeIds = await getScopeOwnerIds(req.user);
+    if (scopeIds !== null) {
+      leadQuery.owner = { $in: scopeIds };
+    }
+
+    // Staff search scoping is unchanged (directory lookup, not lead data).
     if (req.user.role === 'executive') {
-      leadQuery.owner = req.user._id;
-      // Executives can only search colleagues in their state/industry for staff
       userQuery.state = req.user.state;
       userQuery.industry = req.user.industry;
     } else if (req.user.role === 'state_manager') {
-      leadQuery.state = req.user.state;
       userQuery.state = req.user.state;
     } else if (req.user.role === 'industry_manager') {
-      leadQuery.industry = req.user.industry;
       userQuery.reportingTo = req.user._id;
     }
 

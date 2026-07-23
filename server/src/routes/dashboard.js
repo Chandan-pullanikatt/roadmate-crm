@@ -9,6 +9,7 @@ const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Salary = require('../models/Salary');
+const { getScopeOwnerIds } = require('../utils/hierarchy');
 
 // Protect all routes
 router.use(verifyToken);
@@ -495,6 +496,12 @@ router.get('/industry-manager', async (req, res) => {
     const teamIds = teamUsers.map(u => u._id);
     const callActorIds = [req.user._id, ...teamIds];
 
+    // Hierarchy-based lead visibility: own leads + everyone in the reporting subtree.
+    // Replaces the old { industry: req.user.industry } scoping so two IMs sharing an
+    // industry value no longer see each other's leads.
+    const scopeIds = await getScopeOwnerIds(req.user);
+    const ownerScope = { owner: { $in: scopeIds } };
+
     const activeAttendances = await Attendance.find({
       user: { $in: teamIds },
       date: { $gte: todayStart },
@@ -551,8 +558,7 @@ router.get('/industry-manager', async (req, res) => {
     const meetingStats = await Lead.aggregate([
       {
         $match: {
-          industry: req.user.industry,
-          state: req.user.state,
+          owner: { $in: scopeIds },
           meetingAt: { $gte: weekStart, $lte: todayEnd }
         }
       },
@@ -571,8 +577,8 @@ router.get('/industry-manager', async (req, res) => {
     };
 
     // 5. Lead Stats & Funnel — period-filtered when a period is selected
-    // Scoped to industry only (no state), matching the leads API behaviour for IM role
-    const baseLeadQuery = { industry: req.user.industry };
+    // Scoped to the reporting subtree (own + descendants), not the industry field.
+    const baseLeadQuery = { ...ownerScope };
     const periodLeadQuery = { ...baseLeadQuery, createdAt: { $gte: periodStart, $lte: periodEnd } };
 
     const [allLeads, periodLeads] = await Promise.all([
@@ -602,12 +608,12 @@ router.get('/industry-manager', async (req, res) => {
       }),
       // Count leads currently in meeting stage — matches the Lead Management meeting tab exactly
       Lead.countDocuments({
-        industry: req.user.industry,
+        ...ownerScope,
         status: { $in: ['meeting_virtual', 'meeting_direct'] }
       }),
       // Active leads — live snapshot, not period-filtered
       Lead.countDocuments({
-        owner: { $in: teamIds },
+        ...ownerScope,
         status: { $nin: ['converted', 'lost', 'not_interested'] }
       })
     ]);
@@ -733,16 +739,15 @@ router.get('/industry-manager', async (req, res) => {
       createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd }
     });
 
-    // 7. Escalated Leads
+    // 7. Escalated Leads (escalated directly to this manager)
     const escalatedLeads = await Lead.find({
-      industry: req.user.industry,
       escalatedTo: req.user._id,
       status: { $nin: ['converted', 'lost'] }
     }).populate('owner', 'name');
 
     // 8. Upcoming Events
     const upcomingLeads = await Lead.find({
-      industry: req.user.industry,
+      ...ownerScope,
       $or: [
         { meetingAt: { $gte: todayStart } },
         { nextActionAt: { $gte: todayStart } }
@@ -776,7 +781,7 @@ router.get('/industry-manager', async (req, res) => {
 
     // 10. All Leads for Management Table
     const allLeadsPopulated = await Lead.find({
-      industry: req.user.industry
+      ...ownerScope
     })
     .populate('owner', 'name')
     .sort({ createdAt: -1 });
@@ -825,7 +830,7 @@ router.get('/industry-manager', async (req, res) => {
         status: { $nin: ['converted', 'lost'] }
       }).populate('owner', 'name').sort({ createdAt: -1 }),
       Lead.find({
-        industry: req.user.industry,
+        ...ownerScope,
         status: { $in: ['meeting_virtual', 'meeting_direct'] }
       }).populate('owner', 'name').sort({ updatedAt: -1 }),
       LeadActivity.find({
@@ -976,26 +981,27 @@ router.get('/state-manager', async (req, res) => {
         const managers = await User.find({ reportingTo: req.user._id, role: 'industry_manager' });
         const managerIds = managers.map(m => m._id);
 
-        // 2. Executives & Teams
-        const allExecutives = await User.find({ state: req.user.state, role: 'executive' });
+        // 2. Executives & Teams — scoped to the reporting subtree (this SM's IMs and
+        // the executives under those IMs), not everyone who merely shares the state.
+        const scopeIds = await getScopeOwnerIds(req.user);
+        const ownerScope = { owner: { $in: scopeIds } };
+        const allExecutives = await User.find({ _id: { $in: scopeIds }, role: 'executive' });
         const executiveIds = allExecutives.map(u => u._id);
         const allTeamIds = [...managerIds, ...executiveIds];
 
         // 3. Stats for Top Cards
         const totalRevenue = await LeadActivity.aggregate([
-            { $match: { 
-                action: 'converted', 
-                createdAt: { $gte: monthStart }
+            { $match: {
+                action: 'converted',
+                createdAt: { $gte: monthStart },
+                performedBy: { $in: scopeIds }
             }},
-            { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
-            { $unwind: '$lead_info' },
-            { $match: { 'lead_info.state': req.user.state } },
             { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
         ]).then(res => res[0]?.total || 0);
 
-        const activeLeadsCount = await Lead.countDocuments({ 
-            state: req.user.state, 
-            status: { $nin: ['converted', 'lost', 'not_interested'] } 
+        const activeLeadsCount = await Lead.countDocuments({
+            ...ownerScope,
+            status: { $nin: ['converted', 'lost', 'not_interested'] }
         });
 
         const convertedThisMonth = await LeadActivity.countDocuments({ 
@@ -1030,10 +1036,10 @@ router.get('/state-manager', async (req, res) => {
             : (callsThisWeek > 0 ? 100 : 0);
 
         const [meetingsVirtual, meetingsDirect, meetingsScheduled, followupsToday, newManagersThisMonth] = await Promise.all([
-            Lead.countDocuments({ state: req.user.state, status: 'meeting_virtual', meetingAt: { $gte: todayStart } }),
-            Lead.countDocuments({ state: req.user.state, status: 'meeting_direct',  meetingAt: { $gte: todayStart } }),
-            Lead.countDocuments({ state: req.user.state, status: { $in: ['meeting_virtual', 'meeting_direct', 'meeting_scheduled'] }, meetingAt: { $gte: todayStart } }),
-            Lead.countDocuments({ state: req.user.state, status: 'followup', nextActionAt: { $gte: todayStart, $lte: todayEnd } }),
+            Lead.countDocuments({ ...ownerScope, status: 'meeting_virtual', meetingAt: { $gte: todayStart } }),
+            Lead.countDocuments({ ...ownerScope, status: 'meeting_direct',  meetingAt: { $gte: todayStart } }),
+            Lead.countDocuments({ ...ownerScope, status: { $in: ['meeting_virtual', 'meeting_direct', 'meeting_scheduled'] }, meetingAt: { $gte: todayStart } }),
+            Lead.countDocuments({ ...ownerScope, status: 'followup', nextActionAt: { $gte: todayStart, $lte: todayEnd } }),
             User.countDocuments({ reportingTo: req.user._id, role: 'industry_manager', createdAt: { $gte: monthStart } }),
         ]);
 
@@ -1088,22 +1094,12 @@ router.get('/state-manager', async (req, res) => {
     const prevMonthEnd = new Date(monthStart);
 
     const prevMonthRevenue = await LeadActivity.aggregate([
-      { $match: { action: 'converted', createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd } } },
-      {
-        $lookup: {
-          from: 'leads',
-          localField: 'lead',
-          foreignField: '_id',
-          as: 'lead'
-        }
-      },
-      { $unwind: '$lead' },
-      { $match: { 'lead.state': req.user.state } },
-      { $group: { _id: null, total: { $sum: '$lead.expectedRevenue' } } }
+      { $match: { action: 'converted', createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd }, performedBy: { $in: scopeIds } } },
+      { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
     ]);
 
-    const prevMonthLeads = await Lead.countDocuments({ state: req.user.state, createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd } });
-    const prevMonthConv = await Lead.countDocuments({ state: req.user.state, status: 'converted', convertedAt: { $gte: prevMonthStart, $lt: prevMonthEnd } });
+    const prevMonthLeads = await Lead.countDocuments({ ...ownerScope, createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd } });
+    const prevMonthConv = await Lead.countDocuments({ ...ownerScope, status: 'converted', convertedAt: { $gte: prevMonthStart, $lt: prevMonthEnd } });
 
     const currentRevenue = totalRevenue || 0;
     const oldRevenue = prevMonthRevenue[0]?.total || 0;
@@ -1142,32 +1138,31 @@ router.get('/state-manager', async (req, res) => {
             avgAttendanceMonth
         };
 
-        // 4. Industry Manager List — bulk queries, no N+1
+        // 4. Industry Manager List — per-manager rollups keyed by OWNER/PERFORMER id
+        // (not by industry, which can collide when two IMs share an industry value).
+        // Each manager's numbers = that manager + the executives reporting to them.
+        const execsByManager = new Map(managerIds.map(id => [String(id), []]));
+        allExecutives.forEach(e => {
+            const key = String(e.reportingTo);
+            if (execsByManager.has(key)) execsByManager.get(key).push(e._id);
+        });
+
         const [imLeadStats, imActivityStats, imAttendanceStats] = await Promise.all([
             Lead.aggregate([
-                { $match: { state: req.user.state } },
-                { $group: { _id: '$industry', count: { $sum: 1 } } }
+                { $match: { owner: { $in: scopeIds } } },
+                { $group: { _id: '$owner', count: { $sum: 1 } } }
             ]),
             LeadActivity.aggregate([
                 {
                     $match: {
-                        performedBy: { $in: executiveIds },
+                        performedBy: { $in: scopeIds },
                         action: { $in: ['called', 'converted'] },
                         createdAt: { $gte: monthStart }
                     }
                 },
                 {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'performedBy',
-                        foreignField: '_id',
-                        as: 'performer'
-                    }
-                },
-                { $unwind: '$performer' },
-                {
                     $group: {
-                        _id: '$performer.industry',
+                        _id: '$performedBy',
                         calls:    { $sum: { $cond: [{ $eq: ['$action', 'called'] },    1, 0] } },
                         convs:    { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
                         revenue:  { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, { $ifNull: ['$metadata.revenue', 0] }, 0] } }
@@ -1176,39 +1171,36 @@ router.get('/state-manager', async (req, res) => {
             ]),
             Attendance.aggregate([
                 { $match: { user: { $in: executiveIds }, date: { $gte: todayStart } } },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'user',
-                        foreignField: '_id',
-                        as: 'user'
-                    }
-                },
-                { $unwind: '$user' },
-                {
-                    $group: {
-                        _id: '$user.industry',
-                        avgWorkPct: { $avg: '$completionPct' }
-                    }
-                }
+                { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
             ])
         ]);
 
+        const leadCountByOwner = new Map(imLeadStats.map(x => [String(x._id), x.count]));
+        const actByPerformer   = new Map(imActivityStats.map(x => [String(x._id), x]));
+        const attByUser        = new Map(imAttendanceStats.map(x => [String(x._id), x.avgWorkPct]));
+
         const industryManagerSummary = managers.map((m) => {
-            const team      = allExecutives.filter(e => e.industry === m.industry);
-            const leadStat  = imLeadStats.find(x => x._id === m.industry)     || { count: 0 };
-            const actStat   = imActivityStats.find(x => x._id === m.industry) || { calls: 0, convs: 0, revenue: 0 };
-            const attStat   = imAttendanceStats.find(x => x._id === m.industry) || { avgWorkPct: 0 };
+            const execIds = execsByManager.get(String(m._id)) || [];
+            const subtree = [m._id, ...execIds];
+            const team    = allExecutives.filter(e => String(e.reportingTo) === String(m._id));
+
+            const sum = (map, field) => subtree.reduce((s, id) => {
+                const rec = map.get(String(id));
+                return s + (field ? (rec?.[field] || 0) : (rec || 0));
+            }, 0);
+
+            const attVals = execIds.map(id => attByUser.get(String(id))).filter(v => v != null);
+            const efficiency = attVals.length ? Math.round(attVals.reduce((a, b) => a + b, 0) / attVals.length) : 0;
 
             return {
                 _id: m._id,
                 name: m.name,
                 industry: m.industry,
-                leadsCount:  leadStat.count,
-                efficiency:  Math.round(attStat.avgWorkPct),
-                calls:       actStat.calls,
-                conversions: actStat.convs,
-                revenue:     actStat.revenue,
+                leadsCount:  sum(leadCountByOwner),
+                efficiency,
+                calls:       sum(actByPerformer, 'calls'),
+                conversions: sum(actByPerformer, 'convs'),
+                revenue:     sum(actByPerformer, 'revenue'),
                 districts:   [...new Set(team.map(e => e.district))].length
             };
         });
@@ -1261,7 +1253,7 @@ router.get('/state-manager', async (req, res) => {
         // 5. Upcoming Events
         // Meetings, Follow-ups
         const upcomingLeads = await Lead.find({
-            state: req.user.state,
+            ...ownerScope,
             $or: [
                 { meetingAt: { $gte: todayStart } },
                 { nextActionAt: { $gte: todayStart } }
@@ -1272,6 +1264,7 @@ router.get('/state-manager', async (req, res) => {
         .populate('owner', 'name');
 
         const upcomingEvents = upcomingLeads.map(l => ({
+            _id: l._id,
             type: l.status.includes('meeting') ? 'meeting' : 'followup',
             title: l.status.includes('meeting') ? `Meeting - ${l.company}` : `Follow-up - ${l.company}`,
             subTitle: `${l.owner?.name} → ${l.name}`,
@@ -1310,18 +1303,18 @@ router.get('/state-manager', async (req, res) => {
         const pipelineData = await Promise.all(pipeline.map(async (p) => {
             let count = 0;
             if (p.status === 'hot' || p.status === 'warm') {
-                count = await Lead.countDocuments({ state: req.user.state, priority: p.status, status: { $nin: ['converted', 'lost'] } });
+                count = await Lead.countDocuments({ ...ownerScope, priority: p.status, status: { $nin: ['converted', 'lost'] } });
             } else if (p.status === 'meeting_scheduled') {
-                count = await Lead.countDocuments({ state: req.user.state, status: { $regex: /meeting/i } });
+                count = await Lead.countDocuments({ ...ownerScope, status: { $regex: /meeting/i } });
             } else {
-                count = await Lead.countDocuments({ state: req.user.state, status: p.status });
+                count = await Lead.countDocuments({ ...ownerScope, status: p.status });
             }
             return { ...p, val: count };
         }));
 
         // 7. Expected Onboarding Leads
         const expectedLeads = await Lead.find({
-            state: req.user.state,
+            ...ownerScope,
             status: { $nin: ['converted', 'lost', 'not_interested'] }
         })
         .sort({ updatedAt: -1 })
@@ -1331,6 +1324,7 @@ router.get('/state-manager', async (req, res) => {
         const expectedOnboarding = expectedLeads.map(l => {
             const age = Math.floor((new Date() - new Date(l.createdAt)) / (1000 * 60 * 60 * 24));
             return {
+                _id: l._id,
                 leadId: l.leadId || `RM-${l._id.toString().slice(-4).toUpperCase()}`,
                 business: l.company || l.name,
                 contact: l.name,
@@ -1350,9 +1344,8 @@ router.get('/state-manager', async (req, res) => {
             status: 'pending'
         }).populate('user', 'name role industry');
 
-        // 9. Escalated Leads
+        // 9. Escalated Leads (escalated directly to this state manager)
         const escalated = await Lead.find({
-            state: req.user.state,
             escalatedTo: req.user._id,
             status: { $nin: ['converted', 'lost'] }
         }).populate('owner', 'name');
