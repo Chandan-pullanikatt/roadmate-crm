@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -7,6 +8,7 @@ import { Avatar, Button, Tag } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 
 const Overview = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [eventFilter, setEventFilter] = useState('Today');
   const [pipelineFilter, setPipelineFilter] = useState('This Month');
@@ -28,6 +30,10 @@ const Overview = () => {
     },
     onError: (err) => toast.error(err.message)
   });
+
+  // Sub-pages are switched via the ?page= param read by StateDashboard.jsx
+  const goToPage = (page) => navigate(`/dashboard?page=${page}`);
+  const goToLead = (id) => id && navigate(`/leads/${id}`);
 
   const openModal = (type, data = null) => {
     window.dispatchEvent(new CustomEvent('open-modal', { 
@@ -73,6 +79,19 @@ const Overview = () => {
     return `\u20B9${val.toLocaleString()}`;
   };
 
+  const statCard = 'bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group relative overflow-hidden cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/50';
+
+  // Makes a stat card behave like a button (pointer + keyboard) without changing its markup
+  const cardProps = (page) => ({
+    role: 'button',
+    tabIndex: 0,
+    className: statCard,
+    onClick: () => goToPage(page),
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToPage(page); }
+    },
+  });
+
   return (
     <div className="animate-in fade-in duration-500 pb-10">
       {/* Header Section */}
@@ -91,7 +110,7 @@ const Overview = () => {
           <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center text-[#D97706] text-lg shrink-0">{"\u26A0"}</div>
           <div className="flex-1">
             <div className="text-[13.5px] font-bold text-[#92400E]">
-              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">from Industry Manager {"\u2014"} {escalated[0].business} {"\u00B7"} {escalated[0].district} {"\u00B7"} {escalated[0].priority}</span>
+              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">from Industry Manager {"\u2014"} <button onClick={() => goToLead(escalated[0]._id)} className="font-bold underline underline-offset-2 hover:text-[#B45309]">{escalated[0].company || escalated[0].name}</button> {"\u00B7"} {escalated[0].district} {"\u00B7"} {escalated[0].priority}</span>
             </div>
           </div>
           <div className="flex gap-2">
@@ -108,7 +127,7 @@ const Overview = () => {
 
       {/* Stat Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('industry-managers')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-blue/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Industry Managers</div>
           <div className="text-[28px] font-black text-text-primary mt-1">{stats.industryManagersCount}</div>
@@ -117,7 +136,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('reports')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Total Revenue · {user.state}</div>
           <div className="text-[28px] font-black text-teal mt-1">{formatCurrency(stats.totalRevenue)}</div>
@@ -126,7 +145,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('leads')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-amber/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Active Leads</div>
           <div className="text-[28px] font-black text-[#D97706] mt-1">{stats.activeLeads}</div>
@@ -135,7 +154,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('leads')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-green/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Converted This Month</div>
           <div className="text-[28px] font-black text-green mt-1">{stats.convertedThisMonth}</div>
@@ -144,7 +163,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('executives')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-purple/40"></div>
           <div className="text-[13px] font-bold text-text-muted">District Executives</div>
           <div className="text-[28px] font-black text-purple mt-1">{stats.districtExecutivesCount}</div>
@@ -153,7 +172,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('calendar')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-red/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Pending Leave Approvals</div>
           <div className="text-[28px] font-black text-red mt-1">{stats.pendingLeaves}</div>
@@ -162,7 +181,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('performance')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Calls This Week</div>
           <div className="text-[28px] font-black text-teal mt-1">{stats.callsThisWeek}</div>
@@ -171,7 +190,7 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+        <div {...cardProps('performance')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-[#D97706]/40"></div>
           <div className="text-[13px] font-bold text-text-muted">Meetings Scheduled</div>
           <div className="text-[28px] font-black text-[#92400E] mt-1">{stats.meetingsScheduled}</div>
@@ -244,7 +263,11 @@ const Overview = () => {
           </div>
           <div className="p-5 flex flex-col gap-5">
             {events.map((e, i) => (
-              <div key={i} className="flex gap-4 group">
+              <div
+                key={i}
+                onClick={() => goToLead(e._id)}
+                className={`flex gap-4 group ${e._id ? 'cursor-pointer' : ''}`}
+              >
                 <div className="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform">
                    {e.type === 'meeting' ? '📹' : e.type === 'followup' ? '📞' : '📅'}
                 </div>
@@ -387,7 +410,11 @@ const Overview = () => {
             </thead>
             <tbody className="divide-y divide-border">
               {expectedOnboarding.map((l, i) => (
-                <tr key={i} className="hover:bg-surface2/30 transition-colors group">
+                <tr
+                  key={i}
+                  onClick={() => goToLead(l._id)}
+                  className="hover:bg-surface2/30 transition-colors group cursor-pointer"
+                >
                   <td className="px-6 py-4 font-mono text-[11.5px] font-black text-text-secondary">{l.leadId}</td>
                   <td className="px-6 py-4">
                     <div className="text-[14px] font-bold text-text-primary group-hover:text-blue transition-colors">{l.business}</div>
@@ -412,7 +439,10 @@ const Overview = () => {
                   </td>
                   <td className="px-6 py-4 text-[12px] font-bold text-text-muted text-center">{l.age}</td>
                   <td className="px-6 py-4 text-right">
-                    <button className="px-4 py-1.5 bg-surface2 hover:bg-border text-text-secondary text-[11px] font-bold rounded-lg transition-all border border-border">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); goToLead(l._id); }}
+                      className="px-4 py-1.5 bg-surface2 hover:bg-border text-text-secondary text-[11px] font-bold rounded-lg transition-all border border-border"
+                    >
                        View
                     </button>
                   </td>
