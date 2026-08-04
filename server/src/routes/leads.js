@@ -20,6 +20,27 @@ const normalizePriority = (priority) => {
   return 'cold';
 };
 
+/**
+ * Reduces a phone number to its significant digits so that "+91 98765 43210",
+ * "09876543210" and "9876543210" all compare equal when checking duplicates.
+ */
+const toComparablePhone = (phone) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
+};
+
+/**
+ * Indian numbers must be a valid 10-digit mobile (never starting 0-5). The form
+ * also accepts +971/+1, so non-Indian numbers are range-checked instead.
+ */
+const isValidMobile = (phone) => {
+  const raw = String(phone || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  const isIndian = raw.startsWith('+91') || digits.length === 10;
+  if (isIndian) return /^[6-9]\d{9}$/.test(toComparablePhone(raw));
+  return digits.length >= 7 && digits.length <= 15;
+};
+
 const normalizeStatusValue = (status, { forFilter = false } = {}) => {
   if (!status) return status;
   const value = String(status).trim().toLowerCase();
@@ -578,6 +599,39 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const payload = normalizeLeadPayload(req.body);
+
+    if (!isValidMobile(payload.phone)) {
+      return res.status(400).json({
+        message: 'Enter a valid 10-digit mobile number.',
+        field: 'phone'
+      });
+    }
+
+    // Duplicate leads are warned about, not blocked — the same person can
+    // legitimately be re-entered. The client re-submits with confirmDuplicate
+    // once the user has acknowledged the warning.
+    if (!req.body.confirmDuplicate) {
+      const existing = await Lead.findOne({
+        phone: { $regex: `${toComparablePhone(payload.phone)}$` }
+      }).populate('owner', 'name').lean();
+
+      if (existing) {
+        return res.status(409).json({
+          duplicate: true,
+          message: 'A lead with this mobile number already exists.',
+          existing: {
+            _id: existing._id,
+            name: existing.name,
+            company: existing.company,
+            phone: existing.phone,
+            status: existing.status,
+            owner: existing.owner?.name || 'Unassigned',
+            createdAt: existing.createdAt
+          }
+        });
+      }
+    }
+
     // Executives and industry managers own the leads they create,
     // unless the lead is explicitly being assigned to someone else.
     if (['executive', 'industry_manager'].includes(req.user.role) && !payload.owner) {

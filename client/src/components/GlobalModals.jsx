@@ -42,6 +42,7 @@ const GlobalModals = () => {
   const [loading, setLoading] = useState(false);
   const [leaveHistoryUser, setLeaveHistoryUser] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null); // existing lead when a duplicate is detected
   
   const getLeadFormDefaults = () => ({
     name: '', company: '', countryCode: '+91', phone: '', email: '',
@@ -386,8 +387,21 @@ const GlobalModals = () => {
     }
   };
 
-  const handleLeadSubmit = async (e) => {
-    e.preventDefault();
+  const handleLeadSubmit = async (e, { confirmDuplicate = false } = {}) => {
+    if (e) e.preventDefault();
+
+    const digits = (leadFormData.phone || '').replace(/\D/g, '');
+    const isIndian = leadFormData.countryCode === '+91';
+    if (isIndian ? !/^[6-9]\d{9}$/.test(digits) : (digits.length < 7 || digits.length > 15)) {
+      addToast(
+        isIndian
+          ? 'Enter a valid 10-digit mobile number.'
+          : 'Enter a valid mobile number (7-15 digits).',
+        'error'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const allocationOwnerId = isExecutive
@@ -397,17 +411,25 @@ const GlobalModals = () => {
         ...leadFormData,
         phone: `${leadFormData.countryCode}${leadFormData.phone}`,
         meetingLink: leadFormData.meetingType === 'virtual' ? leadFormData.meetingLink.trim() : '',
-        ownerId: allocationOwnerId || undefined
+        ownerId: allocationOwnerId || undefined,
+        confirmDuplicate
       };
       await leadsApi.createLead(leadData);
       addToast('Lead added successfully!', 'success');
       setActiveModal(null);
+      setDuplicateWarning(null);
       setLeadFormData(getLeadFormDefaults());
       queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
       queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
     } catch (err) {
-      addToast(err.response?.data?.message || 'Error adding lead', 'error');
+      // A duplicate is a warning, not a rejection — show what already exists
+      // and let the user decide whether to create it anyway.
+      if (err.response?.status === 409 && err.response?.data?.duplicate) {
+        setDuplicateWarning(err.response.data.existing);
+      } else {
+        addToast(err.response?.data?.message || 'Error adding lead', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -598,6 +620,35 @@ const GlobalModals = () => {
         onClose={handleCloseModal}
         className="modal-lg"
       >
+        {duplicateWarning && (
+          <div className="mb-6 rounded-2xl border border-orange/40 bg-orange/5 p-5">
+            <div className="text-sm font-bold text-text-primary mb-1">Possible duplicate lead</div>
+            <div className="text-[13px] text-text-secondary mb-3">
+              A lead with this mobile number already exists. You can still create this one.
+            </div>
+            <div className="rounded-xl bg-white border border-border p-3 text-[12px] text-text-secondary space-y-0.5">
+              <div><span className="font-bold text-text-primary">{duplicateWarning.name}</span>{duplicateWarning.company ? ` · ${duplicateWarning.company}` : ''}</div>
+              <div>{duplicateWarning.phone} · {String(duplicateWarning.status || '').replace(/_/g, ' ')}</div>
+              <div>Owner: {duplicateWarning.owner}</div>
+              {duplicateWarning.createdAt && (
+                <div>Created: {new Date(duplicateWarning.createdAt).toLocaleDateString()}</div>
+              )}
+            </div>
+            <div className="flex gap-3 mt-4">
+              <Button
+                type="button"
+                variant="primary"
+                disabled={loading}
+                onClick={() => handleLeadSubmit(null, { confirmDuplicate: true })}
+              >
+                Create anyway
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setDuplicateWarning(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleLeadSubmit} className="space-y-10 py-2">
           {/* LEAD INFORMATION SECTION */}
           <div className="space-y-6">
@@ -626,7 +677,20 @@ const GlobalModals = () => {
                       <option value="+1">🇺🇸 +1</option>
                     </select>
                   </div>
-                  <input className="input flex-1" type="tel" inputMode="numeric" pattern="[0-9]*" value={leadFormData.phone} onChange={(e)=>setLeadFormData({...leadFormData, phone: digitsOnly(e.target.value)})} placeholder="XXXXX XXXXX" required />
+                  <input
+                    className="input flex-1"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={leadFormData.countryCode === '+91' ? 10 : 15}
+                    value={leadFormData.phone}
+                    onChange={(e)=>setLeadFormData({
+                      ...leadFormData,
+                      phone: digitsOnly(e.target.value).slice(0, leadFormData.countryCode === '+91' ? 10 : 15)
+                    })}
+                    placeholder="XXXXX XXXXX"
+                    required
+                  />
                 </div>
               </div>
               <div className="space-y-2">

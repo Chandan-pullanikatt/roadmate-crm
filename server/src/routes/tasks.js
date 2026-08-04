@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const Task = require('../models/Task');
+const { getScopeOwnerIds } = require('../utils/hierarchy');
 
 router.use(verifyToken);
 
@@ -11,12 +12,25 @@ router.get('/', async (req, res) => {
     const { status, assignedTo, limit = 50, page = 1 } = req.query;
     const query = {};
 
-    // Role scoping: executives/managers see tasks assigned to them + tasks they created
+    // Role scoping: a manager sees every task across their reporting subtree,
+    // not just the ones they personally created or were assigned (BUG-020).
+    // Founder gets null from getScopeOwnerIds, meaning unrestricted.
+    const scopeIds = await getScopeOwnerIds(req.user);
     if (req.user.role === 'executive') {
       query.assignedTo = req.user._id;
-    } else {
-      query.$or = [{ assignedBy: req.user._id }, { assignedTo: req.user._id }];
+    } else if (scopeIds) {
+      query.$or = [
+        { assignedBy: { $in: scopeIds } },
+        { assignedTo: { $in: scopeIds } }
+      ];
     }
+
+    // Promote past-deadline tasks before filtering, otherwise a status=overdue
+    // query can never match a task still sitting at 'pending' (BUG-018).
+    await Task.updateMany(
+      { status: 'pending', endDate: { $lt: new Date() } },
+      { status: 'overdue' }
+    );
 
     if (status) query.status = status;
     if (assignedTo) query.assignedTo = assignedTo;
@@ -29,14 +43,6 @@ router.get('/', async (req, res) => {
       .limit(Number(limit));
 
     const total = await Task.countDocuments(query);
-
-    // Auto-mark overdue
-    const now = new Date();
-    const toUpdate = tasks.filter(t => t.status === 'pending' && new Date(t.endDate) < now);
-    if (toUpdate.length) {
-      await Task.updateMany({ _id: { $in: toUpdate.map(t => t._id) } }, { status: 'overdue' });
-      toUpdate.forEach(t => { t.status = 'overdue'; });
-    }
 
     res.json({ tasks, total, totalPages: Math.ceil(total / limit) });
   } catch (err) {

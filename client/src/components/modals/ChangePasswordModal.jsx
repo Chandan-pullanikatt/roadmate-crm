@@ -4,6 +4,48 @@ import Modal from '../ui/Modal';
 import { Button } from '../ui';
 import { useToast } from '../../context/ToastContext';
 
+/**
+ * Declared at module scope on purpose. Defining this inside ChangePasswordModal
+ * makes React see a new component type on every render, which remounts the
+ * input and drops focus after each keystroke.
+ */
+const PasswordField = ({ id, label, name, value, error, show, onToggle, onChange }) => (
+  <div className="mb-4">
+    <label htmlFor={id} className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+      {label}
+    </label>
+    <div className="relative group">
+      <input
+        id={id}
+        name={name}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        className={`w-full bg-surface2 border ${error ? 'border-red-500' : 'border-border'} rounded-xl py-3 pl-4 pr-12 text-sm font-bold focus:bg-white focus:ring-4 ${error ? 'focus:ring-red-500/5 focus:border-red-500' : 'focus:ring-orange/5 focus:border-orange'} outline-none transition-all`}
+        placeholder={`Enter ${label.toLowerCase()}`}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-text-primary transition-colors"
+      >
+        {show ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        )}
+      </button>
+    </div>
+    {error && <p className="mt-1 text-[10px] font-bold text-red uppercase tracking-tight">{error}</p>}
+  </div>
+);
+
 const ChangePasswordModal = ({ isOpen, onClose }) => {
   const { addToast } = useToast();
   const [formData, setFormData] = useState({
@@ -73,43 +115,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const PasswordField = ({ id, label, name, value, error, show, onToggle }) => (
-    <div className="mb-4">
-      <label htmlFor={id} className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
-        {label}
-      </label>
-      <div className="relative group">
-        <input
-          id={id}
-          name={name}
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={handleChange}
-          className={`w-full bg-surface2 border ${error ? 'border-red-500' : 'border-border'} rounded-xl py-3 pl-4 pr-12 text-sm font-bold focus:bg-white focus:ring-4 ${error ? 'focus:ring-red-500/5 focus:border-red-500' : 'focus:ring-orange/5 focus:border-orange'} outline-none transition-all`}
-          placeholder={`Enter ${label.toLowerCase()}`}
-        />
-        <button
-          type="button"
-          onClick={onToggle}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-text-primary transition-colors"
-        >
-          {show ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-              <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          )}
-        </button>
-      </div>
-      {error && <p className="mt-1 text-[10px] font-bold text-red uppercase tracking-tight">{error}</p>}
-    </div>
-  );
-
   return (
     <Modal
       isOpen={isOpen}
@@ -136,6 +141,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           error={errors.currentPassword}
           show={showPasswords.current}
           onToggle={() => toggleVisibility('current')}
+          onChange={handleChange}
         />
 
         <PasswordField
@@ -146,6 +152,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           error={errors.newPassword}
           show={showPasswords.new}
           onToggle={() => toggleVisibility('new')}
+          onChange={handleChange}
         />
 
         <PasswordField
@@ -156,6 +163,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           error={errors.confirmPassword}
           show={showPasswords.confirm}
           onToggle={() => toggleVisibility('confirm')}
+          onChange={handleChange}
         />
 
         <div className="mt-8">

@@ -41,6 +41,9 @@ const Overview = () => {
   const [reassignModal, setReassignModal] = useState(null); // lead object
   const [reassignExecId, setReassignExecId] = useState('');
   const [summaryModal, setSummaryModal] = useState(null); // stat card id
+  const [scheduleDay, setScheduleDay] = useState('today'); // 'today' | 'tomorrow'
+  const [showTeamFilter, setShowTeamFilter] = useState(false);
+  const [teamDistrictFilter, setTeamDistrictFilter] = useState(''); // '' = all districts
 
   const handlePeriodChange = (key) => {
     setPeriod(key);
@@ -93,9 +96,20 @@ const Overview = () => {
   const stats = dashData?.stats || {};
   const periodStats = dashData?.periodStats || {};
   const activeLeads = dashData?.activeLeads ?? 0;
-  const team = dashData?.executivePerformance || [];
+  const allTeam = dashData?.executivePerformance || [];
+  const teamDistricts = [...new Set(allTeam.map(e => e.district).filter(Boolean))].sort();
+  const team = teamDistrictFilter
+    ? allTeam.filter(e => e.district === teamDistrictFilter)
+    : allTeam;
   const leadStats = dashData?.leadStats || {};
   const events = dashData?.upcomingEvents || [];
+  // upcomingEvents spans today onward, so pick out the day being viewed.
+  const visibleEvents = (() => {
+    const target = new Date();
+    if (scheduleDay === 'tomorrow') target.setDate(target.getDate() + 1);
+    const targetDay = target.toDateString();
+    return events.filter(ev => ev.time && new Date(ev.time).toDateString() === targetDay);
+  })();
   const leaves = dashData?.leaveRequests || [];
   const userInfo = dashData?.user || {};
   const escalatedLeads = dashData?.escalatedLeads || [];
@@ -361,7 +375,37 @@ const Overview = () => {
               <p className="text-sm text-text-muted mt-1 font-medium">Performance snapshot for {userInfo.industry}</p>
             </div>
             <div className="flex gap-2">
-              <div className="px-3 py-1.5 rounded-xl bg-surface2 border border-border text-[11px] font-bold text-text-secondary cursor-pointer hover:bg-surface3 transition-all">Filter</div>
+              <div className="relative">
+                <div
+                  className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer transition-all ${teamDistrictFilter ? 'bg-purple text-white border-purple' : 'bg-surface2 border-border text-text-secondary hover:bg-surface3'}`}
+                  onClick={() => setShowTeamFilter(v => !v)}
+                >
+                  {teamDistrictFilter || 'Filter'}
+                </div>
+                {showTeamFilter && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-border z-50 py-2">
+                    <div className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-text-muted">Filter by district</div>
+                    <div
+                      className={`px-4 py-2 text-[12px] font-bold cursor-pointer hover:bg-surface2 ${!teamDistrictFilter ? 'text-purple' : 'text-text-secondary'}`}
+                      onClick={() => { setTeamDistrictFilter(''); setShowTeamFilter(false); }}
+                    >
+                      All districts
+                    </div>
+                    {teamDistricts.map(d => (
+                      <div
+                        key={d}
+                        className={`px-4 py-2 text-[12px] font-bold cursor-pointer hover:bg-surface2 ${teamDistrictFilter === d ? 'text-purple' : 'text-text-secondary'}`}
+                        onClick={() => { setTeamDistrictFilter(d); setShowTeamFilter(false); }}
+                      >
+                        {d}
+                      </div>
+                    ))}
+                    {teamDistricts.length === 0 && (
+                      <div className="px-4 py-2 text-[12px] text-text-muted">No districts available</div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div
                 className="px-3 py-1.5 rounded-xl bg-purple text-white text-[11px] font-bold cursor-pointer hover:opacity-90 transition-all shadow-lg shadow-purple/20"
                 onClick={() => navigate('/dashboard?page=team')}
@@ -475,13 +519,25 @@ const Overview = () => {
           <div className="card-header border-none px-8 pt-8">
             <div>
               <h3 className="text-xl font-bold text-text-primary tracking-tight">Upcoming Events</h3>
-              <p className="text-sm text-text-muted mt-1 font-medium">Meetings &amp; follow-ups scheduled for today</p>
+              <p className="text-sm text-text-muted mt-1 font-medium">
+                Meetings &amp; follow-ups scheduled for {scheduleDay === 'today' ? 'today' : 'tomorrow'}
+              </p>
             </div>
-            <Tag variant="purple" label="Today's Schedule" className="py-1.5 px-3 rounded-xl" />
+            <div className="flex gap-2">
+              {['today', 'tomorrow'].map(d => (
+                <div
+                  key={d}
+                  onClick={() => setScheduleDay(d)}
+                  className={`py-1.5 px-3 rounded-xl text-[11px] font-bold cursor-pointer capitalize transition-all ${scheduleDay === d ? 'bg-purple text-white' : 'bg-surface2 border border-border text-text-secondary hover:bg-surface3'}`}
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
           </div>
           <div className="card-body px-4 pt-4 pb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {events.slice(0, 6).map((ev, idx) => (
+              {visibleEvents.slice(0, 6).map((ev, idx) => (
                 <div key={idx} onClick={() => setEventModal(ev)} className="p-4 rounded-2xl bg-surface/40 border border-border/30 hover:border-purple/30 hover:bg-white hover:shadow-md transition-all cursor-pointer group flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all group-hover:scale-110 ${ev.type === 'meeting' ? 'bg-teal-light text-teal shadow-teal/10' : 'bg-blue-light text-blue shadow-blue/10'}`}>
                     {ev.type === 'meeting' ? (ev.status?.includes('virtual') ? '🎥' : '🤝') : '📞'}
@@ -506,11 +562,22 @@ const Overview = () => {
                   </div>
                 </div>
               ))}
-              {events.length === 0 && (
+              {visibleEvents.length === 0 && (
                 <div className="col-span-full py-16 text-center">
                   <div className="text-4xl mb-4">📅</div>
-                  <div className="text-text-muted font-medium">No events scheduled for the rest of today.</div>
-                  <button className="mt-4 text-purple text-sm font-bold hover:underline">View Tomorrow's Schedule →</button>
+                  <div className="text-text-muted font-medium">
+                    {scheduleDay === 'today'
+                      ? 'No events scheduled for the rest of today.'
+                      : 'No events scheduled for tomorrow.'}
+                  </div>
+                  {scheduleDay === 'today' && (
+                    <button
+                      onClick={() => setScheduleDay('tomorrow')}
+                      className="mt-4 text-purple text-sm font-bold hover:underline"
+                    >
+                      View Tomorrow's Schedule →
+                    </button>
+                  )}
                 </div>
               )}
             </div>
