@@ -472,9 +472,12 @@ router.get('/calendar/:state', verifyToken, async (req, res, next) => {
     const { month, year } = req.query;
     
     const targetYear = year ? parseInt(year) : new Date().getFullYear();
-    const policy = await LeavePolicy.findOne({ state, year: targetYear });
-    
-    if (!policy) return res.status(404).json({ message: 'Policy not found for this state/year' });
+    const policy = await LeavePolicy.findOne({ state, year: targetYear }) ||
+                   await LeavePolicy.findOne({ state: 'default', year: targetYear });
+
+    // No policy configured is not an error — the calendar still shows approved
+    // leaves, just without holidays marked on it.
+    const holidays = policy?.holidays || [];
 
     // Fetch approved leaves for users in this state
     const usersInState = await User.find({ state }).select('_id');
@@ -500,7 +503,7 @@ router.get('/calendar/:state', verifyToken, async (req, res, next) => {
     const calendar = [];
 
     // Add holidays
-    policy.holidays.forEach(h => {
+    holidays.forEach(h => {
       const hDate = new Date(h.date);
       if (!month || (hDate.getMonth() + 1 === parseInt(month))) {
         calendar.push({

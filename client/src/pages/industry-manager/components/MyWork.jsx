@@ -10,6 +10,7 @@ import {
   DashboardSkeleton
 } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
+import { LEAD_STATUS_GROUPS, isInGroup } from '../../../constants/leadStatusGroups';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { tasksApi } from '../../../api/tasksApi';
@@ -221,10 +222,10 @@ const MyWork = () => {
     if (tableFilter === 'Hot')      return leads.filter(l => l.priority === 'hot');
     if (tableFilter === 'Warm')     return leads.filter(l => l.priority === 'warm');
     if (tableFilter === 'Cold')     return leads.filter(l => l.priority === 'cold');
-    if (tableFilter === 'Meeting')  return leads.filter(l => l.status === 'meeting_direct' || l.status === 'meeting_virtual');
     if (tableFilter === 'Blocking') return leads.filter(l => l.status === 'blocking_amount_received');
-    // DB stores the status as "followup" (no hyphen) — the tab label has one.
-    if (tableFilter === 'Follow-up') return leads.filter(l => l.status === 'followup');
+    // Status buckets must match the dashboard's — e.g. Follow-up covers both
+    // 'called' and 'followup', otherwise the tab counts undershoot the KPIs.
+    if (LEAD_STATUS_GROUPS[tableFilter]) return leads.filter(l => isInGroup(l.status, tableFilter));
     return leads.filter(l => l.status === tableFilter.toLowerCase());
   }, [allLeadsData, tableFilter]);
 

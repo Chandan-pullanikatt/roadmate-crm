@@ -112,6 +112,10 @@ app.use('/api/sop', require('./routes/sop'));
 // Global Error Handler
 app.use(errorHandler);
 
+// Fail fast if a lead status exists that no dashboard bucket counts.
+const { assertGroupsCoverEnum } = require('./constants/leadStatusGroups');
+assertGroupsCoverEnum(require('./models/Lead').schema.path('status').enumValues);
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

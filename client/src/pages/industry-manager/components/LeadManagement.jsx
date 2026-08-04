@@ -11,6 +11,7 @@ import {
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
+import { LEAD_STATUS_GROUPS, GROUP_ORDER } from '../../../constants/leadStatusGroups';
 
 /**
  * ownerScope: 'self'  → IM's own leads only
@@ -24,7 +25,12 @@ const LeadManagement = ({ ownerScope }) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(location.search);
-    return params.get('status') || 'all';
+    const status = params.get('status');
+    if (!status) return 'all';
+    // A deep link may name a single status ("lost"); widen it to that status's
+    // group id so the matching tab highlights instead of no tab at all.
+    const group = GROUP_ORDER.find(g => LEAD_STATUS_GROUPS[g].includes(status));
+    return group ? LEAD_STATUS_GROUPS[group].join(',') : status;
   });
   const [priorityFilter, setPriorityFilter] = useState(() => {
     const params = new URLSearchParams(location.search);
@@ -138,16 +144,15 @@ const LeadManagement = ({ ownerScope }) => {
   const stats = dashData?.stats || {};
   const userInfo = dashData?.user || {};
 
+  // Tabs are derived from the canonical status groups so every status lands in
+  // exactly one tab and the tab counts always add up to All (QA BUG-010).
   const tabs = [
-    { id: 'all',                      label: 'All',              count: counts?.total || 0 },
-    { id: 'new',                      label: 'New',              count: counts?.new || 0 },
-    { id: 'followup',                 label: 'Follow-up',        count: counts?.followup || 0 },
-    { id: 'meeting',                  label: 'Meeting',          count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
-    { id: 'converted',                label: 'Converted',        count: counts?.converted || 0 },
-    { id: 'blocking_amount_received', label: 'Blocking Amount',  count: counts?.blocking_amount_received || 0 },
-    { id: 'lost',                     label: 'Lost',             count: counts?.lost || 0 },
-    { id: 'rnr',                      label: 'RNR',              count: counts?.rnr || 0 },
-    { id: 'escalated',                label: 'Escalated',        count: counts?.escalated || 0 },
+    { id: 'all', label: 'All', count: counts?.total || 0 },
+    ...GROUP_ORDER.map(label => ({
+      id: LEAD_STATUS_GROUPS[label].join(','),
+      label,
+      count: LEAD_STATUS_GROUPS[label].reduce((sum, s) => sum + (counts?.[s] || 0), 0),
+    })),
   ];
 
   const formatCurrency = (val) => {
