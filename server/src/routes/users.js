@@ -422,15 +422,24 @@ router.post('/:id/reset-password', async (req, res) => {
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) return res.status(404).json({ message: 'User not found' });
 
+    if (targetUser._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: 'Use change password for your own account' });
+    }
+
+    // Resetting a password is an account takeover primitive, so the target must
+    // sit strictly below the actor in the hierarchy. Without the rank check a
+    // state manager could reset a peer's — or a founder's — password.
+    const RANK = { founder: 3, state_manager: 2, industry_manager: 1, executive: 0 };
+    if ((RANK[targetUser.role] ?? 0) >= (RANK[req.user.role] ?? 0)) {
+      return res.status(403).json({ message: 'Forbidden: You can only reset accounts below your own role' });
+    }
+
     if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
       return res.status(403).json({ message: 'Forbidden: You can only reset users in your state' });
     }
     if (req.user.role === 'industry_manager' &&
         targetUser.reportingTo?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Forbidden: You can only reset your direct reports' });
-    }
-    if (targetUser._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ message: 'Use change password for your own account' });
     }
 
     targetUser.password = newPassword; // hashed by the pre-save hook
