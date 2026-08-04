@@ -94,6 +94,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'Reports',
           items: [
+            { label: 'Revenue', path: '/dashboard?page=revenue', icon: 'reports' },
             { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' }
           ]
         },
