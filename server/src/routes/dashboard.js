@@ -10,6 +10,7 @@ const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Salary = require('../models/Salary');
 const { getScopeOwnerIds } = require('../utils/hierarchy');
+const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
 
 // Protect all routes
 router.use(verifyToken);
@@ -1781,14 +1782,20 @@ router.get('/founder', async (req, res) => {
         };
 
         const allPipelineTotal = pipelineStatsRaw.reduce((sum, p) => sum + p.count, 0);
+
+        // Buckets come from the canonical grouping so that the sum of the
+        // buckets always equals 'All' — see constants/leadStatusGroups.js.
+        const GROUP_COLORS = {
+            New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
+            Payment: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
+        };
         const pipelineStats = [
             { label: 'All', count: allPipelineTotal, color: 'blue' },
-            { label: 'New', count: getPipelineCount('new'), color: 'blue' },
-            { label: 'Follow-up', count: getPipelineCount(['called', 'followup']), color: 'purple' },
-            { label: 'Meeting', count: getPipelineCount(['meeting_virtual', 'meeting_direct']), color: 'teal' },
-            { label: 'Converted', count: getPipelineCount('converted'), color: 'green' },
-            { label: 'Lost', count: getPipelineCount(['lost', 'not_interested']), color: 'red' },
-            { label: 'RNR', count: getPipelineCount('rnr'), color: 'gray' }
+            ...GROUP_ORDER.map(label => ({
+                label,
+                count: getPipelineCount(LEAD_STATUS_GROUPS[label]),
+                color: GROUP_COLORS[label] || 'gray'
+            }))
         ];
 
         // Optimized Performance Lists (Bulk Data Fetching)

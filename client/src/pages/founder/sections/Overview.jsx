@@ -251,7 +251,7 @@ const Overview = () => {
         <div
           className="stat-card cursor-pointer hover:shadow-md transition-shadow"
           style={{ borderTop: '4px solid #0891b2' }}
-          onClick={() => window.location.href = '/dashboard?page=revenue'}
+          onClick={() => navigate('/dashboard?page=revenue')}
         >
           <div className="stat-label mb-2 mt-1">Revenue Generated</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">
@@ -264,13 +264,14 @@ const Overview = () => {
         </div>
 
         {/* Fix: Founders Summary Clickable Stats \u2014 numbers are now clickable drill-downs */}
-        <div className="stat-card" style={{ borderTop: '4px solid #8b5cf6' }}>
+        <div
+          className="stat-card cursor-pointer hover:shadow-md transition-shadow"
+          style={{ borderTop: '4px solid #8b5cf6' }}
+          onClick={() => handleStatDrillDown('state_manager', 'State Managers')}
+          title="Click to see all State Managers"
+        >
           <div className="stat-label mb-2 mt-1">State Managers</div>
-          <div
-            className="text-[28px] font-bold font-mono text-text-primary mb-1 cursor-pointer hover:text-purple hover:underline underline-offset-2 transition-colors w-fit"
-            onClick={() => handleStatDrillDown('state_manager', 'State Managers')}
-            title="Click to see all State Managers"
-          >
+          <div className="text-[28px] font-bold font-mono text-text-primary mb-1 hover:text-purple hover:underline underline-offset-2 transition-colors w-fit">
             {stats.stateManagers?.total || 0}
           </div>
           <div className="text-[12px] font-medium flex gap-2">
@@ -280,13 +281,14 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
+        <div
+          className="stat-card cursor-pointer hover:shadow-md transition-shadow"
+          style={{ borderTop: '4px solid #3b82f6' }}
+          onClick={() => handleStatDrillDown('industry_manager', 'Industry Managers')}
+          title="Click to see all Industry Managers"
+        >
           <div className="stat-label mb-2 mt-1">Industry Managers</div>
-          <div
-            className="text-[28px] font-bold font-mono text-text-primary mb-1 cursor-pointer hover:text-blue hover:underline underline-offset-2 transition-colors w-fit"
-            onClick={() => handleStatDrillDown('industry_manager', 'Industry Managers')}
-            title="Click to see all Industry Managers"
-          >
+          <div className="text-[28px] font-bold font-mono text-text-primary mb-1 hover:text-blue hover:underline underline-offset-2 transition-colors w-fit">
             {stats.industryManagers?.total || 0}
           </div>
           <div className="text-[12px] font-medium flex gap-2">
@@ -296,13 +298,14 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="stat-card" style={{ borderTop: '4px solid #ea580c' }}>
+        <div
+          className="stat-card cursor-pointer hover:shadow-md transition-shadow"
+          style={{ borderTop: '4px solid #ea580c' }}
+          onClick={() => handleStatDrillDown('executive', 'Sales Staff (District Executives)')}
+          title="Click to see all District Executives"
+        >
           <div className="stat-label mb-2 mt-1">Sales Staff</div>
-          <div
-            className="text-[28px] font-bold font-mono text-text-primary mb-1 cursor-pointer hover:text-orange hover:underline underline-offset-2 transition-colors w-fit"
-            onClick={() => handleStatDrillDown('executive', 'Sales Staff (District Executives)')}
-            title="Click to see all District Executives"
-          >
+          <div className="text-[28px] font-bold font-mono text-text-primary mb-1 hover:text-orange hover:underline underline-offset-2 transition-colors w-fit">
             {stats.salesStaff?.total || 0}
           </div>
           <div className="text-[12px] font-medium flex gap-2">
