@@ -8,6 +8,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [showRecovery, setShowRecovery] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -88,7 +89,32 @@ const Login = () => {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowRecovery(true)}
+                className="mt-2 text-sm font-medium text-[var(--brand)] hover:underline"
+              >
+                Forgot password?
+              </button>
             </div>
+
+            {showRecovery && (
+              <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface2)] p-4 text-sm text-[var(--text-secondary)]">
+                <div className="font-bold text-[var(--text-primary)] mb-1">Password recovery</div>
+                <p>
+                  RoadMate accounts are created by your manager, so passwords are reset the
+                  same way. Contact your reporting manager (or a founder) to have a temporary
+                  password issued, then change it from Settings after signing in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowRecovery(false)}
+                  className="mt-3 text-[var(--text-muted)] hover:underline font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"

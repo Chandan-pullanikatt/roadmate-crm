@@ -1261,7 +1261,9 @@ router.get('/state-manager', async (req, res) => {
             ]
         })
         .sort({ meetingAt: 1, nextActionAt: 1 })
-        .limit(5)
+        // Covers today and tomorrow in the Overview schedule toggle, so this
+        // needs headroom beyond the handful shown for a single day.
+        .limit(20)
         .populate('owner', 'name');
 
         const upcomingEvents = upcomingLeads.map(l => ({

@@ -110,6 +110,18 @@ const DashboardLayout = ({
     } catch (err) { console.error('Mark all read failed:', err); }
   };
 
+  // Close the notification panel when clicking anywhere outside it.
+  useEffect(() => {
+    if (!isNotificationOpen) return;
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setIsNotificationOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isNotificationOpen]);
+
   // Debounce Search
   useEffect(() => {
     if (searchQuery.length < 2) {

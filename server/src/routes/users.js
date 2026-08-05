@@ -401,5 +401,54 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/users/:id/reset-password
+ * Manager-assisted password reset. Accounts are provisioned by managers rather
+ * than self-registered, so recovery runs through the same chain: a manager sets
+ * a temporary password and passes it to the user. Scoped to direct reports so a
+ * manager can never reset a peer's or a superior's password.
+ */
+router.post('/:id/reset-password', async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || String(newPassword).length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters' });
+    }
+
+    if (!['founder', 'state_manager', 'industry_manager'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: Only managers can reset passwords' });
+    }
+
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    if (targetUser._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: 'Use change password for your own account' });
+    }
+
+    // Resetting a password is an account takeover primitive, so the target must
+    // sit strictly below the actor in the hierarchy. Without the rank check a
+    // state manager could reset a peer's — or a founder's — password.
+    const RANK = { founder: 3, state_manager: 2, industry_manager: 1, executive: 0 };
+    if ((RANK[targetUser.role] ?? 0) >= (RANK[req.user.role] ?? 0)) {
+      return res.status(403).json({ message: 'Forbidden: You can only reset accounts below your own role' });
+    }
+
+    if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
+      return res.status(403).json({ message: 'Forbidden: You can only reset users in your state' });
+    }
+    if (req.user.role === 'industry_manager' &&
+        targetUser.reportingTo?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Forbidden: You can only reset your direct reports' });
+    }
+
+    targetUser.password = newPassword; // hashed by the pre-save hook
+    await targetUser.save();
+
+    res.json({ message: `Password reset for ${targetUser.name}` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 module.exports = router;

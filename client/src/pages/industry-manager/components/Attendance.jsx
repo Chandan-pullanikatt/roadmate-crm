@@ -5,6 +5,7 @@ import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Modal, Avatar, Tag, StatCard, DashboardSkeleton } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+import { exportToCSV } from '../../../utils/exportUtils';
 
 const Attendance = () => {
   const queryClient = useQueryClient();
@@ -48,7 +49,22 @@ const Attendance = () => {
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
   const exportRegister = () => {
-    addToast("Exporting attendance register...", "success");
+    if (!executives.length) {
+      addToast('No attendance data to export', 'warning');
+      return;
+    }
+    exportToCSV(
+      executives.map(e => ({
+        Name: e.name,
+        District: e.district || '',
+        Status: e.status || '',
+        'Work %': e.completionPct ?? 0,
+        Calls: e.calls ?? 0,
+        Conversions: e.conversions ?? 0,
+      })),
+      `Attendance_${userInfo.industry || 'Team'}_${month}_${year}`
+    );
+    addToast('Attendance register exported', 'success');
   };
 
   if ((dashLoading || perfLoading) && !dashData) return <DashboardSkeleton />;

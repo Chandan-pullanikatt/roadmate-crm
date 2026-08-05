@@ -112,8 +112,10 @@ const MyPerformance = () => {
 
           {pieData.length > 0 ? (
             <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="w-full md:w-[280px] h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
+              {/* Explicit height: a percentage height measures as -1 before the
+                  flex parent has laid out, which makes Recharts warn. */}
+              <div className="w-full min-w-[240px] md:w-[280px] h-[280px]">
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie
                       data={pieData}
