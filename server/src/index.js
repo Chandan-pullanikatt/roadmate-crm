@@ -112,9 +112,15 @@ app.use('/api/sop', require('./routes/sop'));
 // Global Error Handler
 app.use(errorHandler);
 
-// Fail fast if a lead status exists that no dashboard bucket counts.
-const { assertGroupsCoverEnum } = require('./constants/leadStatusGroups');
-assertGroupsCoverEnum(require('./models/Lead').schema.path('status').enumValues);
+// Warn loudly if a lead status exists that no dashboard bucket counts. This is
+// a reporting-accuracy problem, not a reason to refuse to serve traffic, so it
+// logs rather than throwing.
+try {
+  const { assertGroupsCoverEnum } = require('./constants/leadStatusGroups');
+  assertGroupsCoverEnum(require('./models/Lead').schema.path('status').enumValues);
+} catch (err) {
+  console.error('[startup] Lead status grouping problem — dashboard totals may not reconcile:', err.message);
+}
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

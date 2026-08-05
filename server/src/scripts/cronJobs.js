@@ -111,6 +111,24 @@ const initCronJobs = (io = null) => {
     }
   });
 
+  // ─── Every 15 min: Promote past-deadline tasks to overdue ──────────────
+  // Authoritative sweep. The task list also promotes the rows it is about to
+  // return, so a freshly-expired task shows correctly before this next runs.
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const Task = require('../models/Task');
+      const res = await Task.updateMany(
+        { status: 'pending', endDate: { $lt: new Date() } },
+        { status: 'overdue' }
+      );
+      if (res.modifiedCount) {
+        console.log(`[Cron] Marked ${res.modifiedCount} task(s) overdue.`);
+      }
+    } catch (err) {
+      console.error('[Cron] Overdue task sweep error:', err.message);
+    }
+  });
+
   // ─── Midnight: Reset meeting reminder tracking sets ───────────────────
   cron.schedule('0 0 * * *', () => {
     remindedFor1h.clear();

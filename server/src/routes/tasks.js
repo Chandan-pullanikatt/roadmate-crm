@@ -27,8 +27,11 @@ router.get('/', async (req, res) => {
 
     // Promote past-deadline tasks before filtering, otherwise a status=overdue
     // query can never match a task still sitting at 'pending' (BUG-018).
+    // Scoped to the rows this request can see: a collection-wide write on every
+    // list call is needless write amplification. The cron sweep is the
+    // authoritative pass over everything else.
     await Task.updateMany(
-      { status: 'pending', endDate: { $lt: new Date() } },
+      { ...query, status: 'pending', endDate: { $lt: new Date() } },
       { status: 'overdue' }
     );
 
