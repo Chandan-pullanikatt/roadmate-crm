@@ -258,11 +258,24 @@ const attendanceService = {
    */
   async listAttendance(filters) {
     const { userId, month, year } = filters;
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const now = new Date();
+    const targetMonth = month || now.getMonth() + 1;
+    const targetYear = year || now.getFullYear();
+    const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
+    const endOfMonth = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
+
+    if (!userId) {
+      const err = new Error('A user is required to list attendance');
+      err.status = 400;
+      throw err;
+    }
 
     const user = await User.findById(userId);
-    if (!user) throw new Error('User not found');
+    if (!user) {
+      const err = new Error('User not found');
+      err.status = 404;
+      throw err;
+    }
 
     // 1. Fetch Attendance Records
     const attendance = await Attendance.find({
@@ -282,7 +295,7 @@ const attendanceService = {
     }).lean();
 
     // 3. Fetch Holidays from Policy
-    const policy = await LeavePolicy.findOne({ state: user.state, year: year });
+    const policy = await LeavePolicy.findOne({ state: user.state, year: targetYear });
     const holidays = policy ? policy.holidays.filter(h => 
       h.date >= startOfMonth && h.date <= endOfMonth
     ) : [];

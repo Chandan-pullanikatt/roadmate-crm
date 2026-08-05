@@ -80,17 +80,20 @@ router.get('/', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You can only view your own attendance' });
     }
 
-    // Managers see team (handled by service if we pass filters correctly)
+    // Without an explicit userId this is the caller's own register ("My
+    // Attendance"), for managers as much as executives. Defaulting to null
+    // instead made the lookup below fail for every non-executive role.
+    const now = new Date();
     const filters = {
-      userId: userId || (req.user.role === 'executive' ? req.user._id : null),
-      month: month ? parseInt(month) : null,
-      year: year ? parseInt(year) : null
+      userId: userId || req.user._id,
+      month: month ? parseInt(month) : now.getMonth() + 1,
+      year: year ? parseInt(year) : now.getFullYear()
     };
 
     const list = await attendanceService.listAttendance(filters);
     res.json(list);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
   }
 });
 

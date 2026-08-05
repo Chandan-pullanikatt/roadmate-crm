@@ -68,7 +68,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Founder Dashboard', path: '/dashboard?page=overview', icon: 'overview' },
             { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'state-managers' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry-managers' },
-            { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' }
+            { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' },
+            { label: 'Revenue', path: '/dashboard?page=revenue', icon: 'reports' }
           ]
         },
         {
