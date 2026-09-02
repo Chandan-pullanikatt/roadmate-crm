@@ -1818,7 +1818,7 @@ router.get('/founder', async (req, res) => {
         // buckets always equals 'All' — see constants/leadStatusGroups.js.
         const GROUP_COLORS = {
             New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
-            Blocking: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
+            Blocking: 'amber', Closing: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
         };
         const pipelineStats = [
             { label: 'All', count: allPipelineTotal, color: 'blue' },

@@ -49,6 +49,36 @@ async function getNextWorkingDays(count, state) {
   }));
 }
 
+/**
+ * A lead is Converted only once BOTH the full amount is received and the
+ * agreement is signed (client decision, Sep 2026). Whichever of the two lands
+ * second promotes the lead and logs the 'converted' activity that every
+ * conversion count, revenue figure and incentive is derived from.
+ *
+ * Returns the extra activity to write, or null if the lead is not there yet.
+ */
+const maybeConvert = (lead, performedBy) => {
+  if (!lead.fullAmountReceivedDate || !lead.agreementSignedAt) return null;
+  // Guard on convertedAt, not status: the caller has already overwritten status
+  // with the stage it just recorded, so re-recording a stage on an
+  // already-converted lead would otherwise log a second conversion.
+  if (lead.convertedAt) return null;
+
+  lead.status = 'converted';
+  lead.convertedAt = new Date();
+
+  return {
+    lead: lead._id,
+    performedBy: performedBy?._id ?? null,
+    action: 'converted',
+    note: 'Full amount received and agreement signed.',
+    metadata: {
+      revenue: lead.actualRevenue || lead.expectedRevenue || 0,
+      category: lead.revenueCategory,
+    },
+  };
+};
+
 const leadService = {
   /**
    * Transition lead state.
@@ -69,6 +99,9 @@ const leadService = {
       note: data.note || '',
       metadata: {}
     };
+
+    // Set when a payment stage completes the pair that makes a lead Converted.
+    let extraActivity = null;
 
     switch (action) {
       case 'mark_called':
@@ -143,14 +176,20 @@ const leadService = {
             lead.subStatus = 'pre_meeting_confirm';
           }
         } else if (nextAction === 'blocking_amount_received') {
+          // "Blocking" is the advance. It is a stage on the way, never a close.
           lead.status = 'blocking_amount_received';
+          lead.blockingDate = new Date();
           activityData.action = 'blocking_amount_received';
         } else if (nextAction === 'full_amount_received') {
           lead.status = 'full_amount_received';
+          lead.fullAmountReceivedDate = new Date();
           activityData.action = 'full_amount_received';
+          extraActivity = maybeConvert(lead, performedBy);
         } else if (nextAction === 'agreement_signed') {
           lead.status = 'agreement_signed';
+          lead.agreementSignedAt = new Date();
           activityData.action = 'agreement_signed';
+          extraActivity = maybeConvert(lead, performedBy);
         }
         break;
       }
@@ -320,6 +359,9 @@ const leadService = {
     // Skip activity log for system-triggered transitions that have no real performer
     if (activityData.action) {
       await LeadActivity.create(activityData);
+    }
+    if (extraActivity) {
+      await LeadActivity.create(extraActivity);
     }
     return lead;
   },

@@ -11,7 +11,8 @@ const OUTCOMES = [
   { id: 'meeting',                 icon: '🎥', label: 'Schedule Meeting',   color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
   { id: 'rnr',                     icon: '📵', label: 'RNR',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
   { id: 'blocking_amount_received',icon: '💰', label: 'Blocking Amount',    color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
-  { id: 'converted',               icon: '🏆', label: 'Converted!',         color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
+  // 'Converted' is no longer chosen directly — a lead becomes Converted only
+  // once Full Amount Received and Agreement Signed have both been recorded.
   { id: 'not_interested',          icon: '✗',  label: 'Not Interested',     color: '#9B1C1C', bg: '#FEF2F2', border: '#FECACA' },
 ];
 

@@ -37,17 +37,25 @@ const apiLimiter = rateLimit({
   message: { message: 'Too many requests. Please slow down.' },
 });
 
+// Browser origins allowed to call the API and open a socket. The frontend is
+// being renamed from roadmate-crm to roadmate-team on Netlify; both are listed
+// so the rename can happen without downtime, and the old one can be dropped
+// once the new address is live. CLIENT_URL covers any address set per
+// environment without a code change.
+const ALLOWED_ORIGINS = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'https://roadmate-crm.netlify.app',
+  'https://roadmate-team.netlify.app',
+].filter(Boolean);
+
 // Middleware
 app.use(helmet());
 app.use('/api/', apiLimiter);
 app.use(cors({ 
-  origin: [
-    process.env.CLIENT_URL, 
-    'http://localhost:5173', 
-    'http://localhost:5175',
-    'http://localhost:5174',
-    'https://roadmate-crm.netlify.app'
-  ].filter(Boolean), 
+  origin: ALLOWED_ORIGINS,
   credentials: true 
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -56,13 +64,7 @@ app.use(express.json({ limit: '1mb' }));
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.CLIENT_URL, 
-      'http://localhost:5173', 
-      'http://localhost:5175',
-      'http://localhost:5174',
-      'https://roadmate-crm.netlify.app'
-    ].filter(Boolean),
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
     credentials: true
   }

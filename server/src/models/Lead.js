@@ -78,6 +78,7 @@ const leadSchema = new mongoose.Schema({
   outcome: { type: String },
   blockingDate: { type: Date },
   fullAmountReceivedDate: { type: Date },
+  agreementSignedAt: { type: Date },
   reasonForLost: { type: String },
 }, { timestamps: true });
 

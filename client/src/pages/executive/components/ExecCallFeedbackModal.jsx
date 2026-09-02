@@ -11,7 +11,8 @@ const OUTCOMES = [
   { id: 'schedule_virtual',        icon: '🎥', label: 'Virtual Meeting',       color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
   { id: 'direct_meeting',          icon: '🏢', label: 'Direct Meeting',        color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
   { id: 'rnr',                     icon: '📵', label: 'RNR',                   color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-  { id: 'converted',               icon: '🤝', label: 'Converted',             color: '#059669', bg: '#ECFDF5', border: '#6EE7B7' },
+  // 'Converted' is no longer chosen directly — a lead becomes Converted only
+  // once Full Amount Received and Agreement Signed have both been recorded.
   { id: 'blocking_amount_received', icon: '💰', label: 'Blocking Amount',       color: '#059669', bg: '#ECFDF5', border: '#6EE7B7' },
   { id: 'full_amount_received',    icon: '✅', label: 'Full Amount Received',   color: '#065F46', bg: '#D1FAE5', border: '#6EE7B7' },
   { id: 'agreement_signed',        icon: '📝', label: 'Agreement Signed',      color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
