@@ -474,6 +474,18 @@ const DashboardLayout = ({
                       <div className="p-4 border-b border-border flex items-center justify-between">
                         <h3 className="font-bold text-sm">Notifications</h3>
                         <div className="flex gap-2">
+                          {/* Only the founder and managers can message a team */}
+                          {['founder', 'state_manager', 'industry_manager'].includes(userRole) && (
+                            <button
+                              onClick={() => {
+                                setIsNotificationOpen(false);
+                                window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'send-notification' } }));
+                              }}
+                              className="text-[10px] font-bold text-[#0f766e] hover:underline"
+                            >
+                              Send to team
+                            </button>
+                          )}
                           {unreadCount > 0 && (
                             <button onClick={handleMarkAllRead} className="text-[10px] font-bold text-blue hover:underline">Mark all read</button>
                           )}
@@ -497,9 +509,10 @@ const DashboardLayout = ({
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shrink-0
                                   ${n.type?.includes('leave') ? 'bg-blue/10 text-blue' : 
                                     n.type?.includes('staff') ? 'bg-orange/10 text-orange' : 
+                                    n.type === 'document_uploaded' ? 'bg-purple/10 text-purple' :
                                     n.type?.includes('lead') ? 'bg-green/10 text-green' : 'bg-accent/10 text-accent'}
                                 `}>
-                                  {n.type?.includes('leave') ? '📅' : n.type?.includes('staff') ? '🤝' : n.type?.includes('lead') ? '👥' : '🔔'}
+                                  {n.type?.includes('leave') ? '📅' : n.type?.includes('staff') ? '🤝' : n.type === 'document_uploaded' ? '📄' : n.type === 'broadcast' ? '📣' : n.type?.includes('lead') ? '👥' : '🔔'}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs font-bold text-text-primary line-clamp-2">{n.message}</div>

@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSocket } from '../hooks/useSocket';
 import { useNotificationStore } from '../store/useNotificationStore';
 import { useToast } from '../context/ToastContext';
 
 const NotificationListener = () => {
   const socket = useSocket();
+  const queryClient = useQueryClient();
   const addNotification = useNotificationStore((state) => state.addNotification);
   const { addToast } = useToast();
 
@@ -67,6 +69,14 @@ const NotificationListener = () => {
       });
     };
 
+    // Anything written by notificationService arrives on this channel. The bell
+    // reads from the API, so refresh that query rather than trusting local state.
+    const handleServerNotification = (data) => {
+      addToast(data.message, data.type === 'broadcast' ? 'info' : 'success');
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    };
+
+    socket.on('notification', handleServerNotification);
     socket.on('attendance:updated', handleAttendanceUpdated);
     socket.on('lead:updated', handleLeadUpdated);
     socket.on('meeting:scheduled', handleMeetingScheduled);
@@ -75,6 +85,7 @@ const NotificationListener = () => {
     socket.on('leave:rejected', handleLeaveStatus);
 
     return () => {
+      socket.off('notification', handleServerNotification);
       socket.off('attendance:updated', handleAttendanceUpdated);
       socket.off('lead:updated', handleLeadUpdated);
       socket.off('meeting:scheduled', handleMeetingScheduled);
@@ -82,7 +93,7 @@ const NotificationListener = () => {
       socket.off('leave:approved', handleLeaveStatus);
       socket.off('leave:rejected', handleLeaveStatus);
     };
-  }, [socket, addNotification, addToast]);
+  }, [socket, addNotification, addToast, queryClient]);
 
   return null; // This component doesn't render anything
 };

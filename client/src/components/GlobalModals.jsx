@@ -15,6 +15,7 @@ import LeaveHistoryModal from './modals/LeaveHistoryModal';
 import UpdateLeadModal from './modals/UpdateLeadModal';
 import AllocateLeadModal from './modals/AllocateLeadModal';
 import LeadHistoryModal from './modals/LeadHistoryModal';
+import SendNotificationModal from './modals/SendNotificationModal';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 const toDateInputValue = (date = new Date()) => {
@@ -1729,6 +1730,10 @@ const GlobalModals = () => {
       <ChangePasswordModal 
         isOpen={activeModal === 'change-password'} 
         onClose={handleCloseModal} 
+      />
+      <SendNotificationModal
+        isOpen={activeModal === 'send-notification'}
+        onClose={handleCloseModal}
       />
       <LeaveHistoryModal 
         isOpen={activeModal === 'leave-history'} 
