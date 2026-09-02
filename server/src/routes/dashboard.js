@@ -1818,7 +1818,7 @@ router.get('/founder', async (req, res) => {
         // buckets always equals 'All' — see constants/leadStatusGroups.js.
         const GROUP_COLORS = {
             New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
-            Payment: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
+            Blocking: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
         };
         const pipelineStats = [
             { label: 'All', count: allPipelineTotal, color: 'blue' },
@@ -1828,6 +1828,20 @@ router.get('/founder', async (req, res) => {
                 color: GROUP_COLORS[label] || 'gray'
             }))
         ];
+
+        // Hot/Warm/Cold split shown beside the pipeline. Priority is a different axis
+        // from status, so it is returned separately — the status buckets above must keep
+        // summing to 'All', and mixing priorities in would break that.
+        const priorityStatsRaw = await Lead.aggregate([
+            { $group: { _id: '$priority', count: { $sum: 1 } } }
+        ]);
+        const PRIORITY_COLORS = { hot: 'red', warm: 'amber', cold: 'blue' };
+        const priorityStats = ['hot', 'warm', 'cold'].map(p => ({
+            label: p.charAt(0).toUpperCase() + p.slice(1),
+            priority: p,
+            count: priorityStatsRaw.find(r => r._id === p)?.count || 0,
+            color: PRIORITY_COLORS[p]
+        }));
 
         // Optimized Performance Lists (Bulk Data Fetching)
         const allPerformanceUsers = await User.find({ role: { $in: ['industry_manager', 'executive'] }, isActive: true });
@@ -1891,6 +1905,7 @@ router.get('/founder', async (req, res) => {
                 leadId: l.leadId || `RM-${l._id.toString().slice(-4).toUpperCase()}`,
                 name: l.name,
                 company: l.company || l.name,
+                phone: l.phone,
                 state: l.state,
                 assignedTo: l.owner?.name || 'Unassigned',
                 priority: l.priority,
@@ -1903,6 +1918,7 @@ router.get('/founder', async (req, res) => {
         res.json({
             stats,
             pipelineStats,
+            priorityStats,
             expectedOnboardingList,
             industryManagersPerformance,
             executivesPerformance,

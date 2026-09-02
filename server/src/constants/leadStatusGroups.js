@@ -15,7 +15,7 @@ const LEAD_STATUS_GROUPS = {
   'Follow-up': ['called', 'followup'],
   Meeting:    ['meeting_virtual', 'meeting_direct'],
   Converted:  ['converted'],
-  Payment:    ['blocking_amount_received', 'full_amount_received', 'agreement_signed'],
+  Blocking:   ['blocking_amount_received', 'full_amount_received', 'agreement_signed'],
   Lost:       ['lost', 'not_interested'],
   RNR:        ['rnr'],
   Escalated:  ['escalated'],
