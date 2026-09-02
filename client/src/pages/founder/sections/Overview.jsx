@@ -478,6 +478,7 @@ const Overview = () => {
                   <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.expectedDate}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => openModal({ type: 'view-lead', leadId: lead._id })}>View</Button>
                       <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm" onClick={() => openModal({ type: 'allocate-lead', leadData: lead })}>Allocate</Button>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => openModal({ type: 'update-lead', leadData: lead })}>Edit</Button>
                     </div>

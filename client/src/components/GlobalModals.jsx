@@ -16,6 +16,7 @@ import UpdateLeadModal from './modals/UpdateLeadModal';
 import AllocateLeadModal from './modals/AllocateLeadModal';
 import LeadHistoryModal from './modals/LeadHistoryModal';
 import SendNotificationModal from './modals/SendNotificationModal';
+import ViewLeadModal from './modals/ViewLeadModal';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 const toDateInputValue = (date = new Date()) => {
@@ -43,6 +44,7 @@ const GlobalModals = () => {
   const [loading, setLoading] = useState(false);
   const [leaveHistoryUser, setLeaveHistoryUser] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [viewLeadId, setViewLeadId] = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null); // existing lead when a duplicate is detected
   
   const getLeadFormDefaults = () => ({
@@ -322,6 +324,8 @@ const GlobalModals = () => {
         });
       } else if (targetType === 'view-docs') {
         setViewDocsUser(data.user);
+      } else if (targetType === 'view-lead') {
+        setViewLeadId(data.leadId || data.leadData?._id || null);
       }
     } else {
       targetType = e.detail;
@@ -1734,6 +1738,15 @@ const GlobalModals = () => {
       <SendNotificationModal
         isOpen={activeModal === 'send-notification'}
         onClose={handleCloseModal}
+      />
+      <ViewLeadModal
+        isOpen={activeModal === 'view-lead'}
+        onClose={handleCloseModal}
+        leadId={viewLeadId}
+        onEdit={(lead) => {
+          setSelectedLead(lead);
+          setActiveModal('update-lead');
+        }}
       />
       <LeaveHistoryModal 
         isOpen={activeModal === 'leave-history'} 

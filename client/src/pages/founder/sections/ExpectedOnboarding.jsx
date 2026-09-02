@@ -264,6 +264,7 @@ const ExpectedOnboarding = () => {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('view-lead', { leadId: l._id })}>View</button>
                       <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.company || l.name })}>History</button>
                       <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
                       <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>
