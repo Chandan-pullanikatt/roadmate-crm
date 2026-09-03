@@ -3,100 +3,130 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const { generatePresignedDownload } = require('../config/r2');
 const Sop = require('../models/Sop');
+const teamService = require('../services/teamService');
+const notificationService = require('../services/notificationService');
 
 router.use(verifyToken);
 
+const VALID_ROLES = ['industry_manager', 'executive'];
+const ALLOWED_TYPES = ['pdf', 'docx', 'doc', 'txt'];
+
 /**
  * POST /api/sop
- * Founder uploads (or replaces) an SOP for a given role.
- * Body: { role, fileKey, fileName, fileType }
+ * Founder publishes a document to a role's Documents tab, and everyone in that
+ * role is notified. Uploading no longer replaces what is already there — the
+ * tab holds many documents.
+ * Body: { role, fileKey, fileName, fileType, title? }
  */
 router.post('/', async (req, res) => {
   try {
     if (req.user.role !== 'founder') {
-      return res.status(403).json({ message: 'Only founders can upload SOPs' });
+      return res.status(403).json({ message: 'Only founders can upload documents' });
     }
 
-    const { role, fileKey, fileName, fileType } = req.body;
+    const { role, fileKey, fileName, fileType, title } = req.body;
 
     if (!role || !fileKey || !fileName || !fileType) {
       return res.status(400).json({ message: 'role, fileKey, fileName and fileType are required' });
     }
-
-    if (!['industry_manager', 'executive'].includes(role)) {
+    if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ message: 'role must be industry_manager or executive' });
     }
-
-    const allowed = ['pdf', 'docx', 'doc', 'txt'];
-    if (!allowed.includes(fileType.toLowerCase())) {
+    if (!ALLOWED_TYPES.includes(String(fileType).toLowerCase())) {
       return res.status(400).json({ message: 'fileType must be pdf, docx, doc or txt' });
     }
 
-    // Upsert — one document per role
-    const sop = await Sop.findOneAndUpdate(
-      { role },
-      {
-        fileKey,
-        fileName,
-        fileType: fileType.toLowerCase(),
-        uploadedBy: req.user._id,
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    const doc = await Sop.create({
+      role,
+      title: (title || '').trim() || fileName,
+      fileKey,
+      fileName,
+      fileType: String(fileType).toLowerCase(),
+      uploadedBy: req.user._id,
+    });
 
-    res.json(sop);
+    // Only the role the document is for hears about it.
+    const recipientIds = await teamService.getTeamRecipientIds(req.user, { role });
+    await notificationService.onDocumentUploaded({
+      userIds: recipientIds,
+      uploaderName: req.user.name,
+      uploaderRole: req.user.role,
+      documentTitle: doc.title,
+      documentId: doc._id,
+      io: req.app.get('io'),
+    });
+
+    res.status(201).json({ ...doc.toObject(), notified: recipientIds.length });
   } catch (err) {
-    console.error('SOP upload error:', err);
+    console.error('Document upload error:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
 /**
  * GET /api/sop?role=industry_manager|executive
- * Returns the SOP metadata + a short-lived presigned download URL.
- * Accessible by all authenticated users.
+ * Every document published for that role, newest first, each with a
+ * short-lived presigned view URL. Accessible to all authenticated users.
  */
 router.get('/', async (req, res) => {
   try {
     const { role } = req.query;
-
-    if (!role || !['industry_manager', 'executive'].includes(role)) {
+    if (!role || !VALID_ROLES.includes(role)) {
       return res.status(400).json({ message: 'Valid role query param required' });
     }
 
-    const sop = await Sop.findOne({ role });
-    if (!sop) {
-      return res.status(404).json({ message: 'No SOP uploaded yet for this role' });
-    }
+    const docs = await Sop.find({ role })
+      .sort({ createdAt: -1 })
+      .populate('uploadedBy', 'name role');
 
-    // Generate a 1-hour presigned URL for viewing
-    const viewUrl = await generatePresignedDownload(sop.fileKey, 3600, 'inline');
+    const documents = await Promise.all(docs.map(async (doc) => ({
+      _id:        doc._id,
+      role:       doc.role,
+      title:      doc.title || doc.fileName,
+      fileName:   doc.fileName,
+      fileType:   doc.fileType,
+      uploadedBy: doc.uploadedBy?.name || 'Founder',
+      viewUrl:    await generatePresignedDownload(doc.fileKey, 3600, 'inline'),
+      createdAt:  doc.createdAt,
+      updatedAt:  doc.updatedAt,
+    })));
 
-    res.json({
-      _id:        sop._id,
-      role:       sop.role,
-      fileName:   sop.fileName,
-      fileType:   sop.fileType,
-      viewUrl,
-      updatedAt:  sop.updatedAt,
-    });
+    res.json({ documents });
   } catch (err) {
-    console.error('SOP fetch error:', err);
+    console.error('Document fetch error:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
 /**
  * GET /api/sop/all
- * Founder-only: returns both SOPs (no presigned URL, for the upload management page).
+ * Founder-only: every document across roles, for the management page.
  */
 router.get('/all', async (req, res) => {
   try {
     if (req.user.role !== 'founder') {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const sops = await Sop.find().populate('uploadedBy', 'name');
+    const sops = await Sop.find().sort({ createdAt: -1 }).populate('uploadedBy', 'name');
     res.json(sops);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * DELETE /api/sop/:id
+ * Founder-only. Removes the record; the file itself is left in storage so a
+ * mistaken delete does not destroy the only copy.
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    if (req.user.role !== 'founder') {
+      return res.status(403).json({ message: 'Only founders can delete documents' });
+    }
+    const deleted = await Sop.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Document not found' });
+    res.json({ message: 'Document removed' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

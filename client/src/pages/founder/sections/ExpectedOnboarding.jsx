@@ -6,8 +6,13 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
 import { exportToCSV } from '../../../utils/exportUtils';
 
+// This page is the drill-down behind the Founder's "Expected Onboarding" card, so it must
+// mirror that number: open leads tagged Hot or Warm, split into a tab each. It used to load
+// the entire lead list, which is why the drill-down never matched the card.
+const CLOSED_STATUSES = 'converted,lost,not_interested';
+
 const ExpectedOnboarding = () => {
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('Hot');
   const [filterState, setFilterState] = useState('All');
   const [filterCountry, setFilterCountry] = useState('All');
   const [listSearch, setListSearch] = useState('');
@@ -39,9 +44,10 @@ const ExpectedOnboarding = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'global', activeTab, filterState, filterCountry, debouncedListSearch],
+    queryKey: ['leads', 'expected-onboarding', activeTab, filterState, filterCountry, debouncedListSearch],
     queryFn: () => leadsApi.getLeads({
-      status: activeTab === 'All' ? undefined : activeTab.toLowerCase().replace(' ', '_'),
+      priority: activeTab.toLowerCase(),
+      excludeStatuses: CLOSED_STATUSES,
       state: filterState === 'All' ? undefined : filterState,
       country: filterCountry === 'All' ? undefined : filterCountry,
       search: debouncedListSearch,
@@ -68,10 +74,13 @@ const ExpectedOnboarding = () => {
       'State': l.state || 'N/A',
       'Follow-up Date': l.followUpDate ? new Date(l.followUpDate).toLocaleDateString() : 'N/A'
     }));
-    exportToCSV(dataToExport, 'Expected_Onboarding_Leads');
+    exportToCSV(dataToExport, `Expected_Onboarding_${activeTab}_Leads`);
   };
 
-  const pipelineStats = dashData?.pipelineStats || [];
+  const tabs = [
+    { label: 'Hot', count: dashData?.stats?.expectedOnboardingHot ?? 0 },
+    { label: 'Warm', count: dashData?.stats?.expectedOnboardingWarm ?? 0 }
+  ];
 
   // Local filtering for Header Search
   const filteredLeads = useMemo(() => {
@@ -121,8 +130,8 @@ const ExpectedOnboarding = () => {
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-border">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">Lead Management</h1>
-            <p className="text-sm text-text-muted mt-1">All leads - Filter, allocate, track, escalate</p>
+            <h1 className="text-2xl font-bold text-text-primary">Expected Onboarding</h1>
+            <p className="text-sm text-text-muted mt-1">Open Hot &amp; Warm leads - Filter, allocate, track, escalate</p>
           </div>
           <div className="flex items-center gap-3">
               <div className="relative">
@@ -147,8 +156,8 @@ const ExpectedOnboarding = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-text-primary">Lead Management</h2>
-              <p className="text-xs text-text-muted mt-0.5">All leads across all states · Filter, allocate, track</p>
+              <h2 className="text-lg font-bold text-text-primary">Expected Onboarding Leads</h2>
+              <p className="text-xs text-text-muted mt-0.5">Hot &amp; Warm leads still open, across all states</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="bg-white" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
@@ -157,10 +166,10 @@ const ExpectedOnboarding = () => {
             </div>
           </div>
 
-          {/* TABS */}
+          {/* TABS — Hot / Warm only, matching the Expected Onboarding card */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {pipelineStats.map((tab) => (
-              <button 
+            {tabs.map((tab) => (
+              <button
                 key={tab.label}
                 onClick={() => setActiveTab(tab.label)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm flex items-center gap-2 ${activeTab === tab.label ? 'bg-[#f0fdf4] text-[#166534] border-[#dcfce7]' : 'bg-white text-text-muted border-border hover:border-blue/30'}`}
@@ -175,7 +184,7 @@ const ExpectedOnboarding = () => {
       {/* TABLE SECTION */}
       <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
         <div className="p-5 border-b border-border flex justify-between items-center bg-white/50 backdrop-blur-sm sticky top-0 z-10">
-          <h3 className="font-bold text-text-primary">Lead List</h3>
+          <h3 className="font-bold text-text-primary">{activeTab} Leads</h3>
           <div className="flex gap-3">
              <div className="relative">
                 <input 
@@ -255,6 +264,7 @@ const ExpectedOnboarding = () => {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('view-lead', { leadId: l._id })}>View</button>
                       <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.company || l.name })}>History</button>
                       <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
                       <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>

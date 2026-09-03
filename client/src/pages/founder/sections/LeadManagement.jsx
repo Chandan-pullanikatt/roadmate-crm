@@ -20,6 +20,11 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     return params.get('owner') || '';
   });
+  // Hot/Warm/Cold cards on the Founder pipeline link here with ?priority=
+  const [priorityFilter, setPriorityFilter] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('priority') || '';
+  });
   const [filterState, setFilterState] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -39,6 +44,7 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     setActiveTab(params.get('status') || 'all');
     setOwnerFilter(params.get('owner') || '');
+    setPriorityFilter(params.get('priority') || '');
     setPage(1);
   }, [location.search]);
 
@@ -49,9 +55,10 @@ const LeadManagement = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'global', activeTab, filterState, ownerFilter, debouncedSearch, page],
+    queryKey: ['leads', 'global', activeTab, filterState, ownerFilter, priorityFilter, debouncedSearch, page],
     queryFn: () => leadsApi.getLeads({ 
       status: activeTab === 'all' ? undefined : activeTab, 
+      priority: priorityFilter || undefined,
       owner: ownerFilter || undefined,
       state: filterState === 'All' ? undefined : filterState,
       search: debouncedSearch,
@@ -73,6 +80,7 @@ const LeadManagement = () => {
     try {
       const res = await leadsApi.getLeads({
         status: activeTab === 'all' ? undefined : activeTab,
+        priority: priorityFilter || undefined,
         owner: ownerFilter || undefined,
         state: filterState === 'All' ? undefined : filterState,
         search: debouncedSearch,

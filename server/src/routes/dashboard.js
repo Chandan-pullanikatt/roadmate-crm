@@ -1516,18 +1516,48 @@ router.get('/founder', async (req, res) => {
         const totalLeads = await Lead.countDocuments({ createdAt: { $gte: periodStart, $lte: periodEnd } });
         const leadsToday = await Lead.countDocuments({ createdAt: { $gte: todayStart } });
 
+        // "Expected onboarding" = leads the team actually expects to close, i.e. open
+        // leads the executive has tagged Hot or Warm. Cold/untagged leads are still open
+        // pipeline but nobody is forecasting them, so counting them here overstated the
+        // number badly (it used to be every open lead created in the period).
         const activeLeadFilter = { status: { $nin: ['converted', 'lost', 'not_interested'] } };
         const periodLeadFilter = { createdAt: { $gte: periodStart, $lte: periodEnd } };
-        const onboardingFilter = { ...activeLeadFilter, ...periodLeadFilter };
-        const expectedOnboarding = await Lead.countDocuments(onboardingFilter);
+        const onboardingFilter = {
+            ...activeLeadFilter,
+            ...periodLeadFilter,
+            priority: { $in: ['hot', 'warm'] }
+        };
+        const [expectedOnboardingHot, expectedOnboardingWarm] = await Promise.all([
+            Lead.countDocuments({ ...onboardingFilter, priority: 'hot' }),
+            Lead.countDocuments({ ...onboardingFilter, priority: 'warm' })
+        ]);
+        const expectedOnboarding = expectedOnboardingHot + expectedOnboardingWarm;
 
         const totalConversions = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } });
         const convertedThisMonth = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: monthStart } });
 
-        const totalRevenue = await LeadActivity.aggregate([
-            { $match: { action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } } },
-            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-        ]).then(res => res[0]?.total || 0);
+        // Revenue was reading zero on this card: it only summed metadata.revenue on
+        // 'converted' activities. Money booked through the payment stages logs its own
+        // action with empty metadata, and an amount typed straight onto the lead lives in
+        // actualRevenue — both were invisible here. Count every revenue-bearing action and
+        // fall back to the lead's own figure, then collapse to one amount per lead so a
+        // lead that walks converted -> blocking -> full amount isn't counted three times.
+        const REVENUE_ACTIONS = ['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
+        const sumRevenue = (createdAt) => LeadActivity.aggregate([
+            { $match: { action: { $in: REVENUE_ACTIONS }, createdAt } },
+            { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'leadDetails' } },
+            { $unwind: '$leadDetails' },
+            // Take the larger of the activity's own figure and the lead's actualRevenue —
+            // converting without entering an amount writes revenue:0, so a plain $ifNull
+            // would never fall through to a figure added on the lead afterwards.
+            { $group: { _id: '$lead', revenue: { $max: { $max: [
+                { $ifNull: ['$metadata.revenue', 0] },
+                { $ifNull: ['$leadDetails.actualRevenue', 0] }
+            ] } } } },
+            { $group: { _id: null, total: { $sum: '$revenue' } } }
+        ]).then(r => r[0]?.total || 0);
+
+        const totalRevenue = await sumRevenue({ $gte: periodStart, $lte: periodEnd });
 
         const totalCalls = await LeadActivity.countDocuments({ action: 'called', createdAt: { $gte: periodStart, $lte: periodEnd } });
         const reachRate = totalLeads ? (totalCalls / totalLeads) * 100 : 0;
@@ -1589,10 +1619,7 @@ router.get('/founder', async (req, res) => {
         // Revenue growth vs previous month
         const prevMonthStartF = new Date(monthStart);
         prevMonthStartF.setMonth(prevMonthStartF.getMonth() - 1);
-        const prevMonthRevenueF = await LeadActivity.aggregate([
-            { $match: { action: 'converted', createdAt: { $gte: prevMonthStartF, $lt: monthStart } } },
-            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
-        ]).then(r => r[0]?.total || 0);
+        const prevMonthRevenueF = await sumRevenue({ $gte: prevMonthStartF, $lt: monthStart });
         const revGrowthF = prevMonthRevenueF > 0
             ? Math.round(((totalRevenue - prevMonthRevenueF) / prevMonthRevenueF) * 100 * 10) / 10
             : (totalRevenue > 0 ? 100 : 0);
@@ -1601,6 +1628,8 @@ router.get('/founder', async (req, res) => {
             totalLeads,
             leadsToday,
             expectedOnboarding,
+            expectedOnboardingHot,
+            expectedOnboardingWarm,
             converted: totalConversions,
             convertedThisMonth,
             revenue: totalRevenue,
@@ -1789,7 +1818,7 @@ router.get('/founder', async (req, res) => {
         // buckets always equals 'All' — see constants/leadStatusGroups.js.
         const GROUP_COLORS = {
             New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
-            Payment: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
+            Blocking: 'amber', Closing: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
         };
         const pipelineStats = [
             { label: 'All', count: allPipelineTotal, color: 'blue' },
@@ -1799,6 +1828,20 @@ router.get('/founder', async (req, res) => {
                 color: GROUP_COLORS[label] || 'gray'
             }))
         ];
+
+        // Hot/Warm/Cold split shown beside the pipeline. Priority is a different axis
+        // from status, so it is returned separately — the status buckets above must keep
+        // summing to 'All', and mixing priorities in would break that.
+        const priorityStatsRaw = await Lead.aggregate([
+            { $group: { _id: '$priority', count: { $sum: 1 } } }
+        ]);
+        const PRIORITY_COLORS = { hot: 'red', warm: 'amber', cold: 'blue' };
+        const priorityStats = ['hot', 'warm', 'cold'].map(p => ({
+            label: p.charAt(0).toUpperCase() + p.slice(1),
+            priority: p,
+            count: priorityStatsRaw.find(r => r._id === p)?.count || 0,
+            color: PRIORITY_COLORS[p]
+        }));
 
         // Optimized Performance Lists (Bulk Data Fetching)
         const allPerformanceUsers = await User.find({ role: { $in: ['industry_manager', 'executive'] }, isActive: true });
@@ -1862,6 +1905,7 @@ router.get('/founder', async (req, res) => {
                 leadId: l.leadId || `RM-${l._id.toString().slice(-4).toUpperCase()}`,
                 name: l.name,
                 company: l.company || l.name,
+                phone: l.phone,
                 state: l.state,
                 assignedTo: l.owner?.name || 'Unassigned',
                 priority: l.priority,
@@ -1874,6 +1918,7 @@ router.get('/founder', async (req, res) => {
         res.json({
             stats,
             pipelineStats,
+            priorityStats,
             expectedOnboardingList,
             industryManagersPerformance,
             executivesPerformance,

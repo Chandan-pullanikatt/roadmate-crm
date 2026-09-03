@@ -14,7 +14,8 @@ const STEPS = [
 
 const OUTCOMES = [
   { id: 'followup', icon: '📅', label: 'Follow Up', sub: 'Schedule next call', color: '#3B82F6', bg: '#EFF6FF' },
-  { id: 'converted', icon: '🤝', label: 'Converted', sub: 'Deal closed!', color: '#059669', bg: '#ECFDF5' },
+  // 'Converted' is no longer chosen directly — a lead becomes Converted only
+  // once Full Amount Received and Agreement Signed have both been recorded.
   { id: 'blocking_amount_received', icon: '💰', label: 'Blocking Amount', sub: 'Partial payment received', color: '#059669', bg: '#ECFDF5' },
   { id: 'full_amount_received', icon: '✅', label: 'Full Amount Received', sub: 'Complete payment collected', color: '#065F46', bg: '#D1FAE5' },
   { id: 'agreement_signed', icon: '📝', label: 'Agreement Signed', sub: 'Contract completed', color: '#7C3AED', bg: '#F5F3FF' },

@@ -99,9 +99,9 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           ]
         },
         {
-          label: 'SOP',
+          label: 'Documents',
           items: [
-            { label: 'Manage SOPs', path: '/dashboard?page=sop', icon: 'reports' }
+            { label: 'Manage Documents', path: '/dashboard?page=sop', icon: 'reports' }
           ]
         }
       ]
@@ -160,7 +160,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Lead Management',  path: '/dashboard?page=my-leads',       icon: 'leads' },
             { label: 'My Performance',   path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=my-attendance',  icon: 'attendance' },
-            { label: 'SOP',              path: '/dashboard?page=my-sop',         icon: 'reports' },
+            { label: 'Documents',        path: '/dashboard?page=my-sop',         icon: 'reports' },
           ]
         },
         {
@@ -171,7 +171,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Staff Performance', path: '/dashboard?page=performance',   icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=attendance',     icon: 'attendance' },
             { label: 'Staff Documents',  path: '/dashboard?page=staff-docs',     icon: 'reports' },
-            { label: 'SOP',              path: '/dashboard?page=team-sop',       icon: 'reports' },
+            { label: 'Documents',        path: '/dashboard?page=team-sop',       icon: 'reports' },
           ]
         },
         {
@@ -213,6 +213,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'RESOURCES',
           items: [
             { label: 'Company Policies', path: '/dashboard?page=policies', icon: 'policies' },
+            { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' },
             { label: 'Hierarchy Status', path: '/dashboard?page=hierarchy', icon: 'hierarchy' }
           ]
         }

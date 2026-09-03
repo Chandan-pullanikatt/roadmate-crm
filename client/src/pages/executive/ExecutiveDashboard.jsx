@@ -10,6 +10,7 @@ import Performance from './components/Performance';
 import HierarchyStatus from './components/HierarchyStatus';
 import Earnings from './components/Earnings';
 import CompanyPolicies from './components/CompanyPolicies';
+import SopViewer from '../industry-manager/components/SopViewer';
 
 const ExecutiveDashboard = () => {
   const [searchParams] = useSearchParams();
@@ -28,6 +29,7 @@ const ExecutiveDashboard = () => {
       case 'hierarchy': return <HierarchyStatus />;
       case 'earnings': return <Earnings />;
       case 'policies': return <CompanyPolicies />;
+      case 'documents': return <SopViewer role="executive" />;
       default: return <MyWorkToday />;
     }
   };

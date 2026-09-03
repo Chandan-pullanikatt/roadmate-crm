@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Modal } from '../ui';
 import { leadsApi } from '../../api/leadsApi';
 
-const ACTION_META = {
+export const ACTION_META = {
   created:      { icon: '🌱', label: 'Lead Created',         color: '#059669' },
   called:       { icon: '📞', label: 'Called',               color: '#3B82F6' },
   rnr:          { icon: '📵', label: 'RNR / No Answer',      color: '#D97706' },

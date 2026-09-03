@@ -43,6 +43,67 @@ const notificationService = {
   },
 
   /**
+   * Fan a single message out to many users at once.
+   * insertMany writes the batch in one round trip, then each recipient gets
+   * their own socket push so anyone online sees it without a refresh.
+   */
+  async createMany({ userIds, message, type = 'general', meta = {}, io = null }) {
+    if (!userIds || !userIds.length) return [];
+
+    try {
+      const docs = await Notification.insertMany(
+        userIds.map(userId => ({ userId, message, type, meta }))
+      );
+
+      if (io) {
+        docs.forEach(doc => {
+          io.to(doc.userId.toString()).emit('notification', {
+            _id: doc._id,
+            message: doc.message,
+            type: doc.type,
+            read: false,
+            createdAt: doc.createdAt,
+            meta,
+          });
+        });
+      }
+
+      return docs;
+    } catch (err) {
+      console.error('[NotificationService] Failed to create notifications:', err.message);
+      return [];
+    }
+  },
+
+  /**
+   * Notify a team that a document was published to their Documents tab.
+   * Message names the uploader, e.g. "Founder added a new document".
+   */
+  async onDocumentUploaded({ userIds, uploaderName, uploaderRole, documentTitle, documentId, io }) {
+    const who = uploaderRole === 'founder' ? 'Founder' : uploaderName;
+    return this.createMany({
+      userIds,
+      message: `${who} added a new document: "${documentTitle}".`,
+      type: 'document_uploaded',
+      meta: { documentId, documentTitle, uploaderName, uploaderRole },
+      io,
+    });
+  },
+
+  /**
+   * A message the founder or a manager sends to their own team.
+   */
+  async onBroadcast({ userIds, message, senderName, senderRole, io }) {
+    return this.createMany({
+      userIds,
+      message,
+      type: 'broadcast',
+      meta: { senderName, senderRole },
+      io,
+    });
+  },
+
+  /**
    * Notify when a lead is allocated to an executive
    */
   async onLeadAllocated({ executiveId, leadName, allocatedByName, io }) {

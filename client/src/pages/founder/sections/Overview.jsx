@@ -111,6 +111,7 @@ const Overview = () => {
 
   const stats = dashData?.stats || {};
   const pipelineStats = dashData?.pipelineStats || [];
+  const priorityStats = dashData?.priorityStats || [];
   const expectedOnboardingList = dashData?.expectedOnboardingList || [];
   const managers = dashData?.stateManagers || [];
   const pendingLeaves = dashData?.pendingLeaves || [];
@@ -301,10 +302,10 @@ const Overview = () => {
         <div
           className="stat-card cursor-pointer hover:shadow-md transition-shadow"
           style={{ borderTop: '4px solid #ea580c' }}
-          onClick={() => handleStatDrillDown('executive', 'Sales Staff (District Executives)')}
-          title="Click to see all District Executives"
+          onClick={() => handleStatDrillDown('executive', 'District Managers')}
+          title="Click to see all District Managers"
         >
-          <div className="stat-label mb-2 mt-1">Sales Staff</div>
+          <div className="stat-label mb-2 mt-1">District Managers</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1 hover:text-orange hover:underline underline-offset-2 transition-colors w-fit">
             {stats.salesStaff?.total || 0}
           </div>
@@ -404,10 +405,33 @@ const Overview = () => {
         })}
       </div>
 
+      {/* Lead temperature — a separate axis from the status buckets above */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {priorityStats.map((p) => {
+          const tone = p.priority === 'hot'
+            ? { text: 'text-[#dc2626]', bar: '#dc2626', bg: 'bg-[#fef2f2]', border: 'border-[#fecaca]' }
+            : p.priority === 'warm'
+              ? { text: 'text-[#d97706]', bar: '#d97706', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]' }
+              : { text: 'text-[#3b82f6]', bar: '#3b82f6', bg: 'bg-white', border: 'border-border' };
+          return (
+            <div
+              key={p.priority}
+              className={`rounded-xl border ${tone.border} ${tone.bg} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
+              onClick={() => navigate(`/dashboard?page=leads&priority=${p.priority}`)}
+              title={`View all ${p.label} leads`}
+            >
+              <div className={`text-[28px] font-bold font-mono mb-1 ${tone.text}`}>{p.count}</div>
+              <div className="text-[12px] text-text-muted font-medium mb-5">{p.label} Leads</div>
+              <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: tone.bar }}></div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Hot leads expected to convert this week {"\u00B7"} Requires allocation</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Hot &amp; Warm leads expected to convert {"\u00B7"} Requires allocation</div>
         </div>
         <div className="flex items-center gap-2">
           {/* Fix: Expected Onboarding "View All" \u2014 shown when item count \u2265 5 */}
@@ -439,7 +463,7 @@ const Overview = () => {
                 <tr key={idx} className="hover:bg-surface2/30 transition-colors">
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-text-primary">{lead.name}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5">{lead.name} Contact</div>
+                    <div className="text-[11px] text-text-muted mt-0.5">{lead.phone || 'No contact number'}</div>
                   </td>
                   <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.company}</td>
                   <td className="p-4">
@@ -454,6 +478,7 @@ const Overview = () => {
                   <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.expectedDate}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => openModal({ type: 'view-lead', leadId: lead._id })}>View</Button>
                       <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm" onClick={() => openModal({ type: 'allocate-lead', leadData: lead })}>Allocate</Button>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => openModal({ type: 'update-lead', leadData: lead })}>Edit</Button>
                     </div>
