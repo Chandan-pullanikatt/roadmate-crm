@@ -49,8 +49,11 @@ const LeadManagement = () => {
   }, [location.search]);
 
   const { data: counts } = useQuery({
-    queryKey: ['leads', 'counts', ownerFilter],
-    queryFn: () => leadsApi.getCounts({ owner: ownerFilter || undefined }).then(res => res.data),
+    queryKey: ['leads', 'counts', ownerFilter, priorityFilter],
+    queryFn: () => leadsApi.getCounts({
+      owner: ownerFilter || undefined,
+      priority: priorityFilter || undefined,
+    }).then(res => res.data),
     staleTime: 5 * 60 * 1000
   });
 
@@ -147,8 +150,18 @@ const LeadManagement = () => {
 
       <div className="flex justify-between items-end mb-6">
         <div>
-          <div className="text-[20px] font-bold text-text-primary">{ownerFilter === 'unassigned' ? 'Unallocated Lead Management' : 'Global Lead Management'}</div>
-          <div className="text-[12px] text-text-muted mt-1">Cross-state lead tracking · Allocation control · Lifecycle monitoring</div>
+          <div className="text-[20px] font-bold text-text-primary">
+            {ownerFilter === 'unassigned'
+              ? 'Unallocated Lead Management'
+              : priorityFilter
+                ? `${priorityFilter.charAt(0).toUpperCase()}${priorityFilter.slice(1)} Leads`
+                : 'Global Lead Management'}
+          </div>
+          <div className="text-[12px] text-text-muted mt-1">
+            {priorityFilter
+              ? `Showing ${priorityFilter} leads only · Allocation control · Lifecycle monitoring`
+              : 'Cross-state lead tracking · Allocation control · Lifecycle monitoring'}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="bg-white border-border" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
@@ -171,6 +184,36 @@ const LeadManagement = () => {
           </Button>
           <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('add-lead')}>+ Add Lead</Button>
         </div>
+      </div>
+
+      {/* Priority filter — the Hot/Warm/Cold cards on the summary link straight in
+          here, and without this row there was no sign the list was filtered. */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted mr-1">Priority</span>
+        {[
+          { id: '', label: 'All' },
+          { id: 'hot', label: 'Hot' },
+          { id: 'warm', label: 'Warm' },
+          { id: 'cold', label: 'Cold' },
+        ].map(p => (
+          <button
+            key={p.id || 'all'}
+            onClick={() => { setPriorityFilter(p.id); setPage(1); }}
+            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border transition-all ${
+              priorityFilter === p.id
+                ? p.id === 'hot'
+                  ? 'bg-[#fef2f2] text-[#dc2626] border-[#fecaca]'
+                  : p.id === 'warm'
+                    ? 'bg-[#fffbeb] text-[#d97706] border-[#fde68a]'
+                    : p.id === 'cold'
+                      ? 'bg-[#eff6ff] text-[#3b82f6] border-[#bfdbfe]'
+                      : 'bg-[#0f766e] text-white border-[#0f766e]'
+                : 'bg-white text-text-muted border-border hover:border-blue/30'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-8">

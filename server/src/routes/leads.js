@@ -377,7 +377,7 @@ router.get('/queue', async (req, res) => {
 router.get('/counts', async (req, res) => {
   try {
     const query = {};
-    const { owner } = req.query;
+    const { owner, priority } = req.query;
 
     // These counts run through aggregation pipelines, which (unlike .find/.countDocuments)
     // do NOT auto-cast string ids to ObjectId. Cast every owner id explicitly or $match
@@ -390,6 +390,10 @@ router.get('/counts', async (req, res) => {
     // not the lead's industry/state field. Founder is unrestricted.
     const scopeIds = await getScopeOwnerIds(req.user);
     applyLeadScope(query, scopeIds, req.user._id, owner);
+
+    // When the list is filtered to one priority, the status tab counts must be
+    // filtered the same way or the numbers contradict the rows underneath them.
+    if (priority) query.priority = priority;
 
     const [statusCounts, priorityCounts, total] = await Promise.all([
       Lead.aggregate([
