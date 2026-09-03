@@ -79,7 +79,11 @@ const DocumentCard = ({ config, documents, onChanged }) => {
         });
         succeeded++;
       } catch (err) {
-        failed.push(file.name);
+        // Surface the server's reason — a bare "Failed to upload" hid a
+        // duplicate-key error from the old one-document-per-role index.
+        const reason = err?.response?.data?.message || err?.message || 'unknown error';
+        failed.push(`${file.name} (${reason})`);
+        console.error('Document upload failed:', file.name, err?.response?.data || err);
       }
     }
 
@@ -90,7 +94,7 @@ const DocumentCard = ({ config, documents, onChanged }) => {
       );
       onChanged();
     }
-    if (failed.length) addToast(`Failed to upload: ${failed.join(', ')}`, 'error');
+    if (failed.length) addToast(`Failed to upload — ${failed.join('; ')}`, 'error');
 
     setUploading(false);
     setProgress({ done: 0, total: 0, pct: 0 });

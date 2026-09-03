@@ -11,7 +11,8 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
   'text/csv',
   'application/msword', // DOC
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+  'text/plain' // TXT — the Documents tab offers .txt, so presign must allow it
 ];
 
 /**
