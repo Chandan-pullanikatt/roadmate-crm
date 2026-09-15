@@ -31,7 +31,7 @@ const LeaveCalendar = () => {
     placeholderData: (prev) => prev
   });
 
-  // 2. Get Executive Leave Requests (Pending — excludes own)
+  // 2. Get District Manager Leave Requests (Pending — excludes own)
   const { data: pendingLeaves = [], isLoading: leavesLoading } = useQuery({
     queryKey: ['leaves', 'im-approvals'],
     queryFn: () => leaveApi.getPendingLeaves().then(res => res.data || []),
@@ -111,7 +111,7 @@ const LeaveCalendar = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Leave Calendar</h1>
-          <p className="text-sm text-text-muted">Executive leave approvals - My leave request</p>
+          <p className="text-sm text-text-muted">District Manager leave approvals - My leave request</p>
         </div>
         <div className="flex items-center gap-3">
             <div className="relative">
@@ -133,7 +133,7 @@ const LeaveCalendar = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Leave Calendar · {userInfo.industry} Team</h2>
-          <p className="text-xs text-text-muted">Executive leave approvals - My leave request to State Manager</p>
+          <p className="text-xs text-text-muted">District Manager leave approvals - My leave request to State Manager</p>
         </div>
         <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'leave-policy' }))}>
            📜 Leave Policy
@@ -190,10 +190,10 @@ const LeaveCalendar = () => {
 
         {/* Right Column: Approvals & Form (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-            {/* Executive Leave Requests */}
+            {/* District Manager Leave Requests */}
             <div className="card shadow-lg shadow-purple/5 border-border/40 p-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-black text-text-primary uppercase tracking-tight">Executive Leave Requests</h3>
+                    <h3 className="text-sm font-black text-text-primary uppercase tracking-tight">District Manager Leave Requests</h3>
                     <Tag variant="amber" label={`${pendingLeaves.length} Pending`} className="px-3 rounded-lg font-black" />
                 </div>
 

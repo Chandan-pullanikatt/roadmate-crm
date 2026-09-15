@@ -152,7 +152,7 @@ const Overview = () => {
     {
       id: 'executives',
       color: 'var(--purple)',
-      label: 'District Executives',
+      label: 'District Managers',
       value: summaryCounts.executives,
       valueColor: 'var(--purple)',
       delta: `↑ ${stats.activeToday >= stats.totalExecutives && stats.totalExecutives > 0 ? 'All' : (stats.activeToday || 0)} active · ${userInfo.industry || ''}`,
@@ -266,7 +266,7 @@ const Overview = () => {
           <div className="h-8 w-px bg-border/60" />
           <div className="pr-4 pl-2">
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-tight">Total Team</div>
-            <div className="text-sm font-bold text-purple">{team.length} Executives</div>
+            <div className="text-sm font-bold text-purple">{team.length} District Managers</div>
           </div>
         </div>
       </div>
@@ -317,7 +317,7 @@ const Overview = () => {
         }}>
           <span>⚠️</span>
           <span>
-            <strong>{escalatedLeads.length} Lead{escalatedLeads.length > 1 ? 's' : ''} Escalated from Executive</strong>
+            <strong>{escalatedLeads.length} Lead{escalatedLeads.length > 1 ? 's' : ''} Escalated from District Manager</strong>
             {escalatedLeads[0] && ` — ${escalatedLeads[0].company || escalatedLeads[0].name || ''} · ${escalatedLeads[0].owner?.name || ''} · Needs manager decision`}
           </span>
           <button
@@ -367,11 +367,11 @@ const Overview = () => {
 
       {/* Middle Section: Team & Funnel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* District Executives Snapshot */}
+        {/* District Managers Snapshot */}
         <div className="card lg:col-span-2 shadow-sm border-border/40">
           <div className="card-header border-none px-8 pt-8">
             <div>
-              <h3 className="text-xl font-bold text-text-primary tracking-tight">District Executives</h3>
+              <h3 className="text-xl font-bold text-text-primary tracking-tight">District Managers</h3>
               <p className="text-sm text-text-muted mt-1 font-medium">Performance snapshot for {userInfo.industry}</p>
             </div>
             <div className="flex gap-2">
@@ -415,7 +415,7 @@ const Overview = () => {
           <div className="p-4">
             <div className="overflow-hidden rounded-2xl border border-border/40 bg-surface/30">
               <div className="bg-surface2/50 px-6 py-3 border-b border-border/40 flex items-center text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                <div className="flex-1">Executive</div>
+                <div className="flex-1">District Manager</div>
                 <div className="w-32 text-center">Work %</div>
                 <div className="w-48 text-right pr-4">Today's Metrics</div>
               </div>
@@ -646,7 +646,7 @@ const Overview = () => {
       <div className="card shadow-sm border-border/40">
         <div className="card-header border-none px-8 pt-6 pb-4">
           <div>
-            <h3 className="text-base font-bold text-text-primary tracking-tight">Lead Owner Mapping · {userInfo.industry} Executives</h3>
+            <h3 className="text-base font-bold text-text-primary tracking-tight">Lead Owner Mapping · {userInfo.industry} District Managers</h3>
             <p className="text-xs text-text-muted mt-0.5 font-medium">Map &amp; reassign leads · One-by-one delivery to executive</p>
           </div>
           <button
@@ -957,7 +957,7 @@ const Overview = () => {
             </div>
           </div>
 
-          {/* Executive dropdown — only this IM's team */}
+          {/* District Manager dropdown — only this IM's team */}
           <div className="space-y-2 mb-6">
             <label className="block text-xs font-bold text-text-secondary">
               Assign To <span className="text-red">*</span>
@@ -968,7 +968,7 @@ const Overview = () => {
               onChange={e => setReassignExecId(e.target.value)}
             >
               <option value="">
-                — Choose from your district executives —
+                — Choose from your district managers —
               </option>
               {team.map(ex => (
                 <option key={ex._id} value={ex._id}>
@@ -977,7 +977,7 @@ const Overview = () => {
               ))}
             </select>
             {team.length === 0 && (
-              <p className="text-[11px] text-amber font-medium">No district executives are assigned under this industry manager.</p>
+              <p className="text-[11px] text-amber font-medium">No district managers are assigned under this industry manager.</p>
             )}
           </div>
 
@@ -1089,7 +1089,7 @@ const Overview = () => {
         </Modal>
       )}
 
-      {/* Executive Detail Modal */}
+      {/* District Manager Detail Modal */}
       {execModal && (() => {
         const { exec, type } = execModal;
         const execModalRows = exec.drilldowns?.[type] || [];

@@ -134,7 +134,7 @@ const LeadFlow = () => {
                 value={selectedExecId}
                 onChange={e => setSelectedExecId(e.target.value)}
               >
-                <option value="">Select Executive</option>
+                <option value="">Select District Manager</option>
                 {executives?.map(e => (
                   <option key={e._id} value={e._id}>{e.name} ({e.district})</option>
                 ))}
@@ -173,7 +173,7 @@ const LeadFlow = () => {
           </div>
           <h3 className="text-2xl font-black text-text-primary tracking-tight">Monitor Active Execution</h3>
           <p className="text-sm text-text-muted max-w-sm mx-auto mt-4 font-medium leading-relaxed">
-            Select a District Executive from the monitor control above to shadow their current lead processing workflow.
+            Select a District Manager from the monitor control above to shadow their current lead processing workflow.
           </p>
         </div>
       ) : (
@@ -203,7 +203,7 @@ const LeadFlow = () => {
                 ) : !currentLead ? (
                   <div className="py-10 text-center">
                     <div className="text-4xl mb-3 opacity-20">🧊</div>
-                    <p className="text-sm text-text-muted font-bold italic">Executive is idle or queue is empty</p>
+                    <p className="text-sm text-text-muted font-bold italic">District Manager is idle or queue is empty</p>
                   </div>
                 ) : (
                   <>

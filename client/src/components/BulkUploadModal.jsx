@@ -449,7 +449,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
-                  <div className="text-[11px] text-text-muted mt-0.5">Optionally assign every lead in this upload to one manager or district executive.</div>
+                  <div className="text-[11px] text-text-muted mt-0.5">Optionally assign every lead in this upload to one manager or district manager.</div>
                 </div>
                 <Tag variant={assignmentTargetId ? 'green' : 'gray'} label={assignmentTargetId ? 'Will assign' : 'Unallocated'} />
               </div>
@@ -489,7 +489,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">District Executive</label>
+                  <label className="form-label">District Manager</label>
                   <select
                     className="select"
                     value={selectedExecutiveId}
@@ -498,7 +498,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                   >
                     <option value="">{selectedIndustryManagerId ? 'Assign to Industry Manager' : 'Select Industry Manager first'}</option>
                     {executiveOptions.map(u => (
-                      <option key={u._id} value={u._id}>{u.name} ({[u.district, u.state].filter(Boolean).join(' · ') || 'Executive'})</option>
+                      <option key={u._id} value={u._id}>{u.name} ({[u.district, u.state].filter(Boolean).join(' · ') || 'District Manager'})</option>
                     ))}
                   </select>
                 </div>

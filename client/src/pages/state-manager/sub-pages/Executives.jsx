@@ -70,16 +70,16 @@ const Executives = () => {
       {/* HEADER */}
       <div className="section-header mb-6">
         <div>
-          <div className="section-title">District Executives · {user.state}</div>
+          <div className="section-title">District Managers · {user.state}</div>
           <div className="section-sub text-[13px]">All executives across industries - Performance overview</div>
         </div>
-        <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}>+ Add Executive</Button>
+        <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}>+ Add District Manager</Button>
       </div>
 
       {/* STAT CARDS */}
       <div className="stat-grid mb-8">
         <div className="stat-card border-l-4 border-blue">
-          <div className="stat-label">Total Executives</div>
+          <div className="stat-label">Total District Managers</div>
           <div className="stat-value text-blue">{stats.districtExecutivesCount || 0}</div>
           <div className="stat-delta text-text-muted">Across 5 industries</div>
         </div>
@@ -103,7 +103,7 @@ const Executives = () => {
       {/* LIST SECTION */}
       <div className="card">
         <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center px-6 py-4">
-          <div className="section-title text-[15px]">All Executives</div>
+          <div className="section-title text-[15px]">All District Managers</div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>

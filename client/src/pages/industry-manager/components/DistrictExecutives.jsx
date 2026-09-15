@@ -100,8 +100,8 @@ const DistrictExecutives = () => {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">District Executives</h1>
-          <p className="text-sm text-text-muted">All district executives · {dashData?.user?.industry} · Performance</p>
+          <h1 className="text-2xl font-bold text-text-primary">District Managers</h1>
+          <p className="text-sm text-text-muted">All district managers · {dashData?.user?.industry} · Performance</p>
         </div>
         <div className="flex items-center gap-3">
             <Avatar name={dashData?.user?.name} size="md" className="border-2 border-purple/10" />
@@ -111,21 +111,21 @@ const DistrictExecutives = () => {
       {/* Sub Header / Action Row */}
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold">District Executives · {dashData?.user?.industry} · {dashData?.user?.state}</h2>
+          <h2 className="text-lg font-bold">District Managers · {dashData?.user?.industry} · {dashData?.user?.state}</h2>
           <p className="text-xs text-text-muted">{stats.totalExecutives} executives - Performance & lead handling</p>
         </div>
         <Button
             className="bg-purple text-white border-none rounded-xl px-6 h-10 font-bold shadow-lg shadow-purple/10"
             onClick={() => openCreateExec()}
         >
-            + Create Executive
+            + Create District Manager
         </Button>
       </div>
 
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
-            label="Total Executives" 
+            label="Total District Managers" 
             value={stats.totalExecutives || 0} 
             delta="↑ All active"
             deltaType="up"
@@ -155,10 +155,10 @@ const DistrictExecutives = () => {
         />
       </div>
 
-      {/* Executive List Section */}
+      {/* District Manager List Section */}
       <div className="card">
         <div className="card-header border-none pb-0">
-          <h3 className="section-title text-base font-bold">All Executives · {dashData?.user?.industry}</h3>
+          <h3 className="section-title text-base font-bold">All District Managers · {dashData?.user?.industry}</h3>
           <div className="flex bg-surface2 p-1 rounded-lg">
             {districts.map(d => (
                 <button 

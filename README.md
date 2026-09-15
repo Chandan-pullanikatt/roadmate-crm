@@ -10,7 +10,7 @@ A production-quality MERN stack CRM with role-based dashboards.
 - Founder
 - State Manager
 - Industry Manager
-- District Executive
+- District Manager
 
 ## Setup
 ### Server

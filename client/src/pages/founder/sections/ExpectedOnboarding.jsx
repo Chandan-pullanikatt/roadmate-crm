@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
-import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
 import { exportToCSV } from '../../../utils/exportUtils';
 
@@ -10,6 +10,7 @@ import { exportToCSV } from '../../../utils/exportUtils';
 // mirror that number: open leads tagged Hot or Warm, split into a tab each. It used to load
 // the entire lead list, which is why the drill-down never matched the card.
 const CLOSED_STATUSES = 'converted,lost,not_interested';
+const PAGE_SIZE = 15;
 
 const ExpectedOnboarding = () => {
   const [activeTab, setActiveTab] = useState('Hot');
@@ -19,6 +20,22 @@ const ExpectedOnboarding = () => {
   const [headerSearch, setHeaderSearch] = useState('');
   const [debouncedListSearch, setDebouncedListSearch] = useState('');
   const [debouncedHeaderSearch, setDebouncedHeaderSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  // The Founder card counts only leads created inside the period picked on the Overview,
+  // so it hands that period over in the URL. Opened from the sidebar there is no period
+  // and the page lists every open Hot/Warm lead, which is what its subtitle promises.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const period = searchParams.get('period') || undefined;
+  const periodValue = searchParams.get('value') || undefined;
+  const periodLabel = period ? (periodValue || period) : null;
+
+  const clearPeriod = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('period');
+    next.delete('value');
+    setSearchParams(next, { replace: true });
+  };
 
   // Debounce list search (API)
   useEffect(() => {
@@ -36,23 +53,48 @@ const ExpectedOnboarding = () => {
     return () => clearTimeout(timer);
   }, [headerSearch]);
 
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+  // Every query on this page shares one filter set, so the tab counts, the rows and
+  // the pagination footer can never disagree with each other.
+  const baseFilters = useMemo(() => ({
+    excludeStatuses: CLOSED_STATUSES,
+    state: filterState === 'All' ? undefined : filterState,
+    country: filterCountry === 'All' ? undefined : filterCountry,
+    search: debouncedListSearch || undefined,
+    period,
+    value: periodValue
+  }), [filterState, filterCountry, debouncedListSearch, period, periodValue]);
+
+  // Any change to what is being listed sends you back to page 1 — otherwise a filter
+  // applied on page 3 lands on an empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, filterState, filterCountry, debouncedListSearch, period, periodValue]);
+
+  const { data: leadData, isLoading, isFetching } = useQuery({
+    queryKey: ['leads', 'expected-onboarding', activeTab, filterState, filterCountry, debouncedListSearch, period, periodValue, page],
+    queryFn: () => leadsApi.getLeads({
+      ...baseFilters,
+      priority: activeTab.toLowerCase(),
+      page,
+      limit: PAGE_SIZE
+    }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
 
-  const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'expected-onboarding', activeTab, filterState, filterCountry, debouncedListSearch],
-    queryFn: () => leadsApi.getLeads({
-      priority: activeTab.toLowerCase(),
-      excludeStatuses: CLOSED_STATUSES,
-      state: filterState === 'All' ? undefined : filterState,
-      country: filterCountry === 'All' ? undefined : filterCountry,
-      search: debouncedListSearch,
-      limit: 15
-    }).then(res => res.data),
+  // The tab counts used to come off the Founder dashboard card, which counts only leads
+  // *created inside the selected period* (default: this week). The table below has no
+  // such date filter, so the tabs read (0) while 15 rows sat underneath them. Count the
+  // same query the table runs instead — page 1 of each priority just for its total.
+  const { data: tabCounts } = useQuery({
+    queryKey: ['leads', 'expected-onboarding', 'counts', filterState, filterCountry, debouncedListSearch, period, periodValue],
+    queryFn: async () => {
+      const [hot, warm] = await Promise.all([
+        leadsApi.getLeads({ ...baseFilters, priority: 'hot', limit: 1 }).then(res => res.data),
+        leadsApi.getLeads({ ...baseFilters, priority: 'warm', limit: 1 }).then(res => res.data)
+      ]);
+      return { Hot: hot?.total ?? 0, Warm: warm?.total ?? 0 };
+    },
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -78,9 +120,14 @@ const ExpectedOnboarding = () => {
   };
 
   const tabs = [
-    { label: 'Hot', count: dashData?.stats?.expectedOnboardingHot ?? 0 },
-    { label: 'Warm', count: dashData?.stats?.expectedOnboardingWarm ?? 0 }
+    { label: 'Hot', count: tabCounts?.Hot ?? 0 },
+    { label: 'Warm', count: tabCounts?.Warm ?? 0 }
   ];
+
+  const total = leadData?.total ?? 0;
+  const totalPages = Math.max(leadData?.totalPages ?? 1, 1);
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   // Local filtering for Header Search
   const filteredLeads = useMemo(() => {
@@ -157,7 +204,9 @@ const ExpectedOnboarding = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-text-primary">Expected Onboarding Leads</h2>
-              <p className="text-xs text-text-muted mt-0.5">Hot &amp; Warm leads still open, across all states</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Hot &amp; Warm leads still open, across all states{periodLabel ? ` - created in ${periodLabel}` : ''}
+              </p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="bg-white" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
@@ -177,6 +226,15 @@ const ExpectedOnboarding = () => {
                 {tab.label} <span className={`opacity-60 ${activeTab === tab.label ? 'text-[#166534]' : 'text-blue'}`}>({tab.count})</span>
               </button>
             ))}
+            {periodLabel && (
+              <button
+                onClick={clearPeriod}
+                title="Show every open Hot & Warm lead"
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-blue/20 bg-blue-light text-blue flex items-center gap-2"
+              >
+                {periodLabel} only <span className="opacity-60">&times;</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -286,10 +344,29 @@ const ExpectedOnboarding = () => {
         </div>
 
         <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/10">
-          <div className="text-xs text-text-muted font-medium">Showing {filteredLeads.length} leads in the current view</div>
-          <div className="flex gap-2">
-            <Button size="xs" variant="outline" className="bg-white px-4">Previous</Button>
-            <Button size="xs" variant="outline" className="bg-white px-4">Next</Button>
+          <div className="text-xs text-text-muted font-medium">
+            {debouncedHeaderSearch
+              ? `Showing ${filteredLeads.length} of ${leadData?.leads?.length ?? 0} leads on this page`
+              : `Showing ${rangeStart}-${rangeEnd} of ${total} ${activeTab.toLowerCase()} leads`}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-text-muted font-medium">Page {page} of {totalPages}</span>
+            <div className="flex gap-2">
+              <Button
+                size="xs"
+                variant="outline"
+                className="bg-white px-4"
+                disabled={page <= 1 || isFetching}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >Previous</Button>
+              <Button
+                size="xs"
+                variant="outline"
+                className="bg-white px-4"
+                disabled={page >= totalPages || isFetching}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              >Next</Button>
+            </div>
           </div>
         </div>
       </div>

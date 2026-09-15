@@ -65,7 +65,7 @@ const formatData = (type, data) => {
   }
   if (type === 'performance') {
     return data.map(p => ({
-      Executive:   p.user?.name || p.name || '',
+      District_Manager: p.user?.name || p.name || '',
       District:    p.district || '',
       Calls:       p.totalCalls ?? p.callsToday ?? 0,
       Meetings:    p.meetingsDone ?? 0,
@@ -75,7 +75,7 @@ const formatData = (type, data) => {
   }
   if (type === 'salary') {
     return data.map(s => ({
-      Executive:   s.user?.name || '',
+      District_Manager: s.user?.name || '',
       Month:       s.month || '',
       Year:        s.year || '',
       Basic:       s.basicSalary ?? 0,

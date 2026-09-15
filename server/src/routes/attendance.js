@@ -203,7 +203,7 @@ router.get('/team', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     if (req.user.role === 'executive') {
-      return res.status(403).json({ message: 'Executive cannot edit attendance' });
+      return res.status(403).json({ message: 'District Managers cannot edit attendance' });
     }
     
     const attendance = await Attendance.findByIdAndUpdate(req.params.id, {

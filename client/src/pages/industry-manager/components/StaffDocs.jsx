@@ -146,7 +146,7 @@ const StaffDocs = () => {
 
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold">Staff Documents · {userInfo.industry} Executives</h2>
+          <h2 className="text-lg font-bold">Staff Documents · {userInfo.industry} District Managers</h2>
           <p className="text-xs text-text-muted">Upload, view & manage executive documents</p>
         </div>
         <Tag variant="purple" label={`${filteredExecutives.length} Staff`} className="font-black px-5" />
@@ -163,7 +163,7 @@ const StaffDocs = () => {
                 <div className="flex-1">
                   <span className="text-sm font-black text-text-primary uppercase tracking-tight">{exec.name}</span>
                   <div className="text-[10px] text-text-muted">
-                    {[exec.district, exec.industry].filter(Boolean).join(' · ') || 'Executive'}
+                    {[exec.district, exec.industry].filter(Boolean).join(' · ') || 'District Manager'}
                   </div>
                 </div>
               </div>

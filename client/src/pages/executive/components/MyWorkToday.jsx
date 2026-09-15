@@ -97,7 +97,7 @@ const MyWorkToday = () => {
   const meetings = workflow?.todayMeetings || [];
   const activities = workflow?.activityFeed || [];
   const isWorking = !!attendanceData?.attendance?.workStartedAt && !attendanceData?.attendance?.workCompletedAt;
-  const userName = user?.name || dashData?.user?.name || 'Executive';
+  const userName = user?.name || dashData?.user?.name || 'District Manager';
 
   // Working state constants/flags (used both below and in the JSX)
   const CONFIRM_SUBSTATUS = ['pre_meeting_confirm', 'day_before_confirm', 'day_before_queued', '30m_confirm_queued'];

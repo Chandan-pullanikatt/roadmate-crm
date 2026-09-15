@@ -247,10 +247,10 @@ const IndustryManagers = () => {
 
       <div className="flex justify-between items-end mb-6">
         <div>
-          <div className="text-[15px] font-bold text-text-primary">New Executive Account Creation</div>
+          <div className="text-[15px] font-bold text-text-primary">New District Manager Account Creation</div>
           <div className="text-[12px] text-text-muted mt-0.5">Create executive accounts under an Industry State Manager</div>
         </div>
-        <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-exec')}>+ Create Executive</Button>
+        <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-exec')}>+ Create District Manager</Button>
       </div>
 
       <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm mb-8">

@@ -42,7 +42,7 @@ const teamService = {
    * Recipients for a notification sent by `sender`.
    * The founder addresses every active member of staff; everyone else
    * addresses their own downline. `role` narrows it to one role, which is how
-   * a document published for District Executives reaches only them.
+   * a document published for District Managers reaches only them.
    */
   async getTeamRecipientIds(sender, { role = null } = {}) {
     let ids;

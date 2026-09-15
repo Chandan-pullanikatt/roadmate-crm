@@ -101,7 +101,7 @@ const Attendance = () => {
   const getRoleLabel = (role) => {
     if (role === 'state_manager') return 'State Mgr';
     if (role === 'industry_manager') return 'Ind. Mgr';
-    if (role === 'executive') return 'Executive';
+    if (role === 'executive') return 'District Manager';
     return role;
   };
 
@@ -146,7 +146,7 @@ const Attendance = () => {
                <option value="All">All Roles</option>
                <option value="state_manager">State Manager</option>
                <option value="industry_manager">Industry Manager</option>
-               <option value="executive">Executive</option>
+               <option value="executive">District Manager</option>
              </select>
              <Button variant="outline" size="sm" className="bg-white font-bold" onClick={handleExportAttendance}>Export</Button>
           </div>

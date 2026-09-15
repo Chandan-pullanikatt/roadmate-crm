@@ -37,12 +37,12 @@ amount recorded. The page is reporting an empty dataset accurately.
 
 | Bug | What to check | Expected |
 |---|---|---|
-| BUG-001 | Sidebar → **Revenue** (now under District Executives, in Overview) | Revenue Dashboard loads. Does **not** bounce back to the main dashboard. |
+| BUG-001 | Sidebar → **Revenue** (now under District Managers, in Overview) | Revenue Dashboard loads. Does **not** bounce back to the main dashboard. |
 | BUG-002 | Founder dashboard → Revenue Generated card → **View Analysis** | Same Revenue Dashboard opens. |
 | BUG-003 | Click the **State Managers**, **Industry Managers**, **Sales Staff** cards — on the card body and the label, not just the number | A drill-down list opens for each. |
 | BUG-004 | Lead Pipeline **Follow-up** vs the leads list filtered to Follow-up | Both show the same number (~482). See note 1 above. |
 | BUG-005 | Lead Pipeline **Lost** vs the leads list filtered to Lost | Both show the same number (~82). |
-| BUG-020 | Have an IM assign a task to a district executive, then log in as Founder → **Tasks** | The IM's task is visible to the Founder. |
+| BUG-020 | Have an IM assign a task to a district manager, then log in as Founder → **Tasks** | The IM's task is visible to the Founder. |
 
 ## Industry Manager
 
@@ -52,7 +52,7 @@ amount recorded. The page is reporting an empty dataset accurately.
 | BUG-011 | **My Attendance** with Console open | No 500 errors. Attendance data renders. |
 | BUG-012 | **My Performance** with Console open | No yellow chart-sizing warning. |
 | BUG-014 | Attendance → **Export** | A CSV file actually downloads. |
-| BUG-009 | Overview → District Executives → **Filter** | Opens a district list and filters the table. |
+| BUG-009 | Overview → District Managers → **Filter** | Opens a district list and filters the table. |
 | BUG-019 | Overview → Upcoming Events | A **Today / Tomorrow** toggle appears and both work. |
 | BUG-016 | Add Lead → mobile number — try typing 15 digits | Stops at 10 digits (for +91). |
 | BUG-017 | Add Lead using a phone number that already exists | Orange **"Possible duplicate lead"** warning showing the existing lead, with a **Create anyway** button. Clicking it saves the lead. This is intentional — duplicates are warned about, not blocked. |

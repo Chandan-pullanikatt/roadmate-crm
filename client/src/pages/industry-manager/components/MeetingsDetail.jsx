@@ -87,7 +87,7 @@ const MeetingsDetail = () => {
       {/* Sub header */}
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold">Meeting Feedback · {userInfo.industry} Executives</h2>
+          <h2 className="text-lg font-bold">Meeting Feedback · {userInfo.industry} District Managers</h2>
           <p className="text-xs text-text-muted">Virtual & direct meetings — what happened, executive notes, lead outcome</p>
         </div>
         <Tag variant="teal" label={`${pagination.total || 0} Total Meetings`} className="font-black px-5" />
@@ -103,7 +103,7 @@ const MeetingsDetail = () => {
             <thead>
               <tr className="bg-surface2/30 text-[9px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
                 <th className="px-8 py-4">Lead / Company</th>
-                <th className="px-6 py-4">Executive</th>
+                <th className="px-6 py-4">District Manager</th>
                 <th className="px-6 py-4">District</th>
                 <th className="px-6 py-4 text-center">Type</th>
                 <th className="px-6 py-4 text-center">Status</th>

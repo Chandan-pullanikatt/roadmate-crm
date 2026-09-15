@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { leadsApi } from '../../api/leadsApi';
 import { usersApi } from '../../api/usersApi';
 
-// Fix: Lead Allocation — State Manager Flow — hierarchical SM → IM → Executive selection
+// Fix: Lead Allocation — State Manager Flow — hierarchical SM → IM → District Manager selection
 const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -89,7 +89,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
   if (!lead) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Allocate Lead" subtitle="Assign through the hierarchy — Industry Manager and Executive are optional for direct SM allocation">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Allocate Lead" subtitle="Assign through the hierarchy — Industry Manager and District Manager are optional for direct SM allocation">
       {/* Lead info */}
       <div className="mb-6">
         <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Target Lead</label>
@@ -156,11 +156,11 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
           </div>
         )}
 
-        {/* Step 3 — District Executive (optional — shown only after IM is selected) */}
+        {/* Step 3 — District Manager (optional — shown only after IM is selected) */}
         {selectedIndustryManagerId && (
           <div className="space-y-2">
             <label className="form-label">
-              District Executive
+              District Manager
               <span className="ml-1 text-[10px] text-text-muted normal-case font-normal">
                 (optional — skip to allocate to Industry Manager)
               </span>

@@ -6,6 +6,19 @@ import { leadsApi } from '../../../api/leadsApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+import { LEAD_STATUS_GROUPS, GROUP_ORDER, groupParam } from '../../../constants/leadStatusGroups';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+// A period arriving from a Founder Summary card can be any of its tabs, but this
+// page only offers a month picker. Anything else (a week, a quarter, a year) is
+// still honoured and shown as a removable chip.
+const periodLabelOf = (period, value) => {
+  if (!period) return null;
+  if (period === 'today') return 'Today';
+  return value || period;
+};
 
 const LeadManagement = () => {
   const queryClient = useQueryClient();
@@ -24,6 +37,17 @@ const LeadManagement = () => {
   const [priorityFilter, setPriorityFilter] = useState(() => {
     const params = new URLSearchParams(location.search);
     return params.get('priority') || '';
+  });
+  // The Total Leads card counts only leads created inside the period picked on the
+  // Overview and hands that period over in the URL. Without this the list ignored it
+  // and showed all time, so a card reading 47 opened onto 603 rows.
+  const [period, setPeriod] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('period') || '';
+  });
+  const [periodValue, setPeriodValue] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('value') || '';
   });
   const [filterState, setFilterState] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,25 +69,33 @@ const LeadManagement = () => {
     setActiveTab(params.get('status') || 'all');
     setOwnerFilter(params.get('owner') || '');
     setPriorityFilter(params.get('priority') || '');
+    setPeriod(params.get('period') || '');
+    setPeriodValue(params.get('value') || '');
     setPage(1);
   }, [location.search]);
 
+  // Every query on this page shares one filter set. The tab counts used to ignore
+  // the period entirely, so with September selected the rows were September's while
+  // the tabs above them still read all-time totals.
+  const baseFilters = {
+    priority: priorityFilter || undefined,
+    owner: ownerFilter || undefined,
+    state: filterState === 'All' ? undefined : filterState,
+    period: period || undefined,
+    value: periodValue || undefined,
+  };
+
   const { data: counts } = useQuery({
-    queryKey: ['leads', 'counts', ownerFilter, priorityFilter],
-    queryFn: () => leadsApi.getCounts({
-      owner: ownerFilter || undefined,
-      priority: priorityFilter || undefined,
-    }).then(res => res.data),
+    queryKey: ['leads', 'counts', ownerFilter, priorityFilter, filterState, period, periodValue],
+    queryFn: () => leadsApi.getCounts(baseFilters).then(res => res.data),
     staleTime: 5 * 60 * 1000
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'global', activeTab, filterState, ownerFilter, priorityFilter, debouncedSearch, page],
-    queryFn: () => leadsApi.getLeads({ 
-      status: activeTab === 'all' ? undefined : activeTab, 
-      priority: priorityFilter || undefined,
-      owner: ownerFilter || undefined,
-      state: filterState === 'All' ? undefined : filterState,
+    queryKey: ['leads', 'global', activeTab, filterState, ownerFilter, priorityFilter, period, periodValue, debouncedSearch, page],
+    queryFn: () => leadsApi.getLeads({
+      ...baseFilters,
+      status: activeTab === 'all' ? undefined : activeTab,
       search: debouncedSearch,
       page,
       limit: 20
@@ -71,6 +103,16 @@ const LeadManagement = () => {
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
+
+  // Picking a month is a change to what is being listed, so go back to page 1 --
+  // otherwise a filter applied on page 8 lands on an empty page.
+  const applyPeriod = (nextPeriod, nextValue) => {
+    setPeriod(nextPeriod);
+    setPeriodValue(nextValue);
+    setPage(1);
+  };
+
+  const periodLabel = periodLabelOf(period, periodValue);
 
   const openModal = (type, data = null) => {
     window.dispatchEvent(new CustomEvent('open-modal', { 
@@ -82,10 +124,8 @@ const LeadManagement = () => {
     setIsExporting(true);
     try {
       const res = await leadsApi.getLeads({
+        ...baseFilters,
         status: activeTab === 'all' ? undefined : activeTab,
-        priority: priorityFilter || undefined,
-        owner: ownerFilter || undefined,
-        state: filterState === 'All' ? undefined : filterState,
         search: debouncedSearch,
         limit: 9999
       });
@@ -130,14 +170,19 @@ const LeadManagement = () => {
   const total = leadData?.total || 0;
   const totalPages = leadData?.totalPages || 1;
 
+  // Tabs come from the canonical status groups so every status lands in exactly
+  // one tab, the counts add up to All, and each tab matches the pipeline card
+  // that links to it. The hardcoded list this replaces had no Blocking, Full
+  // Amount Received or Escalated tab at all, and counted only 'followup' of the
+  // Follow-up group and only 'lost' of the Lost group — which is why the list
+  // read 418/81 where the Overview read 603/94 (QA BUG-004/005/010).
   const tabs = [
     { id: 'all', label: 'All', count: counts?.total || 0 },
-    { id: 'new', label: 'New', count: counts?.new || 0 },
-    { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
-    { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
-    { id: 'converted', label: 'Converted', count: counts?.converted || 0 },
-    { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
-    { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
+    ...GROUP_ORDER.map(label => ({
+      id: groupParam(label),
+      label,
+      count: LEAD_STATUS_GROUPS[label].reduce((sum, st) => sum + (counts?.[st] || 0), 0),
+    })),
   ];
 
   return (
@@ -161,6 +206,7 @@ const LeadManagement = () => {
             {priorityFilter
               ? `Showing ${priorityFilter} leads only · Allocation control · Lifecycle monitoring`
               : 'Cross-state lead tracking · Allocation control · Lifecycle monitoring'}
+            {periodLabel ? ` · created in ${periodLabel}` : ''}
           </div>
         </div>
         <div className="flex gap-2">
@@ -184,6 +230,31 @@ const LeadManagement = () => {
           </Button>
           <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('add-lead')}>+ Add Lead</Button>
         </div>
+      </div>
+
+      {/* Period filter. A month picked here filters the rows AND the tab counts
+          above them; a period arriving from a Founder Summary card (a week, a
+          quarter, a year) is honoured too and shown as the chip on the right. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted mr-1">Period</span>
+        <select
+          className="bg-white border border-border rounded-lg px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-blue transition-colors min-w-[150px]"
+          value={period === 'month' || period === 'monthly' ? periodValue : ''}
+          onChange={e => applyPeriod(e.target.value ? 'month' : '', e.target.value)}
+        >
+          <option value="">All Time</option>
+          {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+
+        {periodLabel && (
+          <button
+            onClick={() => applyPeriod('', '')}
+            title="Show leads from every period"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border bg-[#eff6ff] text-[#3b82f6] border-[#bfdbfe] hover:bg-[#dbeafe] transition-colors"
+          >
+            {periodLabel} only <span className="opacity-60">&times;</span>
+          </button>
+        )}
       </div>
 
       {/* Priority filter — the Hot/Warm/Cold cards on the summary link straight in

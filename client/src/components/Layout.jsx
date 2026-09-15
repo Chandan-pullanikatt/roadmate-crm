@@ -68,7 +68,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Founder Dashboard', path: '/dashboard?page=overview', icon: 'overview' },
             { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'state-managers' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry-managers' },
-            { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' },
+            { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' },
             { label: 'Revenue', path: '/dashboard?page=revenue', icon: 'reports' }
           ]
         },
@@ -121,7 +121,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
             { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', special: true },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'blue' },
-            { label: 'District Executives', path: '/dashboard?page=executives', icon: 'executives' },
+            { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' },
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) }
           ]
         },
@@ -187,7 +187,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     },
     executive: {
       accentColor: '#B45309',
-      roleBadge: 'District Executive',
+      roleBadge: 'District Manager',
       roleBadgeClass: 'exec-badge-v2',
       logoMarkClass: 'brown',
       logoMarkText: 'RM',

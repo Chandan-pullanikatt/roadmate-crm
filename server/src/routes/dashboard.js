@@ -11,82 +11,11 @@ const LeavePolicy = require('../models/LeavePolicy');
 const Salary = require('../models/Salary');
 const { getScopeOwnerIds } = require('../utils/hierarchy');
 const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
+const { getDateRange } = require('../utils/dateRange');
 
 // Protect all routes
 router.use(verifyToken);
 
-/**
- * Helper: Get Date Ranges
- */
-/**
- * Helper: Get Date Ranges
- */
-const getDateRange = (type, value) => {
-  const now = new Date();
-  let start = new Date(now);
-  let end = new Date(now);
-
-  const normalizeType = (t) => {
-    if (t === 'day' || t === 'daily' || t === 'today') return 'today';
-    if (t === 'week' || t === 'weekly') return 'weekly';
-    if (t === 'month' || t === 'monthly') return 'monthly';
-    if (t === 'year' || t === 'yearly') return 'yearly';
-    return t;
-  };
-
-  const period = normalizeType(type);
-
-  if (period === 'today') {
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-  } else if (period === 'weekly') {
-    if (value && value.startsWith('Week ')) {
-      const weekNum = parseInt(value.split(' ')[1]);
-      // Approximate week start by day of month (1, 8, 15, 22, 29)
-      start.setDate(1 + (weekNum - 1) * 7);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(start);
-      if (weekNum === 4 || weekNum === 5) {
-        // Last week goes to end of month
-        end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
-      } else {
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-      }
-    } else {
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      start.setDate(diff);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-    }
-  } else if (period === 'monthly') {
-    if (value) {
-      const monthMap = { 'January': 0, 'February': 1, 'March': 2, 'April': 3, 'May': 4, 'June': 5, 'July': 6, 'August': 7, 'September': 8, 'October': 9, 'November': 10, 'December': 11 };
-      const monthIdx = monthMap[value];
-      if (monthIdx !== undefined) start.setMonth(monthIdx);
-    }
-    start.setDate(1);
-    start.setHours(0, 0, 0, 0);
-    end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
-  } else if (period === 'quarter') {
-    const qMap = { 'Q1': 0, 'Q2': 3, 'Q3': 6, 'Q4': 9 };
-    const qMonth = qMap[value] !== undefined ? qMap[value] : Math.floor(now.getMonth() / 3) * 3;
-    start.setMonth(qMonth, 1);
-    start.setHours(0, 0, 0, 0);
-    end = new Date(start.getFullYear(), qMonth + 3, 0, 23, 59, 59, 999);
-  } else if (period === 'yearly') {
-    if (value) {
-      const yr = parseInt(value);
-      if (!isNaN(yr)) start.setFullYear(yr);
-    }
-    start.setMonth(0, 1);
-    start.setHours(0, 0, 0, 0);
-    end = new Date(start.getFullYear(), 11, 31, 23, 59, 59, 999);
-  }
-
-  return { start, end };
-};
 
 /**
  * Helper: Calculate Leave Balance
@@ -1044,7 +973,7 @@ router.get('/state-manager', async (req, res) => {
             User.countDocuments({ reportingTo: req.user._id, role: 'industry_manager', createdAt: { $gte: monthStart } }),
         ]);
 
-        // 3a. District Executive Specific Stats
+        // 3a. District Manager Specific Stats
         const todayAttendance = await Attendance.find({
             user: { $in: executiveIds },
             date: { $gte: todayStart }
@@ -1206,7 +1135,7 @@ router.get('/state-manager', async (req, res) => {
             };
         });
 
-        // 4b. District Executive List — bulk queries, no N+1
+        // 4b. District Manager List — bulk queries, no N+1
         const [execActivityStats, execOnLeave] = await Promise.all([
             LeadActivity.aggregate([
                 {
@@ -1818,7 +1747,8 @@ router.get('/founder', async (req, res) => {
         // buckets always equals 'All' — see constants/leadStatusGroups.js.
         const GROUP_COLORS = {
             New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
-            Blocking: 'amber', Closing: 'teal', Lost: 'red', RNR: 'gray', Escalated: 'orange'
+            Blocking: 'amber', 'Full Amount Received': 'cyan',
+            Lost: 'red', RNR: 'gray', Escalated: 'orange'
         };
         const pipelineStats = [
             { label: 'All', count: allPipelineTotal, color: 'blue' },

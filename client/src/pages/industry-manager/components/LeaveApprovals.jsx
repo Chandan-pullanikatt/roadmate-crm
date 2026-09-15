@@ -48,7 +48,7 @@ const LeaveApprovals = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div>
         <h2 className="text-xl font-bold text-text-primary tracking-tight">Pending Leave Approvals</h2>
-        <p className="text-sm text-text-muted">Review and approve district executive leave requests.</p>
+        <p className="text-sm text-text-muted">Review and approve district manager leave requests.</p>
       </div>
 
       {pendingLeaves.length === 0 ? (

@@ -207,7 +207,7 @@ const LeadManagement = ({ ownerScope }) => {
             {ownerScope === 'self'
               ? `My own leads · ${total} total`
               : ownerScope === 'team'
-              ? `District Executive leads · ${total} total`
+              ? `District Manager leads · ${total} total`
               : `Managing ${total} Leads`}
             <span className="mx-2 opacity-30">·</span> {userInfo.industry} <span className="mx-2 opacity-30">·</span> {userInfo.state}
           </p>
@@ -321,7 +321,7 @@ const LeadManagement = ({ ownerScope }) => {
                 <th className="px-8 py-4">Lead ID</th>
                 <th className="px-6 py-4">Business / Contact</th>
                 <th className="px-6 py-4">District</th>
-                <th className="px-6 py-4">Executive</th>
+                <th className="px-6 py-4">District Manager</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">Last Updated</th>
                 <th className="px-6 py-4 text-right pr-8">Action</th>

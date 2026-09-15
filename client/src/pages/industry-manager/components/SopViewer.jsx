@@ -11,8 +11,8 @@ const ROLE_LABELS = {
     accent: 'purple',
   },
   executive: {
-    title: 'District Executive Documents',
-    subtitle: 'Documents shared with District Executives',
+    title: 'District Manager Documents',
+    subtitle: 'Documents shared with District Managers',
     icon: '📄',
     accent: 'blue',
   },

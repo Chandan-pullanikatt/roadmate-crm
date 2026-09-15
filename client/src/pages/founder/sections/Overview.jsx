@@ -7,6 +7,21 @@ import { leadsApi } from '../../../api/leadsApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { usersApi } from '../../../api/usersApi';
 import { Avatar, Button, Tag, Modal } from '../../../components/ui';
+import { groupParam } from '../../../constants/leadStatusGroups';
+
+// Pipeline card colours, keyed by the canonical group label.
+const PIPELINE_COLORS = {
+  All: '#3b82f6',
+  New: '#3b82f6',
+  'Follow-up': '#8b5cf6',
+  Meeting: '#0f766e',
+  Blocking: '#d97706',
+  'Full Amount Received': '#0891b2',
+  Converted: '#16a34a',
+  Lost: '#dc2626',
+  RNR: '#64748b',
+  Escalated: '#ea580c',
+};
 
 const Overview = () => {
   const navigate = useNavigate();
@@ -85,6 +100,15 @@ const Overview = () => {
       setSavingMeetingLink(false);
     }
   };
+
+  // The stat cards above are counted for the selected period, so any card that
+  // drills down has to hand that period over or the list lands unfiltered and
+  // contradicts the number that was just clicked.
+  const periodQuery = () =>
+    new URLSearchParams({
+      period: summaryTab,
+      ...(summaryPeriodValue ? { value: summaryPeriodValue } : {})
+    }).toString();
 
   const handleTabChange = (t) => {
     setSummaryTab(t);
@@ -226,7 +250,7 @@ const Overview = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #14b8a6' }} onClick={() => navigate('/dashboard?page=leads')}>
+        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #14b8a6' }} onClick={() => navigate(`/dashboard?page=leads&${periodQuery()}`)}>
           <div className="flex justify-between items-start mb-2">
             <div className="stat-label">Total Leads</div>
             <div className="bg-teal/10 p-1.5 rounded-lg">
@@ -237,10 +261,10 @@ const Overview = () => {
           <div className="text-[12px] font-medium text-teal">{"\u2191"} {stats.leadsToday || 0} new today</div>
         </div>
 
-        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #3b82f6' }} onClick={() => navigate('/dashboard?page=leads-onboarding')}>
+        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #3b82f6' }} onClick={() => navigate(`/dashboard?page=leads-onboarding&${periodQuery()}`)}>
           <div className="stat-label mb-2 mt-1">Expected Onboarding</div>
           <div className="text-[28px] font-bold font-mono text-text-primary mb-1">{stats.expectedOnboarding?.toLocaleString() || 0}</div>
-          <div className="text-[12px] font-medium text-teal">{"\u2191"} This week pipeline</div>
+          <div className="text-[12px] font-medium text-teal">{"\u2191"} {summaryPeriodValue || summaryTab} pipeline</div>
         </div>
 
         <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" style={{ borderTop: '4px solid #f59e0b' }} onClick={() => navigate('/dashboard?page=leads&status=converted')}>
@@ -368,25 +392,23 @@ const Overview = () => {
         {pipelineStats.map((s, i) => {
           let bgClass = "bg-white";
           let borderClass = "border-border";
-          let bottomColor = "#3b82f6";
-
-          if (s.label === 'New') bottomColor = '#3b82f6';
-          if (s.label === 'Follow-up') bottomColor = '#8b5cf6';
-          if (s.label === 'Meeting') bottomColor = '#0f766e';
-          if (s.label === 'Negotiation') bottomColor = '#d97706';
+          // Each money stage gets its own colour — Blocking, Full Amount Received
+          // and Agreement Signed used to be hard to tell apart at a glance.
+          let bottomColor = PIPELINE_COLORS[s.label] || '#3b82f6';
 
           if (s.label === 'Converted') {
             bgClass = "bg-[#f0fdf4]";
             borderClass = "border-[#bbf7d0]";
-            bottomColor = "#16a34a";
           }
           if (s.label === 'Lost') {
             bgClass = "bg-[#fef2f2]";
             borderClass = "border-[#fecaca]";
-            bottomColor = "#dc2626";
           }
 
-          const statusParam = s.label.toLowerCase().replace(/[\s-]+/g, '_').replace('follow_up', 'followup');
+          // Slug must match the lead-list tab ids, which come from the same
+          // canonical groups — otherwise the card links to a tab that filters on
+          // a status no lead has and the list comes back empty.
+          const statusParam = groupParam(s.label);
 
           return (
             <div
@@ -395,7 +417,7 @@ const Overview = () => {
               onClick={() => navigate(`/dashboard?page=leads&status=${statusParam}`)}
               title={`View all ${s.label} leads`}
             >
-              <div className={`text-[28px] font-bold font-mono mb-1 ${s.label === 'Converted' ? 'text-[#16a34a]' : s.label === 'Lost' ? 'text-[#dc2626]' : s.label === 'Follow-up' ? 'text-[#8b5cf6]' : s.label === 'Meeting' ? 'text-[#0f766e]' : s.label === 'Negotiation' ? 'text-[#d97706]' : 'text-[#3b82f6]'}`}>
+              <div className="text-[28px] font-bold font-mono mb-1" style={{ color: bottomColor }}>
                 {s.count}
               </div>
               <div className="text-[12px] text-text-muted font-medium mb-5">{s.label}</div>
@@ -603,7 +625,7 @@ const Overview = () => {
             const colors = ['bg-[#3b82f6]', 'bg-[#8b5cf6]', 'bg-[#ea580c]', 'bg-[#14b8a6]'];
             const avatarColor = colors[idx % colors.length];
 
-            const roleDisplay = l.user?.role === 'state_manager' ? 'State Manager' : l.user?.role === 'industry_manager' ? 'Industry Mgr' : 'Executive';
+            const roleDisplay = l.user?.role === 'state_manager' ? 'State Manager' : l.user?.role === 'industry_manager' ? 'Industry Mgr' : 'District Manager';
             const stateDisplay = l.user?.state || 'Unknown';
             const typeDisplay = (l.type || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 

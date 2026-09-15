@@ -177,17 +177,28 @@ const leadService = {
           }
         } else if (nextAction === 'blocking_amount_received') {
           // "Blocking" is the advance. It is a stage on the way, never a close.
-          lead.status = 'blocking_amount_received';
-          lead.blockingDate = new Date();
+          // Each stage keeps the date it first happened, and the `convertedAt`
+          // guard stops a re-recorded stage from knocking an already-converted
+          // lead back out of Converted and into a payment bucket.
+          lead.blockingDate = lead.blockingDate || new Date();
+          if (!lead.convertedAt) lead.status = 'blocking_amount_received';
           activityData.action = 'blocking_amount_received';
         } else if (nextAction === 'full_amount_received') {
-          lead.status = 'full_amount_received';
-          lead.fullAmountReceivedDate = new Date();
+          lead.fullAmountReceivedDate = lead.fullAmountReceivedDate || new Date();
+          if (!lead.convertedAt) lead.status = 'full_amount_received';
           activityData.action = 'full_amount_received';
           extraActivity = maybeConvert(lead, performedBy);
         } else if (nextAction === 'agreement_signed') {
-          lead.status = 'agreement_signed';
-          lead.agreementSignedAt = new Date();
+          // Client rule: Blocking -> Full Amount Received -> signed -> Converted.
+          // Signing is the last act, so it cannot be recorded before the money is
+          // in — that would leave the lead resting on a stage no pipeline card
+          // represents, and would count it as Converted while the revenue and
+          // incentive figures (driven by the 'converted' activity) ignored it.
+          if (!lead.fullAmountReceivedDate) {
+            throw new Error('Record the full amount received before the agreement is signed.');
+          }
+          lead.agreementSignedAt = lead.agreementSignedAt || new Date();
+          if (!lead.convertedAt) lead.status = 'agreement_signed';
           activityData.action = 'agreement_signed';
           extraActivity = maybeConvert(lead, performedBy);
         }

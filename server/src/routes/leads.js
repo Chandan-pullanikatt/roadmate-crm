@@ -8,6 +8,8 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const { getScopeOwnerIds, applyLeadScope } = require('../utils/hierarchy');
+const { statusesForParam } = require('../constants/leadStatusGroups');
+const { createdAtRange } = require('../utils/dateRange');
 
 // Protect all routes
 router.use(verifyToken);
@@ -45,7 +47,15 @@ const normalizeStatusValue = (status, { forFilter = false } = {}) => {
   if (!status) return status;
   const value = String(status).trim().toLowerCase();
 
-  if (forFilter && value === 'meeting') return ['meeting_virtual', 'meeting_direct'];
+  // Filtering resolves through the canonical groups, so a list shows exactly the
+  // leads its pipeline card counted. Before this, ?status=closing (and blocking)
+  // hit an exact match on a status no lead has and returned nothing, while
+  // ?status=followup and ?status=lost silently dropped the second status in
+  // their group (QA BUG-004/005/010).
+  if (forFilter) return statusesForParam(value);
+
+  // Writes keep the single-status mapping: a lead is saved with one status,
+  // never a group.
   if (value === 'follow-up' || value === 'follow_up') return 'followup';
   if (value === 'meeting') return 'meeting_virtual';
   if (value === 'negotiation') return 'followup';
@@ -377,7 +387,7 @@ router.get('/queue', async (req, res) => {
 router.get('/counts', async (req, res) => {
   try {
     const query = {};
-    const { owner, priority } = req.query;
+    const { owner, priority, period, value, state } = req.query;
 
     // These counts run through aggregation pipelines, which (unlike .find/.countDocuments)
     // do NOT auto-cast string ids to ObjectId. Cast every owner id explicitly or $match
@@ -394,6 +404,15 @@ router.get('/counts', async (req, res) => {
     // When the list is filtered to one priority, the status tab counts must be
     // filtered the same way or the numbers contradict the rows underneath them.
     if (priority) query.priority = priority;
+
+    // Same reasoning for the period: with a month selected the tabs counted all
+    // time while the rows under them were one month's worth, so "All 603" sat on
+    // top of 47 September leads.
+    if (period) query.createdAt = createdAtRange(period, value);
+
+    // The list has always offered a state filter; the tabs above it did not honour
+    // one, so filtering to Telangana left the counts reading every state.
+    if (state) query.state = state;
 
     const [statusCounts, priorityCounts, total] = await Promise.all([
       Lead.aggregate([
@@ -468,6 +487,7 @@ router.get('/', async (req, res) => {
       priority,
       owner,
       state,
+      country,
       industry,
       search,
       period,
@@ -495,61 +515,14 @@ router.get('/', async (req, res) => {
 
     // Filters
     if (status) {
-      query.status = normalizeStatusFilter(status);
+      const statusFilter = normalizeStatusFilter(status);
+      // 'all' and empty resolve to nothing to filter on — leave query.status unset
+      // rather than matching on undefined.
+      if (statusFilter !== undefined) query.status = statusFilter;
     }
-    if (period) {
-      const getDateRange = (type, periodValue) => {
-        const now = new Date();
-        let start = new Date(now);
-        let end = new Date(now);
-        const normalized = type === 'day' ? 'today' : type === 'week' ? 'weekly' : type === 'month' ? 'monthly' : type;
-
-        if (normalized === 'today') {
-          start.setHours(0, 0, 0, 0);
-          end.setHours(23, 59, 59, 999);
-        } else if (normalized === 'weekly') {
-          if (periodValue && periodValue.startsWith('Week ')) {
-            const weekNum = parseInt(periodValue.split(' ')[1]);
-            start.setDate(1 + (weekNum - 1) * 7);
-            start.setHours(0, 0, 0, 0);
-            end = new Date(start);
-            if (weekNum === 4 || weekNum === 5) end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
-            else {
-              end.setDate(start.getDate() + 6);
-              end.setHours(23, 59, 59, 999);
-            }
-          } else {
-            const day = now.getDay();
-            const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-            start.setDate(diff);
-            start.setHours(0, 0, 0, 0);
-            end.setHours(23, 59, 59, 999);
-          }
-        } else if (normalized === 'monthly') {
-          if (periodValue) {
-            const monthMap = { January: 0, February: 1, March: 2, April: 3, May: 4, June: 5, July: 6, August: 7, September: 8, October: 9, November: 10, December: 11 };
-            const monthIdx = monthMap[periodValue];
-            if (monthIdx !== undefined) start.setMonth(monthIdx);
-          }
-          start.setDate(1);
-          start.setHours(0, 0, 0, 0);
-          end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
-        } else if (normalized === 'quarter') {
-          const qMap = { Q1: 0, Q2: 3, Q3: 6, Q4: 9 };
-          const qMonth = qMap[periodValue] !== undefined ? qMap[periodValue] : Math.floor(now.getMonth() / 3) * 3;
-          start.setMonth(qMonth, 1);
-          start.setHours(0, 0, 0, 0);
-          end = new Date(start.getFullYear(), qMonth + 3, 0, 23, 59, 59, 999);
-        } else if (normalized === 'year') {
-          const year = periodValue ? parseInt(periodValue) : now.getFullYear();
-          start = new Date(year, 0, 1);
-          end = new Date(year, 11, 31, 23, 59, 59, 999);
-        }
-        return { start, end };
-      };
-      const { start, end } = getDateRange(period, value);
-      query.createdAt = { $gte: start, $lte: end };
-    }
+    // Date window for the selected period, shared with the dashboard cards that
+    // link here so a card's number and this list can never disagree.
+    if (period) query.createdAt = createdAtRange(period, value);
     if (priority) query.priority = priority;
     if (excludeStatuses) {
       const excluded = String(excludeStatuses).split(',').map(s => normalizeStatusValue(s)).filter(Boolean);
@@ -574,8 +547,9 @@ router.get('/', async (req, res) => {
     // Apply hierarchy visibility + the optional ?owner= filter together.
     applyLeadScope(query, scopeIds, req.user._id, owner);
 
-    // industry/state remain available as UI display filters (not a security boundary).
+    // industry/state/country remain available as UI display filters (not a security boundary).
     if (state) query.state = state;
+    if (country) query.country = country;
     if (industry) query.industry = industry;
 
     const leads = await Lead.find(query)

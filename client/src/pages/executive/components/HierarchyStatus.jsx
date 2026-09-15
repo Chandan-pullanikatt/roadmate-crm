@@ -69,7 +69,7 @@ const HierarchyStatus = () => {
         <div className="p-8 space-y-10 max-h-[60vh] overflow-y-auto custom-scrollbar">
 
           <div>
-            <div className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-6">District Executives</div>
+            <div className="text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-6">District Managers</div>
             <div className="space-y-4">
               {hierarchy?.executives?.map(user => (
                 <HierarchyUserRow
@@ -155,7 +155,7 @@ const HierarchyUserRow = ({ user, statuses, activeStatus, onStatusChange }) => (
       <div>
         <div className="text-sm font-black text-text-primary group-hover:text-orange transition-colors">{user.name}</div>
         <div className="text-[10px] font-bold text-muted uppercase tracking-tight">
-          {user.role === 'executive' ? 'District Executive' : user.role === 'industry_manager' ? 'Industry Manager' : 'State Manager'} · {user.state || '—'}
+          {user.role === 'executive' ? 'District Manager' : user.role === 'industry_manager' ? 'Industry Manager' : 'State Manager'} · {user.state || '—'}
         </div>
       </div>
     </div>

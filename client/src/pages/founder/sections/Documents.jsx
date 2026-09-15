@@ -14,8 +14,8 @@ const ROLES = [
   },
   {
     role: 'executive',
-    label: 'District Executive Documents',
-    description: 'Visible to all District Executives and their managers.',
+    label: 'District Manager Documents',
+    description: 'Visible to all District Managers and their managers.',
     icon: '🗺️',
     accentClass: 'border-blue text-blue bg-blue/5',
   },

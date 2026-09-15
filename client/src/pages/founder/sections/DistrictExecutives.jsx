@@ -58,13 +58,13 @@ const DistrictExecutives = () => {
       <div className="flex items-center gap-2 mb-2 text-[12px] font-medium text-text-muted">
         <span>Founder</span>
         <span className="text-text-muted/30">›</span>
-        <span className="text-text-primary font-semibold">District Executives</span>
+        <span className="text-text-primary font-semibold">District Managers</span>
       </div>
 
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h1 className="text-[22px] font-bold text-text-primary tracking-tight">District Executives</h1>
+          <h1 className="text-[22px] font-bold text-text-primary tracking-tight">District Managers</h1>
           <p className="text-[13px] text-text-muted mt-0.5">Performance summary · Lead handling · Attendance · Salary</p>
         </div>
         <div className="flex gap-3">
@@ -74,7 +74,7 @@ const DistrictExecutives = () => {
             className="bg-white border-border shadow-sm font-semibold text-[13px]"
             onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}
           >
-            + Create Executive
+            + Create District Manager
           </Button>
           <select 
             className="bg-white border border-border rounded-lg px-4 py-1.5 text-[13px] font-medium outline-none focus:border-blue transition-colors min-w-[140px] shadow-sm appearance-none cursor-pointer"
@@ -94,7 +94,7 @@ const DistrictExecutives = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total Executives</div>
+          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total District Managers</div>
           <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.salesStaff?.total || 0}</div>
           <div className="text-[12px] text-[#16a34a] font-bold flex items-center gap-1.5">
              <span className="text-[14px]">↑</span> {stats.executivesThisMonth || 0} this month
@@ -130,7 +130,7 @@ const DistrictExecutives = () => {
       {/* Table Section */}
       <div className="mb-3 flex flex-col md:flex-row md:items-end justify-between gap-2">
         <div>
-          <h2 className="text-[18px] font-bold text-text-primary">Executive Performance — {viewType.charAt(0).toUpperCase() + viewType.slice(1)} Report</h2>
+          <h2 className="text-[18px] font-bold text-text-primary">District Manager Performance — {viewType.charAt(0).toUpperCase() + viewType.slice(1)} Report</h2>
           <p className="text-[13px] text-text-muted mt-1 font-medium">Handling leads · Connected · Follow-ups · Converted · Revenue · Leaves</p>
         </div>
         <div className="flex bg-[#f1f5f9] p-1 rounded-xl border border-border w-fit">
@@ -221,7 +221,7 @@ const DistrictExecutives = () => {
           <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
               <tr className="bg-[#f8fafc] border-b border-border">
-                <th className="p-4 pl-6">Executive</th>
+                <th className="p-4 pl-6">District Manager</th>
                 <th className="p-4">State - Industry</th>
                 <th className="p-4 text-center">Handling</th>
                 <th className="p-4 text-center">Connected</th>

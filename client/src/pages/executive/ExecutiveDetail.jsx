@@ -69,11 +69,11 @@ const ExecutiveDetail = () => {
         </button>
         <div>
           <div className="flex items-center gap-2 text-[12px] font-medium text-text-muted">
-            <span>Executive Management</span>
+            <span>District Managers</span>
             <span className="opacity-30">›</span>
-            <span className="text-text-primary font-semibold">{user?.name || 'Executive'}</span>
+            <span className="text-text-primary font-semibold">{user?.name || 'District Manager'}</span>
           </div>
-          <h1 className="text-[24px] font-bold text-text-primary tracking-tight">Executive Profile</h1>
+          <h1 className="text-[24px] font-bold text-text-primary tracking-tight">District Manager Profile</h1>
         </div>
       </div>
 

@@ -332,7 +332,7 @@ const MyWork = () => {
               }
             })}
           >
-            + Create Executive
+            + Create District Manager
           </Button>
         </div>
       </div>
@@ -1125,7 +1125,7 @@ const MyWork = () => {
 
           <div className="space-y-2 mb-6">
             <label className="block text-xs font-bold text-text-secondary mb-1.5">
-              Select Executive <span className="text-red">*</span>
+              Select District Manager <span className="text-red">*</span>
             </label>
             <select
               className="select w-full"

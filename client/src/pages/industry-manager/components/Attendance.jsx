@@ -25,7 +25,7 @@ const Attendance = () => {
     placeholderData: (prev) => prev
   });
 
-  // 2. Get Executives Performance (for the table)
+  // 2. Get District Managers Performance (for the table)
   const { data: performanceData, isLoading: perfLoading } = useQuery({
     queryKey: ['dashboard', 'performance', month, year],
     queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data.executivePerformance),
@@ -99,7 +99,7 @@ const Attendance = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Attendance · {userInfo.industry} Team</h2>
-          <p className="text-xs text-text-muted">All {executives.length} district executives · Work %, leaves, salary</p>
+          <p className="text-xs text-text-muted">All {executives.length} district managers · Work %, leaves, salary</p>
         </div>
         <div className="flex gap-2">
             <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={exportRegister}>

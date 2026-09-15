@@ -73,7 +73,7 @@ const Performance = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Summary & Reports</h1>
-          <p className="text-sm text-muted">Performance Summary {"\u00B7"} District Executive {"\u00B7"} {user?.name || 'Executive'} {"\u00B7"} {user?.district || user?.state || ''}</p>
+          <p className="text-sm text-muted">Performance Summary {"\u00B7"} District Manager {"\u00B7"} {user?.name || 'District Manager'} {"\u00B7"} {user?.district || user?.state || ''}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-surface border border-border rounded-lg p-1">

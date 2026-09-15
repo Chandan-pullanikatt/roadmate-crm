@@ -795,7 +795,7 @@ const GlobalModals = () => {
                 </select>
               </div>
             ) : (
-              /* Founder / State Manager — full SM → IM → Executive cascade */
+              /* Founder / State Manager — full SM → IM → District Manager cascade */
               <div className="grid grid-cols-2 gap-x-10 gap-y-6">
                 <div className="space-y-2">
                   <label className="form-label">Assign to State Manager</label>
@@ -840,14 +840,14 @@ const GlobalModals = () => {
                   )}
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <label className="form-label">Assign to District Executive</label>
+                  <label className="form-label">Assign to District Manager</label>
                   <select
                     className="select"
                     value={leadFormData.ownerId}
                     onChange={(e)=>setLeadFormData({...leadFormData, ownerId: e.target.value})}
                     disabled={!leadFormData.industryManagerId}
                   >
-                    <option value="">{leadFormData.industryManagerId ? 'Select District Executive' : 'Select Industry Manager first'}</option>
+                    <option value="">{leadFormData.industryManagerId ? 'Select District Manager' : 'Select Industry Manager first'}</option>
                     {leadExecutiveOptions.map(ex => <option key={ex._id} value={ex._id}>{ex.name} ({ex.district || ex.state})</option>)}
                   </select>
                 </div>
@@ -1089,7 +1089,7 @@ const GlobalModals = () => {
                   onClick={() => setBulkAllocateStep(2)}
                   className="bg-[#0f766e]"
                 >
-                  Next: Select Executive →
+                  Next: Select District Manager →
                 </Button>
               </div>
             </>
@@ -1101,14 +1101,14 @@ const GlobalModals = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="form-label">Assign To Executive</label>
+                <label className="form-label">Assign To District Manager</label>
                 <select 
                   className="select" 
                   value={targetExecutiveId} 
                   onChange={(e) => setTargetExecutiveId(e.target.value)}
                 >
                   <option value="">Select Staff</option>
-                  <optgroup label="Executives">
+                  <optgroup label="District Managers">
                     {executives.map(e => <option key={e._id} value={e._id}>{e.name} ({e.state})</option>)}
                   </optgroup>
                   <optgroup label="Industry Managers">
@@ -1141,10 +1141,10 @@ const GlobalModals = () => {
           execFormData._id
             ? "Edit Account"
             : execFormData.roleLocked && execFormData.role === 'executive'
-              ? "Create Executive"
-              : "Create Executive / Industry Manager"
+              ? "Create District Manager"
+              : "Create District Manager / Industry Manager"
         }
-        subtitle={execFormData._id ? "Update staff account information" : "Add new District Executive account"}
+        subtitle={execFormData._id ? "Update staff account information" : "Add new District Manager account"}
         onClose={handleCloseModal}
         className="modal-lg"
       >
@@ -1157,7 +1157,7 @@ const GlobalModals = () => {
               <label className="form-label">Role <span className="text-red">*</span></label>
               <select className="select" value={execFormData.role} onChange={(e) => setExecFormData({...execFormData, role: e.target.value})} required>
                 <option value="industry-manager">Industry State Manager</option>
-                <option value="executive">District Executive</option>
+                <option value="executive">District Manager</option>
               </select>
             </div>
             )}
@@ -1711,7 +1711,7 @@ const GlobalModals = () => {
                   <ul className="space-y-1.5 text-xs text-text-muted">
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue"></span>
-                      <span className="font-bold text-text-secondary">Executives</span> leaves are approved by Industry Managers.
+                      <span className="font-bold text-text-secondary">District Managers</span> leaves are approved by Industry Managers.
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-purple"></span>

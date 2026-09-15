@@ -17,16 +17,16 @@ const AUDIENCES = {
     { value: '', label: 'Everyone' },
     { value: 'state_manager', label: 'State Managers' },
     { value: 'industry_manager', label: 'Industry Managers' },
-    { value: 'executive', label: 'District Executives' },
+    { value: 'executive', label: 'District Managers' },
   ],
   state_manager: [
     { value: '', label: 'My whole team' },
     { value: 'industry_manager', label: 'My Industry Managers' },
-    { value: 'executive', label: 'My District Executives' },
+    { value: 'executive', label: 'My District Managers' },
   ],
   industry_manager: [
     { value: '', label: 'My whole team' },
-    { value: 'executive', label: 'My District Executives' },
+    { value: 'executive', label: 'My District Managers' },
   ],
 };
 

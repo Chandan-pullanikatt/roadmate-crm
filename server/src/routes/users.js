@@ -375,7 +375,7 @@ router.delete('/:id', async (req, res) => {
     // Permissions/Role checks
     if (req.user.role !== 'founder') {
       if (targetUser.role !== 'executive') {
-        return res.status(400).json({ message: 'Only Executive accounts can be deleted via this flow' });
+        return res.status(400).json({ message: 'Only District Manager accounts can be deleted via this flow' });
       }
 
       if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {

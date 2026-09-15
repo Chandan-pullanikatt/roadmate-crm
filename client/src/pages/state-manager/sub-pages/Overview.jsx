@@ -165,7 +165,7 @@ const Overview = () => {
 
         <div {...cardProps('executives')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-purple/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">District Executives</div>
+          <div className="text-[13px] font-bold text-text-muted">District Managers</div>
           <div className="text-[28px] font-black text-purple mt-1">{stats.districtExecutivesCount}</div>
           <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
              Across {stats.industriesCount ?? 0} industries
@@ -334,7 +334,7 @@ const Overview = () => {
           <div className="p-5 border-b border-border flex justify-between items-center">
             <div>
               <h2 className="text-[15px] font-bold text-text-primary">Leave Requests</h2>
-              <p className="text-[12px] text-text-muted mt-0.5">Industry Managers &amp; Executives pending approval</p>
+              <p className="text-[12px] text-text-muted mt-0.5">Industry Managers &amp; District Managers pending approval</p>
             </div>
             <Tag variant="amber" label={`${leaveRequests.length} Pending`} className="font-black text-[10px]" />
           </div>

@@ -146,7 +146,7 @@ const Performance = () => {
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-surface2/30 text-[9px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
-                <th className="px-8 py-4">Executive</th>
+                <th className="px-8 py-4">District Manager</th>
                 <th className="px-6 py-4">District</th>
                 <th className="px-6 py-4 text-center">Calls</th>
                 <th className="px-6 py-4 text-center">Meetings</th>
