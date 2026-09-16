@@ -10,6 +10,7 @@ const User = require('../models/User');
 const { getScopeOwnerIds, applyLeadScope } = require('../utils/hierarchy');
 const { statusesForParam } = require('../constants/leadStatusGroups');
 const { createdAtRange } = require('../utils/dateRange');
+const { Country, State } = require('country-state-city');
 
 // Protect all routes
 router.use(verifyToken);
@@ -33,12 +34,13 @@ const toComparablePhone = (phone) => {
 
 /**
  * Indian numbers must be a valid 10-digit mobile (never starting 0-5). The form
- * also accepts +971/+1, so non-Indian numbers are range-checked instead.
+ * accepts any country code, so non-Indian numbers are range-checked instead.
+ * A bare 10-digit number (no "+") is treated as Indian.
  */
 const isValidMobile = (phone) => {
   const raw = String(phone || '').trim();
   const digits = raw.replace(/\D/g, '');
-  const isIndian = raw.startsWith('+91') || digits.length === 10;
+  const isIndian = raw.startsWith('+91') || (!raw.startsWith('+') && digits.length === 10);
   if (isIndian) return /^[6-9]\d{9}$/.test(toComparablePhone(raw));
   return digits.length >= 7 && digits.length <= 15;
 };
@@ -549,7 +551,21 @@ router.get('/', async (req, res) => {
 
     // industry/state/country remain available as UI display filters (not a security boundary).
     if (state) query.state = state;
-    if (country) query.country = country;
+    if (country) {
+      // Most leads (bulk uploads) carry a state but no country, so a country filter
+      // also matches country-less leads whose state belongs to that country.
+      const iso = Country.getAllCountries().find((c) => c.name === country)?.isoCode;
+      const stateNames = iso ? State.getStatesOfCountry(iso).map((s) => s.name) : [];
+      query.$and = [
+        ...(query.$and || []),
+        {
+          $or: [
+            { country },
+            { country: { $in: [null, ''] }, state: { $in: stateNames } }
+          ]
+        }
+      ];
+    }
     if (industry) query.industry = industry;
 
     const leads = await Lead.find(query)
@@ -583,6 +599,13 @@ router.post('/', async (req, res) => {
         message: 'Enter a valid 10-digit mobile number.',
         field: 'phone'
       });
+    }
+    if (!payload.leadSource || !String(payload.leadSource).trim()) {
+      return res.status(400).json({ message: 'Lead source is required.', field: 'leadSource' });
+    }
+    // Name is optional on the form — fall back to the phone number, as bulk upload does
+    if (!payload.name || !String(payload.name).trim()) {
+      payload.name = payload.phone;
     }
 
     // Duplicate leads are warned about, not blocked — the same person can

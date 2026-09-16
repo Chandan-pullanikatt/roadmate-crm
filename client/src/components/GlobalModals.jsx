@@ -17,6 +17,7 @@ import AllocateLeadModal from './modals/AllocateLeadModal';
 import LeadHistoryModal from './modals/LeadHistoryModal';
 import SendNotificationModal from './modals/SendNotificationModal';
 import ViewLeadModal from './modals/ViewLeadModal';
+import { PHONE_CODES, dialCodeFor } from '../data/phoneCodes';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 const toDateInputValue = (date = new Date()) => {
@@ -48,7 +49,7 @@ const GlobalModals = () => {
   const [duplicateWarning, setDuplicateWarning] = useState(null); // existing lead when a duplicate is detected
   
   const getLeadFormDefaults = () => ({
-    name: '', company: '', countryCode: '+91', phone: '', email: '',
+    name: '', phoneCountry: 'IN', phone: '', email: '',
     country: 'India',
     district: '',
     state: isStateManager ? (currentUser?.state || '') : '',
@@ -396,7 +397,7 @@ const GlobalModals = () => {
     if (e) e.preventDefault();
 
     const digits = (leadFormData.phone || '').replace(/\D/g, '');
-    const isIndian = leadFormData.countryCode === '+91';
+    const isIndian = leadFormData.phoneCountry === 'IN';
     if (isIndian ? !/^[6-9]\d{9}$/.test(digits) : (digits.length < 7 || digits.length > 15)) {
       addToast(
         isIndian
@@ -414,7 +415,7 @@ const GlobalModals = () => {
         : (leadFormData.ownerId || leadFormData.industryManagerId || leadFormData.managerId || '');
       const leadData = {
         ...leadFormData,
-        phone: `${leadFormData.countryCode}${leadFormData.phone}`,
+        phone: `${dialCodeFor(leadFormData.phoneCountry)}${leadFormData.phone}`,
         meetingLink: leadFormData.meetingType === 'virtual' ? leadFormData.meetingLink.trim() : '',
         ownerId: allocationOwnerId || undefined,
         confirmDuplicate
@@ -664,22 +665,18 @@ const GlobalModals = () => {
             
             <div className="grid grid-cols-2 gap-x-10 gap-y-6">
               <div className="space-y-2">
-                <label className="form-label">Full Name <span className="text-red">*</span></label>
-                <input className="input" type="text" value={leadFormData.name} onChange={(e)=>setLeadFormData({...leadFormData, name: e.target.value})} placeholder="Lead name" required />
-              </div>
-              <div className="space-y-2">
-                <label className="form-label">Company / Business</label>
-                <input className="input" type="text" value={leadFormData.company} onChange={(e)=>setLeadFormData({...leadFormData, company: e.target.value})} placeholder="Company name" />
+                <label className="form-label">Full Name</label>
+                <input className="input" type="text" value={leadFormData.name} onChange={(e)=>setLeadFormData({...leadFormData, name: e.target.value})} placeholder="Lead name" />
               </div>
               
               <div className="space-y-2">
                 <label className="form-label">Phone Number <span className="text-red">*</span></label>
                 <div className="flex gap-3">
-                  <div className="relative w-32 shrink-0">
-                    <select className="select pl-4" value={leadFormData.countryCode} onChange={(e)=>setLeadFormData({...leadFormData, countryCode: e.target.value})}>
-                      <option value="+91">🇮🇳 +91</option>
-                      <option value="+971">🇦🇪 +971</option>
-                      <option value="+1">🇺🇸 +1</option>
+                  <div className="relative w-40 shrink-0">
+                    <select className="select pl-4" value={leadFormData.phoneCountry} onChange={(e)=>setLeadFormData({...leadFormData, phoneCountry: e.target.value})}>
+                      {PHONE_CODES.map((c) => (
+                        <option key={c.iso} value={c.iso}>{c.name} ({c.dialCode})</option>
+                      ))}
                     </select>
                   </div>
                   <input
@@ -687,11 +684,11 @@ const GlobalModals = () => {
                     type="tel"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    maxLength={leadFormData.countryCode === '+91' ? 10 : 15}
+                    maxLength={leadFormData.phoneCountry === 'IN' ? 10 : 15}
                     value={leadFormData.phone}
                     onChange={(e)=>setLeadFormData({
                       ...leadFormData,
-                      phone: digitsOnly(e.target.value).slice(0, leadFormData.countryCode === '+91' ? 10 : 15)
+                      phone: digitsOnly(e.target.value).slice(0, leadFormData.phoneCountry === 'IN' ? 10 : 15)
                     })}
                     placeholder="XXXXX XXXXX"
                     required
@@ -721,7 +718,6 @@ const GlobalModals = () => {
                     regionType: loc.regionType,
                     region: loc.region
                   })}
-                  required
                 />
               </div>
               <div className="space-y-2">

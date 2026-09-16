@@ -5,6 +5,15 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
 import { Button, Tag } from '../../../components/ui';
 import { exportToCSV } from '../../../utils/exportUtils';
+import { Country, State } from 'country-state-city';
+
+const COUNTRIES = Country.getAllCountries();
+// Leads without a country are almost all Indian, so India's states are listed
+// until a country is picked.
+const statesFor = (countryName) => {
+  const iso = COUNTRIES.find((c) => c.name === countryName)?.isoCode || 'IN';
+  return State.getStatesOfCountry(iso);
+};
 
 // This page is the drill-down behind the Founder's "Expected Onboarding" card, so it must
 // mirror that number: open leads tagged Hot or Warm, split into a tab each. It used to load
@@ -17,9 +26,7 @@ const ExpectedOnboarding = () => {
   const [filterState, setFilterState] = useState('All');
   const [filterCountry, setFilterCountry] = useState('All');
   const [listSearch, setListSearch] = useState('');
-  const [headerSearch, setHeaderSearch] = useState('');
   const [debouncedListSearch, setDebouncedListSearch] = useState('');
-  const [debouncedHeaderSearch, setDebouncedHeaderSearch] = useState('');
   const [page, setPage] = useState(1);
 
   // The Founder card counts only leads created inside the period picked on the Overview,
@@ -44,14 +51,6 @@ const ExpectedOnboarding = () => {
     }, 350);
     return () => clearTimeout(timer);
   }, [listSearch]);
-
-  // Debounce header search (Local)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedHeaderSearch(headerSearch);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [headerSearch]);
 
   // Every query on this page shares one filter set, so the tab counts, the rows and
   // the pagination footer can never disagree with each other.
@@ -129,20 +128,8 @@ const ExpectedOnboarding = () => {
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
-  // Local filtering for Header Search
-  const filteredLeads = useMemo(() => {
-    let result = leadData?.leads || [];
-    if (debouncedHeaderSearch) {
-      const query = debouncedHeaderSearch.toLowerCase();
-      result = result.filter(l => 
-        l.name?.toLowerCase().includes(query) ||
-        l.company?.toLowerCase().includes(query) ||
-        l.owner?.name?.toLowerCase().includes(query) ||
-        l.state?.toLowerCase().includes(query)
-      );
-    }
-    return result;
-  }, [leadData?.leads, debouncedHeaderSearch]);
+  const filteredLeads = leadData?.leads || [];
+  const stateOptions = useMemo(() => statesFor(filterCountry), [filterCountry]);
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -173,33 +160,7 @@ const ExpectedOnboarding = () => {
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
-      {/* Top Header Section */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-border">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Expected Onboarding</h1>
-            <p className="text-sm text-text-muted mt-1">Open Hot &amp; Warm leads - Filter, allocate, track, escalate</p>
-          </div>
-          <div className="flex items-center gap-3">
-              <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Search leads, team, states..." 
-                  className="bg-surface2/50 border border-border rounded-xl pl-10 pr-4 py-2 text-sm w-72 focus:bg-white transition-all outline-none focus:border-blue"
-                  value={headerSearch}
-                  onChange={(e) => setHeaderSearch(e.target.value)}
-                />
-                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
-              </div>
-             <button className="w-10 h-10 flex items-center justify-center rounded-full bg-surface2 text-text-secondary hover:bg-surface3 transition-all relative">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red rounded-full border-2 border-white"></span>
-             </button>
-             <button className="bg-[#0f766e] text-white px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:shadow-md transition-all" onClick={() => openModal('add-lead')}>+ Add Lead</button>
-             <button className="bg-white border border-border text-text-primary px-6 py-2 rounded-xl font-bold text-sm hover:bg-surface2 transition-all" onClick={() => openModal('create-state-manager')}>+ State Manager</button>
-          </div>
-        </div>
-
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -207,11 +168,6 @@ const ExpectedOnboarding = () => {
               <p className="text-xs text-text-muted mt-0.5">
                 Hot &amp; Warm leads still open, across all states{periodLabel ? ` - created in ${periodLabel}` : ''}
               </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="bg-white" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
-              <Button variant="outline" size="sm" className="bg-white" onClick={() => openModal('allocate-lead')}>Allocate</Button>
-              <Button size="sm" className="bg-[#0f766e] text-white" onClick={() => openModal('add-lead')}>+ Add Lead</Button>
             </div>
           </div>
 
@@ -255,25 +211,24 @@ const ExpectedOnboarding = () => {
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
              </div>
              <select
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px]"
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px] max-w-[180px]"
                value={filterCountry}
-               onChange={e => setFilterCountry(e.target.value)}
+               onChange={e => { setFilterCountry(e.target.value); setFilterState('All'); }}
              >
                <option value="All">All Countries</option>
-               <option value="India">🇮🇳 India</option>
-               <option value="UAE">🇦🇪 UAE</option>
-               <option value="USA">🇺🇸 USA</option>
-               <option value="UK">🇬🇧 UK</option>
+               {COUNTRIES.map((c) => (
+                 <option key={c.isoCode} value={c.name}>{c.name}</option>
+               ))}
              </select>
              <select
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px]"
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px] max-w-[180px]"
                value={filterState}
                onChange={e => setFilterState(e.target.value)}
              >
                <option value="All">All States</option>
-               <option>Kerala</option>
-               <option>Telangana</option>
-               <option>Maharashtra</option>
+               {stateOptions.map((s) => (
+                 <option key={s.isoCode} value={s.name}>{s.name}</option>
+               ))}
              </select>
              <Button variant="outline" size="sm" className="bg-white text-text-primary font-bold" onClick={handleExport}>Export</Button>
           </div>
@@ -284,7 +239,6 @@ const ExpectedOnboarding = () => {
             <thead>
               <tr className="bg-surface2/30 border-b border-border">
                 <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Lead</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Company</th>
                 <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Phone</th>
                 <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Assigned</th>
                 <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted text-center">Status</th>
@@ -299,7 +253,6 @@ const ExpectedOnboarding = () => {
                   <td className="p-4">
                     <div className="font-bold text-[14px] text-text-primary">{l.name}</div>
                   </td>
-                  <td className="p-4 text-[13px] text-text-secondary">{l.company || 'N/A'}</td>
                   <td className="p-4 text-[13px] font-mono text-text-secondary">{l.phone || 'N/A'}</td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
@@ -323,7 +276,7 @@ const ExpectedOnboarding = () => {
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('view-lead', { leadId: l._id })}>View</button>
-                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.company || l.name })}>History</button>
+                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>History</button>
                       <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
                       <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>
                       <button className="bg-white border border-red/20 text-red px-3 py-1 rounded-md text-[11px] font-bold hover:bg-red-light transition-all" onClick={() => leadsApi.deleteLead(l._id).then(() => window.location.reload())}>Delete</button>
@@ -332,12 +285,12 @@ const ExpectedOnboarding = () => {
                 </tr>
               ))}
               {filteredLeads.length === 0 && !isLoading && (
-                 <tr><td colSpan="8" className="p-16 text-center text-text-muted italic">
-                   {debouncedListSearch || debouncedHeaderSearch ? "No leads found matching your search" : "No leads found matching your criteria."}
+                 <tr><td colSpan="7" className="p-16 text-center text-text-muted italic">
+                   {debouncedListSearch ? "No leads found matching your search" : "No leads found matching your criteria."}
                  </td></tr>
               )}
               {isLoading && (
-                 <tr><td colSpan="8" className="p-16 text-center text-text-muted shimmer">Loading lead data...</td></tr>
+                 <tr><td colSpan="7" className="p-16 text-center text-text-muted shimmer">Loading lead data...</td></tr>
               )}
             </tbody>
           </table>
@@ -345,9 +298,7 @@ const ExpectedOnboarding = () => {
 
         <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/10">
           <div className="text-xs text-text-muted font-medium">
-            {debouncedHeaderSearch
-              ? `Showing ${filteredLeads.length} of ${leadData?.leads?.length ?? 0} leads on this page`
-              : `Showing ${rangeStart}-${rangeEnd} of ${total} ${activeTab.toLowerCase()} leads`}
+            {`Showing ${rangeStart}-${rangeEnd} of ${total} ${activeTab.toLowerCase()} leads`}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-text-muted font-medium">Page {page} of {totalPages}</span>

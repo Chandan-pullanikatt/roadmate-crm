@@ -334,7 +334,6 @@ const LeadManagement = () => {
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
                 <th className="p-4">Lead Details</th>
-                <th className="p-4">Company</th>
                 <th className="p-4 text-center">State</th>
                 <th className="p-4">Assigned To</th>
                 <th className="p-4 text-center">Status</th>
@@ -349,7 +348,6 @@ const LeadManagement = () => {
                     <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
                     <div className="text-[10px] text-text-muted mt-0.5">{(l._id ?? '').substring(0,8).toUpperCase()}</div>
                   </td>
-                  <td className="p-4 text-[12.5px] font-semibold text-text-secondary">{l.company || 'N/A'}</td>
                   <td className="p-4 text-center">
                     <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{l.state || 'N/A'}</span>
                   </td>
@@ -369,7 +367,7 @@ const LeadManagement = () => {
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       {/* Fix: Lead Pipeline — View Details button opens lead history */}
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-muted font-bold px-3" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.company || l.name })}>View</Button>
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-muted font-bold px-3" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>View</Button>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('update-lead', { leadData: l })}>Update</Button>
                       <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
                     </div>
@@ -377,7 +375,7 @@ const LeadManagement = () => {
                 </tr>
               ))}
               {leads.length === 0 && !isLoading && (
-                 <tr><td colSpan="7" className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
+                 <tr><td colSpan="6" className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
               )}
             </tbody>
           </table>

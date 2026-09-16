@@ -472,7 +472,6 @@ const Overview = () => {
             <thead>
               <tr className="bg-surface2/50 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border">
                 <th className="p-4 font-bold">Lead Name</th>
-                <th className="p-4 font-bold">Company</th>
                 <th className="p-4 font-bold">State</th>
                 <th className="p-4 font-bold">Assigned To</th>
                 <th className="p-4 font-bold text-center">Status</th>
@@ -487,7 +486,6 @@ const Overview = () => {
                     <div className="text-[13px] font-bold text-text-primary">{lead.name}</div>
                     <div className="text-[11px] text-text-muted mt-0.5">{lead.phone || 'No contact number'}</div>
                   </td>
-                  <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.company}</td>
                   <td className="p-4">
                     <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-blue/10 text-blue text-[10px] font-bold uppercase tracking-wider">{lead.state}</span>
                   </td>
@@ -509,7 +507,7 @@ const Overview = () => {
               ))}
               {expectedOnboardingList.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted text-[13px]">No expected onboarding leads found.</td>
+                  <td colSpan="6" className="p-8 text-center text-text-muted text-[13px]">No expected onboarding leads found.</td>
                 </tr>
               )}
             </tbody>
