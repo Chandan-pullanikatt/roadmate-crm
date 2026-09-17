@@ -202,6 +202,39 @@ router.post('/:id/documents', async (req, res) => {
 });
 
 /**
+ * PUT /api/users/:id/achievements - Replace a user's Key Achievements (Founder only)
+ */
+router.put('/:id/achievements', async (req, res) => {
+  try {
+    if (req.user.role !== 'founder') {
+      return res.status(403).json({ message: 'Only the Founder can set achievements' });
+    }
+    const list = Array.isArray(req.body.achievements) ? req.body.achievements : [];
+    if (list.length > 10) {
+      return res.status(400).json({ message: 'A profile can have at most 10 achievements' });
+    }
+    const achievements = list
+      .map(a => ({
+        icon: String(a.icon || '⭐').trim().slice(0, 8) || '⭐',
+        title: String(a.title || '').trim().slice(0, 80),
+        description: String(a.description || '').trim().slice(0, 200)
+      }))
+      .filter(a => a.title);
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { achievements } },
+      { returnDocument: 'after', runValidators: true }
+    ).select('achievements');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json(user.achievements);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
  * POST /api/users/create-industry-manager
  * State Manager only
  */

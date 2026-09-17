@@ -5,6 +5,23 @@ const User = require('../models/User');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Attendance = require('../models/Attendance');
+const { createdAtRange } = require('../utils/dateRange');
+
+// Counts of each lead action in a list of LeadActivity records.
+const countActions = (activities) => ({
+  calls: activities.filter(a => a.action === 'called').length,
+  meetings: activities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
+  followups: activities.filter(a => a.action === 'followup_set').length,
+  conversions: activities.filter(a => a.action === 'converted').length,
+  rnr: activities.filter(a => a.action === 'rnr').length,
+  blocking: activities.filter(a => a.action === 'blocking_amount_received').length,
+  fullAmount: activities.filter(a => a.action === 'full_amount_received').length,
+  lost: activities.filter(a => ['lost', 'not_interested'].includes(a.action)).length,
+  escalated: activities.filter(a => a.action === 'escalated').length,
+  revenue: activities
+    .filter(a => a.action === 'converted' && a.metadata?.revenue)
+    .reduce((sum, a) => sum + (Number(a.metadata.revenue) || 0), 0)
+});
 
 // Protect all routes
 router.use(verifyToken);
@@ -47,15 +64,7 @@ router.get('/user/:id', async (req, res) => {
       createdAt: { $gte: startOfMonth, $lte: endOfMonth }
     });
 
-    const stats = {
-      calls: activities.filter(a => a.action === 'called').length,
-      meetings: activities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
-      followups: activities.filter(a => a.action === 'followup_set').length,
-      conversions: activities.filter(a => a.action === 'converted').length,
-      revenue: activities
-        .filter(a => a.action === 'converted' && a.metadata?.revenue)
-        .reduce((sum, a) => sum + (Number(a.metadata.revenue) || 0), 0)
-    };
+    const stats = countActions(activities);
 
     // 4. Attendance Stats (Monthly)
     const attendanceRecords = await Attendance.find({
@@ -68,6 +77,14 @@ router.get('/user/:id', async (req, res) => {
       : 0;
 
     const presentDays = attendanceRecords.filter(a => ['present', 'half_day'].includes(a.status)).length;
+
+    // Attendance quality: share of this month's recorded working days the user was
+    // present (a half day counts half). Holidays are not working days.
+    const workingDays = attendanceRecords.filter(a => !['holiday', 'optional_holiday'].includes(a.status));
+    const attendedDays = workingDays.reduce(
+      (sum, a) => sum + (a.status === 'present' ? 1 : a.status === 'half_day' ? 0.5 : 0), 0
+    );
+    const attendancePct = workingDays.length > 0 ? Math.round((attendedDays / workingDays.length) * 100) : 0;
 
     res.json({
       user: {
@@ -82,7 +99,8 @@ router.get('/user/:id', async (req, res) => {
         employeeId: user.employeeId,
         basicSalary: user.basicSalary,
         dateOfJoining: user.dateOfJoining,
-        documents: user.documents
+        documents: user.documents,
+        achievements: user.achievements
       },
       performance: {
         totalLeads,
@@ -90,9 +108,28 @@ router.get('/user/:id', async (req, res) => {
         convertedLeads,
         monthly: stats,
         avgWorkPct,
-        presentDays
+        presentDays,
+        attendancePct
       }
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * GET /api/stats/user/:id/actions?period=&value=
+ * Lead actions the user performed in the selected period (same periods as the
+ * Founder Summary filter: today / week / month / quarter / year).
+ */
+router.get('/user/:id/actions', async (req, res) => {
+  try {
+    const { period = 'month', value } = req.query;
+    const activities = await LeadActivity.find({
+      performedBy: req.params.id,
+      createdAt: createdAtRange(period, value)
+    }).select('action metadata').lean();
+    res.json(countActions(activities));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

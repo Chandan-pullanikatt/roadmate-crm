@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
@@ -9,11 +9,16 @@ import {
   DashboardSkeleton 
 } from '../../components/ui';
 import { format } from 'date-fns';
+import LeadPipelinePanel, { LeadMetricsBreakdown } from '../../components/LeadPipelinePanel';
+import KeyAchievements from '../../components/KeyAchievements';
 
 const ExecutiveDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('performance');
+
+  // Opening another profile from a tab re-uses this page, so start it on Performance.
+  useEffect(() => { setActiveTab('performance'); }, [id]);
 
   const { data: detailData, isLoading, error } = useQuery({
     queryKey: ['executive', 'detail', id],
@@ -23,11 +28,17 @@ const ExecutiveDetail = () => {
         api.get(`/leads?owner=${id}&limit=100`),
         api.get(`/attendance?userId=${id}&limit=30`)
       ]);
+      const user = userRes.data?.user || {};
+      // An Industry Manager's District Managers report directly to them.
+      const districtManagers = user.role === 'industry_manager'
+        ? (await api.get(`/users?role=executive&reportingTo=${id}`)).data || []
+        : [];
       return {
-        user: userRes.data?.user || {},
+        user,
         performance: userRes.data?.performance || { monthly: {}, totalLeads: 0, avgWorkPct: 0 },
         leads: leadsRes.data?.leads || [],
-        attendance: attendanceRes.data || []
+        attendance: attendanceRes.data || [],
+        districtManagers
       };
     }
   });
@@ -41,11 +52,12 @@ const ExecutiveDetail = () => {
     </div>
   );
 
-  const { user = {}, performance = { monthly: {} }, leads = [], attendance = [] } = detailData || {};
-  const monthly = performance?.monthly || {};
+  const { user = {}, performance = { monthly: {} }, leads = [], attendance = [], districtManagers = [] } = detailData || {};
+  const isIndustryManager = user?.role === 'industry_manager';
+  const roleLabel = isIndustryManager ? 'Industry Manager' : 'District Manager';
 
   const handleBack = () => {
-    navigate('/dashboard?page=executives');
+    navigate(isIndustryManager ? '/dashboard?page=industry-managers' : '/dashboard?page=executives');
   };
 
   const safeFormat = (dateStr, fmt) => {
@@ -69,11 +81,11 @@ const ExecutiveDetail = () => {
         </button>
         <div>
           <div className="flex items-center gap-2 text-[12px] font-medium text-text-muted">
-            <span>District Managers</span>
+            <span>{roleLabel}s</span>
             <span className="opacity-30">›</span>
-            <span className="text-text-primary font-semibold">{user?.name || 'District Manager'}</span>
+            <span className="text-text-primary font-semibold">{user?.name || roleLabel}</span>
           </div>
-          <h1 className="text-[24px] font-bold text-text-primary tracking-tight">District Manager Profile</h1>
+          <h1 className="text-[24px] font-bold text-text-primary tracking-tight">{roleLabel} Profile</h1>
         </div>
       </div>
 
@@ -86,7 +98,7 @@ const ExecutiveDetail = () => {
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <h2 className="text-[28px] font-black text-text-primary tracking-tight">{user?.name || 'N/A'}</h2>
-              <Tag variant="blue" label={(user?.role || 'executive').toUpperCase()} className="font-black text-[10px] tracking-widest px-3" />
+              <Tag variant="blue" label={roleLabel.toUpperCase()} className="font-black text-[10px] tracking-widest px-3" />
               <span className="bg-green/10 text-green px-3 py-1 rounded-full text-[12px] font-bold">{user?.isActive !== false ? 'Active' : 'Inactive'}</span>
             </div>
             
@@ -122,13 +134,22 @@ const ExecutiveDetail = () => {
 
       {/* Navigation Tabs */}
       <div className="flex gap-2 mb-6 bg-surface2/30 p-1 rounded-xl border border-border w-fit">
-        {['performance', 'leads', 'attendance', 'documents'].map(tab => (
+        {[
+          { id: 'performance', label: 'Performance' },
+          // An Industry Manager's second tab lists the District Managers under them;
+          // a District Manager's lists their leads.
+          isIndustryManager
+            ? { id: 'district-managers', label: 'District Managers' }
+            : { id: 'leads', label: 'Leads' },
+          { id: 'attendance', label: 'Attendance' },
+          { id: 'documents', label: 'Documents' }
+        ].map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2 rounded-lg text-[13px] font-bold capitalize transition-all ${activeTab === tab ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text-primary'}`}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all ${activeTab === tab.id ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text-primary'}`}
           >
-            {tab}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -137,34 +158,34 @@ const ExecutiveDetail = () => {
       {activeTab === 'performance' && (
         <div className="animate-in slide-in-from-bottom-2 duration-300">
           {/* SECTION 2: Performance Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard label="Total Leads" value={performance?.totalLeads || 0} sub="Lifetime" color="blue" />
-            <StatCard label="Monthly Calls" value={monthly?.calls || 0} sub="This Month" color="purple" />
-            <StatCard label="Monthly Revenue" value={`₹${((monthly?.revenue || 0) / 1000).toFixed(1)}K`} sub="Target: 50K" color="green" />
-            <StatCard label="Avg Work %" value={`${performance?.avgWorkPct || 0}%`} sub="Attendance Quality" color="amber" />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <LeadPipelinePanel ownerId={id} ownerName={user?.name} className="lg:col-span-3" />
+            <StatCard label="Work Completion" value={`${performance?.avgWorkPct || 0}%`} sub="This Month" color="amber" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-border p-6 shadow-sm">
-              <h3 className="text-[18px] font-bold mb-6 flex items-center gap-2">
-                <span className="text-blue">📊</span> Monthly Metrics Breakdown
-              </h3>
-              <div className="space-y-6">
-                <MetricBar label="Lead Conversion" value={monthly?.conversions || 0} total={monthly?.calls || 0} color="bg-green" />
-                <MetricBar label="Meeting Success" value={monthly?.meetings || 0} total={monthly?.calls || 0} color="bg-blue" />
-                <MetricBar label="Follow-up Rate" value={monthly?.followups || 0} total={monthly?.calls || 0} color="bg-purple" />
-              </div>
+            <div className="lg:col-span-2">
+              <LeadMetricsBreakdown userId={id} />
             </div>
 
-            <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
-              <h3 className="text-[18px] font-bold mb-6 flex items-center gap-2">
-                <span className="text-amber">🏆</span> Key Achievements
-              </h3>
-              <div className="space-y-4">
-                <AchievementItem icon="⭐" title="Consistency King" desc="90%+ work completion for 3 weeks" />
-                <AchievementItem icon="💰" title="High Roller" desc="Generated >₹1L revenue last quarter" />
-                <AchievementItem icon="📈" title="Rising Star" desc="Top performer in Healthcare vertical" />
-              </div>
+            <div className="flex flex-col gap-8">
+              <KeyAchievements
+                userId={id}
+                achievements={user?.achievements || []}
+                queryKey={['executive', 'detail', id]}
+              />
+
+              {isIndustryManager && (
+                <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
+                  <h3 className="text-[18px] font-bold mb-6 flex items-center gap-2">
+                    <span className="text-amber">📋</span> Industry Overview
+                  </h3>
+                  <div className="space-y-4">
+                    <OverviewItem label="District Managers" value={districtManagers.length} icon="📍" />
+                    <OverviewItem label="Attendance Quality" value={`${performance?.attendancePct || 0}%`} icon="✅" />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -208,6 +229,52 @@ const ExecutiveDetail = () => {
               {leads.length === 0 && (
                 <tr>
                   <td colSpan="4" className="p-12 text-center text-text-muted italic">No leads assigned to this executive.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === 'district-managers' && (
+        <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-surface2/50 border-b border-border">
+                <th className="p-4 pl-6 text-[11px] font-black uppercase text-text-muted tracking-widest">Manager</th>
+                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">District</th>
+                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Joined</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {districtManagers.map(dm => (
+                <tr key={dm._id} className="hover:bg-surface2/30 transition-all cursor-pointer" onClick={() => navigate(`/dashboard/executives/${dm._id}`)}>
+                  <td className="p-4 pl-6">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={dm.name} size="sm" />
+                      <div>
+                        <div className="font-bold text-[14px]">{dm.name}</div>
+                        <div className="text-[12px] text-text-muted">{dm.phone}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    {dm.district ? <Tag variant="blue" label={dm.district.toUpperCase()} /> : <span className="text-text-muted">—</span>}
+                  </td>
+                  <td className="p-4">
+                    {dm.isActive !== false
+                      ? <span className="bg-green/10 text-green px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-green/20">Active</span>
+                      : <span className="bg-red/10 text-red px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-red/20">Inactive</span>}
+                  </td>
+                  <td className="p-4 text-[13px] font-medium text-text-muted">
+                    {safeFormat(dm.dateOfJoining, 'PP')}
+                  </td>
+                </tr>
+              ))}
+              {districtManagers.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="p-12 text-center text-text-muted italic">No District Managers report to this Industry Manager.</td>
                 </tr>
               )}
             </tbody>
@@ -306,28 +373,13 @@ const StatCard = ({ label, value, sub, color }) => (
   </div>
 );
 
-const MetricBar = ({ label, value, total, color }) => {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-[13px] font-bold text-text-primary">{label}</span>
-        <span className="text-[12px] font-black text-text-muted">{value} / {total} ({pct}%)</span>
-      </div>
-      <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden border border-border/50">
-        <div className={`h-full ${color} transition-all duration-1000`} style={{ width: `${pct}%` }}></div>
-      </div>
+const OverviewItem = ({ label, value, icon }) => (
+  <div className="flex items-center justify-between p-3 rounded-xl bg-surface2/30 border border-border/50">
+    <div className="flex items-center gap-3">
+      <span className="text-xl">{icon}</span>
+      <span className="text-[13px] font-bold text-text-muted uppercase tracking-wider">{label}</span>
     </div>
-  );
-};
-
-const AchievementItem = ({ icon, title, desc }) => (
-  <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface2 transition-colors cursor-default border border-transparent hover:border-border">
-    <div className="w-8 h-8 rounded-lg bg-surface2 flex items-center justify-center text-lg">{icon}</div>
-    <div>
-      <div className="text-[14px] font-bold text-text-primary">{title}</div>
-      <div className="text-[12px] text-text-muted font-medium">{desc}</div>
-    </div>
+    <span className="text-[16px] font-black text-text-primary">{value}</span>
   </div>
 );
 

@@ -33,6 +33,11 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     return params.get('owner') || '';
   });
+  // Set when a manager's own pipeline links here, so the page can say whose leads these are.
+  const [ownerName, setOwnerName] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('ownerName') || '';
+  });
   // Hot/Warm/Cold cards on the Founder pipeline link here with ?priority=
   const [priorityFilter, setPriorityFilter] = useState(() => {
     const params = new URLSearchParams(location.search);
@@ -68,6 +73,7 @@ const LeadManagement = () => {
     const params = new URLSearchParams(location.search);
     setActiveTab(params.get('status') || 'all');
     setOwnerFilter(params.get('owner') || '');
+    setOwnerName(params.get('ownerName') || '');
     setPriorityFilter(params.get('priority') || '');
     setPeriod(params.get('period') || '');
     setPeriodValue(params.get('value') || '');
@@ -198,7 +204,9 @@ const LeadManagement = () => {
           <div className="text-[20px] font-bold text-text-primary">
             {ownerFilter === 'unassigned'
               ? 'Unallocated Lead Management'
-              : priorityFilter
+              : ownerName
+                ? `${ownerName}'s Leads`
+                : priorityFilter
                 ? `${priorityFilter.charAt(0).toUpperCase()}${priorityFilter.slice(1)} Leads`
                 : 'Global Lead Management'}
           </div>
@@ -253,6 +261,16 @@ const LeadManagement = () => {
             className="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border bg-[#eff6ff] text-[#3b82f6] border-[#bfdbfe] hover:bg-[#dbeafe] transition-colors"
           >
             {periodLabel} only <span className="opacity-60">&times;</span>
+          </button>
+        )}
+
+        {ownerName && (
+          <button
+            onClick={() => { setOwnerFilter(''); setOwnerName(''); setPage(1); }}
+            title="Show leads from every owner"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border bg-[#eff6ff] text-[#3b82f6] border-[#bfdbfe] hover:bg-[#dbeafe] transition-colors"
+          >
+            {ownerName} only <span className="opacity-60">&times;</span>
           </button>
         )}
       </div>

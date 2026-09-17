@@ -4,17 +4,22 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
+import { Button } from '../../../components/ui';
+import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { exportToCSV } from '../../../utils/exportUtils';
+
+const EMPTY_PERF = { workPct: 0, calls: 0, meetings: 0, followups: 0, revenue: 0, leaves: 0 };
 
 const StateManagers = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [filterState, setFilterState] = useState('All');
+  const picker = usePeriod('today');
+  const { period, value: periodValue } = picker;
 
   const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'founder'],
-    queryFn: () => dashboardApi.getFounderDashboard().then(res => res.data),
+    queryKey: ['dashboard', 'founder', period, periodValue],
+    queryFn: () => dashboardApi.getFounderDashboard({ period, value: periodValue || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -37,8 +42,8 @@ const StateManagers = () => {
   }, [queryClient]);
 
   const openModal = (type, data = null) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { 
-      detail: typeof type === 'string' ? { type, ...data } : type 
+    window.dispatchEvent(new CustomEvent('open-modal', {
+      detail: typeof type === 'string' ? { type, ...data } : type
     }));
   };
 
@@ -53,27 +58,30 @@ const StateManagers = () => {
     }
   };
 
-  const handleExport = () => {
-    const dataToExport = filteredManagers.map((m, idx) => {
-      const s = byStateMap.get(m._id?.toString()) || {};
-      return {
-        'Manager Name': m.name,
-        'State': m.state,
-        'Email': m.email,
-        'Total Leads': s.leads || 0,
-        'Conversions': s.converted || 0,
-        'Revenue': s.revenue || 0,
-        'Avg Work %': Math.round(s.avgWorkPct || 0) + '%',
-        'Joined Date': new Date(m.createdAt).toLocaleDateString()
-      };
-    });
-    exportToCSV(dataToExport, 'State_Managers_Report');
-  };
-
   if (isLoading) return <DashboardSkeleton />;
 
-  const byStateMap = new Map((dashData?.byState || []).map(s => [s.stateManagerId, s]));
-  const filteredManagers = (managers || []).filter(m => filterState === 'All' || m.state === filterState);
+  // Who is listed comes from the user list; the period filter only changes the numbers.
+  const perfById = new Map((dashData?.stateManagersPerformance || []).map(p => [String(p._id), p]));
+  const rows = (managers || [])
+    .filter(u => u.isActive !== false)
+    .filter(u => filterState === 'All' || u.state === filterState)
+    .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
+  const periodText = period === 'today' ? 'Today' : periodValue;
+
+  const handleExport = () => {
+    exportToCSV(rows.map(m => ({
+      'Manager Name': m.name,
+      'State': m.state || '',
+      'Industry': m.industry || '',
+      'Period': periodText,
+      'Work %': `${m.workPct}%`,
+      'Calls': m.calls,
+      'Meetings': m.meetings,
+      'Follow-ups': m.followups,
+      'Revenue': m.revenue,
+      'Leave Days': m.leaves
+    })), 'State_Managers_Report');
+  };
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -83,115 +91,98 @@ const StateManagers = () => {
         <span className="text-text-primary">State Managers</span>
       </div>
 
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <div className="text-[20px] font-bold text-text-primary">All State Managers</div>
-            <div className="text-[12px] text-text-muted mt-1">Summary of each state manager's dashboard · Click row to drill in</div>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-state-manager')}>+ State Manager</Button>
-          </div>
+      <div className="flex justify-between items-end mb-6">
+        <div>
+          <div className="text-[20px] font-bold text-text-primary">All State Managers</div>
+          <div className="text-[12px] text-text-muted mt-1">Summary of each state manager's dashboard · Click row to drill in</div>
         </div>
-
-        <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm">
-          <div className="card-header border-b border-border bg-white flex justify-between items-center px-5 py-4">
-            <div className="text-[15px] font-bold text-text-primary">State Manager Profiles</div>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="xs" 
-                className="bg-white text-text-primary font-bold text-[10px] uppercase tracking-wider px-4"
-                onClick={handleExport}
-              >
-                Export
-              </Button>
-              <select 
-                className="bg-white border border-border rounded-lg px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-blue transition-colors min-w-[140px]"
-                value={filterState}
-                onChange={e => setFilterState(e.target.value)}
-              >
-                <option value="All">All States</option>
-                {[...new Set((managers || []).map(m => m.state).filter(Boolean))].map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="divide-y divide-border">
-            {filteredManagers.map((m, idx) => {
-              const s = byStateMap.get(m._id?.toString()) || {};
-              const initials = m.name ? m.name.split(' ').map(n=>n[0]).join('').substring(0, 2).toUpperCase() : 'U';
-              const colors = ['bg-[#3b82f6]', 'bg-[#4f46e5]', 'bg-[#0f766e]', 'bg-[#ea580c]'];
-              const avatarColor = colors[idx % colors.length];
-              const revenue = s.revenue || 0;
-
-              return (
-                <div key={m._id} className="flex items-center justify-between p-5 hover:bg-surface2/30 transition-colors group cursor-pointer" onClick={() => navigate(`/dashboard/state-managers/${m._id}`)}>
-                  <div className="flex items-center gap-4 min-w-[340px]">
-                    <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>
-                      {initials}
-                    </div>
-                    <div>
-                      <div className="text-[14px] font-bold text-text-primary group-hover:text-blue transition-colors">{m.name}</div>
-                      <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                        {m.state} · {s.calls || 0} calls · {s.meetings || 0} meetings
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-10 flex-1">
-                    <div className="text-center w-14">
-                      <div className="text-[15px] font-bold text-blue font-mono">{s.leads || 0}</div>
-                      <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Leads</div>
-                    </div>
-                    <div className="text-center w-14">
-                      <div className="text-[15px] font-bold text-[#16a34a] font-mono">{s.converted || 0}</div>
-                      <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Converted</div>
-                    </div>
-                    <div className="text-center w-24">
-                      <div className="text-[15px] font-bold text-teal font-mono">
-                        ₹{revenue >= 100000 ? (revenue >= 10000000 ? (revenue / 10000000).toFixed(1) + 'Cr' : (revenue / 100000).toFixed(1) + 'L') : revenue.toLocaleString()}
-                      </div>
-                      <div className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Revenue</div>
-                    </div>
-
-                    <div className="flex flex-col items-center justify-center w-24 border-l border-border pl-4">
-                      <div className="flex items-center gap-2">
-                         <div className="w-6 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                           <div className="h-full bg-[#16a34a]" style={{ width: `${s.avgWorkPct || 0}%` }}></div>
-                         </div>
-                         <div className="text-[13px] font-bold text-text-primary">{Math.round(s.avgWorkPct || 0)}%</div>
-                      </div>
-                      <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5 font-bold">Work %</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 ml-10 w-[240px]">
-                    <Button size="xs" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm px-4 font-bold" onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/dashboard/state-managers/${m._id}`);
-                    }}>View</Button>
-
-                    <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={(e) => {
-                      e.stopPropagation();
-                      openModal('create-state-manager', { editData: m });
-                    }}>Edit</Button>
-
-                    <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={(e) => {
-                      e.stopPropagation();
-                      openModal('leave-history', { user: m });
-                    }}>Leave</Button>
-
-                    <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(m._id, m.name);
-                    }}>Delete</Button>
-                  </div>
-                </div>
-              );
-            })}
-            {filteredManagers.length === 0 && <div className="p-12 text-center text-text-muted italic">No state managers found</div>}
-          </div>
+        <div className="flex gap-2">
+          <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-state-manager')}>+ State Manager</Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodPicker {...picker} />
+          <select
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+            value={filterState}
+            onChange={e => setFilterState(e.target.value)}
+          >
+            <option value="All">All States</option>
+            {[...new Set((managers || []).map(m => m.state).filter(Boolean))].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <Button variant="outline" size="sm" className="bg-white text-text-primary font-bold" onClick={handleExport}>Export</Button>
+        </div>
+      </div>
+
+      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+            <thead>
+              <tr className="bg-surface2/50 border-b border-border">
+                <th className="p-4">Manager</th>
+                <th className="p-4 text-center">State</th>
+                <th className="p-4">Industry</th>
+                <th className="p-4 text-center">Work %</th>
+                <th className="p-4 text-center">Calls</th>
+                <th className="p-4 text-center">Meetings</th>
+                <th className="p-4 text-center">Follow-ups</th>
+                <th className="p-4 text-center">Revenue</th>
+                <th className="p-4 text-center">Leaves</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
+              {rows.map(m => {
+                const { user } = m;
+                return (
+                  <tr
+                    key={m._id}
+                    className="hover:bg-surface2/30 transition-colors cursor-pointer group"
+                    onClick={() => navigate(`/dashboard/state-managers/${m._id}`)}
+                  >
+                    <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">{m.name}</td>
+                    <td className="p-4 text-center">
+                      {m.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state}</span>}
+                    </td>
+                    <td className="p-4 text-[12px] text-text-secondary">{m.industry || '—'}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                          <div className={`h-full ${m.workPct >= 80 ? 'bg-[#0f766e]' : m.workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${m.workPct}%` }}></div>
+                        </div>
+                        <span className="font-bold text-[12px]">{m.workPct}%</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.calls}</td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.meetings}</td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.followups}</td>
+                    <td className="p-4 text-center text-[12px] font-mono font-bold text-blue">
+                      ₹{m.revenue >= 100000 ? (m.revenue / 100000).toFixed(1) + 'L' : m.revenue.toLocaleString()}
+                    </td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.leaves}</td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={() => openModal('create-state-manager', { editData: user })}>Edit</Button>
+                        <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={() => openModal('leave-history', { user })}>Leave</Button>
+                        <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={() => handleDelete(m._id, m.name)}>Delete</Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 && (
+                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No state managers found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

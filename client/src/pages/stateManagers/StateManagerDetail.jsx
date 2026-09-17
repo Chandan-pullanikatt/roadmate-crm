@@ -9,6 +9,7 @@ import {
   DashboardSkeleton 
 } from '../../components/ui';
 import { format } from 'date-fns';
+import LeadPipelinePanel, { LeadMetricsBreakdown } from '../../components/LeadPipelinePanel';
 
 const StateManagerDetail = () => {
   const { id } = useParams();
@@ -18,15 +19,21 @@ const StateManagerDetail = () => {
   const { data: detailData, isLoading, error } = useQuery({
     queryKey: ['state-manager', 'detail', id],
     queryFn: async () => {
-      const [userRes, industryMgrsRes, leavesRes] = await Promise.all([
+      const [userRes, industryMgrsRes, executivesRes, leavesRes] = await Promise.all([
         api.get(`/stats/user/${id}`),
         api.get(`/users?role=industry_manager&reportingTo=${id}`),
+        api.get('/users?role=executive'),
         api.get(`/leave?userId=${id}`)
       ]);
+      const industryManagers = industryMgrsRes.data || [];
+      // District Managers report to this State Manager's Industry Managers (or to the SM directly).
+      const teamIds = new Set([id, ...industryManagers.map(m => String(m._id))]);
+      const districtManagers = (executivesRes.data || []).filter(e => teamIds.has(String(e.reportingTo?._id || e.reportingTo)));
       return {
         user: userRes.data.user,
         performance: userRes.data.performance,
-        industryManagers: industryMgrsRes.data || [],
+        industryManagers,
+        districtManagers,
         leaves: leavesRes.data || []
       };
     }
@@ -44,6 +51,7 @@ const StateManagerDetail = () => {
     user = {}, 
     performance = { monthly: {} }, 
     industryManagers = [], 
+    districtManagers = [],
     leaves = [] 
   } = detailData || {};
 
@@ -136,23 +144,14 @@ const StateManagerDetail = () => {
       {activeTab === 'performance' && (
         <div className="animate-in slide-in-from-bottom-2 duration-300">
           {/* SECTION 2: Performance Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard label="Regional Leads" value={performance.totalLeads} sub="Under Management" color="blue" />
-            <StatCard label="Monthly Activity" value={performance.monthly.calls} sub="Calls & Meetings" color="purple" />
-            <StatCard label="Regional Revenue" value={`₹${(performance.monthly.revenue >= 100000 ? (performance.monthly.revenue / 100000).toFixed(1) + 'L' : (performance.monthly.revenue / 1000).toFixed(1) + 'K')}`} sub="This Month" color="green" />
-            <StatCard label="Work Completion" value={`${performance.avgWorkPct}%`} sub="Team Average" color="amber" />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <LeadPipelinePanel ownerId={id} ownerName={user.name} className="lg:col-span-3" />
+            <StatCard label="Work Completion" value={`${performance.avgWorkPct}%`} sub="This Month" color="amber" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-border p-6 shadow-sm">
-              <h3 className="text-[18px] font-bold mb-6 flex items-center gap-2">
-                <span className="text-teal">📊</span> Regional Metrics Breakdown
-              </h3>
-              <div className="space-y-6">
-                <MetricBar label="Lead Conversions" value={performance.monthly.conversions} total={performance.monthly.calls} color="bg-green" />
-                <MetricBar label="Meetings Done" value={performance.monthly.meetings} total={performance.monthly.calls} color="bg-blue" />
-                <MetricBar label="Follow-ups" value={performance.monthly.followups} total={performance.monthly.calls} color="bg-purple" />
-              </div>
+            <div className="lg:col-span-2">
+              <LeadMetricsBreakdown userId={id} />
             </div>
 
             <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
@@ -160,9 +159,9 @@ const StateManagerDetail = () => {
                 <span className="text-amber">📋</span> State Overview
               </h3>
               <div className="space-y-4">
-                <OverviewItem label="Subordinate Managers" value={industryManagers.length} icon="👥" />
-                <OverviewItem label="Active Districts" value={user.district ? user.district.split(',').length : 'Full State'} icon="📍" />
-                <OverviewItem label="Attendance Quality" value={`${performance.avgWorkPct}%`} icon="✅" />
+                <OverviewItem label="Industry Managers" value={industryManagers.length} icon="👥" />
+                <OverviewItem label="District Managers" value={districtManagers.length} icon="📍" />
+                <OverviewItem label="Attendance Quality" value={`${performance.attendancePct || 0}%`} icon="✅" />
               </div>
             </div>
           </div>
@@ -193,7 +192,7 @@ const StateManagerDetail = () => {
                     </div>
                   </td>
                   <td className="p-4">
-                    <Tag variant="blue" label={mgr.industry.toUpperCase()} />
+                    {mgr.industry ? <Tag variant="blue" label={mgr.industry.toUpperCase()} /> : <span className="text-text-muted">—</span>}
                   </td>
                   <td className="p-4">
                     <span className="bg-green/10 text-green px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-green/20">Active</span>
@@ -297,21 +296,6 @@ const StatCard = ({ label, value, sub, color }) => (
     <div className="text-[12px] text-text-muted font-medium">{sub}</div>
   </div>
 );
-
-const MetricBar = ({ label, value, total, color }) => {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-[13px] font-bold text-text-primary">{label}</span>
-        <span className="text-[12px] font-black text-text-muted">{value} / {total} ({pct}%)</span>
-      </div>
-      <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden border border-border/50">
-        <div className={`h-full ${color} transition-all duration-1000`} style={{ width: `${pct}%` }}></div>
-      </div>
-    </div>
-  );
-};
 
 const OverviewItem = ({ label, value, icon }) => (
   <div className="flex items-center justify-between p-3 rounded-xl bg-surface2/30 border border-border/50">

@@ -1,308 +1,158 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
-
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag } from '../../../components/ui';
+import { usersApi } from '../../../api/usersApi';
+import { Button } from '../../../components/ui';
+import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+
+const EMPTY_PERF = { workPct: 0, leads: 0, periodLeads: 0, meetings: 0, blocking: 0, revenue: 0 };
 
 const DistrictExecutives = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [viewType, setViewType] = useState('monthly');
   const [filterState, setFilterState] = useState('All');
+  const picker = usePeriod('today');
+  const { period, value: periodValue } = picker;
 
-
-  const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'founder', viewType],
-    queryFn: () => dashboardApi.getFounderDashboard({ period: viewType }).then(res => res.data),
+  const { data: dashData } = useQuery({
+    queryKey: ['dashboard', 'founder', period, periodValue],
+    queryFn: () => dashboardApi.getFounderDashboard({ period, value: periodValue || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
 
-  React.useEffect(() => {
+  const { data: executives, isLoading } = useQuery({
+    queryKey: ['users', 'district-managers'],
+    queryFn: () => usersApi.getUsers({ role: 'executive' }).then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData
+  });
+
+  useEffect(() => {
     const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'district-managers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
     };
     window.addEventListener('refresh-users', handleRefresh);
     return () => window.removeEventListener('refresh-users', handleRefresh);
   }, [queryClient]);
 
-  const openModal = (id) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: id }));
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: { type, ...data } }));
   };
 
   const handleDelete = async (m) => {
-    const warning = m.leads > 0 ? `\n\nWarning: This executive has ${m.leads} assigned leads that will become unallocated.` : '';
+    const warning = m.leads > 0 ? `\n\nWarning: This District Manager has ${m.leads} assigned leads that will become unallocated.` : '';
     if (window.confirm(`Are you sure you want to delete ${m.name}?${warning}`)) {
       try {
-        const { usersApi } = await import('../../../api/usersApi');
         await usersApi.deleteUser(m._id);
-        queryClient.invalidateQueries({ queryKey: ['dashboard', 'founder'] });
+        window.dispatchEvent(new CustomEvent('refresh-users'));
       } catch (err) {
-        alert(err.response?.data?.message || 'Error deleting executive');
+        alert(err.response?.data?.message || 'Error deleting District Manager');
       }
     }
   };
 
-
   if (isLoading) return <DashboardSkeleton />;
 
-  const stats = dashData?.stats || {};
-  const executives = dashData?.executivesPerformance || [];
-  const filteredExecs = executives.filter(e => filterState === 'All' || e.state === filterState);
+  // Who is listed comes from the user list; the period filter only changes the numbers.
+  const perfById = new Map((dashData?.executivesPerformance || []).map(p => [String(p._id), p]));
+  const activeExecs = (executives || []).filter(u => u.isActive !== false);
+  const rows = activeExecs
+    .filter(u => filterState === 'All' || u.state === filterState)
+    .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-2 text-[12px] font-medium text-text-muted">
+      <div className="flex items-center gap-2 mb-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">
         <span>Founder</span>
         <span className="text-text-muted/30">›</span>
-        <span className="text-text-primary font-semibold">District Managers</span>
+        <span className="text-text-primary">District Managers</span>
       </div>
 
-      {/* Header */}
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex justify-between items-end mb-6">
         <div>
-          <h1 className="text-[22px] font-bold text-text-primary tracking-tight">District Managers</h1>
-          <p className="text-[13px] text-text-muted mt-0.5">Performance summary · Lead handling · Attendance · Salary</p>
+          <div className="text-[20px] font-bold text-text-primary">District Managers</div>
+          <div className="text-[12px] text-text-muted mt-1">Performance summary · Lead handling · Attendance · Click row to drill in</div>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="bg-white border-border shadow-sm font-semibold text-[13px]"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}
-          >
-            + Create District Manager
-          </Button>
-          <select 
-            className="bg-white border border-border rounded-lg px-4 py-1.5 text-[13px] font-medium outline-none focus:border-blue transition-colors min-w-[140px] shadow-sm appearance-none cursor-pointer"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
+        <div className="flex gap-2">
+          <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-exec', { role: 'executive' })}>+ District Manager</Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Work %, Leads, Meetings, Blockings and Revenue for the selected period</div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodPicker {...picker} />
+          <select
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
             value={filterState}
             onChange={e => setFilterState(e.target.value)}
           >
             <option value="All">All States</option>
-            {Array.from(new Set(executives.map(e => e.state))).filter(Boolean).map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            {[...new Set(activeExecs.map(e => e.state).filter(Boolean))].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total District Managers</div>
-          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.salesStaff?.total || 0}</div>
-          <div className="text-[12px] text-[#16a34a] font-bold flex items-center gap-1.5">
-             <span className="text-[14px]">↑</span> {stats.executivesThisMonth || 0} this month
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#0f766e]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total Handling Leads</div>
-          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.totalLeads?.toLocaleString() || 0}</div>
-          <div className="text-[12px] text-[#0f766e] font-bold">Active pipeline</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Total Connected</div>
-          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.totalCalls?.toLocaleString() || 0}</div>
-          <div className="text-[12px] text-text-muted font-bold">
-            <span className="text-[#3b82f6]">{stats.reachRate || 0}%</span> reach rate
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-border shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#ea580c]"></div>
-          <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">Conversions</div>
-          <div className="text-[28px] font-bold text-text-primary leading-tight mb-1">{stats.totalConversions?.toLocaleString() || 0}</div>
-          <div className="text-[12px] text-text-muted font-bold">
-            <span className="text-[#16a34a]">{stats.conversionRate || 0}%</span> conv. rate
-          </div>
-        </div>
-      </div>
-
-      {/* Table Section */}
-      <div className="mb-3 flex flex-col md:flex-row md:items-end justify-between gap-2">
-        <div>
-          <h2 className="text-[18px] font-bold text-text-primary">District Manager Performance — {viewType.charAt(0).toUpperCase() + viewType.slice(1)} Report</h2>
-          <p className="text-[13px] text-text-muted mt-1 font-medium">Handling leads · Connected · Follow-ups · Converted · Revenue · Leaves</p>
-        </div>
-        <div className="flex bg-[#f1f5f9] p-1 rounded-xl border border-border w-fit">
-          {['Daily', 'Weekly', 'Monthly'].map(t => (
-            <button 
-              key={t}
-              onClick={() => setViewType(t.toLowerCase())}
-              className={`px-5 py-2 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${viewType === t.toLowerCase() ? 'bg-white text-text-primary shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Mobile/Tablet Cards - visible < lg */}
-      <div className="lg:hidden space-y-4 mb-4">
-        {filteredExecs.map((m) => (
-          <div key={m._id} className="bg-white rounded-xl border border-border shadow-sm p-4 hover:shadow-md transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <Avatar name={m.name} size="sm" className="rounded-lg shadow-sm border border-border" />
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-[14px] text-text-primary truncate">{m.name}</div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">{m.state || 'N/A'}</span>
-                  <span className="text-[11px] text-text-muted font-medium capitalize">{m.industry || 'General'}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Leads</div>
-                <div className="text-[16px] font-bold text-text-primary">{m.leads || 0}</div>
-              </div>
-              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Connected</div>
-                <div className="text-[16px] font-bold text-text-primary">{m.calls || 0}</div>
-              </div>
-              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Converted</div>
-                <div className="text-[16px] font-bold text-[#16a34a]">{m.converted || 0}</div>
-              </div>
-              <div className="bg-surface2/50 rounded-lg p-2.5 text-center border border-border/50">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Work %</div>
-                <div className="text-[16px] font-bold text-text-primary">{m.workPct || 0}%</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button 
-                size="xs" 
-                className="flex-1 bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold py-2"
-                onClick={() => navigate(`/dashboard/executives/${m._id}`)}
-              >
-                View
-              </Button>
-              <Button 
-                size="xs" 
-                variant="outline" 
-                className="flex-1 bg-white border-border shadow-sm text-text-primary py-2 font-bold"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m } }))}
-              >
-                Edit
-              </Button>
-              <Button 
-                size="xs" 
-                variant="outline" 
-                className="bg-white border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] shadow-sm px-3 py-2 font-bold"
-                onClick={() => handleDelete(m)}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        ))}
-        {filteredExecs.length === 0 && (
-          <div className="bg-white rounded-xl border border-border p-12 text-center">
-            <div className="text-[24px] mb-2">📊</div>
-            <p className="text-text-muted italic font-medium">No executive performance data available for this selection.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop Table - visible >= lg */}
-      <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm hidden lg:block">
+      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
-              <tr className="bg-[#f8fafc] border-b border-border">
-                <th className="p-4 pl-6">District Manager</th>
-                <th className="p-4">State - Industry</th>
-                <th className="p-4 text-center">Handling</th>
-                <th className="p-4 text-center">Connected</th>
-                <th className="p-4 text-center">Follow-up</th>
-                <th className="p-4 text-center">Converted</th>
-                <th className="p-4 text-center">Revenue</th>
+              <tr className="bg-surface2/50 border-b border-border">
+                <th className="p-4">Manager</th>
+                <th className="p-4 text-center">State</th>
+                <th className="p-4">Industry</th>
                 <th className="p-4 text-center">Work %</th>
-                <th className="p-4 text-center">Leaves</th>
-                <th className="p-4 text-right pr-6">Actions</th>
+                <th className="p-4 text-center">Leads</th>
+                <th className="p-4 text-center">Meetings</th>
+                <th className="p-4 text-center">Blockings</th>
+                <th className="p-4 text-center">Revenue</th>
+                <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
-              {filteredExecs.map((m) => (
-                <tr key={m._id} className="hover:bg-surface2/30 transition-colors group">
-                  <td className="p-4 pl-6">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={m.name} size="sm" className="rounded-lg shadow-sm border border-border" />
-                      <span className="font-bold text-[14px] text-text-primary group-hover:text-blue transition-colors">{m.name}</span>
-                    </div>
+              {rows.map(m => (
+                <tr
+                  key={m._id}
+                  className="hover:bg-surface2/30 transition-colors cursor-pointer group"
+                  onClick={() => navigate(`/dashboard/executives/${m._id}`)}
+                >
+                  <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">{m.name}</td>
+                  <td className="p-4 text-center">
+                    {m.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state}</span>}
                   </td>
+                  <td className="p-4 text-[12px] text-text-secondary">{m.industry || '—'}</td>
                   <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">{m.state || 'N/A'}</span>
-                      <span className="text-[12px] text-text-muted font-medium capitalize">{m.industry || 'General'}</span>
+                    <div className="flex items-center gap-2 justify-center">
+                      <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                        <div className={`h-full ${m.workPct >= 80 ? 'bg-[#0f766e]' : m.workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${m.workPct}%` }}></div>
+                      </div>
+                      <span className="font-bold text-[12px]">{m.workPct}%</span>
                     </div>
                   </td>
-                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.leads || 0}</td>
-                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.calls || 0}</td>
-                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.followups || 0}</td>
-                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.converted || 0}</td>
-                  <td className="p-4 text-center text-[13px] font-bold text-blue">
-                     ₹{m.revenue >= 100000 ? (m.revenue / 100000).toFixed(1) + 'L' : (m.revenue / 1000).toFixed(1) + 'K'}
+                  <td className="p-4 text-center text-[12px] font-mono">{m.periodLeads}</td>
+                  <td className="p-4 text-center text-[12px] font-mono">{m.meetings}</td>
+                  <td className="p-4 text-center text-[12px] font-mono">{m.blocking}</td>
+                  <td className="p-4 text-center text-[12px] font-mono font-bold text-blue">
+                    ₹{m.revenue >= 100000 ? (m.revenue / 100000).toFixed(1) + 'L' : m.revenue.toLocaleString()}
                   </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-3 justify-center">
-                       <div className="w-16 h-2 bg-[#f1f5f9] rounded-full overflow-hidden border border-border/50">
-                         <div className={`h-full transition-all duration-700 ${m.workPct >= 80 ? 'bg-[#0f766e]' : m.workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${m.workPct}%` }}></div>
-                       </div>
-                       <span className="font-bold text-[12px] w-8">{m.workPct}%</span>
+                  <td className="p-4 text-right">
+                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={() => openModal('create-exec', { editData: m.user })}>Edit</Button>
+                      <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={() => openModal('leave-history', { user: m.user })}>Leave</Button>
+                      <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={() => handleDelete(m)}>Delete</Button>
                     </div>
                   </td>
-                  <td className="p-4 text-center text-[13px] font-semibold text-text-secondary">{m.leaves || 0}</td>
-                  <td className="p-4 text-right pr-6">
-                    <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                      <Button 
-                        size="xs" 
-                        className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-bold px-3 py-1"
-                        onClick={() => navigate(`/dashboard/executives/${m._id}`)}
-                      >
-                        View
-                      </Button>
-                      <Button 
-                        size="xs" 
-                        variant="outline" 
-                        className="bg-white border-border shadow-sm text-text-primary px-3 py-1 font-bold"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m } }))}
-                      >
-                        Edit
-                      </Button>
-                      <Button 
-                        size="xs" 
-                        variant="outline" 
-                        className="bg-white border-[#fecaca] text-[#dc2626] hover:bg-[#fef2f2] shadow-sm px-3 py-1 font-bold"
-                        onClick={() => handleDelete(m)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-
                 </tr>
               ))}
-              {filteredExecs.length === 0 && (
-                 <tr>
-                   <td colSpan="10" className="p-16 text-center">
-                     <div className="flex flex-col items-center gap-2">
-                       <div className="text-[24px]">📊</div>
-                       <p className="text-text-muted italic font-medium">No executive performance data available for this selection.</p>
-                     </div>
-                   </td>
-                 </tr>
+              {rows.length === 0 && (
+                <tr><td colSpan="9" className="p-12 text-center text-text-muted italic normal-case">No district managers found.</td></tr>
               )}
             </tbody>
           </table>

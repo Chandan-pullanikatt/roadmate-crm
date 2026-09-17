@@ -39,6 +39,13 @@ const userSchema = new mongoose.Schema({
     contentType: String,
     uploadedAt: { type: Date, default: Date.now } 
   }],
+  // Key Achievements shown on the profile page — set by the Founder.
+  achievements: [{
+    icon: { type: String, default: '⭐' },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
   probationEndDate: { type: Date, default: null },
   aadhaarNumber: { type: String, trim: true },
   panNumber: { type: String, trim: true },

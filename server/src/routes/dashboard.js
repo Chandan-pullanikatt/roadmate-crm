@@ -1774,10 +1774,10 @@ router.get('/founder', async (req, res) => {
         }));
 
         // Optimized Performance Lists (Bulk Data Fetching)
-        const allPerformanceUsers = await User.find({ role: { $in: ['industry_manager', 'executive'] }, isActive: true });
+        const allPerformanceUsers = await User.find({ role: { $in: ['state_manager', 'industry_manager', 'executive'] }, isActive: true });
         const allPerfUserIds = allPerformanceUsers.map(u => u._id);
 
-        const [perfAttendance, perfActivities, perfLeadsCount] = await Promise.all([
+        const [perfAttendance, perfActivities, perfLeadsCount, perfLeaves, perfPeriodLeads] = await Promise.all([
             Attendance.aggregate([
                 { $match: { user: { $in: allPerfUserIds }, date: { $gte: periodStart, $lte: periodEnd } } },
                 { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
@@ -1790,10 +1790,26 @@ router.get('/founder', async (req, res) => {
                     meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
                     followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] }, 1, 0] } },
                     conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
+                    blocking: { $sum: { $cond: [{ $eq: ['$action', 'blocking_amount_received'] }, 1, 0] } },
                     revenue: { $sum: '$metadata.revenue' }
                 }}
             ]),
             Lead.aggregate([
+                { $group: { _id: '$owner', count: { $sum: 1 } } }
+            ]),
+            // Approved leave days for leaves that overlap the selected period.
+            Leave.aggregate([
+                { $match: {
+                    user: { $in: allPerfUserIds },
+                    status: 'approved',
+                    fromDate: { $lte: periodEnd },
+                    toDate: { $gte: periodStart }
+                } },
+                { $group: { _id: '$user', days: { $sum: '$days' } } }
+            ]),
+            // Leads each user owns that were created in the selected period.
+            Lead.aggregate([
+                { $match: { owner: { $in: allPerfUserIds }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $group: { _id: '$owner', count: { $sum: 1 } } }
             ])
         ]);
@@ -1803,6 +1819,8 @@ router.get('/founder', async (req, res) => {
                 const att = perfAttendance.find(a => a._id.toString() === u._id.toString());
                 const acts = perfActivities.find(a => a._id.toString() === u._id.toString()) || {};
                 const leads = perfLeadsCount.find(l => l._id?.toString() === u._id.toString()) || {};
+                const leave = perfLeaves.find(l => l._id.toString() === u._id.toString());
+                const periodLeads = perfPeriodLeads.find(l => l._id.toString() === u._id.toString());
 
                 return {
                     _id: u._id,
@@ -1811,18 +1829,21 @@ router.get('/founder', async (req, res) => {
                     industry: u.industry,
                     workPct: Math.round(att?.avgWorkPct || 0),
                     leads: leads.count || 0,
+                    periodLeads: periodLeads?.count || 0,
+                    blocking: acts.blocking || 0,
                     calls: acts.calls || 0,
                     meetings: acts.meetings || 0,
                     followups: acts.followups || 0,
                     converted: acts.conversions || 0,
                     revenue: acts.revenue || 0,
-                    leaves: 0 // Simplified for performance, can be batched if critical
+                    leaves: leave?.days || 0
                 };
             });
         };
 
         const industryManagersPerformance = getPerformanceData('industry_manager');
         const executivesPerformance = getPerformanceData('executive');
+        const stateManagersPerformance = getPerformanceData('state_manager');
 
         const expectedOnboardingListLeads = await Lead.find(onboardingFilter)
         .sort({ updatedAt: -1 })
@@ -1852,6 +1873,7 @@ router.get('/founder', async (req, res) => {
             expectedOnboardingList,
             industryManagersPerformance,
             executivesPerformance,
+            stateManagersPerformance,
             overallSummary,
             byState,
             byIndustry,
