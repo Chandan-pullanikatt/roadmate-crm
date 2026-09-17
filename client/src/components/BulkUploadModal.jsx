@@ -200,7 +200,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       'Ernakulam - Kakkanad',    // District & Place
       '9876543210',              // Contact Information
       'Rajesh Kumar',            // Lead Handing
-      'Referral',                // Lead Source
+      'Direct',                  // Lead Source
       'Yes',                     // Messaged Status
       'New',                     // Status
       '',                        // Last Contact Date

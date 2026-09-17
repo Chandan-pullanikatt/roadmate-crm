@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 
 const leadSchema = new mongoose.Schema({
+  // Human-readable ID: taken from the sheet on bulk upload, otherwise generated
+  // from the lead source (see constants/leadSources.js).
+  leadId: { type: String, trim: true, required: true },
   name: { type: String, required: true },
   company: { type: String },
   phone: { type: String, required: true },
@@ -84,6 +87,7 @@ const leadSchema = new mongoose.Schema({
 
 // Performance Indexes
 leadSchema.index({ phone: 1 }); // bulk upload de-dupes by phone on every row — must be indexed
+leadSchema.index({ leadId: 1 }, { unique: true });
 leadSchema.index({ status: 1 });
 leadSchema.index({ priority: 1 });
 leadSchema.index({ owner: 1 });

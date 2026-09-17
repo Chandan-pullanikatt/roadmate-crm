@@ -12,7 +12,7 @@ const mongoose = require('mongoose');
 const sopSchema = new mongoose.Schema({
   role: {
     type: String,
-    enum: ['industry_manager', 'executive'],
+    enum: ['state_manager', 'industry_manager', 'executive'],
     required: true,
     index: true,
   },

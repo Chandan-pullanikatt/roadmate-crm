@@ -10,6 +10,8 @@ const User = require('../models/User');
 const { getScopeOwnerIds, applyLeadScope } = require('../utils/hierarchy');
 const { statusesForParam } = require('../constants/leadStatusGroups');
 const { createdAtRange } = require('../utils/dateRange');
+const { generateLeadId, syncCountersWithIds } = require('../services/leadIdService');
+const { prefixForSource } = require('../constants/leadSources');
 const { Country, State } = require('country-state-city');
 
 // Protect all routes
@@ -118,6 +120,8 @@ const bulkCreateLeads = async (req, res) => {
     const errors = [];
     // Cache owner lookups so a 300-row upload doesn't issue 300 identical queries.
     const ownerScopeCache = new Map();
+    // Lead IDs are unique, so one sheet can't use the same ID on two rows.
+    const seenSheetIds = new Map();
 
     const statusMap = {
       'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
@@ -153,9 +157,11 @@ const bulkCreateLeads = async (req, res) => {
       const item = req.body[i];
       try {
         const normalized = normalizeLeadPayload(item);
+        const hasPhone = !!(normalized.phone && String(normalized.phone).trim());
+        const hasSheetId = !!(normalized._id && String(normalized._id).trim());
 
-        // Skip rows missing phone — no way to contact the lead
-        if (!normalized.phone || !String(normalized.phone).trim()) {
+        // A row needs a phone unless it names an existing lead by its Lead ID
+        if (!hasPhone && !hasSheetId) {
           errors.push({ row: i + 1, reason: 'Missing phone number' });
           continue;
         }
@@ -254,8 +260,20 @@ const bulkCreateLeads = async (req, res) => {
         }
 
         // --- UPSERT LOGIC ---
-        // Extract _id from payload (may be a MongoDB ObjectId or a custom string ID)
-        const { _id: rawLeadId, ...insertPayload } = normalized;
+        // The sheet's Lead ID is either a MongoDB ObjectId or our own Lead ID (RMFOL01...)
+        const { _id: rawId, ...insertPayload } = normalized;
+        const rawLeadId = rawId ? String(rawId).trim() : '';
+        const isObjectId = !!rawLeadId && mongoose.Types.ObjectId.isValid(rawLeadId);
+        delete insertPayload.leadId;
+        if (rawLeadId && !isObjectId) insertPayload.leadId = rawLeadId;
+        if (rawLeadId) {
+          const idKey = rawLeadId.toUpperCase();
+          if (seenSheetIds.has(idKey)) {
+            errors.push({ row: i + 1, reason: `Lead ID ${rawLeadId} is already used on row ${seenSheetIds.get(idKey)} of this sheet` });
+            continue;
+          }
+          seenSheetIds.set(idKey, i + 1);
+        }
         // Updates must not touch owner/allocatedBy unless this upload explicitly chose an
         // assignee — otherwise a re-upload reassigns existing leads to the uploader.
         const updatePayload = { ...insertPayload };
@@ -266,10 +284,10 @@ const bulkCreateLeads = async (req, res) => {
         let lead = null;
         let isUpdate = false;
 
-        // 1. Try update by valid MongoDB ObjectId
-        if (rawLeadId && mongoose.Types.ObjectId.isValid(rawLeadId)) {
-          lead = await Lead.findByIdAndUpdate(
-            rawLeadId,
+        // 1. Try update by valid MongoDB ObjectId, or by our Lead ID
+        if (rawLeadId) {
+          lead = await Lead.findOneAndUpdate(
+            isObjectId ? { _id: rawLeadId } : { leadId: rawLeadId },
             { $set: updatePayload },
             { new: true, runValidators: false }
           );
@@ -291,17 +309,36 @@ const bulkCreateLeads = async (req, res) => {
 
         // 3. Create new lead if no match found
         if (!lead) {
+          if (!hasPhone) {
+            errors.push({ row: i + 1, reason: `No lead found with ID ${rawLeadId}, and no phone number to create one` });
+            continue;
+          }
+          // Sheet rows without a Lead ID get one generated from their source
+          if (!insertPayload.leadId) {
+            insertPayload.leadId = await generateLeadId(insertPayload.leadSource);
+            if (!insertPayload.leadId) {
+              errors.push({
+                row: i + 1,
+                reason: `No Lead ID, and source "${insertPayload.leadSource || ''}" has no ID pattern — add a Lead ID or use a listed source`
+              });
+              continue;
+            }
+          }
           lead = await Lead.create(insertPayload);
         }
 
         if (isUpdate) updatedLeads.push(lead);
         else insertedLeads.push(lead);
       } catch (rowErr) {
-        errors.push({ row: i + 1, reason: rowErr.message });
+        const reason = rowErr.code === 11000
+          ? `Lead ID ${rowErr.keyValue?.leadId || ''} already belongs to another lead`
+          : rowErr.message;
+        errors.push({ row: i + 1, reason });
       }
     }
 
     const allProcessed = [...insertedLeads, ...updatedLeads];
+    await syncCountersWithIds(allProcessed.map(l => l.leadId).filter(Boolean));
 
     if (allProcessed.length > 0) {
       const activities = [
@@ -346,6 +383,7 @@ const bulkCreateLeads = async (req, res) => {
 const updateLead = async (req, res) => {
   try {
     const payload = normalizeLeadPayload(req.body);
+    delete payload.leadId; // IDs are permanent once assigned
     const lead = await Lead.findByIdAndUpdate(req.params.id, payload, { new: true });
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
 
@@ -504,6 +542,7 @@ router.get('/', async (req, res) => {
     // Search query
     if (search) {
       query.$or = [
+        { leadId: { $regex: search, $options: 'i' } },
         { name: { $regex: search, $options: 'i' } },
         { company: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },
@@ -603,6 +642,9 @@ router.post('/', async (req, res) => {
     if (!payload.leadSource || !String(payload.leadSource).trim()) {
       return res.status(400).json({ message: 'Lead source is required.', field: 'leadSource' });
     }
+    if (!prefixForSource(payload.leadSource)) {
+      return res.status(400).json({ message: `Unknown lead source "${payload.leadSource}".`, field: 'leadSource' });
+    }
     // Name is optional on the form — fall back to the phone number, as bulk upload does
     if (!payload.name || !String(payload.name).trim()) {
       payload.name = payload.phone;
@@ -657,11 +699,21 @@ router.post('/', async (req, res) => {
         }
       } catch (_) { /* non-fatal — lead still saves */ }
     }
-    const lead = new Lead({
-      ...payload,
-      allocatedBy: req.user._id
-    });
-    await lead.save();
+    let lead;
+    for (let attempt = 1; ; attempt++) {
+      lead = new Lead({
+        ...payload,
+        leadId: await generateLeadId(payload.leadSource),
+        allocatedBy: req.user._id
+      });
+      try {
+        await lead.save();
+        break;
+      } catch (saveErr) {
+        // A bulk upload took this number between generating and saving — take the next one
+        if (saveErr.code !== 11000 || !saveErr.keyValue?.leadId || attempt >= 3) throw saveErr;
+      }
+    }
 
     await LeadActivity.create({
       lead: lead._id,

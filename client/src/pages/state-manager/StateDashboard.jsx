@@ -13,6 +13,7 @@ const LeaveCalendar = lazy(() => import('./sub-pages/LeaveCalendar'));
 const Performance = lazy(() => import('./sub-pages/Performance'));
 const Reports = lazy(() => import('./sub-pages/Reports'));
 const Tasks = lazy(() => import('../founder/sections/Tasks'));
+const SopViewer = lazy(() => import('../industry-manager/components/SopViewer'));
 
 
 const StateDashboard = () => {
@@ -31,6 +32,7 @@ const StateDashboard = () => {
       case 'performance': return <Performance />;
       case 'reports': return <Reports />;
       case 'tasks':   return <Tasks />;
+      case 'documents': return <SopViewer role="state_manager" />;
 
       default: return <Overview />;
     }

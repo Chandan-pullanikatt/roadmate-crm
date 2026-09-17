@@ -7,6 +7,7 @@ import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
 import { targetsApi } from '../api/targetsApi';
+import { LEAD_SOURCES } from '../constants/leadSources';
 import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
 import LocationSelector from './common/LocationSelector';
@@ -735,11 +736,9 @@ const GlobalModals = () => {
               <div className="space-y-2">
                 <label className="form-label">Lead Source <span className="text-red">*</span></label>
                 <select className="select" value={leadFormData.leadSource} onChange={(e)=>setLeadFormData({...leadFormData, leadSource: e.target.value})} required>
-                  <option>Direct</option>
-                  <option>Referral</option>
-                  <option>Campaign</option>
-                  <option>Website</option>
-                  <option>Cold Call</option>
+                  {LEAD_SOURCES.map((s) => (
+                    <option key={s.prefix} value={s.label}>{s.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">

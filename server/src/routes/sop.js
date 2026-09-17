@@ -8,7 +8,7 @@ const notificationService = require('../services/notificationService');
 
 router.use(verifyToken);
 
-const VALID_ROLES = ['industry_manager', 'executive'];
+const VALID_ROLES = ['state_manager', 'industry_manager', 'executive'];
 const ALLOWED_TYPES = ['pdf', 'docx', 'doc', 'txt'];
 
 /**
@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'role, fileKey, fileName and fileType are required' });
     }
     if (!VALID_ROLES.includes(role)) {
-      return res.status(400).json({ message: 'role must be industry_manager or executive' });
+      return res.status(400).json({ message: 'role must be state_manager, industry_manager or executive' });
     }
     if (!ALLOWED_TYPES.includes(String(fileType).toLowerCase())) {
       return res.status(400).json({ message: 'fileType must be pdf, docx, doc or txt' });
@@ -64,7 +64,7 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * GET /api/sop?role=industry_manager|executive
+ * GET /api/sop?role=state_manager|industry_manager|executive
  * Every document published for that role, newest first, each with a
  * short-lived presigned view URL. Accessible to all authenticated users.
  */

@@ -4,6 +4,12 @@ import { sopApi } from '../../../api/sopApi';
 import { DashboardSkeleton } from '../../../components/ui';
 
 const ROLE_LABELS = {
+  state_manager: {
+    title: 'State Manager Documents',
+    subtitle: 'Documents shared with State Managers',
+    icon: '🏛️',
+    accent: 'purple',
+  },
   industry_manager: {
     title: 'Industry Manager Documents',
     subtitle: 'Documents shared with Industry Managers',

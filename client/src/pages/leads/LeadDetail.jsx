@@ -77,6 +77,7 @@ const LeadDetail = () => {
               ['District', lead.district || '—'],
               ['State', lead.state || '—'],
               ['Owner', lead.owner?.name || 'Unassigned'],
+              ['Lead ID', lead.leadId || '—'],
               ['Source', lead.leadSource || '—'],
               ['Expected Revenue', lead.expectedRevenue ? `₹${lead.expectedRevenue}` : '—'],
               ['Created', lead.createdAt ? new Date(lead.createdAt).toLocaleString('en-IN') : '—'],

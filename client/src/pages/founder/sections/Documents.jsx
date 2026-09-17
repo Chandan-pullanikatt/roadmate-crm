@@ -6,6 +6,13 @@ import { useToast } from '../../../context/ToastContext';
 
 const ROLES = [
   {
+    role: 'state_manager',
+    label: 'State Manager Documents',
+    description: 'Visible to all State Managers.',
+    icon: '🏛️',
+    accentClass: 'border-purple text-purple bg-purple/5',
+  },
+  {
     role: 'industry_manager',
     label: 'Industry Manager Documents',
     description: 'Visible to all Industry Managers.',
@@ -250,8 +257,8 @@ const Documents = () => {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[0, 1].map(i => (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {ROLES.map((_, i) => (
             <div key={i} className="card p-8 animate-pulse">
               <div className="h-6 bg-surface2 rounded w-3/4 mb-3" />
               <div className="h-4 bg-surface2 rounded w-1/2" />
@@ -259,7 +266,7 @@ const Documents = () => {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {ROLES.map(config => (
             <DocumentCard
               key={config.role}

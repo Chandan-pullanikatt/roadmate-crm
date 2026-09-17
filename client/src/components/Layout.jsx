@@ -138,7 +138,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Tasks', path: '/dashboard?page=tasks', icon: 'work' },
             { label: 'Create Ind. Manager', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'create-exec' })), icon: 'industry' },
-            { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' }
+            { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' },
+            { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' }
           ]
         }
       ]
