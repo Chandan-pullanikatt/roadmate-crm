@@ -7,6 +7,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Button } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { exportToCSV } from '../../../utils/exportUtils';
+import { ActiveFilter, ActiveToggleButton, matchesActiveFilter } from '../../../components/ActiveStatusControls';
 
 const EMPTY_PERF = { workPct: 0, calls: 0, meetings: 0, followups: 0, revenue: 0, leaves: 0 };
 
@@ -14,6 +15,7 @@ const StateManagers = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [filterState, setFilterState] = useState('All');
+  const [showInactive, setShowInactive] = useState(false);
   const picker = usePeriod('today');
   const { period, value: periodValue } = picker;
 
@@ -63,7 +65,7 @@ const StateManagers = () => {
   // Who is listed comes from the user list; the period filter only changes the numbers.
   const perfById = new Map((dashData?.stateManagersPerformance || []).map(p => [String(p._id), p]));
   const rows = (managers || [])
-    .filter(u => u.isActive !== false)
+    .filter(u => matchesActiveFilter(u, showInactive))
     .filter(u => filterState === 'All' || u.state === filterState)
     .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
   const periodText = period === 'today' ? 'Today' : periodValue;
@@ -107,6 +109,7 @@ const StateManagers = () => {
           <div className="text-[12px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
           <PeriodPicker {...picker} />
           <select
             className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
@@ -170,6 +173,7 @@ const StateManagers = () => {
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={() => openModal('create-state-manager', { editData: user })}>Edit</Button>
                         <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={() => openModal('leave-history', { user })}>Leave</Button>
+                        <ActiveToggleButton user={user} />
                         <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={() => handleDelete(m._id, m.name)}>Delete</Button>
                       </div>
                     </td>
@@ -177,7 +181,7 @@ const StateManagers = () => {
                 );
               })}
               {rows.length === 0 && (
-                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No state managers found.</td></tr>
+                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">{showInactive ? 'No inactive state managers.' : 'No state managers found.'}</td></tr>
               )}
             </tbody>
           </table>

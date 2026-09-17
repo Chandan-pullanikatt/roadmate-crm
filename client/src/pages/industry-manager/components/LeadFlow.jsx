@@ -142,7 +142,7 @@ const LeadFlow = () => {
             </div>
           </div>
           {currentLead && (
-            <Tag variant="purple" label={`Active Lead: ${currentLead.leadId || currentLead._id?.slice(-6)}`} className="font-black px-4" />
+            <Tag variant="purple" label={`Active Lead: ${currentLead.leadId}`} className="font-black px-4" />
           )}
           <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
         </div>

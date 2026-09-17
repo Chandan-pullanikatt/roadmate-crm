@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '../../../api/tasksApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
 
 const PRIORITY_META = {
   high:   { label: 'High',   color: '#DC2626', bg: '#FEF2F2' },
@@ -17,18 +18,26 @@ const STATUS_META = {
   overdue:     { label: 'Overdue',     color: '#DC2626' },
 };
 
-const emptyForm = {
-  title: '', description: '', assignedTo: '',
+// Higher number = more senior. The assignee list only offers people below you;
+// the server enforces the same rule against the reporting tree.
+const ROLE_RANK = { founder: 4, state_manager: 3, industry_manager: 2, executive: 1 };
+
+const makeEmptyForm = (selfId = '') => ({
+  title: '', description: '', assignedTo: selfId,
   startDate: '', endDate: '', startTime: '09:30', endTime: '18:30',
   priority: 'medium', category: '',
-};
+});
 
 const Tasks = () => {
   const qc = useQueryClient();
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const selfId = user?._id || '';
+  const isExec = user?.role === 'executive';
+  const emptyForm = makeEmptyForm(selfId);
   const [filterStatus, setFilterStatus] = useState('all');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => makeEmptyForm(selfId));
   const [saving, setSaving] = useState(false);
 
   const { data: taskData } = useQuery({
@@ -41,6 +50,13 @@ const Tasks = () => {
     queryKey: ['users', 'all'],
     queryFn: () => usersApi.getUsers().then(r => r.data || []),
     staleTime: 10 * 60 * 1000,
+    enabled: !isExec,
+  });
+
+  const startMutation = useMutation({
+    mutationFn: (id) => tasksApi.startTask(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); addToast('Task moved to In Progress', 'success'); },
+    onError: () => addToast('Failed to update task', 'error'),
   });
 
   const completeMutation = useMutation({
@@ -57,12 +73,12 @@ const Tasks = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title || !form.assignedTo || !form.startDate || !form.endDate) {
+    if (!form.title || !form.startDate || !form.endDate) {
       return addToast('Please fill all required fields', 'warning');
     }
     setSaving(true);
     try {
-      await tasksApi.createTask(form);
+      await tasksApi.createTask({ ...form, assignedTo: form.assignedTo || selfId });
       qc.invalidateQueries({ queryKey: ['tasks'] });
       addToast('Task created!', 'success');
       setForm(emptyForm);
@@ -78,6 +94,7 @@ const Tasks = () => {
   const STATUS_TABS = ['all', 'pending', 'in_progress', 'completed', 'overdue'];
 
   const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const canDelete = (t) => user?.role === 'founder' || String(t.assignedBy?._id || t.assignedBy) === String(selfId);
   const isOverdue = (t) => t.status !== 'completed' && new Date(t.endDate) < new Date();
 
   return (
@@ -86,7 +103,7 @@ const Tasks = () => {
       <div className="section-header">
         <div>
           <div className="section-title">Task Management</div>
-          <div className="section-sub">Create, assign and track tasks across all hierarchy levels</div>
+          <div className="section-sub">{isExec ? 'Create and track your own tasks' : 'Create, assign and track tasks across all hierarchy levels'}</div>
         </div>
         <button
           className="btn btn-primary bg-[#0f766e] border-[#0f766e] px-6 font-bold"
@@ -111,12 +128,16 @@ const Tasks = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="form-label">Assign To *</label>
+                  {isExec ? (
+                    <input className="input" value="Myself" disabled />
+                  ) : (
                   <select className="select" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} required>
-                    <option value="">Select Staff Member</option>
-                    {allUsers.filter(u => u.role !== 'founder').map(u => (
+                    <option value={selfId}>Myself</option>
+                    {allUsers.filter(u => u._id !== selfId && u.isActive !== false && (ROLE_RANK[u.role] || 0) < (ROLE_RANK[user?.role] || 0)).map(u => (
                       <option key={u._id} value={u._id}>{u.name} — {u.role?.replace(/_/g, ' ')}</option>
                     ))}
                   </select>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="form-label">Priority</label>
@@ -208,6 +229,15 @@ const Tasks = () => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {(task.status === 'pending' || task.status === 'overdue') && (
+                    <button
+                      className="text-[11px] font-bold text-[#3B82F6] border border-[#3B82F6]/20 px-3 py-1 rounded-lg hover:bg-[#EFF6FF] transition-colors"
+                      onClick={() => startMutation.mutate(task._id)}
+                      disabled={startMutation.isPending}
+                    >
+                      ▶ Start
+                    </button>
+                  )}
                   {task.status !== 'completed' && (
                     <button
                       className="text-[11px] font-bold text-[#059669] border border-[#059669]/20 px-3 py-1 rounded-lg hover:bg-[#ECFDF5] transition-colors"
@@ -216,12 +246,14 @@ const Tasks = () => {
                       ✓ Done
                     </button>
                   )}
-                  <button
-                    className="text-[11px] font-bold text-red border border-red/20 px-3 py-1 rounded-lg hover:bg-red/5 transition-colors"
-                    onClick={() => deleteMutation.mutate(task._id)}
-                  >
-                    Delete
-                  </button>
+                  {canDelete(task) && (
+                    <button
+                      className="text-[11px] font-bold text-red border border-red/20 px-3 py-1 rounded-lg hover:bg-red/5 transition-colors"
+                      onClick={() => deleteMutation.mutate(task._id)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             );

@@ -93,6 +93,14 @@ const MyWork = () => {
     },
   });
 
+  const startTaskMutation = useMutation({
+    mutationFn: (id) => tasksApi.startTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      addToast('Task moved to In Progress', 'success');
+    },
+  });
+
   // Team executives under current IM (for inline allocate modal)
   const { data: teamExecsData } = useQuery({
     queryKey: ['users', 'team-execs', currentUser?._id],
@@ -703,7 +711,16 @@ const MyWork = () => {
                     </td>
 
                     {/* Action */}
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      {(task.status === 'pending' || isOverdue) && (
+                        <button
+                          onClick={() => startTaskMutation.mutate(task._id)}
+                          disabled={startTaskMutation.isPending}
+                          className="mr-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-blue/30 text-blue rounded-lg hover:bg-blue/5 transition-colors disabled:opacity-40"
+                        >
+                          Start
+                        </button>
+                      )}
                       {!isDone && (
                         <button
                           onClick={() => completeTaskMutation.mutate(task._id)}

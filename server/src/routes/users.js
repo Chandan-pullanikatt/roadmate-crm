@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Lead = require('../models/Lead');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, clearActiveCache } = require('../middleware/auth');
 
 // Protect all routes
 router.use(verifyToken);
@@ -321,6 +321,7 @@ router.put('/:id', async (req, res) => {
     delete updateData.role;
     delete updateData.password;
     delete updateData.email; // Usually email should be immutable or handled via specific flow
+    delete updateData.isActive; // Only via PATCH /:id/status (founder only)
 
     const user = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
     res.json(user);
@@ -329,6 +330,38 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+
+/**
+ * PATCH /api/users/:id/status
+ * Founder only. Activates or deactivates an account. Inactive users cannot log
+ * in and any session they already have is rejected on its next request.
+ */
+router.patch('/:id/status', async (req, res) => {
+  try {
+    if (req.user.role !== 'founder') {
+      return res.status(403).json({ message: 'Forbidden: Founder only' });
+    }
+    const { isActive } = req.body;
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ message: 'isActive must be true or false' });
+    }
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+    if (targetUser.role === 'founder') {
+      return res.status(400).json({ message: 'A founder account cannot be deactivated' });
+    }
+
+    targetUser.isActive = isActive;
+    await targetUser.save();
+    clearActiveCache(targetUser._id);
+
+    const userResponse = targetUser.toObject();
+    delete userResponse.password;
+    res.json(userResponse);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 
 /**
  * POST /api/users/create-state-manager

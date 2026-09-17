@@ -1,11 +1,51 @@
 import React, { useState } from 'react';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Button } from '../../../components/ui';
+import { Modal } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '');
+
+// Turns raw API rows into flat rows shared by the view table and the CSV export
+const formatRows = (type, data) => {
+  switch (type) {
+    case 'leads':
+      return data.map(l => ({
+        ID: l.leadId, Name: l.name, Company: l.company, Status: l.status,
+        Industry: l.industry, State: l.state, District: l.district,
+        Owner: l.owner?.name || 'Unassigned', Created: fmtDate(l.createdAt)
+      }));
+    case 'performance':
+      return data.map(p => ({
+        Name: p.user?.name, Industry: p.user?.industry, State: p.user?.state,
+        Calls: p.calls || 0, Meetings: p.meetings || 0, Conversions: p.conversions || 0, Revenue: p.revenue || 0
+      }));
+    case 'revenue':
+      return data.map(r => ({ Date: r._id, Revenue: r.totalRevenue || 0, Conversions: r.count }));
+    case 'attendance':
+      return data.map(a => ({
+        Staff: a.user?.name, Role: a.user?.role, Date: fmtDate(a.date), Status: a.status,
+        WorkPct: `${a.completionPct || 0}%`, LateMins: a.lateLoginMinutes || 0, WFH: a.isWFH ? 'Yes' : 'No'
+      }));
+    case 'salary':
+      return data.map(s => ({
+        Staff: s.user?.name, Period: `${s.month}/${s.year}`, Basic: s.baseSalary, WorkingDays: s.workingDays,
+        PresentDays: s.presentDays, Deductions: s.deductions || 0, Incentives: s.incentives || 0,
+        NetPay: s.netSalary, Status: s.status
+      }));
+    case 'leaves':
+      return data.map(l => ({
+        Staff: l.user?.name, Role: l.user?.role, Type: l.type, From: fmtDate(l.fromDate),
+        To: fmtDate(l.toDate), Days: l.days, Status: l.status, Reason: l.reason
+      }));
+    default:
+      return data;
+  }
+};
 
 const Reports = () => {
   const { addToast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(null); // `${reportId}:${action}` while a request is in flight
+  const [viewing, setViewing] = useState(null); // { card, rows }
 
   const reportCards = [
     {
@@ -59,7 +99,7 @@ const Reports = () => {
       )
     },
     {
-      id: 'leave',
+      id: 'leaves',
       title: 'Leave Reports',
       description: 'Leave calendar, policies, holiday data by state',
       icon: (
@@ -70,113 +110,75 @@ const Reports = () => {
     }
   ];
 
+  const fetchReport = async (type) => {
+    const res = await dashboardApi.getReport(type, { limit: 5000 });
+    const data = res.data?.data || res.data || [];
+    return formatRows(type, data);
+  };
+
   const downloadCSV = (data, filename) => {
     if (!data || data.length === 0) {
       addToast("No data available for this report", "error");
       return;
     }
+    const escape = (val) => {
+      if (val === null || val === undefined) return '';
+      return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
+    };
     const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(row => 
-      Object.values(row).map(val => 
-        typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-      ).join(',')
-    ).join('\n');
-    
+    const rows = data.map(row => Object.values(row).map(escape).join(',')).join('\n');
+
     const blob = new Blob([headers + "\n" + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    addToast(`${filename} generated successfully`, "success");
+    URL.revokeObjectURL(url);
+    addToast(`${filename} report downloaded`, "success");
   };
 
-  const generateReport = async (type) => {
+  const handleDownload = async (card) => {
     try {
-      setLoading(true);
-      const res = await dashboardApi.getReport(type === 'leave' ? 'leads' : type); // fallback mapping
-      const data = res.data?.data || res.data || [];
-      
-      if (data.length === 0) {
-        addToast("No records found for this criteria", "warning");
+      setLoading(`${card.id}:download`);
+      const rows = await fetchReport(card.id);
+      if (rows.length === 0) {
+        addToast("No records found for this report", "warning");
         return;
       }
-
-      let formatted = [];
-      if (type === 'leads') {
-        formatted = data.map(l => ({
-          ID: l._id, Name: l.name, Company: l.company, Status: l.status, State: l.state, Owner: l.owner?.name
-        }));
-      } else if (type === 'performance') {
-        formatted = data.map(p => ({
-          Name: p.user?.name, Role: p.user?.role, Calls: p.calls, Meetings: p.meetings, Conversions: p.conversions, Revenue: p.revenue
-        }));
-      } else if (type === 'attendance') {
-        formatted = data.map(a => ({
-          Staff: a.user?.name, Role: a.user?.role, Status: a.status, WorkPct: `${a.completionPct}%`, Date: new Date(a.date).toLocaleDateString()
-        }));
-      } else if (type === 'salary') {
-        formatted = data.map(s => ({
-          Staff: s.user?.name, Basic: s.baseSalary, WorkingDays: s.workingDays, Incentives: s.incentives, NetPay: s.netSalary
-        }));
-      } else if (type === 'revenue') {
-        formatted = data.map(r => ({
-          Date: r._id, Revenue: r.totalRevenue, Count: r.count
-        }));
-      } else {
-        formatted = data;
-      }
-
-      downloadCSV(formatted, type.toUpperCase());
+      downloadCSV(rows, card.id.toUpperCase());
     } catch (err) {
       addToast("Failed to generate report", "error");
     } finally {
-      setLoading(false);
+      setLoading(null);
+    }
+  };
+
+  const handleView = async (card) => {
+    try {
+      setLoading(`${card.id}:view`);
+      const rows = await fetchReport(card.id);
+      setViewing({ card, rows });
+    } catch (err) {
+      addToast("Failed to load report", "error");
+    } finally {
+      setLoading(null);
     }
   };
 
   return (
     <div className="animate-in fade-in duration-500 pb-10">
       {/* Page Header */}
-      <div className="flex justify-between items-center mb-10">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
-        </div>
-        <div className="flex items-center gap-3">
-             <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Search leads, team, states..." 
-                  className="bg-white border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm w-72 focus:ring-2 ring-blue/10 outline-none transition-all"
-                />
-                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
-             </div>
-             <button className="w-11 h-11 flex items-center justify-center rounded-full bg-white border border-border text-text-secondary hover:bg-surface2 transition-all relative">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span className="absolute top-3 right-3 w-2 h-2 bg-red rounded-full border-2 border-white"></span>
-             </button>
-             <button 
-                className="bg-[#0f766e] text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md transition-all"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}
-             >
-                + Add Lead
-             </button>
-             <button 
-                className="bg-white border border-border text-text-primary px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-surface2 transition-all"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'create-state-manager' }))}
-             >
-                + State Manager
-             </button>
-        </div>
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
       </div>
 
       {/* Grid of Report Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reportCards.map((card) => (
-          <div 
+          <div
             key={card.id}
-            className="bg-white rounded-2xl border border-border p-10 flex flex-col items-center text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
-            onClick={() => generateReport(card.id)}
+            className="bg-white rounded-2xl border border-border p-10 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-1 transition-all group"
           >
             <div className="mb-6 transform group-hover:scale-110 transition-transform duration-300">
               {card.icon}
@@ -185,15 +187,69 @@ const Reports = () => {
             <p className="text-sm text-text-muted leading-relaxed max-w-[200px]">
               {card.description}
             </p>
-            <div className="mt-8 opacity-0 group-hover:opacity-100 transition-opacity">
-               <span className="text-blue font-bold text-xs flex items-center gap-2">
-                 Generate Master Export
-                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
-               </span>
+            <div className="mt-8 flex items-center gap-3">
+              <button
+                className="px-5 py-2 rounded-xl border border-border text-text-primary font-bold text-xs hover:bg-surface2 transition-all disabled:opacity-50"
+                disabled={!!loading}
+                onClick={() => handleView(card)}
+              >
+                {loading === `${card.id}:view` ? 'Loading...' : 'View'}
+              </button>
+              <button
+                className="px-5 py-2 rounded-xl bg-[#0f766e] text-white font-bold text-xs shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                disabled={!!loading}
+                onClick={() => handleDownload(card)}
+              >
+                {loading === `${card.id}:download` ? 'Preparing...' : 'Download CSV'}
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {viewing && (
+        <Modal
+          title={viewing.card.title}
+          subtitle={`${viewing.rows.length} record${viewing.rows.length === 1 ? '' : 's'}`}
+          onClose={() => setViewing(null)}
+          className="max-w-6xl"
+        >
+          {viewing.rows.length === 0 ? (
+            <div className="py-16 text-center text-sm text-text-muted">No records found for this report</div>
+          ) : (
+            <>
+              <div className="flex justify-end mb-4">
+                <button
+                  className="px-5 py-2 rounded-xl bg-[#0f766e] text-white font-bold text-xs shadow-sm hover:shadow-md transition-all"
+                  onClick={() => downloadCSV(viewing.rows, viewing.card.id.toUpperCase())}
+                >
+                  Download CSV
+                </button>
+              </div>
+              <div className="overflow-auto max-h-[60vh] border border-border rounded-xl">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface2 sticky top-0">
+                    <tr>
+                      {Object.keys(viewing.rows[0]).map(h => (
+                        <th key={h} className="text-left px-4 py-3 font-bold text-text-secondary whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewing.rows.map((row, i) => (
+                      <tr key={i} className="border-t border-border hover:bg-surface2/50">
+                        {Object.values(row).map((val, j) => (
+                          <td key={j} className="px-4 py-2.5 text-text-primary whitespace-nowrap">{val ?? '—'}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
     </div>
   );
 };

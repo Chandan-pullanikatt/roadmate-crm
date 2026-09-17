@@ -6,6 +6,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { usersApi } from '../../../api/usersApi';
 import { Button } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+import { ActiveFilter, ActiveToggleButton, matchesActiveFilter } from '../../../components/ActiveStatusControls';
 
 const EMPTY_PERF = { workPct: 0, leads: 0, periodLeads: 0, meetings: 0, blocking: 0, revenue: 0 };
 
@@ -13,6 +14,7 @@ const DistrictExecutives = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filterState, setFilterState] = useState('All');
+  const [showInactive, setShowInactive] = useState(false);
   const picker = usePeriod('today');
   const { period, value: periodValue } = picker;
 
@@ -59,7 +61,7 @@ const DistrictExecutives = () => {
 
   // Who is listed comes from the user list; the period filter only changes the numbers.
   const perfById = new Map((dashData?.executivesPerformance || []).map(p => [String(p._id), p]));
-  const activeExecs = (executives || []).filter(u => u.isActive !== false);
+  const activeExecs = (executives || []).filter(u => matchesActiveFilter(u, showInactive));
   const rows = activeExecs
     .filter(u => filterState === 'All' || u.state === filterState)
     .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
@@ -88,6 +90,7 @@ const DistrictExecutives = () => {
           <div className="text-[12px] text-text-muted mt-0.5">Work %, Leads, Meetings, Blockings and Revenue for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
           <PeriodPicker {...picker} />
           <select
             className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
@@ -146,13 +149,14 @@ const DistrictExecutives = () => {
                     <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary px-3 font-bold" onClick={() => openModal('create-exec', { editData: m.user })}>Edit</Button>
                       <Button size="xs" variant="outline" className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold" onClick={() => openModal('leave-history', { user: m.user })}>Leave</Button>
+                      <ActiveToggleButton user={m.user} />
                       <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={() => handleDelete(m)}>Delete</Button>
                     </div>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan="9" className="p-12 text-center text-text-muted italic normal-case">No district managers found.</td></tr>
+                <tr><td colSpan="9" className="p-12 text-center text-text-muted italic normal-case">{showInactive ? 'No inactive district managers.' : 'No district managers found.'}</td></tr>
               )}
             </tbody>
           </table>

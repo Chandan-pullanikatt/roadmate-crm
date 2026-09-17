@@ -4,6 +4,7 @@ export const tasksApi = {
   getTasks:     (params) => api.get('/tasks', { params }),
   createTask:   (data)   => api.post('/tasks', data),
   updateTask:   (id, data) => api.put(`/tasks/${id}`, data),
+  startTask:    (id)   => api.patch(`/tasks/${id}/start`),
   completeTask: (id, notes) => api.patch(`/tasks/${id}/complete`, { notes }),
   deleteTask:   (id)   => api.delete(`/tasks/${id}`),
 };

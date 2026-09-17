@@ -6,6 +6,7 @@ import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+import { ActiveFilter, ActiveToggleButton, matchesActiveFilter } from '../../../components/ActiveStatusControls';
 
 const EMPTY_PERF = { workPct: 0, calls: 0, meetings: 0, followups: 0, revenue: 0, leaves: 0 };
 
@@ -15,6 +16,7 @@ const IndustryManagers = () => {
   const picker = usePeriod('today');
   const { period, value: periodValue } = picker;
   const [filterState, setFilterState] = useState('All');
+  const [showInactive, setShowInactive] = useState(false);
   const [filterIndustry, setFilterIndustry] = useState('All');
 
   const { data: dashData } = useQuery({
@@ -69,8 +71,8 @@ const IndustryManagers = () => {
   // Who is listed comes from the user list; the period filter only changes the numbers.
   const perfById = new Map((dashData?.industryManagersPerformance || []).map(p => [String(p._id), p]));
   const performanceRows = (filteredManagers || [])
-    .filter(u => u.isActive !== false)
-    .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry }));
+    .filter(u => matchesActiveFilter(u, showInactive))
+    .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
 
   const columns = [
     {
@@ -149,7 +151,10 @@ const IndustryManagers = () => {
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
           <div className="text-[12px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
         </div>
-        <PeriodPicker {...picker} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
+          <PeriodPicker {...picker} />
+        </div>
       </div>
 
       <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
@@ -206,13 +211,14 @@ const IndustryManagers = () => {
                         const userObj = filteredManagers?.find(u => u._id === m._id);
                         openModal('leave-history', { user: userObj || m });
                       }}>Leave</Button>
+                      <ActiveToggleButton user={m.user} />
                       <Button size="xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 px-3 font-bold" onClick={() => handleDelete(m)}>Delete</Button>
                     </div>
                   </td>
                 </tr>
               ))}
               {performanceRows.length === 0 && (
-                 <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No industry manager performance data available.</td></tr>
+                 <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">{showInactive ? 'No inactive industry managers.' : 'No industry manager performance data available.'}</td></tr>
               )}
             </tbody>
           </table>

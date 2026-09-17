@@ -198,6 +198,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'OPERATIONS',
           items: [
             { label: 'Start My Work', path: '/dashboard?page=work', icon: 'work', special: true },
+            { label: 'My Tasks', path: '/dashboard?page=tasks', icon: 'work' },
             { label: 'Meetings', path: '/dashboard?page=meetings', icon: 'meetings' },
             { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads-v2', badge: getBadge(stats.totalLeads), badgeColor: 'red' },
             { label: 'Leave Calendar', path: '/dashboard?page=leave-calendar', icon: 'calendar-v2' }

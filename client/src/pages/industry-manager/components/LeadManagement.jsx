@@ -112,7 +112,7 @@ const LeadManagement = ({ ownerScope }) => {
 
       const headers = ['Lead ID', 'Lead Name', 'Company', 'Phone', 'Email', 'Status', 'Assigned To', 'Last Updated'];
       const rows = leads.map(l => [
-        l.leadId || (l._id ?? '').substring(0,8).toUpperCase(),
+        l.leadId,
         l.name,
         l.company || 'N/A',
         l.phone,
@@ -331,7 +331,7 @@ const LeadManagement = ({ ownerScope }) => {
               {leads.map((lead, idx) => (
                 <tr key={lead._id} className="hover:bg-purple-light/10 transition-colors group">
                   <td className="px-8 py-4">
-                    <span className="text-[10px] font-black font-mono text-text-muted group-hover:text-purple transition-colors">{lead.leadId || (lead._id ?? '').substring(0,8).toUpperCase()}</span>
+                    <span className="text-[10px] font-black font-mono text-text-muted group-hover:text-purple transition-colors">{lead.leadId}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-0.5">

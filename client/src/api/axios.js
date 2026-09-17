@@ -20,4 +20,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// A deactivated account is rejected on its next request; drop the session.
+// The login call itself is left alone so the form can show the message.
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    const { response, config } = error;
+    if (response?.status === 403 && response.data?.code === 'ACCOUNT_INACTIVE' && !config?.url?.includes('/auth/login')) {
+      localStorage.removeItem('token');
+      if (window.location.pathname !== '/login') window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

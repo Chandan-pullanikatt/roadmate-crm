@@ -59,7 +59,7 @@ const LeadManagement = () => {
 
       const headers = ['Lead ID', 'Lead Name', 'Company', 'Phone', 'Email', 'Status', 'Assigned To', 'Last Updated'];
       const rows = leads.map(l => [
-        l.leadId || (l._id ?? '').substring(0,8).toUpperCase(),
+        l.leadId,
         l.name,
         l.company || 'N/A',
         l.phone,
@@ -110,7 +110,7 @@ const LeadManagement = () => {
     {
       header: 'Lead ID',
       accessor: 'leadId',
-      render: (val, row) => <span className="mono text-[10px] font-bold">{row.leadId || (row._id ?? '').substring(0,8).toUpperCase()}</span>
+      render: (val, row) => <span className="mono text-[10px] font-bold">{row.leadId}</span>
     },
     {
       header: 'Business Name',

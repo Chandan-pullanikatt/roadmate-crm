@@ -53,13 +53,20 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/tasks — create task
+// POST /api/tasks — create task. Every role can create; executives can only
+// self-allocate, managers can assign to themselves or someone below them in
+// their reporting tree — never to a peer or a higher-level manager.
 router.post('/', async (req, res) => {
   try {
-    if (!['founder', 'state_manager', 'industry_manager'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Forbidden: Only managers can create tasks' });
+    const { status, completedAt, ...body } = req.body;
+    if (req.user.role === 'executive' || !body.assignedTo) {
+      body.assignedTo = req.user._id;
     }
-    const task = await Task.create({ ...req.body, assignedBy: req.user._id });
+    const scopeIds = await getScopeOwnerIds(req.user);
+    if (scopeIds && !scopeIds.some(id => String(id) === String(body.assignedTo))) {
+      return res.status(403).json({ message: 'You can only assign tasks to yourself or your own team' });
+    }
+    const task = await Task.create({ ...body, assignedBy: req.user._id });
     const populated = await task.populate('assignedTo', 'name role');
     res.status(201).json(populated);
   } catch (err) {
@@ -86,11 +93,34 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+const canActOn = (task, user) =>
+  user.role === 'founder' ||
+  task.assignedBy.toString() === user._id.toString() ||
+  task.assignedTo.toString() === user._id.toString();
+
+// PATCH /api/tasks/:id/start — mark as in progress
+router.patch('/:id/start', async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (!canActOn(task, req.user)) return res.status(403).json({ message: 'Forbidden' });
+    if (task.status === 'completed') {
+      return res.status(400).json({ message: 'Task is already completed' });
+    }
+    task.status = 'in_progress';
+    await task.save();
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // PATCH /api/tasks/:id/complete — mark as completed
 router.patch('/:id/complete', async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (!canActOn(task, req.user)) return res.status(403).json({ message: 'Forbidden' });
     task.status = 'completed';
     task.completedAt = new Date();
     if (req.body.notes) task.notes = req.body.notes;

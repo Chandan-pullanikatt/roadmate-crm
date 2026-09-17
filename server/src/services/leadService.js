@@ -145,6 +145,7 @@ const leadService = {
           lead.meetingLink = data.meetingLink;
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
+          activityData.metadata = { meetingType: 'virtual' };
 
           // Schedule initial confirmation task: 2 hours before the meeting
           // (or immediately if the meeting is within 2 hours)
@@ -157,6 +158,7 @@ const leadService = {
           lead.meetingAt = new Date(data.meetingAt);
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
+          activityData.metadata = { meetingType: 'direct' }; // counted by direct-meeting targets
 
           // Schedule confirmation task based on how far away the meeting is
           const tomorrowEnd = new Date();

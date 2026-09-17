@@ -7,6 +7,7 @@ export const usersApi = {
   createIndustryManager: (data) => api.post('/users/create-industry-manager', data),
   createExecutive: (data) => api.post('/users/create-executive', data),
   updateUser: (id, data) => api.put(`/users/${id}`, data),
+  setUserStatus: (id, isActive) => api.patch(`/users/${id}/status`, { isActive }),
   deleteUser: (id) => api.delete(`/users/${id}`),
   addUserDocument: (id, metadata) => api.post(`/users/${id}/documents`, metadata),
   getHierarchy: () => api.get('/users/hierarchy'),

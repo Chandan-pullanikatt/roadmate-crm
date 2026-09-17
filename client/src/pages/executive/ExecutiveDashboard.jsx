@@ -11,6 +11,7 @@ import HierarchyStatus from './components/HierarchyStatus';
 import Earnings from './components/Earnings';
 import CompanyPolicies from './components/CompanyPolicies';
 import SopViewer from '../industry-manager/components/SopViewer';
+import Tasks from '../founder/sections/Tasks';
 
 const ExecutiveDashboard = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,7 @@ const ExecutiveDashboard = () => {
   const renderContent = () => {
     switch (page.toLowerCase()) {
       case 'work': return <MyWorkToday />;
+      case 'tasks': return <Tasks />;
       case 'meetings': return <Meetings />;
       case 'leads': return <LeadList />;
       case 'leave-calendar': return <Attendance />;

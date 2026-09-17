@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, isUserActive, INACTIVE_RESPONSE } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -28,6 +28,9 @@ router.post('/login', loginLimiter, async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    if (user.isActive === false) {
+      return res.status(403).json(INACTIVE_RESPONSE);
     }
 
     const token = jwt.sign(
@@ -84,6 +87,9 @@ router.post('/refresh', async (req, res) => {
     
     if (decoded.exp && (now - decoded.exp) > oneDayInSeconds) {
       return res.status(401).json({ message: 'Token expired too long ago' });
+    }
+    if (!(await isUserActive(decoded._id))) {
+      return res.status(403).json(INACTIVE_RESPONSE);
     }
 
     // Generate new token — carry all profile fields forward from old token

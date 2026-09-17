@@ -325,7 +325,7 @@ const LeadManagement = () => {
                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
                <input 
                  type="text" 
-                 placeholder="Search lead or business..." 
+                 placeholder="Search lead, ID or business..." 
                  className="bg-surface2/50 border border-border rounded-lg pl-9 pr-4 py-1.5 text-[12px] outline-none focus:border-blue transition-colors w-64"
                  value={searchTerm}
                  onChange={e => setSearchTerm(e.target.value)}
@@ -364,7 +364,7 @@ const LeadManagement = () => {
                 <tr key={l._id} className="hover:bg-surface2/30 transition-colors group">
                   <td className="p-4">
                     <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
-                    <div className="text-[10px] text-text-muted mt-0.5">{(l._id ?? '').substring(0,8).toUpperCase()}</div>
+                    <div className="text-[10px] text-text-muted mt-0.5">{l.leadId}</div>
                   </td>
                   <td className="p-4 text-center">
                     <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{l.state || 'N/A'}</span>

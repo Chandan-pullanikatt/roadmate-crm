@@ -285,7 +285,7 @@ const MyWork = () => {
         </div>
         <DataTable
           columns={[
-            { header: 'ID', accessor: 'leadId', render: (val, row) => <span className="mono text-[11px] font-bold">{val || (row._id ?? '').substring(0,8).toUpperCase()}</span> },
+            { header: 'ID', accessor: 'leadId', render: (val, row) => <span className="mono text-[11px] font-bold">{val}</span> },
             { header: 'PARTNER / ORGANISATION', accessor: 'company', render: (val, row) => <div><div className="font-bold text-[13px]">{val || row.business}</div><div className="text-[11px] text-text-muted">{row.name} {"\u00B7"} {row.phone}</div></div> },
             { header: 'DISTRICT', accessor: 'district' },
             { header: 'SOURCE', accessor: 'leadSource', render: (val) => <Tag variant="gray" label={val || 'Direct'} /> },

@@ -115,10 +115,6 @@ const Attendance = () => {
           <h1 className="text-2xl font-bold text-text-primary">Attendance</h1>
           <p className="text-sm text-text-muted mt-1">Attendance register · Work %, half-days, salary</p>
         </div>
-        <div className="flex items-center gap-3">
-             <button className="bg-[#0f766e] text-white px-6 py-2 rounded-xl font-bold text-sm shadow-sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' }))}>+ Add Lead</button>
-             <button className="bg-white border border-border text-text-primary px-6 py-2 rounded-xl font-bold text-sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'create-state-manager' }))}>+ State Manager</button>
-        </div>
       </div>
 
       {/* Attendance Register Section */}

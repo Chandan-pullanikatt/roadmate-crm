@@ -8,6 +8,7 @@ import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
 import { targetsApi } from '../api/targetsApi';
 import { LEAD_SOURCES } from '../constants/leadSources';
+import { TARGET_METRICS, currentPeriodKey, periodLabel } from '../utils/targetPeriod';
 import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
 import LocationSelector from './common/LocationSelector';
@@ -108,16 +109,15 @@ const GlobalModals = () => {
   const [bulkAllocateStep, setBulkAllocateStep] = useState(1);
   const [unassignedLeads, setUnassignedLeads] = useState([]);
   const [escalateData, setEscalateData] = useState({ lead: null, reason: '', managerId: '' });
-  const [targetState, setTargetState] = useState({
-    userId: '',
-    name: '',
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
-    calls: 0,
-    leads: 0,
-    conversions: 0,
-    revenue: 0
+  const emptyTargetState = (userId = '', name = '') => ({
+    userId,
+    name,
+    period: 'monthly',
+    directMeetings: 0,
+    blocking: 0,
+    conversions: 0
   });
+  const [targetState, setTargetState] = useState(emptyTargetState);
   const [myLeads, setMyLeads] = useState([]);
   const [scheduleFormData, setScheduleFormData] = useState({
     leadId: '',
@@ -314,16 +314,7 @@ const GlobalModals = () => {
       } else if (targetType === 'escalate-lead') {
         setEscalateData({ lead: data.leadData, reason: '', managerId: '' });
       } else if (targetType === 'assign-target') {
-        setTargetState({
-          userId: data.executive._id,
-          name: data.executive.name,
-          month: new Date().getMonth() + 1,
-          year: new Date().getFullYear(),
-          calls: 0,
-          leads: 0,
-          conversions: 0,
-          revenue: 0
-        });
+        setTargetState(emptyTargetState(data.executive._id, data.executive.name));
       } else if (targetType === 'view-docs') {
         setViewDocsUser(data.user);
       } else if (targetType === 'view-lead') {
@@ -605,7 +596,7 @@ const GlobalModals = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await targetsApi.assignTarget(targetState);
+      await targetsApi.assignTarget({ ...targetState, periodKey: currentPeriodKey(targetState.period) });
       addToast('Target assigned successfully!', 'success');
       setActiveModal(null);
       queryClient.invalidateQueries({ queryKey: ['targets'] });
@@ -2046,52 +2037,38 @@ const ScheduleMeetingModal = ({ isOpen, onClose, formData, setFormData, leads, o
 
 const AssignTargetModal = ({ isOpen, onClose, targetState, setTargetState, onSubmit, loading }) => {
   if (!isOpen) return null;
+  const periodKey = currentPeriodKey(targetState.period);
 
   return (
     <Modal
       isOpen={isOpen}
-      title={`Set Monthly Target - ${targetState.name}`}
-      subtitle="Define performance goals for the current month"
+      title={`Set Target - ${targetState.name}`}
+      subtitle={`Define performance goals for ${targetState.period === 'weekly' ? 'this week' : 'this month'} (${periodLabel(targetState.period, periodKey)})`}
       onClose={onClose}
     >
       <form onSubmit={onSubmit} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="form-label">Total Calls</label>
-            <input 
-              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
-              value={targetState.calls} 
-              onChange={e => setTargetState({ ...targetState, calls: parseInt(digitsOnly(e.target.value)) || 0 })} 
-              min="0"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="form-label">Leads to Generate</label>
-            <input 
-              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
-              value={targetState.leads} 
-              onChange={e => setTargetState({ ...targetState, leads: parseInt(digitsOnly(e.target.value)) || 0 })} 
-              min="0"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="form-label">Conversions</label>
-            <input 
-              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
-              value={targetState.conversions} 
-              onChange={e => setTargetState({ ...targetState, conversions: parseInt(digitsOnly(e.target.value)) || 0 })} 
-              min="0"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="form-label">Revenue Target (Lakhs)</label>
-            <input 
-              type="text" inputMode="numeric" pattern="[0-9]*" className="input" 
-              value={targetState.revenue} 
-              onChange={e => setTargetState({ ...targetState, revenue: parseInt(digitsOnly(e.target.value)) || 0 })} 
-              min="0"
-            />
-          </div>
+        <div className="space-y-1">
+          <label className="form-label">Target Period</label>
+          <select
+            className="select"
+            value={targetState.period}
+            onChange={e => setTargetState({ ...targetState, period: e.target.value })}
+          >
+            <option value="monthly">Monthly (this month)</option>
+            <option value="weekly">Weekly (this week)</option>
+          </select>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {TARGET_METRICS.map(({ key, label }) => (
+            <div key={key} className="space-y-1">
+              <label className="form-label">{label}</label>
+              <input
+                type="text" inputMode="numeric" pattern="[0-9]*" className="input"
+                value={targetState[key]}
+                onChange={e => setTargetState({ ...targetState, [key]: parseInt(digitsOnly(e.target.value)) || 0 })}
+              />
+            </div>
+          ))}
         </div>
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
