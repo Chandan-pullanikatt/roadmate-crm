@@ -36,18 +36,14 @@ const getDateRange = (type, value) => {
     end.setHours(23, 59, 59, 999);
   } else if (period === 'weekly') {
     if (value && String(value).startsWith('Week ')) {
-      const weekNum = parseInt(String(value).split(' ')[1]);
-      // Approximate week start by day of month (1, 8, 15, 22, 29)
-      start.setDate(1 + (weekNum - 1) * 7);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(start);
-      if (weekNum === 4 || weekNum === 5) {
-        // Last week goes to end of month
-        end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
-      } else {
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-      }
+      const weekNum = Math.min(5, Math.max(1, parseInt(String(value).split(' ')[1]) || 1));
+      // Weeks of the month by day: 1-7, 8-14, 15-21, 22-28, 29-end. Week 4 used to run
+      // to month end too, so days 29-31 were counted in both Week 4 and Week 5.
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      start = new Date(now.getFullYear(), now.getMonth(), Math.min(1 + (weekNum - 1) * 7, monthEnd.getDate()), 0, 0, 0, 0);
+      end = weekNum === 5
+        ? monthEnd
+        : new Date(Math.min(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999), monthEnd));
     } else {
       const day = now.getDay();
       const diff = now.getDate() - day + (day === 0 ? -6 : 1);

@@ -14,12 +14,37 @@ const STAGE_LABELS = {
   converted: 'Conversion',
 };
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Matches the server's week-of-month split (see server/src/utils/dateRange.js):
+// 1-7, 8-14, 15-21, 22-28, 29-end.
+const weekOfMonth = (date) => Math.min(5, Math.ceil(date.getDate() / 7));
+
+// The value each period starts on: the one containing today. 'today' takes none.
+const currentValueFor = (period) => {
+  const now = new Date();
+  if (period === 'week') return `Week ${weekOfMonth(now)}`;
+  if (period === 'month') return MONTH_NAMES[now.getMonth()];
+  if (period === 'quarter') return `Q${Math.floor(now.getMonth() / 3) + 1}`;
+  if (period === 'year') return String(now.getFullYear());
+  return '';
+};
+
+// Only periods that have started -- future months/quarters/weeks are always empty.
+const optionsFor = (period) => {
+  const now = new Date();
+  if (period === 'week') return Array.from({ length: weekOfMonth(now) }, (_, i) => `Week ${i + 1}`);
+  if (period === 'month') return MONTH_NAMES.slice(0, now.getMonth() + 1);
+  if (period === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'].slice(0, Math.floor(now.getMonth() / 3) + 1);
+  if (period === 'year') return Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - i));
+  return [];
+};
+
+const PREVIOUS_LABEL = { today: 'yesterday', week: 'previous week', month: 'previous month', quarter: 'previous quarter', year: 'previous year' };
+
 const RevenueDashboard = () => {
   const [period, setPeriod] = useState('month');
-  const [periodValue, setPeriodValue] = useState(() => {
-    const now = new Date();
-    return now.toLocaleString('en-US', { month: 'long' });
-  });
+  const [periodValue, setPeriodValue] = useState(() => currentValueFor('month'));
 
   const { data, isLoading } = useQuery({
     queryKey: ['revenue-dashboard', period, periodValue],
@@ -57,16 +82,7 @@ const RevenueDashboard = () => {
     }).format(value);
   };
 
-  const getDropdownOptions = () => {
-    if (period === 'week') return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
-    if (period === 'month') return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    if (period === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'];
-    if (period === 'year') {
-      const currentYear = new Date().getFullYear();
-      return Array.from({ length: 5 }, (_, i) => String(currentYear - i));
-    }
-    return [];
-  };
+  const dropdownOptions = optionsFor(period);
 
   return (
     <div className="animate-in fade-in duration-500 pb-10">
@@ -78,17 +94,12 @@ const RevenueDashboard = () => {
         
         <div className="flex items-center gap-3 bg-surface2 p-1.5 rounded-2xl border border-border">
           <div className="flex gap-1">
-            {['week', 'month', 'quarter', 'year'].map(t => (
-              <button 
+            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+              <button
                 key={t}
                 onClick={() => {
                   setPeriod(t);
-                  // Reset period value to current
-                  const now = new Date();
-                  if (t === 'month') setPeriodValue(now.toLocaleString('en-US', { month: 'long' }));
-                  else if (t === 'quarter') setPeriodValue(`Q${Math.floor(now.getMonth() / 3) + 1}`);
-                  else if (t === 'year') setPeriodValue(String(now.getFullYear()));
-                  else setPeriodValue('Week 1');
+                  setPeriodValue(currentValueFor(t));
                 }}
                 className={`px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-xl transition-all ${period === t ? 'bg-white text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
               >
@@ -96,16 +107,20 @@ const RevenueDashboard = () => {
               </button>
             ))}
           </div>
-          <div className="h-4 w-[1px] bg-border mx-1"></div>
-          <select 
-            value={periodValue}
-            onChange={(e) => setPeriodValue(e.target.value)}
-            className="bg-transparent border-none text-[13px] font-bold text-text-secondary outline-none pr-4 cursor-pointer"
-          >
-            {getDropdownOptions().map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
+          {dropdownOptions.length > 0 && (
+            <>
+              <div className="h-4 w-[1px] bg-border mx-1"></div>
+              <select
+                value={periodValue}
+                onChange={(e) => setPeriodValue(e.target.value)}
+                className="bg-transparent border-none text-[13px] font-bold text-text-secondary outline-none pr-4 cursor-pointer"
+              >
+                {dropdownOptions.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
       </div>
 
@@ -116,7 +131,7 @@ const RevenueDashboard = () => {
           <div className="text-3xl font-black text-text-primary mb-1">{formatCurrency(summary.totalRevenue)}</div>
           <div className="text-[11px] font-bold text-teal flex items-center gap-1">
              <span className="w-4 h-4 bg-teal/10 rounded-full flex items-center justify-center">↑</span>
-             <span>{(summary.growthPct ?? 0) >= 0 ? '↑' : '↓'} {Math.abs(summary.growthPct ?? 0)}% from previous {period}</span>
+             <span>{(summary.growthPct ?? 0) >= 0 ? '↑' : '↓'} {Math.abs(summary.growthPct ?? 0)}% from {PREVIOUS_LABEL[period]}</span>
           </div>
         </div>
 
@@ -126,7 +141,7 @@ const RevenueDashboard = () => {
           <div className="text-3xl font-black text-text-primary mb-1">{summary.count}</div>
           <div className="text-[11px] font-bold text-blue flex items-center gap-1">
              <span className="w-4 h-4 bg-blue/10 rounded-full flex items-center justify-center">↑</span>
-             <span>{(summary.countGrowth ?? 0) >= 0 ? '+' : ''}{summary.countGrowth ?? 0} vs previous {period}</span>
+             <span>{(summary.countGrowth ?? 0) >= 0 ? '+' : ''}{summary.countGrowth ?? 0} vs {PREVIOUS_LABEL[period]}</span>
           </div>
         </div>
 

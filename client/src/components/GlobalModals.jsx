@@ -105,8 +105,8 @@ const GlobalModals = () => {
     leaveType: 'sick', fromDate: '', toDate: '', reason: ''
   });
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
-  const [targetExecutiveId, setTargetExecutiveId] = useState('');
-  const [bulkAllocateStep, setBulkAllocateStep] = useState(1);
+  // leadId -> userId chosen for that lead in the bulk allocate modal
+  const [leadAssignments, setLeadAssignments] = useState({});
   const [unassignedLeads, setUnassignedLeads] = useState([]);
   const [escalateData, setEscalateData] = useState({ lead: null, reason: '', managerId: '' });
   const emptyTargetState = (userId = '', name = '') => ({
@@ -309,8 +309,7 @@ const GlobalModals = () => {
         setLeaveAction({ id: data.id, reason: '' });
       } else if (targetType === 'bulk-allocate') {
         setSelectedLeadIds([]);
-        setTargetExecutiveId('');
-        setBulkAllocateStep(1);
+        setLeadAssignments({});
       } else if (targetType === 'escalate-lead') {
         setEscalateData({ lead: data.leadData, reason: '', managerId: '' });
       } else if (targetType === 'assign-target') {
@@ -363,24 +362,33 @@ const GlobalModals = () => {
   const [hierarchy, setHierarchy] = useState({ stateManagers: [], industryManagers: [], executives: [] });
 
   const handleBulkAllocate = async () => {
-    if (!targetExecutiveId) return addToast('Please select an executive', 'warning');
+    const missing = selectedLeadIds.filter(id => !leadAssignments[id]);
+    if (missing.length) return addToast(`Select a manager for ${missing.length} selected lead(s)`, 'warning');
+
+    // The API takes one assignee per call, so group the selected leads by assignee.
+    const groups = {};
+    selectedLeadIds.forEach(id => {
+      const assignee = leadAssignments[id];
+      (groups[assignee] = groups[assignee] || []).push(id);
+    });
+
     setLoading(true);
     try {
-      await leadsApi.bulkAllocate({
-        leadIds: selectedLeadIds,
-        assignedTo: targetExecutiveId
-      });
+      await Promise.all(Object.entries(groups).map(([assignedTo, leadIds]) =>
+        leadsApi.bulkAllocate({ leadIds, assignedTo })
+      ));
       addToast(`${selectedLeadIds.length} leads allocated successfully!`, 'success');
-      queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
-      queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
       setActiveModal(null);
       setSelectedLeadIds([]);
-      setTargetExecutiveId('');
-      setBulkAllocateStep(1);
+      setLeadAssignments({});
     } catch (err) {
       addToast(err.response?.data?.message || 'Error in bulk allocation', 'error');
     } finally {
+      // Refresh even on partial failure, since some groups may have succeeded.
+      queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+      queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
+      if (activeModal === 'bulk-allocate') fetchUnassignedLeads();
       setLoading(false);
     }
   };
@@ -1008,23 +1016,57 @@ const GlobalModals = () => {
       <Modal 
         isOpen={activeModal === 'bulk-allocate'} 
         title="Bulk Allocate Leads" 
-        subtitle={bulkAllocateStep === 1 ? "Select leads to allocate" : "Select target executive"}
+        subtitle="Select leads and choose a manager for each"
         onClose={handleCloseModal}
         className="modal-lg"
       >
-        <div className="space-y-6">
-          {bulkAllocateStep === 1 ? (
+        {(() => {
+          const toggleLead = (id) => {
+            if (selectedLeadIds.includes(id)) setSelectedLeadIds(selectedLeadIds.filter(x => x !== id));
+            else setSelectedLeadIds([...selectedLeadIds, id]);
+          };
+          const assignLead = (id, userId) => {
+            setLeadAssignments(prev => ({ ...prev, [id]: userId }));
+            // Picking a manager for a lead implies the lead should be allocated.
+            if (userId && !selectedLeadIds.includes(id)) setSelectedLeadIds(prev => [...prev, id]);
+          };
+          const assignAllSelected = (userId) => {
+            if (!userId) return;
+            setLeadAssignments(prev => {
+              const next = { ...prev };
+              selectedLeadIds.forEach(id => { next[id] = userId; });
+              return next;
+            });
+          };
+          const managerOptions = (
             <>
+              {managers.length > 0 && (
+                <optgroup label="State Managers">
+                  {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.state})</option>)}
+                </optgroup>
+              )}
+              <optgroup label="Industry Managers">
+                {industryManagers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>)}
+              </optgroup>
+              <optgroup label="District Managers">
+                {executives.map(e => <option key={e._id} value={e._id}>{e.name} ({e.state})</option>)}
+              </optgroup>
+            </>
+          );
+          const unassignedSelected = selectedLeadIds.filter(id => !leadAssignments[id]).length;
+
+          return (
+            <div className="space-y-6">
               <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-2xl flex gap-3 items-start">
                 <span className="text-amber text-lg">⚠️</span>
                 <div className="text-[14px] text-text-secondary leading-relaxed">
                   <span className="font-bold text-amber">{unassignedLeads.length} leads</span> are currently unallocated. 
-                  Select the leads you want to assign to an executive.
+                  Select leads and pick a manager for each, or use "Assign selected to" to set them all at once.
                 </div>
               </div>
 
               <div className="border border-border rounded-2xl overflow-hidden bg-surface2/30">
-                <div className="p-3 border-b border-border bg-surface flex items-center justify-between">
+                <div className="p-3 border-b border-border bg-surface flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
                     <input 
                       type="checkbox" 
@@ -1036,88 +1078,78 @@ const GlobalModals = () => {
                       }}
                     />
                     <span className="text-xs font-bold uppercase tracking-wider">Select All Unallocated</span>
+                    <span className="text-[12px] font-bold text-text-muted">· {selectedLeadIds.length} Selected</span>
                   </div>
-                  <span className="text-[12px] font-bold text-text-muted">{selectedLeadIds.length} Selected</span>
+                  <select
+                    className="select !w-64 !py-1.5 text-[13px]"
+                    value=""
+                    disabled={selectedLeadIds.length === 0}
+                    onChange={(e) => assignAllSelected(e.target.value)}
+                  >
+                    <option value="">Assign selected to…</option>
+                    {managerOptions}
+                  </select>
                 </div>
                 <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
-                  {unassignedLeads.map(lead => (
-                    <div 
-                      key={lead._id} 
-                      className={`p-3 flex items-center gap-3 transition-colors cursor-pointer hover:bg-white ${selectedLeadIds.includes(lead._id) ? 'bg-white' : ''}`}
-                      onClick={() => {
-                        if (selectedLeadIds.includes(lead._id)) setSelectedLeadIds(selectedLeadIds.filter(id => id !== lead._id));
-                        else setSelectedLeadIds([...selectedLeadIds, lead._id]);
-                      }}
-                    >
-                      <input 
-                        type="checkbox" 
-                        className="w-4 h-4 rounded accent-[#0f766e]" 
-                        checked={selectedLeadIds.includes(lead._id)}
-                        onChange={() => {}} // Handled by div onClick
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-bold text-text-primary">{lead.company || lead.name}</div>
-                        <div className="text-[12px] text-text-muted">{lead.name} · {lead.industry} · {lead.state}</div>
+                  {unassignedLeads.map(lead => {
+                    const isSelected = selectedLeadIds.includes(lead._id);
+                    const needsManager = isSelected && !leadAssignments[lead._id];
+                    return (
+                      <div 
+                        key={lead._id} 
+                        className={`p-3 flex items-center gap-3 transition-colors cursor-pointer hover:bg-white ${isSelected ? 'bg-white' : ''}`}
+                        onClick={() => toggleLead(lead._id)}
+                      >
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 rounded accent-[#0f766e]" 
+                          checked={isSelected}
+                          onChange={() => {}} // Handled by div onClick
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-text-primary truncate">{lead.company || lead.name}</div>
+                          <div className="text-[12px] text-text-muted truncate">
+                            {[lead.name, lead.industry, lead.state].filter(Boolean).join(' · ')}
+                          </div>
+                        </div>
+                        <select
+                          className={`select !w-64 !py-1.5 text-[13px] ${needsManager ? '!border-amber' : ''}`}
+                          value={leadAssignments[lead._id] || ''}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => assignLead(lead._id, e.target.value)}
+                        >
+                          <option value="">Select Manager</option>
+                          {managerOptions}
+                        </select>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {unassignedLeads.length === 0 && (
                     <div className="p-8 text-center text-text-muted italic">No unallocated leads found.</div>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+              <div className="flex justify-end items-center gap-3 pt-4 border-t border-border mt-6">
+                {unassignedSelected > 0 && (
+                  <span className="text-[12px] text-amber font-semibold mr-auto">
+                    {unassignedSelected} selected lead{unassignedSelected > 1 ? 's' : ''} still need a manager
+                  </span>
+                )}
                 <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
                 <Button 
                   variant="primary" 
-                  disabled={selectedLeadIds.length === 0} 
-                  onClick={() => setBulkAllocateStep(2)}
-                  className="bg-[#0f766e]"
-                >
-                  Next: Select District Manager →
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="p-4 bg-blue/5 border border-blue/10 rounded-2xl">
-                <div className="text-[11px] font-bold text-blue uppercase tracking-widest mb-1">Allocation Summary</div>
-                <div className="text-sm font-medium">Allocating <span className="font-bold text-blue">{selectedLeadIds.length}</span> selected leads.</div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="form-label">Assign To District Manager</label>
-                <select 
-                  className="select" 
-                  value={targetExecutiveId} 
-                  onChange={(e) => setTargetExecutiveId(e.target.value)}
-                >
-                  <option value="">Select Staff</option>
-                  <optgroup label="District Managers">
-                    {executives.map(e => <option key={e._id} value={e._id}>{e.name} ({e.state})</option>)}
-                  </optgroup>
-                  <optgroup label="Industry Managers">
-                    {industryManagers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>)}
-                  </optgroup>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
-                <Button variant="outline" onClick={() => setBulkAllocateStep(1)}>← Back to Selection</Button>
-                <Button 
-                  variant="primary" 
                   loading={loading} 
-                  disabled={!targetExecutiveId} 
+                  disabled={selectedLeadIds.length === 0 || unassignedSelected > 0} 
                   onClick={handleBulkAllocate}
                   className="bg-[#0f766e]"
                 >
-                  Confirm & Allocate
+                  Allocate {selectedLeadIds.length || ''} Lead{selectedLeadIds.length === 1 ? '' : 's'}
                 </Button>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* CREATE EXECUTIVE MODAL */}

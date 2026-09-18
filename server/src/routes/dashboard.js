@@ -2114,7 +2114,7 @@ router.get('/founder', async (req, res) => {
         const allPerformanceUsers = await User.find({ role: { $in: ['state_manager', 'industry_manager', 'executive'] }, isActive: true });
         const allPerfUserIds = allPerformanceUsers.map(u => u._id);
 
-        const [perfAttendance, perfActivities, perfLeadsCount, perfLeaves, perfPeriodLeads] = await Promise.all([
+        const [perfAttendance, perfActivities, perfLeadsCount, perfLeaves, perfPeriodLeads, perfMeetingTypes] = await Promise.all([
             Attendance.aggregate([
                 { $match: { user: { $in: allPerfUserIds }, date: { $gte: periodStart, $lte: periodEnd } } },
                 { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
@@ -2148,6 +2148,32 @@ router.get('/founder', async (req, res) => {
             Lead.aggregate([
                 { $match: { owner: { $in: allPerfUserIds }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $group: { _id: '$owner', count: { $sum: 1 } } }
+            ]),
+            // Direct vs virtual split of the meetings counted above. Meetings logged
+            // before meetingType was recorded fall back to the lead's status.
+            LeadActivity.aggregate([
+                { $match: {
+                    performedBy: { $in: allPerfUserIds },
+                    action: { $in: ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'] },
+                    createdAt: { $gte: periodStart, $lte: periodEnd }
+                } },
+                { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'leadDoc', pipeline: [{ $project: { status: 1 } }] } },
+                { $addFields: {
+                    isVirtual: { $or: [
+                        { $eq: ['$action', 'meeting_virtual'] },
+                        { $eq: ['$metadata.meetingType', 'virtual'] },
+                        { $and: [
+                            { $ne: ['$action', 'meeting_direct'] },
+                            { $eq: [{ $ifNull: ['$metadata.meetingType', null] }, null] },
+                            { $eq: [{ $arrayElemAt: ['$leadDoc.status', 0] }, 'meeting_virtual'] }
+                        ] }
+                    ] }
+                } },
+                { $group: {
+                    _id: '$performedBy',
+                    virtual: { $sum: { $cond: ['$isVirtual', 1, 0] } },
+                    direct: { $sum: { $cond: ['$isVirtual', 0, 1] } }
+                } }
             ])
         ]);
 
@@ -2158,6 +2184,7 @@ router.get('/founder', async (req, res) => {
                 const leads = perfLeadsCount.find(l => l._id?.toString() === u._id.toString()) || {};
                 const leave = perfLeaves.find(l => l._id.toString() === u._id.toString());
                 const periodLeads = perfPeriodLeads.find(l => l._id.toString() === u._id.toString());
+                const meetingTypes = perfMeetingTypes.find(m => m._id.toString() === u._id.toString()) || {};
 
                 return {
                     _id: u._id,
@@ -2170,6 +2197,8 @@ router.get('/founder', async (req, res) => {
                     blocking: acts.blocking || 0,
                     calls: acts.calls || 0,
                     meetings: acts.meetings || 0,
+                    directMeetings: meetingTypes.direct || 0,
+                    virtualMeetings: meetingTypes.virtual || 0,
                     followups: acts.followups || 0,
                     converted: acts.conversions || 0,
                     revenue: acts.revenue || 0,

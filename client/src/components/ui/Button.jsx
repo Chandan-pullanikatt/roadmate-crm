@@ -18,6 +18,7 @@ const Button = ({
   };
 
   const sizes = {
+    '2xs': 'btn-2xs',
     xs: 'h-7 px-2 text-[10px] uppercase tracking-wider',
     sm: 'btn-sm',
     md: '',

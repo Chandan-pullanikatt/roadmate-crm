@@ -55,8 +55,8 @@ async function getScopeOwnerIds(user) {
  *   - Unassigned leads you imported yourself (allocatedBy = you).
  *   - Founder: unrestricted.
  *
- * `ownerParam` is the optional ?owner= filter: 'self' | 'team' | 'unassigned' |
- * 'none' | '<userId>'.
+ * `ownerParam` is the optional ?owner= filter: 'self' | 'team' | 'assigned' |
+ * 'unassigned' | 'none' | '<userId>'.
  */
 function applyLeadScope(query, scopeIds, userId, ownerParam) {
   const isFounder = scopeIds === null;
@@ -89,6 +89,9 @@ function applyLeadScope(query, scopeIds, userId, ownerParam) {
     query.owner = selfId;
   } else if (ownerParam === 'team') {
     andClauses.push({ owner: { $ne: selfId } });
+  } else if (ownerParam === 'assigned') {
+    // $ne: null also excludes leads with no owner field at all
+    andClauses.push({ owner: { $ne: null } });
   } else if (ownerParam && ownerParam !== 'all') {
     query.owner = toObjectId(ownerParam);
   }

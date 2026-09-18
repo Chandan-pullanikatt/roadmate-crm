@@ -538,6 +538,7 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-sm { height: 34px; padding: 0 14px; font-size: 13px; }
+.btn-2xs { height: 26px; padding: 0 8px; font-size: 10.5px; gap: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
 
 .btn-primary { 
   background: var(--blue-gradient); 

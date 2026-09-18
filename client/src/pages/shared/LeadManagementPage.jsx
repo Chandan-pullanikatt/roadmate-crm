@@ -347,6 +347,38 @@ const LeadManagementPage = ({
         ))}
       </div>
 
+      {/* Allocation filter. Routes with a fixed owner scope (an Industry Manager's
+          "my leads" / "team leads") hide it, since the scope already decides. */}
+      {!defaultOwnerScope && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-[12px] font-bold uppercase tracking-widest text-text-muted mr-1">Allocation</span>
+          {[
+            { id: '', label: 'All' },
+            { id: 'assigned', label: 'Allocated' },
+            { id: 'unassigned', label: 'Unallocated' },
+          ].map(a => {
+            const selected = a.id === ''
+              ? !['assigned', 'unassigned'].includes(ownerFilter) && !ownerName
+              : ownerFilter === a.id;
+            return (
+              <button
+                key={a.id || 'all'}
+                onClick={() => { setOwnerFilter(a.id); setOwnerName(''); setPage(1); }}
+                className={`px-4 py-1.5 rounded-lg text-[13px] font-bold uppercase tracking-wider border transition-all ${
+                  selected
+                    ? a.id === 'unassigned'
+                      ? 'bg-[#fffbeb] text-[#d97706] border-[#fde68a]'
+                      : 'bg-[#0f766e] text-white border-[#0f766e]'
+                    : 'bg-white text-text-muted border-border hover:border-blue/30'
+                }`}
+              >
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 mb-8">
         {tabs.map(tab => (
           <button 

@@ -24,7 +24,7 @@ export const matchesActiveFilter = (user, showInactive) =>
   showInactive ? user?.isActive === false : user?.isActive !== false;
 
 // Deactivate / Activate button (founder only; the server enforces this).
-export const ActiveToggleButton = ({ user }) => {
+export const ActiveToggleButton = ({ user, compact = false }) => {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   if (!user?._id) return null;
@@ -50,12 +50,12 @@ export const ActiveToggleButton = ({ user }) => {
 
   return (
     <Button
-      size="xs"
+      size={compact ? '2xs' : 'xs'}
       variant="outline"
       disabled={busy}
-      className={active
-        ? 'bg-surface2 border-border text-text-secondary shadow-sm hover:bg-surface2/70 px-3 font-bold'
-        : 'bg-[#0f766e]/5 border-[#0f766e]/30 text-[#0f766e] shadow-sm hover:bg-[#0f766e]/10 px-3 font-bold'}
+      className={`${active
+        ? 'bg-surface2 border-border text-text-secondary shadow-sm hover:bg-surface2/70 font-bold'
+        : 'bg-[#0f766e]/5 border-[#0f766e]/30 text-[#0f766e] shadow-sm hover:bg-[#0f766e]/10 font-bold'} ${compact ? '' : 'px-3'}`}
       onClick={handleClick}
     >
       {active ? 'Deactivate' : 'Activate'}
