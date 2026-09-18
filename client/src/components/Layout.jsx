@@ -107,20 +107,21 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
       ]
     },
     state_manager: {
-      accentColor: 'var(--blue)',
+      // Same sidebar palette as the Founder portal.
+      accentColor: '#0f766e',
       logoSub: 'State Manager Portal',
       roleBadge: `🗺 ${user?.state || 'State Manager'}`,
       roleBadgeClass: 'state-badge',
-      logoMarkClass: 'blue',
+      logoMarkClass: 'founder',
       logoMarkText: 'RM',
-      avatarClass: 'av-state',
+      avatarClass: 'av-green',
       sections: [
         {
           label: 'Main',
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
-            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work', special: true },
-            { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'blue' },
+            { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work' },
+            { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'green' },
             { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' },
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) }
           ]
@@ -137,7 +138,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Management',
           items: [
             { label: 'Tasks', path: '/dashboard?page=tasks', icon: 'work' },
-            { label: 'Create Ind. Manager', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'create-exec' })), icon: 'industry' },
             { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' },
             { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' }
           ]
@@ -145,19 +145,20 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
       ]
     },
     industry_manager: {
-      accentColor: 'var(--purple)',
+      // Same sidebar palette as the Founder portal.
+      accentColor: '#0f766e',
       logoSub: 'Industry Manager Portal',
       roleBadge: `🚗 ${user?.industry || 'Industry'} · ${user?.state || 'State'}`,
       roleBadgeClass: 'ind-badge',
-      logoMarkClass: 'purple',
+      logoMarkClass: 'founder',
       logoMarkText: 'RM',
-      avatarClass: 'av-ind',
+      avatarClass: 'av-green',
       sections: [
         {
           label: 'My Works',
           items: [
             { label: 'Overview',         path: '/dashboard?page=overview',       icon: 'overview' },
-            { label: 'My Work',          path: '/dashboard?page=my-work',        icon: 'my-work', special: true },
+            { label: 'My Work',          path: '/dashboard?page=my-work',        icon: 'my-work' },
             { label: 'Lead Management',  path: '/dashboard?page=my-leads',       icon: 'leads' },
             { label: 'My Performance',   path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=my-attendance',  icon: 'attendance' },
@@ -167,7 +168,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'Team',
           items: [
-            { label: 'Overview',         path: '/dashboard?page=team',           icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'purple' },
+            { label: 'Overview',         path: '/dashboard?page=team',           icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'green' },
             { label: 'Lead Management',  path: '/dashboard?page=leads',          icon: 'leads', badge: getBadge(stats.totalLeads) },
             { label: 'Staff Performance', path: '/dashboard?page=performance',   icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=attendance',     icon: 'attendance' },
@@ -187,20 +188,21 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
       ]
     },
     executive: {
-      accentColor: '#B45309',
+      // Same sidebar palette as the Founder portal.
+      accentColor: '#0f766e',
       roleBadge: 'District Manager',
       roleBadgeClass: 'exec-badge-v2',
-      logoMarkClass: 'brown',
+      logoMarkClass: 'founder',
       logoMarkText: 'RM',
-      avatarClass: 'av-exec',
+      avatarClass: 'av-green',
       sections: [
         {
           label: 'OPERATIONS',
           items: [
-            { label: 'Start My Work', path: '/dashboard?page=work', icon: 'work', special: true },
+            { label: 'Start My Work', path: '/dashboard?page=work', icon: 'work' },
             { label: 'My Tasks', path: '/dashboard?page=tasks', icon: 'work' },
             { label: 'Meetings', path: '/dashboard?page=meetings', icon: 'meetings' },
-            { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads-v2', badge: getBadge(stats.totalLeads), badgeColor: 'red' },
+            { label: 'My Leads', path: '/dashboard?page=leads', icon: 'leads-v2', badge: getBadge(stats.totalLeads), badgeColor: 'green' },
             { label: 'Leave Calendar', path: '/dashboard?page=leave-calendar', icon: 'calendar-v2' }
           ]
         },

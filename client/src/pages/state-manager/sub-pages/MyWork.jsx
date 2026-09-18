@@ -7,11 +7,28 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
+import CallFeedbackModal from '../../industry-manager/components/CallFeedbackModal';
 
 const MyWork = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const [currentLeadIdx, setCurrentLeadIdx] = useState(0);
+  // The full list runs to hundreds of rows, so it is paged 15 at a time.
+  const LEADS_PER_PAGE = 15;
+  const [leadsPage, setLeadsPage] = useState(1);
+
+  // Call Done / RNR open the same feedback dialog the Industry Manager work page
+  // uses, so the outcome, priority, notes and any follow-up or meeting are captured
+  // instead of the status being flipped blind.
+  const [feedbackModal, setFeedbackModal] = useState({ open: false, outcome: null });
+  const openModal = (type, data = null) => {
+    window.dispatchEvent(new CustomEvent('open-modal', {
+      detail: typeof type === 'string' ? { type, ...data } : type
+    }));
+  };
+
+  const openFeedback = (outcome) => setFeedbackModal({ open: true, outcome });
+  const closeFeedback = () => setFeedbackModal({ open: false, outcome: null });
   const [strategyNote, setStrategyNote] = useState('');
 
   const { data: queueData, isLoading: queueLoading } = useQuery({
@@ -22,8 +39,8 @@ const MyWork = () => {
   });
 
   const { data: allLeadsData, isLoading: allLeadsLoading } = useQuery({
-    queryKey: ['leads', 'sm-my-all'],
-    queryFn: () => leadsApi.getLeads({ limit: 100 }).then(res => res.data),
+    queryKey: ['leads', 'sm-my-all', leadsPage],
+    queryFn: () => leadsApi.getLeads({ page: leadsPage, limit: LEADS_PER_PAGE }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -51,32 +68,44 @@ const MyWork = () => {
     }
   });
 
-  const transitionMutation = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(data.id, data.action, data.payload || {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads', 'my-queue'] });
-      queryClient.invalidateQueries({ queryKey: ['leads', 'sm-my-all'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard', 'personal'] });
-      toast.success("Lead status updated");
-    }
-  });
-
   const isWorking = !!personalDash?.attendance?.workStartedAt && !personalDash?.attendance?.workCompletedAt;
   const hasCompletedWork = !!personalDash?.attendance?.workCompletedAt;
   const myLeads = queueData?.queue || [];
   const allMyLeads = allLeadsData?.leads || [];
+  const allMyLeadsTotal = allLeadsData?.total || 0;
+  const allMyLeadsPages = allLeadsData?.totalPages || 1;
   const currentLead = myLeads[currentLeadIdx];
   const isLastLead = currentLeadIdx >= myLeads.length;
   
+  // The line under "My Leads Today" has to describe the queue whose size sits above
+  // it. It used to read todayStats, which counts activities already performed today
+  // -- a different measure that can never add up to the queue length -- and
+  // todayStats.new is not a field the API returns at all, so that third figure was
+  // hard-wired to 0. Bucket the queue itself, using the order getQueue() sorts by.
+  const queueBreakdown = (() => {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date();
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const isMeetingToday = (l) => {
+      if (!l.meetingAt || !['meeting_direct', 'meeting_virtual'].includes(l.status)) return false;
+      const at = new Date(l.meetingAt);
+      return at >= dayStart && at <= dayEnd;
+    };
+
+    return myLeads.reduce((acc, l) => {
+      if (isMeetingToday(l)) acc.meetings += 1;
+      else if (l.nextActionAt && new Date(l.nextActionAt) <= dayEnd) acc.followups += 1;
+      else if (l.status === 'new') acc.fresh += 1;
+      else acc.other += 1;
+      return acc;
+    }, { meetings: 0, followups: 0, fresh: 0, other: 0 });
+  })();
+
   const todayStats = personalDash?.todayStats || {};
   const monthlyStats = personalDash?.monthlyStats || {};
   const strategyLogs = personalDash?.strategyLogs || [];
-  const leadSources = personalDash?.leadSources || [];
-
-  const handleAction = (action, payload = {}) => {
-    if (!currentLead) return;
-    transitionMutation.mutate({ id: currentLead._id, action, payload });
-  };
 
   if (queueLoading || dashLoading || allLeadsLoading) return <DashboardSkeleton />;
 
@@ -101,23 +130,6 @@ const MyWork = () => {
           >
             {isWorking ? 'Stop Work' : hasCompletedWork ? 'Work Ended' : 'Start Work'}
           </Button>
-          <Button 
-            variant="outline"
-            size="sm"
-            className="bg-white border-blue/30 text-blue hover:bg-blue/5 font-bold"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-modal', {
-              detail: {
-                type: 'create-exec',
-                prefill: {
-                  role: 'industry-manager',
-                  state: currentUser?.state || '',
-                  reportingTo: currentUser?._id || '',
-                }
-              }
-            }))}
-          >
-            + Onboard Industry Manager
-          </Button>
         </div>
       </div>
 
@@ -127,7 +139,7 @@ const MyWork = () => {
           <div className="stat-label">My Leads Today</div>
           <div className="stat-value text-blue">{myLeads.length}</div>
           <div className="stat-delta text-[11px] font-medium opacity-70">
-             {"\u2192"} {todayStats.meetings || 0} direct meeting, {todayStats.followups || 0} follow-ups, {todayStats.new || 0} new
+             {"\u2192"} {queueBreakdown.meetings} meetings, {queueBreakdown.followups} follow-ups, {queueBreakdown.fresh} new{queueBreakdown.other > 0 ? `, ${queueBreakdown.other} other` : ''}
           </div>
         </div>
         <div className="stat-card border-l-4 border-green">
@@ -150,9 +162,11 @@ const MyWork = () => {
       </div>
 
       {/* QUEUE & ACTIVE LEAD SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+      {/* items-start: the queue can run to 30+ rows, and a stretching grid row used to
+          drag the Active Lead card down with it, leaving a screen-high empty card. */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8 items-start">
         <div className="lg:col-span-3">
-          <div className="card h-full min-h-[400px]">
+          <div className="card min-h-[400px]">
              <div className="card-header border-b border-border bg-surface2/5">
                 <div className="flex items-center gap-3">
                    <div className="w-8 h-8 rounded-lg bg-red-light/10 flex items-center justify-center text-red">🎯</div>
@@ -210,8 +224,8 @@ const MyWork = () => {
                    </div>
 
                    <div className="flex gap-4">
-                      <Button className="flex-1 bg-green text-white py-3" onClick={() => handleAction('mark_called')}>✓ Call Completed</Button>
-                      <Button className="flex-1 border-amber text-amber border py-3" variant="outline" onClick={() => handleAction('mark_rnr')}>📵 Mark RNR</Button>
+                      <Button className="flex-1 bg-green text-white py-3" onClick={() => openFeedback('connected')}>✓ Call Completed</Button>
+                      <Button className="flex-1 border-amber text-amber border py-3" variant="outline" onClick={() => openFeedback('rnr')}>📵 Mark RNR</Button>
                       <Button className="px-6 border-border text-text-muted border" variant="outline" onClick={() => setCurrentLeadIdx(prev => prev + 1)}>Skip</Button>
                    </div>
                 </div>
@@ -220,17 +234,29 @@ const MyWork = () => {
         </div>
 
         <div className="lg:col-span-2 flex flex-col gap-6">
-           <div className="card flex-1">
+           <div className="card flex-1 flex flex-col">
               <div className="card-header border-b border-border bg-surface2/5">
                  <div className="section-title text-sm">Today's Queue · My Leads</div>
                  <div className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">Meetings {"\u2192"} Follow-ups {"\u2192"} New</div>
               </div>
-              <div className="divide-y divide-border">
+              {/* Scrolls inside a fixed height so a 30-lead queue cannot set the row height */}
+              <div className="divide-y divide-border overflow-y-auto max-h-[560px]">
                  {myLeads.map((l, i) => (
-                    <div key={l._id} className={`flex items-center gap-4 p-4 hover:bg-surface2 transition-all cursor-pointer ${i === currentLeadIdx && isWorking ? 'bg-blue-light/5 border-l-4 border-blue' : ''}`}>
+                    <div
+                      key={l._id}
+                      role="button"
+                      tabIndex={0}
+                      aria-current={i === currentLeadIdx ? 'true' : undefined}
+                      onClick={() => setCurrentLeadIdx(i)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentLeadIdx(i); }
+                      }}
+                      title={`Work ${l.company || l.business || l.name} next`}
+                      className={`group flex items-center gap-4 p-4 hover:bg-surface2 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/50 ${i === currentLeadIdx ? 'bg-blue-light/5 border-l-4 border-blue' : ''}`}
+                    >
                        <div className="w-5 h-5 rounded-full border border-border flex items-center justify-center text-[10px] font-bold text-text-muted">{i + 1}</div>
                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-bold truncate">{l.company || l.business}</div>
+                          <div className="text-[13px] font-bold truncate group-hover:text-blue">{l.company || l.business}</div>
                           <div className="text-[11px] text-text-muted">{l.district} · {l.name}</div>
                        </div>
                        <div className="text-right">
@@ -242,30 +268,10 @@ const MyWork = () => {
                  {myLeads.length === 0 && <div className="p-12 text-center text-text-muted text-xs italic">No leads in queue today</div>}
               </div>
               <div className="card-footer bg-surface2/5 border-t border-border p-3 text-center">
-                 <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{todayStats.completedLeads || 0}/{myLeads.length + (todayStats.completedLeads || 0)} completed today</div>
+                 <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{todayStats.completedLeads || 0}/{myLeads.length + (todayStats.completedLeads || 0)} completed today {"·"} {myLeads.length} in queue</div>
               </div>
            </div>
 
-           <div className="card">
-              <div className="card-header border-b border-border py-3">
-                 <div className="section-title text-[12px]">My Lead Sources</div>
-                 <Tag variant="blue" label="Industry Partners" />
-              </div>
-              <div className="card-body py-4">
-                 {leadSources.map((s, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-surface2 rounded-xl mb-2 last:mb-0 border border-border/50">
-                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white border border-border flex items-center justify-center shadow-sm">{s.icon}</div>
-                          <div>
-                             <div className="text-[12px] font-bold">{s.label}</div>
-                             <div className="text-[10px] text-text-muted">Direct connections</div>
-                          </div>
-                       </div>
-                       <div className="text-sm font-black text-blue">{s.count} leads</div>
-                    </div>
-                 ))}
-              </div>
-           </div>
         </div>
       </div>
 
@@ -296,10 +302,22 @@ const MyWork = () => {
             {
               header: 'ACTION', accessor: '_id',
               render: (id, row) => (
-                <Button size="xs" variant="blue" onClick={() => {
-                  const idx = myLeads.findIndex(l => l._id === id);
-                  if (idx !== -1) setCurrentLeadIdx(idx);
-                }}>Work Lead</Button>
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => openModal('update-lead', { leadData: row })}
+                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg hover:bg-surface2 transition-colors"
+                  >
+                    Update
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openModal('allocate-lead', { leadData: row })}
+                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-purple/20 text-purple rounded-lg hover:bg-purple/5 transition-colors"
+                  >
+                    Allocate
+                  </button>
+                </div>
               ),
               align: 'right'
             }
@@ -307,6 +325,33 @@ const MyWork = () => {
           data={allMyLeads}
           emptyMessage="No leads found. Add your first lead above."
         />
+        {allMyLeadsTotal > 0 && (
+          <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/5">
+            <div className="text-[11px] text-text-muted font-bold uppercase tracking-tight">
+              Showing {((leadsPage - 1) * LEADS_PER_PAGE) + 1} - {Math.min(leadsPage * LEADS_PER_PAGE, allMyLeadsTotal)} of {allMyLeadsTotal} leads
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="xs"
+                variant="outline"
+                className="bg-white border-border shadow-sm px-4"
+                onClick={() => setLeadsPage(p => Math.max(1, p - 1))}
+                disabled={leadsPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                className="bg-white border-border shadow-sm px-4"
+                onClick={() => setLeadsPage(p => p + 1)}
+                disabled={leadsPage >= allMyLeadsPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* PERFORMANCE & STRATEGY LOG */}
@@ -377,6 +422,24 @@ const MyWork = () => {
            </div>
         </div>
       </div>
+
+      {/* Call Done / RNR feedback dialog -- same component the Industry Manager uses */}
+      {currentLead && (
+        <CallFeedbackModal
+          isOpen={feedbackModal.open}
+          onClose={closeFeedback}
+          lead={currentLead}
+          initialOutcome={feedbackModal.outcome}
+          onSuccess={() => {
+            // The modal refreshes the Industry Manager's keys; these are this page's.
+            queryClient.invalidateQueries({ queryKey: ['leads', 'my-queue'] });
+            queryClient.invalidateQueries({ queryKey: ['leads', 'sm-my-all'], exact: false });
+            queryClient.invalidateQueries({ queryKey: ['dashboard', 'personal'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard', 'state-manager'] });
+            setCurrentLeadIdx(prev => prev + 1);
+          }}
+        />
+      )}
     </div>
   );
 };

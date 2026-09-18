@@ -216,46 +216,27 @@ body {
 }
 
 /* ROLE BASED THEMING */
-.role-industry_manager .nav-item.active {
-  background: var(--purple-light);
-  color: var(--purple);
-}
-.role-industry_manager .nav-item.active .icon {
-  color: var(--purple);
-}
-.role-industry_manager .nav-badge {
-  background: var(--purple);
-}
-
-.role-founder .nav-item.active {
+/* Every portal shares the Founder's brand theming. One rule for all four so the
+   navbars cannot drift apart again -- they used to be teal, blue, purple and amber. */
+.role-founder .nav-item.active,
+.role-state_manager .nav-item.active,
+.role-industry_manager .nav-item.active,
+.role-executive .nav-item.active {
   background: var(--brand-light);
   color: #6B5900;
 }
-.role-founder .nav-item.active .icon {
+.role-founder .nav-item.active .icon,
+.role-state_manager .nav-item.active .icon,
+.role-industry_manager .nav-item.active .icon,
+.role-executive .nav-item.active .icon {
   color: #6B5900;
 }
-.role-founder .nav-badge {
+.role-founder .nav-badge,
+.role-state_manager .nav-badge,
+.role-industry_manager .nav-badge,
+.role-executive .nav-badge {
   background: var(--brand);
   color: #111827;
-}
-
-.role-state_manager .nav-item.active {
-  background: var(--blue-light);
-  color: var(--blue);
-}
-.role-state_manager .nav-item.active .icon {
-  color: var(--blue);
-}
-
-.role-executive .nav-item.active {
-  background: var(--amber-light);
-  color: var(--amber);
-}
-.role-executive .nav-item.active .icon {
-  color: var(--amber);
-}
-.role-executive .nav-badge {
-  background: var(--amber);
 }
 
 .nav-badge {
@@ -322,6 +303,9 @@ body {
 
 .nav-badge-v2.blue { background: #2563EB; }
 .nav-badge-v2.red { background: #DC2626; }
+/* Count badges on the brand-themed sidebars. Without this they inherited no
+   background at all and rendered white text on white. */
+.nav-badge-v2.green { background: var(--accent); }
 
 .special-item.active {
   background: #FEF3C7 !important;

@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Button } from '../../../components/ui';
+import { Button, Modal } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 
 const Reports = () => {
-  const [loading, setLoading] = useState(false);
+  // `${reportId}:${action}` while a request is in flight, so only the button that
+  // was pressed shows a busy label.
+  const [loading, setLoading] = useState(null);
+  const [viewing, setViewing] = useState(null); // { card, rows }
 
   const { data: dashData } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
@@ -36,13 +39,12 @@ const Reports = () => {
     toast.success(`${filename} generated successfully`);
   };
 
-  const generateReport = async (type) => {
-    try {
-      setLoading(true);
-      const res = await dashboardApi.getReport(type, { limit: 1000 });
+  // One fetch-and-format pass, shared by the viewer and the CSV export, so what is
+  // on screen is exactly what downloads.
+  const fetchRows = async (type) => {
+      const res = await dashboardApi.getReport(type, { limit: 5000 });
       const rawData = res.data?.data || res.data || [];
-      
-      let filename = type.toUpperCase() + "_REPORT";
+
       let formatted = [];
 
       switch(type) {
@@ -108,11 +110,28 @@ const Reports = () => {
           formatted = rawData;
       }
 
-      downloadCSV(formatted, filename);
+      return formatted;
+  };
+
+  const handleView = async (card) => {
+    try {
+      setLoading(`${card.id}:view`);
+      setViewing({ card, rows: await fetchRows(card.id) });
+    } catch (err) {
+      toast.error("Failed to load report");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDownload = async (card) => {
+    try {
+      setLoading(`${card.id}:download`);
+      downloadCSV(await fetchRows(card.id), `${card.id.toUpperCase()}_REPORT`);
     } catch (err) {
       toast.error("Failed to generate report");
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
@@ -145,10 +164,9 @@ const Reports = () => {
       {/* REPORT GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {reportCards.map((r) => (
-          <div 
-            key={r.id} 
-            className="card border-none shadow-xl bg-white/80 backdrop-blur-md hover:scale-[1.02] transition-all cursor-pointer group"
-            onClick={() => !loading && generateReport(r.id)}
+          <div
+            key={r.id}
+            className="card border-none shadow-xl bg-white/80 backdrop-blur-md hover:scale-[1.02] transition-all group"
           >
             <div className="card-body py-16 flex flex-col items-center text-center">
               <div className="w-20 h-20 bg-surface rounded-3xl flex items-center justify-center text-4xl mb-8 shadow-inner border border-border/50 group-hover:rotate-12 transition-transform">
@@ -157,15 +175,70 @@ const Reports = () => {
               <div className="font-black text-[17px] tracking-tight mb-2 group-hover:text-blue transition-colors">{r.title}</div>
               <div className="text-[13px] text-text-muted font-medium tracking-tight px-6">{r.desc}</div>
               
-              <div className="mt-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue bg-blue-light/10 px-4 py-2 rounded-full border border-blue/20">
-                  {loading ? 'Processing...' : 'Download CSV'}
-                </span>
+              <div className="mt-8 flex items-center gap-3">
+                <button
+                  className="px-5 py-2 rounded-xl border border-border text-text-primary font-bold text-xs hover:bg-surface2 transition-all disabled:opacity-50"
+                  disabled={!!loading}
+                  onClick={() => handleView(r)}
+                >
+                  {loading === `${r.id}:view` ? 'Loading...' : 'View'}
+                </button>
+                <button
+                  className="px-5 py-2 rounded-xl bg-[#0f766e] text-white font-bold text-xs shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                  disabled={!!loading}
+                  onClick={() => handleDownload(r)}
+                >
+                  {loading === `${r.id}:download` ? 'Preparing...' : 'Download CSV'}
+                </button>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {viewing && (
+        <Modal
+          title={viewing.card.title}
+          subtitle={`${viewing.rows.length} record${viewing.rows.length === 1 ? '' : 's'}`}
+          onClose={() => setViewing(null)}
+          className="max-w-6xl"
+        >
+          {viewing.rows.length === 0 ? (
+            <div className="py-16 text-center text-sm text-text-muted">No records found for this report</div>
+          ) : (
+            <>
+              <div className="flex justify-end mb-4">
+                <button
+                  className="px-5 py-2 rounded-xl bg-[#0f766e] text-white font-bold text-xs shadow-sm hover:shadow-md transition-all"
+                  onClick={() => downloadCSV(viewing.rows, `${viewing.card.id.toUpperCase()}_REPORT`)}
+                >
+                  Download CSV
+                </button>
+              </div>
+              <div className="overflow-auto max-h-[60vh] border border-border rounded-xl">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface2 sticky top-0">
+                    <tr>
+                      {Object.keys(viewing.rows[0]).map(h => (
+                        <th key={h} className="text-left px-4 py-3 font-bold text-text-secondary whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewing.rows.map((row, i) => (
+                      <tr key={i} className="border-t border-border hover:bg-surface2/50">
+                        {Object.values(row).map((val, j) => (
+                          <td key={j} className="px-4 py-2.5 text-text-primary whitespace-nowrap">{val ?? '—'}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
     </div>
   );
 };

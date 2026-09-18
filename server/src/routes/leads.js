@@ -421,13 +421,30 @@ router.get('/queue', async (req, res) => {
   }
 });
 
+// The period window normally means "created in", but a Conversions card counts by
+// when the lead converted. Whitelisted so a caller can never filter on an arbitrary
+// field; anything else falls back to createdAt.
+const PERIOD_DATE_FIELDS = ['createdAt', 'convertedAt'];
+const periodFieldOf = (dateField) =>
+  PERIOD_DATE_FIELDS.includes(dateField) ? dateField : 'createdAt';
+
+// A priority filter may arrive as one value ('hot') or as a comma-separated set
+// ('hot,warm'), which is how the Expected Onboarding card drills down -- that card
+// counts Hot AND Warm, so a single-value filter could never reproduce its number.
+const priorityFilterOf = (priority) => {
+  if (!priority) return undefined;
+  const list = String(priority).split(',').map(s => s.trim()).filter(Boolean);
+  if (!list.length) return undefined;
+  return list.length === 1 ? list[0] : { $in: list };
+};
+
 /**
  * GET /api/leads/counts - Get counts grouped by status
  */
 router.get('/counts', async (req, res) => {
   try {
     const query = {};
-    const { owner, priority, period, value, state } = req.query;
+    const { owner, priority, period, value, state, dateField } = req.query;
 
     // These counts run through aggregation pipelines, which (unlike .find/.countDocuments)
     // do NOT auto-cast string ids to ObjectId. Cast every owner id explicitly or $match
@@ -443,12 +460,13 @@ router.get('/counts', async (req, res) => {
 
     // When the list is filtered to one priority, the status tab counts must be
     // filtered the same way or the numbers contradict the rows underneath them.
-    if (priority) query.priority = priority;
+    const priorityClause = priorityFilterOf(priority);
+    if (priorityClause !== undefined) query.priority = priorityClause;
 
     // Same reasoning for the period: with a month selected the tabs counted all
     // time while the rows under them were one month's worth, so "All 603" sat on
     // top of 47 September leads.
-    if (period) query.createdAt = createdAtRange(period, value);
+    if (period) query[periodFieldOf(dateField)] = createdAtRange(period, value);
 
     // The list has always offered a state filter; the tabs above it did not honour
     // one, so filtering to Telangana left the counts reading every state.
@@ -532,6 +550,7 @@ router.get('/', async (req, res) => {
       search,
       period,
       value,
+      dateField,
       excludeStatuses,
       completedToday,
       page = 1,
@@ -563,8 +582,9 @@ router.get('/', async (req, res) => {
     }
     // Date window for the selected period, shared with the dashboard cards that
     // link here so a card's number and this list can never disagree.
-    if (period) query.createdAt = createdAtRange(period, value);
-    if (priority) query.priority = priority;
+    if (period) query[periodFieldOf(dateField)] = createdAtRange(period, value);
+    const priorityClause = priorityFilterOf(priority);
+    if (priorityClause !== undefined) query.priority = priorityClause;
     if (excludeStatuses) {
       const excluded = String(excludeStatuses).split(',').map(s => normalizeStatusValue(s)).filter(Boolean);
       if (excluded.length) {

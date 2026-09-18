@@ -4,10 +4,11 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
+import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+import { ActiveFilter, matchesActiveFilter } from '../../../components/ActiveStatusControls';
 
 const Executives = () => {
   const queryClient = useQueryClient();
-  const [filterIndustry, setFilterIndustry] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -18,9 +19,14 @@ const Executives = () => {
     return () => window.removeEventListener('refresh-users', handleRefresh);
   }, [queryClient]);
 
+  const picker = usePeriod('week');
+  const { period, value: periodValue } = picker;
+  const [showInactive, setShowInactive] = useState(false);
+  const [filterState, setFilterState] = useState('All');
+
   const { data: dashData, isLoading: dashLoading } = useQuery({
-    queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    queryKey: ['dashboard', 'state-manager', period, periodValue],
+    queryFn: () => dashboardApi.getStateManagerDashboard({ period, value: periodValue || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -42,28 +48,16 @@ const Executives = () => {
 
   if (dashLoading) return <DashboardSkeleton />;
 
-  const stats = dashData?.stats || {};
   const user = dashData?.user || {};
   const executives = dashData?.executivePerformance || [];
 
   const filteredExecs = executives.filter(e => {
-    const matchesIndustry = filterIndustry === 'All' || e.industry === filterIndustry;
-    const matchesSearch = !searchTerm || 
+    if (!matchesActiveFilter(e.user || e, showInactive)) return false;
+    if (filterState !== 'All' && (e.state || user.state) !== filterState) return false;
+    return !searchTerm ||
       e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (e.district && e.district.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesIndustry && matchesSearch;
   });
-
-  const getIndustryColor = (industry) => {
-    switch(industry) {
-      case 'Automobile': return '#2563EB'; // Blue
-      case 'Healthcare': return '#9333EA'; // Purple
-      case 'FMCG': return '#10B981'; // Green
-      case 'Electronics': return '#F59E0B'; // Amber
-      case 'Textiles': return '#EA580C'; // Orange
-      default: return '#6B7280';
-    }
-  };
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -76,105 +70,115 @@ const Executives = () => {
         <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}>+ Add District Manager</Button>
       </div>
 
-      {/* STAT CARDS */}
-      <div className="stat-grid mb-8">
-        <div className="stat-card border-l-4 border-blue">
-          <div className="stat-label">Total District Managers</div>
-          <div className="stat-value text-blue">{stats.districtExecutivesCount || 0}</div>
-          <div className="stat-delta text-text-muted">Across 5 industries</div>
+      {/* PERFORMANCE TABLE — same columns as the Industry Managers page */}
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
         </div>
-        <div className="stat-card border-l-4 border-green">
-          <div className="stat-label">Avg Work %</div>
-          <div className="stat-value text-green">{stats.avgWorkPct || 0}%</div>
-          <div className="stat-delta text-green font-bold">↑ 4% vs last week</div>
-        </div>
-        <div className="stat-card border-l-4 border-amber">
-          <div className="stat-label">On Leave Today</div>
-          <div className="stat-value text-amber">{stats.onLeaveToday || 0}</div>
-          <div className="stat-delta text-amber font-medium">Leave approved</div>
-        </div>
-        <div className="stat-card border-l-4 border-red">
-          <div className="stat-label">Below 30% Work</div>
-          <div className="stat-value text-red">{stats.below30Work || 0}</div>
-          <div className="stat-delta text-red font-bold">Marked as leave</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
+          <PeriodPicker {...picker} />
+          <select
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+            value={filterState}
+            onChange={e => setFilterState(e.target.value)}
+          >
+            <option value="All">All States</option>
+            {[...new Set(executives.map(e => e.state || user.state).filter(Boolean))].map(st => (
+              <option key={st} value={st}>{st}</option>
+            ))}
+          </select>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
+            <input
+              type="text"
+              placeholder="Search name or district..."
+              className="pl-9 pr-4 py-1.5 bg-surface2 border border-border rounded-lg text-[11px] font-bold focus:ring-2 focus:ring-blue/10 outline-none w-56 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
-      {/* LIST SECTION */}
-      <div className="card">
-        <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center px-6 py-4">
-          <div className="section-title text-[15px]">All District Managers</div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
-              <input 
-                type="text"
-                placeholder="Search name or district..."
-                className="pl-9 pr-4 py-1.5 bg-surface2 border border-border rounded-lg text-[11px] font-bold focus:ring-2 focus:ring-blue/10 outline-none w-64 transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex bg-surface2 p-1 rounded-lg border border-border">
-               {['All', 'Automobile', 'Healthcare', 'FMCG'].map(t => (
-                 <button 
-                   key={t} 
-                   className={`px-4 py-1 text-[11px] font-bold uppercase rounded-md transition-all ${filterIndustry === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}
-                   onClick={() => setFilterIndustry(t)}
-                 >
-                   {t}
-                 </button>
-               ))}
-            </div>
-          </div>
-        </div>
-        <div className="card-body p-0">
-          {filteredExecs.map((e, idx) => (
-            <div key={e._id} className="flex items-center gap-6 p-5 border-b last:border-0 hover:bg-surface2 transition-all group">
-              <Avatar name={e.name} size="lg" className={`av-${idx % 5}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1.5">
-                   <div className="font-black text-[15px] tracking-tight">{e.name}</div>
-                   <div className="text-[10px] font-black text-text-muted mono tracking-widest">{e.completionPct || 0}%</div>
-                </div>
-                <div className="text-[11px] text-text-muted mb-2 font-medium">{e.industry} · {e.district}</div>
-                <div className="h-1.5 w-full bg-surface2 rounded-full overflow-hidden border border-border/50">
-                  <div 
-                    className="h-full transition-all duration-1000 shadow-sm" 
-                    style={{ 
-                        width: `${e.completionPct || 0}%`,
-                        backgroundColor: getIndustryColor(e.industry)
-                    }}
-                  ></div>
-                </div>
-              </div>
-              
-              <div className="flex gap-10 mx-6">
-                <div className="text-center">
-                    <div className="text-[15px] font-black text-blue mono">{e.calls || 0}</div>
-                    <div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Calls</div>
-                </div>
-                <div className="text-center">
-                    <div className="text-[15px] font-black text-green mono">{e.conversions || 0}</div>
-                    <div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Conv.</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 justify-end">
-                {(pendingLeaveMap[String(e._id)] || 0) > 0 && (
-                  <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20">
-                    {pendingLeaveMap[String(e._id)]} leave pending
-                  </span>
-                )}
-                <Tag
-                  variant={e.status === 'Active' ? 'green' : 'amber'}
-                  label={e.status.toUpperCase()}
-                  className="font-black text-[9px] tracking-widest"
-                />
-              </div>
-            </div>
-          ))}
-          {filteredExecs.length === 0 && <div className="p-16 text-center text-text-muted italic">No executives found for the selected vertical.</div>}
+      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+            <thead>
+              <tr className="bg-surface2/50 border-b border-border">
+                <th className="p-4">Manager</th>
+                <th className="p-4 text-center">State</th>
+                <th className="p-4">Industry</th>
+                <th className="p-4 text-center">Work %</th>
+                <th className="p-4 text-center">Calls</th>
+                <th className="p-4 text-center">Meetings</th>
+                <th className="p-4 text-center">Follow-ups</th>
+                <th className="p-4 text-center">Revenue</th>
+                <th className="p-4 text-center">Leaves</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
+              {filteredExecs.map((e) => {
+                const workPct = e.workPct ?? e.completionPct ?? 0;
+                const revenue = e.revenue || 0;
+                const pending = pendingLeaveMap[String(e._id)] || 0;
+                return (
+                  <tr key={e._id} className="hover:bg-surface2/30 transition-colors group">
+                    <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">
+                      {e.name}
+                      {e.district && <span className="block text-[10px] font-medium text-text-muted normal-case mt-0.5">{e.district}</span>}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{e.state || user.state}</span>
+                    </td>
+                    <td className="p-4 text-[12px] text-text-secondary">{e.industry || '—'}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                          <div className={`h-full ${workPct >= 80 ? 'bg-[#0f766e]' : workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${workPct}%` }}></div>
+                        </div>
+                        <span className="font-bold text-[12px]">{workPct}%</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center text-[12px] font-mono">{e.calls || 0}</td>
+                    <td className="p-4 text-center text-[12px] font-mono">{e.meetings || 0}</td>
+                    <td className="p-4 text-center text-[12px] font-mono">{e.followups || 0}</td>
+                    <td className="p-4 text-center text-[12px] font-mono font-bold text-blue">
+                      {"₹"}{revenue >= 100000 ? (revenue / 100000).toFixed(1) + 'L' : revenue.toLocaleString()}
+                    </td>
+                    <td className="p-4 text-center text-[12px] font-mono">{e.leaves || 0}</td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {pending > 0 && (
+                          <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20 normal-case">
+                            {pending} leave pending
+                          </span>
+                        )}
+                        <Tag
+                          variant={e.status === 'Active' ? 'green' : 'amber'}
+                          label={(e.status || '').toUpperCase()}
+                          className="font-black text-[9px] tracking-widest"
+                        />
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="bg-white border-border shadow-sm text-text-primary px-3 font-bold"
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: e.user || e } }))}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredExecs.length === 0 && (
+                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No district managers match the current filters.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

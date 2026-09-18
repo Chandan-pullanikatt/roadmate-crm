@@ -247,7 +247,7 @@ const DashboardLayout = ({
       {/* SIDEBAR */}
       <aside className={`sidebar role-${userRole} ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <div className={`logo-mark ${userRole === 'industry_manager' ? 'bg-purple shadow-purple/20' : userRole === 'state_manager' ? 'bg-blue shadow-blue/20' : logoMarkClass === 'brown' ? 'bg-brown shadow-brown/20' : ''}`}>{logoMarkText}</div>
+          <div className="logo-mark">{logoMarkText}</div>
           <div style={{ flex: 1 }}>
             {/* Fix: Rename branding to RoadMate Team */}
             <div className="logo-text">RoadMate Team</div>

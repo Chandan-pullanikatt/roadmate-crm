@@ -907,6 +907,12 @@ router.get('/state-manager', async (req, res) => {
         const { start: monthStart } = getDateRange('monthly');
         const { start: weekStart } = getDateRange('weekly');
 
+        // Headline-card time filter (today / week / month / quarter / year), same
+        // (period, value) pair the Founder Summary sends. Defaults to this week.
+        const period = req.query.period || 'weekly';
+        const periodValue = req.query.value;
+        const { start: periodStart, end: periodEnd } = getDateRange(period, periodValue);
+
         // 1. Industry Managers reporting to this state manager
         const managers = await User.find({ reportingTo: req.user._id, role: 'industry_manager' });
         const managerIds = managers.map(m => m._id);
@@ -1039,6 +1045,93 @@ router.get('/state-manager', async (req, res) => {
     const prevConvRate = prevMonthLeads > 0 ? (prevMonthConv / prevMonthLeads) * 100 : 0;
     const convGrowth = currentConvRate - prevConvRate;
 
+        // Headline cards — same set the Founder overview shows, scoped to this State
+        // Manager's reporting subtree (the State Managers card is founder-only).
+        const REVENUE_ACTIONS = ['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
+        // Revenue can be booked on any payment-stage activity, and an amount typed
+        // straight onto the lead lives in actualRevenue — take the larger of the two and
+        // collapse to one amount per lead so a lead that walks converted -> blocking ->
+        // full amount is not counted three times.
+        const sumScopedRevenue = (createdAt) => LeadActivity.aggregate([
+            { $match: { action: { $in: REVENUE_ACTIONS }, performedBy: { $in: scopeIds }, ...(createdAt ? { createdAt } : {}) } },
+            { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'leadDetails' } },
+            { $unwind: '$leadDetails' },
+            { $group: { _id: '$lead', revenue: { $max: { $max: [
+                { $ifNull: ['$metadata.revenue', 0] },
+                { $ifNull: ['$leadDetails.actualRevenue', 0] }
+            ] } } } },
+            { $group: { _id: null, total: { $sum: '$revenue' } } }
+        ]).then(r => r[0]?.total || 0);
+
+        // Growth compares the selected window against the window of the same length
+        // immediately before it, so the delta stays meaningful on every tab.
+        const periodWindow = { $gte: periodStart, $lte: periodEnd };
+        const prevPeriodEnd = new Date(periodStart.getTime() - 1);
+        const prevPeriodStart = new Date(periodStart.getTime() - (periodEnd.getTime() - periodStart.getTime()) - 1);
+        const prevPeriodWindow = { $gte: prevPeriodStart, $lte: prevPeriodEnd };
+
+        // "Expected onboarding" = open leads the team is actually forecasting, i.e.
+        // tagged Hot or Warm. Cold/untagged leads are open pipeline nobody is counting on.
+        const onboardingScope = {
+            ...ownerScope,
+            status: { $nin: ['converted', 'lost', 'not_interested'] },
+            createdAt: periodWindow
+        };
+
+        const [
+            totalLeadsScoped,
+            leadsTodayScoped,
+            expectedOnboardingHot,
+            expectedOnboardingWarm,
+            totalConversionsScoped,
+            revenueScoped,
+            prevPeriodRevenueScoped
+        ] = await Promise.all([
+            Lead.countDocuments({ ...ownerScope, createdAt: periodWindow }),
+            Lead.countDocuments({ ...ownerScope, createdAt: { $gte: todayStart, $lte: todayEnd } }),
+            Lead.countDocuments({ ...onboardingScope, priority: 'hot' }),
+            Lead.countDocuments({ ...onboardingScope, priority: 'warm' }),
+            Lead.countDocuments({ ...ownerScope, status: 'converted', convertedAt: periodWindow }),
+            sumScopedRevenue(periodWindow),
+            sumScopedRevenue(prevPeriodWindow)
+        ]);
+
+        const revenueGrowth = prevPeriodRevenueScoped > 0
+            ? Math.round(((revenueScoped - prevPeriodRevenueScoped) / prevPeriodRevenueScoped) * 100 * 10) / 10
+            : (revenueScoped > 0 ? 100 : 0);
+
+        // Working / on leave / not started, for the staff cards.
+        const subtreeStaff = [...managers, ...allExecutives].filter(u => u.isActive !== false);
+        const subtreeStaffIds = subtreeStaff.map(u => u._id);
+
+        const [staffOnLeaveToday, staffStartedToday] = await Promise.all([
+            Leave.find({
+                user: { $in: subtreeStaffIds },
+                status: 'approved',
+                fromDate: { $lte: todayEnd },
+                toDate: { $gte: todayStart }
+            }).select('user'),
+            Attendance.find({
+                user: { $in: subtreeStaffIds },
+                date: { $gte: todayStart },
+                workStartedAt: { $exists: true }
+            }).select('user')
+        ]);
+        const onLeaveIds = new Set(staffOnLeaveToday.map(l => String(l.user)));
+        const startedIds = new Set(staffStartedToday.map(a => String(a.user)));
+
+        const staffBreakdown = (role) => {
+            const list = subtreeStaff.filter(u => u.role === role);
+            const onLeave = list.filter(u => onLeaveIds.has(String(u._id))).length;
+            const working = list.filter(u => startedIds.has(String(u._id)) && !onLeaveIds.has(String(u._id))).length;
+            return {
+                total: list.length,
+                working,
+                onLeave,
+                notStarted: Math.max(0, list.length - working - onLeave)
+            };
+        };
+
         const industriesCount = [...new Set(managers.map(m => m.industry).filter(Boolean))].length;
 
         const stats = {
@@ -1065,7 +1158,20 @@ router.get('/state-manager', async (req, res) => {
             below30Work,
             presentToday,
             halfDaysThisWeek,
-            avgAttendanceMonth
+            avgAttendanceMonth,
+            // Founder-style headline cards
+            totalLeads: totalLeadsScoped,
+            leadsToday: leadsTodayScoped,
+            expectedOnboarding: expectedOnboardingHot + expectedOnboardingWarm,
+            expectedOnboardingHot,
+            expectedOnboardingWarm,
+            converted: totalConversionsScoped,
+            revenue: revenueScoped,
+            revenueGrowth,
+            period,
+            periodValue: periodValue || null,
+            industryManagersBreakdown: staffBreakdown('industry_manager'),
+            districtManagersBreakdown: staffBreakdown('executive')
         };
 
         // 4. Industry Manager List — per-manager rollups keyed by OWNER/PERFORMER id
@@ -1077,7 +1183,7 @@ router.get('/state-manager', async (req, res) => {
             if (execsByManager.has(key)) execsByManager.get(key).push(e._id);
         });
 
-        const [imLeadStats, imActivityStats, imAttendanceStats] = await Promise.all([
+        const [imLeadStats, imActivityStats, imAttendanceStats, imLeaveStats] = await Promise.all([
             Lead.aggregate([
                 { $match: { owner: { $in: scopeIds } } },
                 { $group: { _id: '$owner', count: { $sum: 1 } } }
@@ -1086,28 +1192,42 @@ router.get('/state-manager', async (req, res) => {
                 {
                     $match: {
                         performedBy: { $in: scopeIds },
-                        action: { $in: ['called', 'converted'] },
-                        createdAt: { $gte: monthStart }
+                        createdAt: periodWindow
                     }
                 },
                 {
                     $group: {
                         _id: '$performedBy',
-                        calls:    { $sum: { $cond: [{ $eq: ['$action', 'called'] },    1, 0] } },
-                        convs:    { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
-                        revenue:  { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, { $ifNull: ['$metadata.revenue', 0] }, 0] } }
+                        calls:     { $sum: { $cond: [{ $eq: ['$action', 'called'] },        1, 0] } },
+                        meetings:  { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
+                        followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] },  1, 0] } },
+                        convs:     { $sum: { $cond: [{ $eq: ['$action', 'converted'] },     1, 0] } },
+                        revenue:   { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, { $ifNull: ['$metadata.revenue', 0] }, 0] } }
                     }
                 }
             ]),
+            // Managers are included now, not just their executives: the performance
+            // table reports each manager's own Work %, the way the Founder table does.
             Attendance.aggregate([
-                { $match: { user: { $in: executiveIds }, date: { $gte: todayStart } } },
+                { $match: { user: { $in: [...managerIds, ...executiveIds] }, date: periodWindow } },
                 { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
+            ]),
+            // Approved leave days overlapping this month, per manager.
+            Leave.aggregate([
+                { $match: {
+                    user: { $in: managerIds },
+                    status: 'approved',
+                    fromDate: { $lte: periodEnd },
+                    toDate: { $gte: periodStart }
+                } },
+                { $group: { _id: '$user', days: { $sum: '$days' } } }
             ])
         ]);
 
         const leadCountByOwner = new Map(imLeadStats.map(x => [String(x._id), x.count]));
         const actByPerformer   = new Map(imActivityStats.map(x => [String(x._id), x]));
         const attByUser        = new Map(imAttendanceStats.map(x => [String(x._id), x.avgWorkPct]));
+        const leaveByUser      = new Map(imLeaveStats.map(x => [String(x._id), x.days]));
 
         const industryManagerSummary = managers.map((m) => {
             const execIds = execsByManager.get(String(m._id)) || [];
@@ -1125,31 +1245,41 @@ router.get('/state-manager', async (req, res) => {
             return {
                 _id: m._id,
                 name: m.name,
+                state: m.state,
                 industry: m.industry,
                 leadsCount:  sum(leadCountByOwner),
+                // `efficiency` is the team's average attendance, shown on the Overview.
+                // `workPct` is the manager's own, which is what the performance table reports.
                 efficiency,
+                workPct:     Math.round(attByUser.get(String(m._id)) || 0),
                 calls:       sum(actByPerformer, 'calls'),
+                meetings:    sum(actByPerformer, 'meetings'),
+                followups:   sum(actByPerformer, 'followups'),
                 conversions: sum(actByPerformer, 'convs'),
                 revenue:     sum(actByPerformer, 'revenue'),
-                districts:   [...new Set(team.map(e => e.district))].length
+                leaves:      leaveByUser.get(String(m._id)) || 0,
+                districts:   [...new Set(team.map(e => e.district))].length,
+                user:        m
             };
         });
 
         // 4b. District Manager List — bulk queries, no N+1
-        const [execActivityStats, execOnLeave] = await Promise.all([
+        const [execActivityStats, execOnLeave, execLeaveDays, execPeriodAttendance] = await Promise.all([
             LeadActivity.aggregate([
                 {
                     $match: {
                         performedBy: { $in: executiveIds },
-                        action: { $in: ['called', 'converted'] },
-                        createdAt: { $gte: monthStart }
+                        createdAt: periodWindow
                     }
                 },
                 {
                     $group: {
                         _id: '$performedBy',
-                        calls:       { $sum: { $cond: [{ $eq: ['$action', 'called'] },    1, 0] } },
-                        conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } }
+                        calls:       { $sum: { $cond: [{ $eq: ['$action', 'called'] },        1, 0] } },
+                        meetings:    { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
+                        followups:   { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] },  1, 0] } },
+                        conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] },     1, 0] } },
+                        revenue:     { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, { $ifNull: ['$metadata.revenue', 0] }, 0] } }
                     }
                 }
             ]),
@@ -1158,10 +1288,28 @@ router.get('/state-manager', async (req, res) => {
                 status: 'approved',
                 fromDate: { $lte: todayEnd },
                 toDate:   { $gte: todayStart }
-            }).select('user').lean()
+            }).select('user').lean(),
+            // Approved leave days overlapping this month, for the performance table.
+            Leave.aggregate([
+                { $match: {
+                    user: { $in: executiveIds },
+                    status: 'approved',
+                    fromDate: { $lte: periodEnd },
+                    toDate: { $gte: periodStart }
+                } },
+                { $group: { _id: '$user', days: { $sum: '$days' } } }
+            ]),
+            // Work % over the selected window. `todayAttendance` stays for the
+            // Active / Not Started status, which is a today-only question.
+            Attendance.aggregate([
+                { $match: { user: { $in: executiveIds }, date: periodWindow } },
+                { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
+            ])
         ]);
 
         const onLeaveSet = new Set(execOnLeave.map(l => l.user.toString()));
+        const execLeaveDaysById = new Map(execLeaveDays.map(l => [String(l._id), l.days]));
+        const execPeriodWorkPct = new Map(execPeriodAttendance.map(a => [String(a._id), a.avgWorkPct]));
 
         const executivePerformance = allExecutives.map((e) => {
             const att   = todayAttendance.find(a => a.user.toString() === e._id.toString());
@@ -1171,12 +1319,19 @@ router.get('/state-manager', async (req, res) => {
             return {
                 _id: e._id,
                 name: e.name,
+                state: e.state,
                 industry: e.industry,
                 district: e.district,
                 calls: stats.calls,
+                meetings: stats.meetings || 0,
+                followups: stats.followups || 0,
                 conversions: stats.conversions,
+                revenue: stats.revenue || 0,
+                leaves: execLeaveDaysById.get(String(e._id)) || 0,
                 completionPct: att ? att.completionPct : 0,
-                status: onLeave ? 'On Leave' : (att ? 'Active' : 'Not Started')
+                workPct: Math.round(execPeriodWorkPct.get(String(e._id)) || 0),
+                status: onLeave ? 'On Leave' : (att ? 'Active' : 'Not Started'),
+                user: e
             };
         });
 
@@ -1244,6 +1399,47 @@ router.get('/state-manager', async (req, res) => {
             return { ...p, val: count };
         }));
 
+        // 6a. Founder-style pipeline buckets, scoped to this subtree and the selected
+        // window. Buckets come from the canonical grouping so the cards always sum to
+        // 'All' -- see constants/leadStatusGroups.js.
+        const pipelineStatsRaw = await Lead.aggregate([
+            { $match: { ...ownerScope, createdAt: periodWindow } },
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+        ]);
+
+        const getPipelineCount = (statusArr) => {
+            if (typeof statusArr === 'string') return pipelineStatsRaw.find(p => p._id === statusArr)?.count || 0;
+            return pipelineStatsRaw.filter(p => statusArr.includes(p._id)).reduce((sum, p) => sum + p.count, 0);
+        };
+
+        const GROUP_COLORS = {
+            New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
+            Blocking: 'amber', 'Full Amount Received': 'cyan',
+            Lost: 'red', RNR: 'gray', Escalated: 'orange'
+        };
+        const pipelineStats = [
+            { label: 'All', count: pipelineStatsRaw.reduce((sum, p) => sum + p.count, 0), color: 'blue' },
+            ...GROUP_ORDER.map(label => ({
+                label,
+                count: getPipelineCount(LEAD_STATUS_GROUPS[label]),
+                color: GROUP_COLORS[label] || 'gray'
+            }))
+        ];
+
+        // Hot/Warm/Cold is a different axis from status, so it is returned separately --
+        // the status buckets above have to keep summing to 'All'.
+        const priorityStatsRaw = await Lead.aggregate([
+            { $match: { ...ownerScope, createdAt: periodWindow } },
+            { $group: { _id: '$priority', count: { $sum: 1 } } }
+        ]);
+        const PRIORITY_COLORS = { hot: 'red', warm: 'amber', cold: 'blue' };
+        const priorityStats = ['hot', 'warm', 'cold'].map(pr => ({
+            label: pr.charAt(0).toUpperCase() + pr.slice(1),
+            priority: pr,
+            count: priorityStatsRaw.find(r => r._id === pr)?.count || 0,
+            color: PRIORITY_COLORS[pr]
+        }));
+
         // 7. Expected Onboarding Leads
         const expectedLeads = await Lead.find({
             ...ownerScope,
@@ -1289,6 +1485,8 @@ router.get('/state-manager', async (req, res) => {
             executivePerformance,
             upcomingEvents: upcomingEvents.sort((a,b) => new Date(a.time) - new Date(b.time)),
             pipelineData,
+            pipelineStats,
+            priorityStats,
             leaveRequests,
             expectedOnboarding,
             escalated

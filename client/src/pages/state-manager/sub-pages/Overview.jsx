@@ -6,16 +6,68 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
+import { groupParam } from '../../../constants/leadStatusGroups';
+
+// Pipeline card colours, keyed by the canonical group label. Same map the Founder
+// overview uses, so the two pipelines read identically.
+const PIPELINE_COLORS = {
+  All: '#3b82f6',
+  New: '#3b82f6',
+  'Follow-up': '#8b5cf6',
+  Meeting: '#0f766e',
+  Blocking: '#d97706',
+  'Full Amount Received': '#0891b2',
+  Converted: '#16a34a',
+  Lost: '#dc2626',
+  RNR: '#64748b',
+  Escalated: '#ea580c',
+};
 
 const Overview = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [eventFilter, setEventFilter] = useState('Today');
-  const [pipelineFilter, setPipelineFilter] = useState('This Month');
+
+  // Headline-card time filter, mirroring the Founder Summary.
+  const [summaryTab, setSummaryTab] = useState('week');
+
+  const getCurrentDefaultValue = (tab) => {
+    const now = new Date();
+    if (tab === 'week') {
+      const week = Math.ceil(now.getDate() / 7);
+      return `Week ${week > 5 ? 5 : week}`;
+    }
+    if (tab === 'month') return now.toLocaleString('en-US', { month: 'long' });
+    if (tab === 'quarter') return `Q${Math.floor(now.getMonth() / 3) + 1}`;
+    if (tab === 'year') return String(now.getFullYear());
+    return '';
+  };
+
+  const [summaryPeriodValue, setSummaryPeriodValue] = useState(() => getCurrentDefaultValue('week'));
+
+  const handleTabChange = (t) => {
+    setSummaryTab(t);
+    setSummaryPeriodValue(getCurrentDefaultValue(t));
+  };
+
+  const getDropdownOptions = () => {
+    if (summaryTab === 'today') return [];
+    if (summaryTab === 'week') return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+    if (summaryTab === 'month') return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    if (summaryTab === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'];
+    if (summaryTab === 'year') {
+      const currentYear = new Date().getFullYear();
+      return Array.from({ length: 5 }, (_, i) => String(currentYear - i));
+    }
+    return [];
+  };
+
+  // staleTime 0 so switching period always refetches instead of serving the
+  // previous window's cached numbers.
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['dashboard', 'state-manager', summaryTab, summaryPeriodValue],
+    queryFn: () => dashboardApi.getStateManagerDashboard({ period: summaryTab, value: summaryPeriodValue }).then(res => res.data),
+    staleTime: 0,
     placeholderData: keepPreviousData
   });
 
@@ -32,7 +84,6 @@ const Overview = () => {
   });
 
   // Sub-pages are switched via the ?page= param read by StateDashboard.jsx
-  const goToPage = (page) => navigate(`/dashboard?page=${page}`);
   const goToLead = (id) => id && navigate(`/leads/${id}`);
 
   const openModal = (type, data = null) => {
@@ -46,7 +97,8 @@ const Overview = () => {
   const stats = dashData?.stats || {};
   const managers = dashData?.industryManagers || [];
   const allEvents = dashData?.upcomingEvents || [];
-  const allPipeline = dashData?.pipelineData || [];
+  const pipelineStats = dashData?.pipelineStats || [];
+  const priorityStats = dashData?.priorityStats || [];
   const expectedOnboarding = dashData?.expectedOnboarding || [];
   const leaveRequests = dashData?.leaveRequests || [];
   const escalated = dashData?.escalated || [];
@@ -64,43 +116,79 @@ const Overview = () => {
     return d.getTime() === tomorrow.getTime();
   });
 
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  const pipeline = allPipeline.filter(p => {
-    if (!p.updatedAt) return true;
-    const d = new Date(p.updatedAt);
-    return pipelineFilter === 'This Week' ? d >= weekStart : d >= monthStart;
-  });
-
   const formatCurrency = (val) => {
     if (val >= 100000) return `\u20B9${(val / 100000).toFixed(1)}L`;
     return `\u20B9${val.toLocaleString()}`;
   };
 
+  // The revenue delta compares the selected window to the one before it, so the
+  // label has to follow the tab rather than always reading "MoM".
+  const growthLabel = {
+    today: 'vs yesterday',
+    week: 'WoW',
+    month: 'MoM',
+    quarter: 'QoQ',
+    year: 'YoY'
+  }[summaryTab] || 'MoM';
+
+  // The headline cards count one window, so every card that drills down has to hand
+  // that window over or the list underneath contradicts the number just clicked.
+  const periodQuery = () =>
+    new URLSearchParams({
+      period: summaryTab,
+      ...(summaryPeriodValue ? { value: summaryPeriodValue } : {})
+    }).toString();
+
   const statCard = 'bg-surface1 p-5 rounded-2xl border border-border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group relative overflow-hidden cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/50';
 
   // Makes a stat card behave like a button (pointer + keyboard) without changing its markup
-  const cardProps = (page) => ({
-    role: 'button',
-    tabIndex: 0,
-    className: statCard,
-    onClick: () => goToPage(page),
-    onKeyDown: (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToPage(page); }
-    },
-  });
+  const cardProps = (page, query = '') => {
+    const go = () => navigate(`/dashboard?page=${page}${query ? `&${query}` : ''}`);
+    return {
+      role: 'button',
+      tabIndex: 0,
+      className: statCard,
+      onClick: go,
+      onKeyDown: (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+      },
+    };
+  };
 
   return (
     <div className="animate-in fade-in duration-500 pb-10">
       {/* Header Section */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
         <div>
           <h1 className="text-[22px] font-bold text-text-primary">State Manager Dashboard</h1>
           <p className="text-[13px] text-text-muted mt-0.5">
             {user.state} · Full state overview · Industry managers & executives
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-surface2 p-1 rounded-xl border border-border">
+            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+              <button
+                key={t}
+                onClick={() => handleTabChange(t)}
+                className={`px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-surface1 text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {summaryTab !== 'today' && (
+            <select
+              value={summaryPeriodValue}
+              onChange={(e) => setSummaryPeriodValue(e.target.value)}
+              className="bg-surface1 border border-border rounded-xl px-4 py-2 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm min-w-[120px]"
+            >
+              {getDropdownOptions().map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -125,77 +213,76 @@ const Overview = () => {
         </div>
       )}
 
-      {/* Stat Grid */}
+      {/* Stat Grid — same headline cards as the Founder overview, minus State Managers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-        <div {...cardProps('industry-managers')}>
+        <div {...cardProps('leads', periodQuery())}>
+          <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Total Leads</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">{(stats.totalLeads ?? 0).toLocaleString()}</div>
+          <div className="text-[11.5px] font-bold text-teal mt-2 flex items-center gap-1">
+            {"\u2191"} {stats.leadsToday ?? 0} new today
+          </div>
+        </div>
+
+        <div {...cardProps('leads', `${periodQuery()}&priority=hot,warm&excludeStatuses=converted,lost,not_interested`)}>
           <div className="absolute top-0 left-0 w-full h-1 bg-blue/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Industry Managers</div>
-          <div className="text-[28px] font-black text-text-primary mt-1">{stats.industryManagersCount}</div>
-          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {stats.newManagersThisMonth > 0 ? `\u2191 ${stats.newManagersThisMonth} added this month` : '\u2191 All active'}
+          <div className="text-[13px] font-bold text-text-muted">Expected Onboarding</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">{(stats.expectedOnboarding ?? 0).toLocaleString()}</div>
+          <div className="text-[11.5px] font-bold text-teal mt-2 flex items-center gap-1">
+            {"\u2191"} {summaryPeriodValue || summaryTab} pipeline
+          </div>
+        </div>
+
+        <div {...cardProps('leads', `${periodQuery()}&status=converted&dateField=convertedAt`)}>
+          <div className="absolute top-0 left-0 w-full h-1 bg-amber/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Conversions</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">{(stats.converted ?? 0).toLocaleString()}</div>
+          <div className="text-[11.5px] font-bold text-teal mt-2 flex items-center gap-1">
+            {"\u2191"} {stats.convertedThisMonth ?? 0} this month
           </div>
         </div>
 
         <div {...cardProps('reports')}>
-          <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Total Revenue · {user.state}</div>
-          <div className="text-[28px] font-black text-teal mt-1">{formatCurrency(stats.totalRevenue)}</div>
-          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {(stats.revGrowth ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.revGrowth ?? 0)}% vs last month
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#0891b2]/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Revenue Generated</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">
+            {"\u20B9"}{stats.revenue ? (stats.revenue >= 10000000 ? (stats.revenue / 10000000).toFixed(2) + 'Cr' : stats.revenue.toLocaleString()) : '0'}
+          </div>
+          <div className="text-[11.5px] font-bold text-teal mt-2 flex items-center justify-between">
+            <span>{(stats.revenueGrowth ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.revenueGrowth ?? 0)}% {growthLabel}</span>
+            <span className="text-[10px] font-bold text-blue underline">View Analysis</span>
           </div>
         </div>
 
-        <div {...cardProps('leads')}>
-          <div className="absolute top-0 left-0 w-full h-1 bg-amber/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Active Leads</div>
-          <div className="text-[28px] font-black text-[#D97706] mt-1">{stats.activeLeads}</div>
-          <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             \u2192 {stats.followupsToday ?? 0} follow-ups today
-          </div>
-        </div>
-
-        <div {...cardProps('leads')}>
-          <div className="absolute top-0 left-0 w-full h-1 bg-green/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Converted This Month</div>
-          <div className="text-[28px] font-black text-green mt-1">{stats.convertedThisMonth}</div>
-          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {(stats.convGrowth ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.convGrowth ?? 0).toFixed(1)}% rate vs last month
+        <div {...cardProps('industry-managers')}>
+          <div className="absolute top-0 left-0 w-full h-1 bg-blue/40"></div>
+          <div className="text-[13px] font-bold text-text-muted">Industry Managers</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">{stats.industryManagersBreakdown?.total ?? 0}</div>
+          <div className="text-[11.5px] font-bold mt-2 flex gap-2">
+            <span className="text-teal">{"\u2022"} {stats.industryManagersBreakdown?.working ?? 0} Working</span>
+            <span className="text-red">{"\u2022"} {stats.industryManagersBreakdown?.onLeave ?? 0} On Leave</span>
+            <span className="text-text-muted">{"\u2022"} {stats.industryManagersBreakdown?.notStarted ?? 0} Not Started</span>
           </div>
         </div>
 
         <div {...cardProps('executives')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-purple/40"></div>
           <div className="text-[13px] font-bold text-text-muted">District Managers</div>
-          <div className="text-[28px] font-black text-purple mt-1">{stats.districtExecutivesCount}</div>
-          <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             Across {stats.industriesCount ?? 0} industries
+          <div className="text-[28px] font-black text-text-primary mt-1">{stats.districtManagersBreakdown?.total ?? 0}</div>
+          <div className="text-[11.5px] font-bold mt-2 flex gap-2">
+            <span className="text-teal">{"\u2022"} {stats.districtManagersBreakdown?.working ?? 0} Working</span>
+            <span className="text-red">{"\u2022"} {stats.districtManagersBreakdown?.onLeave ?? 0} On Leave</span>
+            <span className="text-text-muted">{"\u2022"} {stats.districtManagersBreakdown?.notStarted ?? 0} Not Started</span>
           </div>
         </div>
 
         <div {...cardProps('calendar')}>
           <div className="absolute top-0 left-0 w-full h-1 bg-red/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Pending Leave Approvals</div>
-          <div className="text-[28px] font-black text-red mt-1">{stats.pendingLeaves}</div>
-          <div className="text-[11.5px] font-bold text-red mt-2 flex items-center gap-1">
-             {stats.pendingLeaves > 0 ? `\u2191 ${stats.pendingLeaves} need attention` : '\u2191 All clear'}
-          </div>
-        </div>
-
-        <div {...cardProps('performance')}>
-          <div className="absolute top-0 left-0 w-full h-1 bg-teal/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Calls This Week</div>
-          <div className="text-[28px] font-black text-teal mt-1">{stats.callsThisWeek}</div>
-          <div className="text-[11.5px] font-bold text-green mt-2 flex items-center gap-1">
-             {(stats.callsGrowthWeek ?? 0) >= 0 ? '\u2191' : '\u2193'} {Math.abs(stats.callsGrowthWeek ?? 0)}% vs last week
-          </div>
-        </div>
-
-        <div {...cardProps('performance')}>
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#D97706]/40"></div>
-          <div className="text-[13px] font-bold text-text-muted">Meetings Scheduled</div>
-          <div className="text-[28px] font-black text-[#92400E] mt-1">{stats.meetingsScheduled}</div>
-          <div className="text-[11.5px] font-bold text-text-muted mt-2 flex items-center gap-1">
-             \u2192 {stats.meetingsVirtual ?? 0} virtual, {stats.meetingsDirect ?? 0} direct
+          <div className="text-[13px] font-bold text-text-muted">Pending Leaves</div>
+          <div className="text-[28px] font-black text-text-primary mt-1">{stats.pendingLeaves ?? 0}</div>
+          <div className="text-[11.5px] font-bold text-[#D97706] mt-2 flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Needs approval
           </div>
         </div>
       </div>
@@ -294,43 +381,77 @@ const Overview = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-        {/* Lead Pipeline Chart */}
-        <div className="lg:col-span-7 bg-surface1 rounded-2xl border border-border shadow-sm p-6">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-[15px] font-bold text-text-primary">Lead Pipeline {"\u00B7"} {user.state}</h2>
-              <p className="text-[12px] text-text-muted mt-0.5">All industries combined</p>
-            </div>
-            <div className="flex gap-1 bg-surface2 p-1 rounded-lg">
-               {['This Month', 'This Week'].map(t => (
-                 <button key={t} onClick={() => setPipelineFilter(t)} className={`px-4 py-1.5 text-[11px] font-black rounded-md transition-all ${pipelineFilter === t ? 'bg-surface1 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}>
-                   {t}
-                 </button>
-               ))}
-            </div>
-          </div>
-          <div className="space-y-5">
-            {pipeline.map((p, i) => (
-              <div key={i} className="flex items-center gap-6">
-                <div className="w-[100px] text-[12px] font-bold text-text-secondary uppercase tracking-wider">{p.label}</div>
-                <div className="flex-1 h-2.5 bg-surface2 rounded-full overflow-hidden border border-border/50">
-                  <div 
-                    className="h-full rounded-full transition-all duration-1000 ease-out shadow-sm" 
-                    style={{ 
-                      width: `${(p.val / (stats.activeLeads || 1)) * 100}%`,
-                      backgroundColor: p.color
-                    }}
-                  ></div>
-                </div>
-                <div className="w-10 text-right font-black text-[13px] text-text-primary">{p.val}</div>
-              </div>
-            ))}
-          </div>
+      {/* Lead Pipeline — same buckets and cards as the Founder overview, scoped to
+          this state and the window selected above. */}
+      <div className="flex justify-between items-end mb-4 mt-8">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Lead Pipeline {"·"} {user.state}</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Expected onboarding leads &amp; current pipeline status</div>
         </div>
+      </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
+        {pipelineStats.map((s, i) => {
+          let bgClass = 'bg-surface1';
+          let borderClass = 'border-border';
+          const bottomColor = PIPELINE_COLORS[s.label] || '#3b82f6';
+
+          if (s.label === 'Converted') {
+            bgClass = 'bg-[#f0fdf4]';
+            borderClass = 'border-[#bbf7d0]';
+          }
+          if (s.label === 'Lost') {
+            bgClass = 'bg-[#fef2f2]';
+            borderClass = 'border-[#fecaca]';
+          }
+
+          // Slug must match the lead-list tab ids, which come from the same canonical
+          // groups — otherwise the card opens a tab filtering on a status no lead has.
+          const statusParam = groupParam(s.label);
+
+          return (
+            <div
+              key={i}
+              className={`rounded-xl border ${borderClass} ${bgClass} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
+              onClick={() => navigate(`/dashboard?page=leads&status=${statusParam}&${periodQuery()}`)}
+              title={`View all ${s.label} leads`}
+            >
+              <div className="text-[28px] font-bold font-mono mb-1" style={{ color: bottomColor }}>
+                {s.count}
+              </div>
+              <div className="text-[12px] text-text-muted font-medium mb-5">{s.label}</div>
+              <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: bottomColor }}></div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lead temperature — a separate axis from the status buckets above */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {priorityStats.map((p) => {
+          const tone = p.priority === 'hot'
+            ? { text: 'text-[#dc2626]', bar: '#dc2626', bg: 'bg-[#fef2f2]', border: 'border-[#fecaca]' }
+            : p.priority === 'warm'
+              ? { text: 'text-[#d97706]', bar: '#d97706', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]' }
+              : { text: 'text-[#3b82f6]', bar: '#3b82f6', bg: 'bg-surface1', border: 'border-border' };
+          return (
+            <div
+              key={p.priority}
+              className={`rounded-xl border ${tone.border} ${tone.bg} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
+              onClick={() => navigate(`/dashboard?page=leads&priority=${p.priority}&${periodQuery()}`)}
+              title={`View all ${p.label} leads`}
+            >
+              <div className={`text-[28px] font-bold font-mono mb-1 ${tone.text}`}>{p.count}</div>
+              <div className="text-[12px] text-text-muted font-medium mb-5">{p.label} Leads</div>
+              <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: tone.bar }}></div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
         {/* Leave Requests */}
-        <div className="lg:col-span-5 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="lg:col-span-12 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="p-5 border-b border-border flex justify-between items-center">
             <div>
               <h2 className="text-[15px] font-bold text-text-primary">Leave Requests</h2>

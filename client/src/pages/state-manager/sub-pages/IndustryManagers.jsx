@@ -4,15 +4,22 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
+import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+import { ActiveFilter, matchesActiveFilter } from '../../../components/ActiveStatusControls';
 import { toast } from 'react-hot-toast';
 
 const IndustryManagers = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
 
+  const picker = usePeriod('week');
+  const { period, value: periodValue } = picker;
+  const [showInactive, setShowInactive] = useState(false);
+  const [filterState, setFilterState] = useState('All');
+
   const { data: dashData, isLoading: dashLoading } = useQuery({
-    queryKey: ['dashboard', 'state-manager'],
-    queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
+    queryKey: ['dashboard', 'state-manager', period, periodValue],
+    queryFn: () => dashboardApi.getStateManagerDashboard({ period, value: periodValue || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
@@ -43,7 +50,6 @@ const IndustryManagers = () => {
   if (dashLoading || managersLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
-  const escalations = dashData?.escalated || [];
   const user = dashData?.user || {};
   const managerPerformance = dashData?.industryManagers || [];
   const performanceById = new Map(managerPerformance.map(m => [String(m._id), m]));
@@ -57,24 +63,25 @@ const IndustryManagers = () => {
       industry: manager.industry || performance.industry || '',
       leadsCount: performance.leadsCount ?? manager.leadsCount ?? 0,
       efficiency: performance.efficiency ?? manager.efficiency ?? 0,
+      // Own attendance for the Work % column; `efficiency` is the team average.
+      workPct: performance.workPct ?? manager.workPct ?? 0,
       calls: performance.calls ?? manager.calls ?? 0,
       meetings: performance.meetings ?? manager.meetings ?? 0,
+      followups: performance.followups ?? manager.followups ?? 0,
       conversions: performance.conversions ?? manager.conversions ?? 0,
       revenue: performance.revenue ?? manager.revenue ?? 0,
+      leaves: performance.leaves ?? manager.leaves ?? 0,
       districts: performance.districts ?? manager.districts ?? (manager.district ? 1 : 0)
     };
   });
 
   const filteredManagers = industryManagers.filter(m => {
+    if (!matchesActiveFilter(m.user || m, showInactive)) return false;
+    if (filterState !== 'All' && (m.state || user.state) !== filterState) return false;
     return !searchTerm || 
       (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.industry || '').toLowerCase().includes(searchTerm.toLowerCase());
   });
-
-  const formatCurrency = (val) => {
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    return `₹${val.toLocaleString()}`;
-  };
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -87,139 +94,112 @@ const IndustryManagers = () => {
         <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'industry-manager' } }))}>+ Create Industry Manager</Button>
       </div>
 
-      {/* STAT CARDS */}
-      <div className="stat-grid mb-8">
-        <div className="stat-card border-l-4 border-blue">
-          <div className="stat-label">Total Industry Managers</div>
-          <div className="stat-value text-blue">{stats.industryManagersCount || 0}</div>
-          <div className="stat-delta text-green font-bold">↑ All active</div>
+      {/* PERFORMANCE TABLE — same columns as the Founder's Staff-by-Staff table */}
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
+          <div className="text-[12px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
         </div>
-        <div className="stat-card border-l-4 border-green">
-          <div className="stat-label">Combined Revenue</div>
-          <div className="stat-value text-green">{formatCurrency(stats.totalRevenue || 0)}</div>
-          <div className="stat-delta text-green font-bold">↑ {stats.revGrowth || 0}% MoM</div>
-        </div>
-        <div className="stat-card border-l-4 border-amber">
-          <div className="stat-label">Total Leads Handled</div>
-          <div className="stat-value text-amber">{stats.activeLeads || 0}</div>
-          <div className="stat-delta text-amber font-medium">Across all industries</div>
-        </div>
-        <div className="stat-card border-l-4 border-teal">
-          <div className="stat-label">Conversion Rate</div>
-          <div className="stat-value text-teal">{stats.convRate || 0}%</div>
-          <div className="stat-delta text-teal font-bold">↑ {stats.convGrowth || 0}% vs last month</div>
-        </div>
-      </div>
-
-      {/* PERFORMANCE LIST */}
-      <div className="card mb-8">
-        <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center">
-          <div className="section-title text-[15px]">Industry Manager Performance</div>
-          <div className="flex items-center gap-3 ml-auto">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
-              <input 
-                type="text"
-                placeholder="Search name or industry..."
-                className="pl-9 pr-4 py-1.5 bg-surface2 border border-border rounded-lg text-[11px] font-bold focus:ring-2 focus:ring-blue/10 outline-none w-64 transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="card-body p-0">
-          {filteredManagers.map((m, idx) => (
-            <div key={m._id} className="flex items-center gap-6 p-5 border-b last:border-0 hover:bg-surface2 transition-all group">
-              <Avatar name={m.name} size="lg" className={`av-${idx % 5}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1.5">
-                   <div className="font-black text-[15px] tracking-tight">{m.name} <span className="text-text-muted font-normal text-xs ml-1">· {m.industry}</span></div>
-                   <div className="text-[10px] font-black text-blue mono tracking-widest">{m.efficiency || 0}%</div>
-                </div>
-                <div className="text-[11px] text-text-muted mb-2 font-medium">{user.state} · {m.districts || 0} Districts Managed</div>
-                <div className="h-1.5 w-full bg-surface2 rounded-full overflow-hidden border border-border/50">
-                  <div className="h-full bg-blue transition-all duration-1000 shadow-[0_0_8px_rgba(37,99,235,0.4)]" style={{ width: `${m.efficiency || 0}%` }}></div>
-                </div>
-              </div>
-              
-              <div className="flex gap-10 mx-6">
-                <div className="text-center"><div className="text-[15px] font-black text-blue mono">{m.calls || 0}</div><div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Calls</div></div>
-                <div className="text-center"><div className="text-[15px] font-black text-purple mono">{m.meetings || 0}</div><div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Meetings</div></div>
-                <div className="text-center"><div className="text-[15px] font-black text-green mono">{m.conversions || 0}</div><div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Converted</div></div>
-                <div className="text-center"><div className="text-[15px] font-black text-accent mono">₹{(m.revenue / 100000).toFixed(1)}L</div><div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Revenue</div></div>
-                <div className="text-center"><div className="text-[15px] font-black text-amber mono">{m.leadsCount || 0}</div><div className="text-[9px] text-text-muted uppercase font-bold tracking-tighter">Leads</div></div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button size="xs" variant="outline" className="border-border text-text-secondary px-3 py-1.5 font-bold" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m } }))}>View Details</Button>
-                <Button size="xs" variant="outline" className="text-amber border-amber/30 px-3 py-1.5 font-bold hover:bg-amber-light/10" onClick={() => escalateMutation.mutate(m._id)}>Escalate</Button>
-              </div>
-            </div>
-          ))}
-          {industryManagers.length === 0 && <div className="p-16 text-center text-text-muted italic">No industry managers assigned to {user.state} portfolio.</div>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEAD OWNER MAPPING */}
-        <div className="card">
-          <div className="card-header border-b border-border bg-surface2/5">
-            <div className="section-title text-sm">Lead Owner Mapping</div>
-            <Button size="xs" variant="outline" className="text-[10px] uppercase tracking-widest font-bold">Manage Mapping</Button>
-          </div>
-          <div className="card-body p-2">
-            {filteredManagers.map((m, i) => (
-              <div key={m._id} className="flex items-center gap-4 p-4 bg-surface2/50 rounded-xl mb-2 last:mb-0 border border-border/30 group hover:border-blue/30 transition-all">
-                <Avatar name={m.name} size="sm" className={`av-${i % 5}`} />
-                <div className="flex-1">
-                   <div className="text-[13px] font-black">{m.name} <span className="text-[10px] text-text-muted font-normal">· {m.industry}</span></div>
-                </div>
-                <div className="mono text-[13px] font-black text-blue">{m.leadsCount || 0} leads</div>
-                <Button size="xs" variant="outline" className="bg-white border-border text-[10px] font-bold px-3" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'bulk-allocate' } }))}>Remap</Button>
-              </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
+          <PeriodPicker {...picker} />
+          <select
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+            value={filterState}
+            onChange={e => setFilterState(e.target.value)}
+          >
+            <option value="All">All States</option>
+            {[...new Set(industryManagers.map(m => m.state || user.state).filter(Boolean))].map(st => (
+              <option key={st} value={st}>{st}</option>
             ))}
+          </select>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
+            <input
+              type="text"
+              placeholder="Search name or industry..."
+              className="pl-9 pr-4 py-1.5 bg-surface2 border border-border rounded-lg text-[11px] font-bold focus:ring-2 focus:ring-blue/10 outline-none w-56 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
+      </div>
 
-        {/* ESCALATED LEADS */}
-        <div className="card">
-          <div className="card-header border-b border-border bg-surface2/5">
-            <div className="section-title text-sm">Escalated Leads</div>
-            <Button size="xs" variant="outline" className="text-[10px] uppercase tracking-widest font-bold">Escalate to Founder</Button>
-          </div>
-          <div className="card-body p-4 space-y-4">
-            {escalations.map((esc, i) => (
-              <div key={i} className="flex items-start gap-4 p-4 border border-border/50 rounded-2xl bg-white shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-amber"></div>
-                <Avatar name={esc.owner?.name} size="md" className="av-state" />
-                <div className="flex-1">
-                   <div className="flex justify-between items-start">
-                      <div>
-                         <div className="text-[14.5px] font-black">{esc.business}</div>
-                         <div className="text-[10.5px] text-text-muted mt-0.5">
-                            Escalated by <span className="font-bold text-text">{esc.owner?.name}</span> · {esc.priority || 'Warm'} · {esc.district}
-                         </div>
+      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+            <thead>
+              <tr className="bg-surface2/50 border-b border-border">
+                <th className="p-4">Manager</th>
+                <th className="p-4 text-center">State</th>
+                <th className="p-4">Industry</th>
+                <th className="p-4 text-center">Work %</th>
+                <th className="p-4 text-center">Calls</th>
+                <th className="p-4 text-center">Meetings</th>
+                <th className="p-4 text-center">Follow-ups</th>
+                <th className="p-4 text-center">Revenue</th>
+                <th className="p-4 text-center">Leaves</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
+              {filteredManagers.map((m) => {
+                const workPct = m.workPct || 0;
+                const revenue = m.revenue || 0;
+                return (
+                  <tr key={m._id} className="hover:bg-surface2/30 transition-colors group">
+                    <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">{m.name}</td>
+                    <td className="p-4 text-center">
+                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state || user.state}</span>
+                    </td>
+                    <td className="p-4 text-[12px] text-text-secondary">{m.industry || '—'}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                          <div className={`h-full ${workPct >= 80 ? 'bg-[#0f766e]' : workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${workPct}%` }}></div>
+                        </div>
+                        <span className="font-bold text-[12px]">{workPct}%</span>
                       </div>
-                      <Button 
-                        size="xs" 
-                        variant="outline" 
-                        className="text-amber border-amber/30 font-bold hover:bg-amber-light/10"
-                        onClick={() => escalateMutation.mutate()}
-                      >
-                        Escalate to Founder
-                      </Button>
-                   </div>
-                   <div className="text-[12px] text-amber font-medium italic mt-3 bg-amber-light/5 p-2 rounded-lg border border-amber/10">
-                      Reason: Client wants State Head decision on pricing
-                   </div>
-                </div>
-              </div>
-            ))}
-            {escalations.length === 0 && <div className="p-12 text-center text-text-muted text-xs italic">No pending escalations in {user.state} portfolio.</div>}
-          </div>
+                    </td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.calls || 0}</td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.meetings || 0}</td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.followups || 0}</td>
+                    <td className="p-4 text-center text-[12px] font-mono font-bold text-blue">
+                      {"₹"}{revenue >= 100000 ? (revenue / 100000).toFixed(1) + 'L' : revenue.toLocaleString()}
+                    </td>
+                    <td className="p-4 text-center text-[12px] font-mono">{m.leaves || 0}</td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="bg-white border-border shadow-sm text-text-primary px-3 font-bold"
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m.user || m } }))}
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold"
+                          onClick={() => escalateMutation.mutate(m._id)}
+                        >
+                          Escalate
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredManagers.length === 0 && (
+                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No industry managers assigned to {user.state} portfolio.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
+
     </div>
   );
 };
