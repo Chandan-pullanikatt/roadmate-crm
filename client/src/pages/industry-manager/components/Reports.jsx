@@ -118,10 +118,6 @@ const Reports = () => {
     placeholderData: (prev) => prev
   });
 
-  if (isLoading && !dashData) return <DashboardSkeleton />;
-
-  const userInfo = dashData?.user || currentUser || {};
-
   const filteredCards = useMemo(() => {
     if (!searchTerm.trim()) return reportCards;
     const q = searchTerm.toLowerCase();
@@ -129,6 +125,10 @@ const Reports = () => {
       c.title.toLowerCase().includes(q) || c.sub.toLowerCase().includes(q)
     );
   }, [searchTerm]);
+
+  if (isLoading && !dashData) return <DashboardSkeleton />;
+
+  const userInfo = dashData?.user || currentUser || {};
 
   const fetchData = async (type) => {
     const res = type === 'rnr'

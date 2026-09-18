@@ -1648,6 +1648,138 @@ router.get('/revenue', verifyToken, async (req, res) => {
 /**
  * GET /founder -> role: founder
  */
+/**
+ * GET /district-manager - Overview page for a District Manager (role 'executive').
+ * Same shape as /founder, but every number is scoped to the DM's own leads and
+ * activities.
+ */
+router.get('/district-manager', async (req, res) => {
+    try {
+        if (req.user.role !== 'executive') {
+            return res.status(403).json({ message: 'Forbidden: District Manager only' });
+        }
+
+        const userId = req.user._id;
+        const { start: periodStart, end: periodEnd } = getDateRange(req.query.period || 'weekly', req.query.value);
+        const { start: todayStart } = getDateRange('today');
+        const { start: monthStart } = getDateRange('monthly');
+        const prevMonthStart = new Date(monthStart);
+        prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+
+        const ownLeads = { owner: userId };
+        const periodRange = { $gte: periodStart, $lte: periodEnd };
+        const onboardingFilter = {
+            ...ownLeads,
+            status: { $nin: ['converted', 'lost', 'not_interested'] },
+            createdAt: periodRange,
+            priority: { $in: ['hot', 'warm'] }
+        };
+
+        const sumOwnRevenue = (createdAt) => LeadActivity.aggregate([
+            { $match: { ...REVENUE_MATCH, performedBy: userId, createdAt } },
+            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
+        ]).then(r => r[0]?.total || 0);
+
+        const [
+            totalLeads, leadsToday, expectedOnboardingHot, expectedOnboardingWarm,
+            converted, convertedThisMonth, revenue, prevMonthRevenue,
+            statusRaw, priorityRaw, onboardingLeads, meetings, pendingLeaves
+        ] = await Promise.all([
+            Lead.countDocuments({ ...ownLeads, createdAt: periodRange }),
+            Lead.countDocuments({ ...ownLeads, createdAt: { $gte: todayStart } }),
+            Lead.countDocuments({ ...onboardingFilter, priority: 'hot' }),
+            Lead.countDocuments({ ...onboardingFilter, priority: 'warm' }),
+            LeadActivity.countDocuments({ action: 'converted', performedBy: userId, createdAt: periodRange }),
+            LeadActivity.countDocuments({ action: 'converted', performedBy: userId, createdAt: { $gte: monthStart } }),
+            sumOwnRevenue(periodRange),
+            sumOwnRevenue({ $gte: prevMonthStart, $lt: monthStart }),
+            Lead.aggregate([{ $match: ownLeads }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+            Lead.aggregate([{ $match: ownLeads }, { $group: { _id: '$priority', count: { $sum: 1 } } }]),
+            Lead.find(onboardingFilter).sort({ updatedAt: -1 }).limit(10).populate('owner', 'name'),
+            Lead.find({ ...ownLeads, meetingAt: { $gte: new Date() }, status: { $in: ['meeting_virtual', 'meeting_direct'] } })
+                .sort({ meetingAt: 1 })
+                .limit(5)
+                .populate('owner', 'name role state industry')
+                .populate('meetingInvitees', 'name role'),
+            Leave.find({ user: userId, status: 'pending' }).sort({ fromDate: 1 }).populate('user', 'name role state industry')
+        ]);
+
+        const countFor = (statuses) => statusRaw.filter(s => statuses.includes(s._id)).reduce((sum, s) => sum + s.count, 0);
+        const GROUP_COLORS = {
+            New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
+            Blocking: 'amber', 'Full Amount Received': 'cyan',
+            Lost: 'red', RNR: 'gray', Escalated: 'orange'
+        };
+        const pipelineStats = [
+            { label: 'All', count: statusRaw.reduce((sum, s) => sum + s.count, 0), color: 'blue' },
+            ...GROUP_ORDER.map(label => ({ label, count: countFor(LEAD_STATUS_GROUPS[label]), color: GROUP_COLORS[label] || 'gray' }))
+        ];
+
+        const PRIORITY_COLORS = { hot: 'red', warm: 'amber', cold: 'blue' };
+        const priorityStats = ['hot', 'warm', 'cold'].map(p => ({
+            label: p.charAt(0).toUpperCase() + p.slice(1),
+            priority: p,
+            count: priorityRaw.find(r => r._id === p)?.count || 0,
+            color: PRIORITY_COLORS[p]
+        }));
+
+        const expectedOnboardingList = onboardingLeads.map(l => ({
+            _id: l._id,
+            leadId: l.leadId || `RM-${l._id.toString().slice(-4).toUpperCase()}`,
+            name: l.name,
+            company: l.company || l.name,
+            phone: l.phone,
+            state: l.state,
+            district: l.district,
+            assignedTo: l.owner?.name || 'Unassigned',
+            priority: l.priority,
+            expectedDate: l.nextActionAt ? new Date(l.nextActionAt).toLocaleDateString() : 'TBD'
+        }));
+
+        const upcomingMeetings = meetings.map((m) => {
+            const inviteeNames = (m.meetingInvitees || []).map(i => i?.name).filter(Boolean);
+            return {
+                _id: m._id,
+                leadName: m.name,
+                company: m.company || '',
+                meetingAt: m.meetingAt,
+                meetingLink: m.meetingLink || '',
+                type: m.status === 'meeting_virtual' ? 'Virtual' : 'Direct',
+                owner: m.owner ? { _id: m.owner._id, name: m.owner.name, role: m.owner.role } : null,
+                inviteeSummary: inviteeNames.length > 0
+                    ? inviteeNames.slice(0, 2).join(', ') + (inviteeNames.length > 2 ? ` +${inviteeNames.length - 2}` : '')
+                    : ''
+            };
+        });
+
+        const revGrowth = prevMonthRevenue > 0
+            ? Math.round(((revenue - prevMonthRevenue) / prevMonthRevenue) * 100 * 10) / 10
+            : (revenue > 0 ? 100 : 0);
+
+        res.json({
+            stats: {
+                totalLeads,
+                leadsToday,
+                expectedOnboarding: expectedOnboardingHot + expectedOnboardingWarm,
+                expectedOnboardingHot,
+                expectedOnboardingWarm,
+                converted,
+                convertedThisMonth,
+                revenue,
+                revGrowth,
+                pendingLeavesCount: pendingLeaves.length
+            },
+            pipelineStats,
+            priorityStats,
+            expectedOnboardingList,
+            upcomingMeetings,
+            pendingLeaves
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 router.get('/founder', async (req, res) => {
     try {
         if (req.user.role !== 'founder') {

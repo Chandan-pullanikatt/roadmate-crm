@@ -4,6 +4,7 @@ const { verifyToken } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 const teamService = require('../services/teamService');
 const notificationService = require('../services/notificationService');
+const pushService = require('../services/pushService');
 
 // Protect all routes
 router.use(verifyToken);
@@ -108,6 +109,45 @@ router.post('/broadcast', async (req, res) => {
     res.status(201).json({ message: `Notification sent to ${recipientIds.length} team member(s)`, sent: recipientIds.length });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * GET /api/notifications/push/public-key
+ * VAPID public key the browser needs to subscribe. Null when push is not configured.
+ */
+router.get('/push/public-key', (req, res) => {
+  res.json({ enabled: pushService.isEnabled(), publicKey: pushService.getPublicKey() });
+});
+
+/**
+ * POST /api/notifications/push/subscribe
+ * Save this browser's push subscription for the current user.
+ * Body: the PushSubscription JSON from the browser ({ endpoint, keys: { p256dh, auth } })
+ */
+router.post('/push/subscribe', async (req, res) => {
+  try {
+    if (!pushService.isEnabled()) {
+      return res.status(503).json({ message: 'Push notifications are not configured on the server' });
+    }
+    await pushService.subscribe(req.user._id, req.body, req.get('user-agent'));
+    res.status(201).json({ message: 'Push notifications enabled' });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
+ * POST /api/notifications/push/unsubscribe
+ * Body: { endpoint }
+ */
+router.post('/push/unsubscribe', async (req, res) => {
+  try {
+    if (!req.body.endpoint) return res.status(400).json({ message: 'Endpoint is required' });
+    await pushService.unsubscribe(req.user._id, req.body.endpoint);
+    res.json({ message: 'Push notifications disabled' });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

@@ -1,4 +1,26 @@
 const Notification = require('../models/Notification');
+const pushService = require('./pushService');
+
+// Heading shown on the browser push notification for each type.
+const PUSH_TITLES = {
+  lead_allocated: 'Lead assigned',
+  lead_added: 'New lead',
+  leave_approved: 'Leave approved',
+  leave_rejected: 'Leave rejected',
+  staff_created: 'New team member',
+  document_uploaded: 'New document',
+  broadcast: 'Message from your team',
+  general: 'RoadMate Team',
+};
+
+const toPush = (message, type, meta) => ({
+  title: type === 'broadcast' && meta?.senderName
+    ? `Message from ${meta.senderRole === 'founder' ? 'Founder' : meta.senderName}`
+    : (PUSH_TITLES[type] || PUSH_TITLES.general),
+  body: message,
+  url: '/',
+  tag: type,
+});
 
 /**
  * Centralized notification service.
@@ -35,6 +57,10 @@ const notificationService = {
         });
       }
 
+      // Browser push reaches them even with the CRM closed. Not awaited so the
+      // caller's request isn't held up by push delivery.
+      pushService.sendToUser(userId, toPush(message, type, meta));
+
       return notification;
     } catch (err) {
       console.error('[NotificationService] Failed to create notification:', err.message);
@@ -67,6 +93,8 @@ const notificationService = {
           });
         });
       }
+
+      pushService.sendToUsers(userIds, toPush(message, type, meta));
 
       return docs;
     } catch (err) {

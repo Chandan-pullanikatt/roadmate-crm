@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 // Components
+import Overview from './components/Overview';
 import MyWorkToday from './components/MyWorkToday';
 import Meetings from './components/Meetings';
 import LeadList from './components/LeadList';
@@ -8,8 +9,6 @@ import Attendance from './components/Attendance';
 import LeaveManagement from './components/LeaveManagement';
 import Performance from './components/Performance';
 import HierarchyStatus from './components/HierarchyStatus';
-import Earnings from './components/Earnings';
-import CompanyPolicies from './components/CompanyPolicies';
 import SopViewer from '../industry-manager/components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
 
@@ -19,6 +18,7 @@ const ExecutiveDashboard = () => {
 
   const renderContent = () => {
     switch (page.toLowerCase()) {
+      case 'overview': return <Overview />;
       case 'work': return <MyWorkToday />;
       case 'tasks': return <Tasks />;
       case 'meetings': return <Meetings />;
@@ -29,8 +29,6 @@ const ExecutiveDashboard = () => {
       case 'reports-v2': return <Performance />;
       case 'performance': return <Performance />;
       case 'hierarchy': return <HierarchyStatus />;
-      case 'earnings': return <Earnings />;
-      case 'policies': return <CompanyPolicies />;
       case 'documents': return <SopViewer role="executive" />;
       default: return <MyWorkToday />;
     }

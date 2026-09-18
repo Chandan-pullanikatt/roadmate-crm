@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import api from '../api/axios';
+import { syncPushSubscription, disablePush } from '../utils/push';
 
 export const AuthContext = createContext();
 
@@ -22,6 +23,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
+  // Point this browser's push subscription at whoever is now logged in.
+  useEffect(() => {
+    if (user?._id) syncPushSubscription();
+  }, [user?._id]);
+
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     localStorage.setItem('token', res.data.token);
@@ -30,7 +36,10 @@ export const AuthProvider = ({ children }) => {
     return res.data.user;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Stop pushes to this device before the token goes — a shared browser
+    // shouldn't keep receiving the previous user's notifications.
+    try { await disablePush(); } catch { /* logging out regardless */ }
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);

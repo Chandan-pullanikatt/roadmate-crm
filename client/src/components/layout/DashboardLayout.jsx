@@ -9,6 +9,7 @@ import { notificationsApi } from '../../api/notificationsApi';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
 import MeetingAlertBanner from '../ui/MeetingAlertBanner';
 import { useToast } from '../../context/ToastContext';
+import { getPushStatus, enablePush, disablePush } from '../../utils/push';
 
 const getIcon = (iconName) => {
   const props = { className: "icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
@@ -108,6 +109,32 @@ const DashboardLayout = ({
       await notificationsApi.markAllRead();
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     } catch (err) { console.error('Mark all read failed:', err); }
+  };
+
+  // Browser push: 'unsupported' | 'denied' | 'enabled' | 'disabled'
+  const [pushStatus, setPushStatus] = useState('unsupported');
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (isNotificationOpen) getPushStatus().then(setPushStatus).catch(() => {});
+  }, [isNotificationOpen]);
+
+  const handleTogglePush = async () => {
+    setPushBusy(true);
+    try {
+      if (pushStatus === 'enabled') {
+        await disablePush();
+        addToast('Push notifications turned off', 'info');
+      } else {
+        await enablePush();
+        addToast('Push notifications turned on', 'success');
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || err.message || 'Could not update push notifications', 'error');
+    } finally {
+      setPushBusy(false);
+      getPushStatus().then(setPushStatus).catch(() => {});
+    }
   };
 
   // Close the notification panel when clicking anywhere outside it.
@@ -492,6 +519,24 @@ const DashboardLayout = ({
                           <button onClick={() => setIsNotificationOpen(false)} className="text-[12px] font-bold text-text-muted hover:underline">Close</button>
                         </div>
                       </div>
+                      {pushStatus !== 'unsupported' && (
+                        <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2 bg-surface2/50">
+                          <span className="text-[11px] text-text-muted">
+                            {pushStatus === 'enabled' && 'Push notifications are on for this device'}
+                            {pushStatus === 'disabled' && 'Get alerts even when RoadMate is closed'}
+                            {pushStatus === 'denied' && 'Notifications are blocked in your browser settings'}
+                          </span>
+                          {pushStatus !== 'denied' && (
+                            <button
+                              onClick={handleTogglePush}
+                              disabled={pushBusy}
+                              className="text-[10px] font-bold text-[#0f766e] hover:underline whitespace-nowrap disabled:opacity-50"
+                            >
+                              {pushBusy ? '…' : pushStatus === 'enabled' ? 'Turn off' : 'Enable push'}
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="max-h-[400px] overflow-y-auto">
                         {notifications.length === 0 ? (
                           <div className="p-8 text-center text-text-muted">

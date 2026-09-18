@@ -8,6 +8,9 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { SocketProvider } from './context/SocketContext.jsx'
 
 import { ToastProvider } from './context/ToastContext.jsx'
+import { registerServiceWorker } from './utils/push'
+
+registerServiceWorker()
 
 const queryClient = new QueryClient({
   defaultOptions: {

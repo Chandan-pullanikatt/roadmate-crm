@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const Lead = require('../models/Lead');
 const attendanceService = require('../services/attendanceService');
 const leadService = require('../services/leadService');
+const pushService = require('../services/pushService');
 
 // In-memory dedup: prevents duplicate reminder pushes within the same day.
 // Cleared at midnight each night.
@@ -103,6 +104,16 @@ const initCronJobs = (io = null) => {
           // Notify any invited managers
           (lead.meetingInvitees || []).forEach(inviteeId => {
             io.to(inviteeId.toString()).emit(event, payload);
+          });
+
+          // Browser push so the reminder lands even if the CRM isn't open
+          const when = key === '1h' ? 'in 1 hour' : 'in 15 minutes';
+          pushService.sendToUsers([lead.owner, ...(lead.meetingInvitees || [])], {
+            title: `Meeting ${when}`,
+            body: `${payload.type === 'virtual' ? 'Virtual' : 'In-person'} meeting with ${payload.lead} ${when}.`,
+            url: '/',
+            tag: dedupKey,
+            requireInteraction: key === '15m',
           });
         }
       }

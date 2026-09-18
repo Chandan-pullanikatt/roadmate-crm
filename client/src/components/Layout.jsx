@@ -199,6 +199,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'OPERATIONS',
           items: [
+            { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
             { label: 'Start My Work', path: '/dashboard?page=work', icon: 'work' },
             { label: 'My Tasks', path: '/dashboard?page=tasks', icon: 'work' },
             { label: 'Meetings', path: '/dashboard?page=meetings', icon: 'meetings' },
@@ -209,14 +210,12 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'INSIGHTS',
           items: [
-            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' },
-            { label: 'Earnings & Payouts', path: '/dashboard?page=earnings', icon: 'earnings' }
+            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' }
           ]
         },
         {
           label: 'RESOURCES',
           items: [
-            { label: 'Company Policies', path: '/dashboard?page=policies', icon: 'policies' },
             { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' },
             { label: 'Hierarchy Status', path: '/dashboard?page=hierarchy', icon: 'hierarchy' }
           ]
@@ -237,14 +236,13 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
   const getDisplayPage = (p) => p.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
   const dynamicTitle = isExecutive ? (
+    page === 'overview' ? 'Overview' :
     page === 'work' ? 'Start My Work' :
     page === 'meetings' ? 'My Meetings' :
     page === 'leads' ? 'My Leads' :
     page === 'leave-calendar' ? 'Leave Calendar' :
     page === 'reports-v2' ? 'Summary & Reports' :
-    page === 'hierarchy' ? 'Hierarchy Status' :
-    page === 'earnings' ? 'Earnings & Payouts' :
-    page === 'policies' ? 'Company Policies' : 'Dashboard'
+    page === 'hierarchy' ? 'Hierarchy Status' : 'Dashboard'
   ) : (pageTitle || (user?.role?.replace('_', ' ')?.toUpperCase() + ' Dashboard'));
 
   const dynamicSubtitle = isExecutive ? '' : (pageSubtitle || `${getDisplayPage(page)} · ${user?.state || 'Kerala'} · Management Portal`);

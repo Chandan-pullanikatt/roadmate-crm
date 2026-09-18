@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
@@ -7,11 +8,23 @@ import { Button, Tag } from '../../../components/ui';
 const LeadList = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState('all');
+  // Overview cards link here with ?status=, ?priority= and ?period=&value= so the
+  // list matches the number that was clicked.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlStatus = searchParams.get('status') || 'all';
+  const urlPriority = searchParams.get('priority') || undefined;
+  const urlPeriod = searchParams.get('period') || undefined;
+  const urlValue = searchParams.get('value') || undefined;
+  const [activeTab, setActiveTab] = useState(urlStatus);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(urlStatus);
+    setPage(1);
+  }, [urlStatus]);
 
   // Debounce search
   useEffect(() => {
@@ -29,9 +42,12 @@ const LeadList = () => {
   });
 
   const { data: leadData, isLoading, isFetching } = useQuery({
-    queryKey: ['leads', 'my-leads', activeTab, debouncedSearch, page],
+    queryKey: ['leads', 'my-leads', activeTab, debouncedSearch, page, urlPriority, urlPeriod, urlValue],
     queryFn: () => leadsApi.getLeads({
       status: activeTab === 'all' ? undefined : activeTab,
+      priority: urlPriority,
+      period: urlPeriod,
+      value: urlValue,
       search: debouncedSearch,
       page,
       limit: 20
@@ -45,6 +61,9 @@ const LeadList = () => {
     try {
       const res = await leadsApi.getLeads({
         status: activeTab === 'all' ? undefined : activeTab,
+        priority: urlPriority,
+        period: urlPeriod,
+        value: urlValue,
         search: debouncedSearch,
         limit: 9999
       });
@@ -98,6 +117,21 @@ const LeadList = () => {
     { id: 'lost', label: 'Lost', count: counts?.lost || 0 },
     { id: 'rnr', label: 'RNR', count: counts?.rnr || 0 }
   ];
+
+  const tabIds = tabs.map(t => t.id);
+  const extraFilters = [
+    !tabIds.includes(activeTab) ? activeTab.replace(/_/g, ' ') : null,
+    urlPriority ? `${urlPriority.replace(/,/g, ' / ')} priority` : null,
+    urlPeriod ? (urlValue || urlPeriod) : null
+  ].filter(Boolean);
+
+  const clearUrlFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    ['status', 'priority', 'period', 'value'].forEach(k => next.delete(k));
+    setSearchParams(next);
+    setActiveTab('all');
+    setPage(1);
+  };
 
   const openModal = (type, data = null) => {
     window.dispatchEvent(new CustomEvent('open-modal', { 
@@ -160,6 +194,13 @@ const LeadList = () => {
           <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => openModal('add-lead')}>+ Add Lead</button>
         </div>
       </div>
+
+      {extraFilters.length > 0 && (
+        <div className="flex items-center justify-between mb-4 px-4 py-2.5 rounded-xl border border-blue/20 bg-blue/5 text-[13px]">
+          <span className="font-semibold text-text-secondary capitalize">Filtered: {extraFilters.join(' · ')}</span>
+          <button className="text-blue font-bold text-xs underline" onClick={clearUrlFilters}>Clear filters</button>
+        </div>
+      )}
 
       {/* 3. Lead Table */}
       <div className="table-container shadow-sm border border-border rounded-xl overflow-hidden">

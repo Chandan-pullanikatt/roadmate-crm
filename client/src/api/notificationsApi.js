@@ -7,4 +7,9 @@ export const notificationsApi = {
 
   /** Founder or manager: send a message to their own team */
   broadcast: (data) => api.post('/notifications/broadcast', data),
+
+  /** Browser push notifications */
+  getPushPublicKey: () => api.get('/notifications/push/public-key'),
+  pushSubscribe: (subscription) => api.post('/notifications/push/subscribe', subscription),
+  pushUnsubscribe: (endpoint) => api.post('/notifications/push/unsubscribe', { endpoint }),
 };
