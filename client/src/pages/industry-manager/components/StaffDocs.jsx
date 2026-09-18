@@ -124,7 +124,7 @@ const StaffDocs = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Staff Documents</h1>
-          <p className="text-sm text-text-muted">Upload & manage executive documents</p>
+          <p className="text-[16px] text-text-muted">Upload & manage executive documents</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -147,7 +147,7 @@ const StaffDocs = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Staff Documents · {userInfo.industry} District Managers</h2>
-          <p className="text-xs text-text-muted">Upload, view & manage executive documents</p>
+          <p className="text-[14px] text-text-muted">Upload, view & manage executive documents</p>
         </div>
         <Tag variant="purple" label={`${filteredExecutives.length} Staff`} className="font-black px-5" />
       </div>
@@ -162,7 +162,7 @@ const StaffDocs = () => {
                 <Avatar name={exec.name} size="sm" className={`av-${idx % 5} rounded-lg shadow-sm`} />
                 <div className="flex-1">
                   <span className="text-sm font-black text-text-primary uppercase tracking-tight">{exec.name}</span>
-                  <div className="text-[10px] text-text-muted">
+                  <div className="text-[12px] text-text-muted">
                     {[exec.district, exec.industry].filter(Boolean).join(' · ') || 'District Manager'}
                   </div>
                 </div>
@@ -181,7 +181,7 @@ const StaffDocs = () => {
                         </div>
                         <div className="min-w-0">
                           <p className="text-[11px] font-black text-text-primary leading-tight truncate">{doc.name}</p>
-                          <p className="text-[9px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">
+                          <p className="text-[11px] font-bold text-text-muted uppercase mt-0.5 tracking-tighter">
                             {getDocCategory(doc.name)} · {new Date(doc.uploadedAt || exec.createdAt).toLocaleString('default', { month: 'short', year: 'numeric' })}
                           </p>
                         </div>
@@ -197,7 +197,7 @@ const StaffDocs = () => {
                         <button
                           type="button"
                           onClick={() => downloadDocument(doc)}
-                          className="flex-1 py-1.5 text-[10px] font-bold bg-surface3 text-text-muted rounded-lg hover:bg-text-primary hover:text-white transition-all"
+                          className="flex-1 py-1.5 text-[12px] font-bold bg-surface3 text-text-muted rounded-lg hover:bg-text-primary hover:text-white transition-all"
                         >
                           Download
                         </button>
@@ -205,7 +205,7 @@ const StaffDocs = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="w-44 bg-surface2/40 border border-border/40 rounded-xl p-4 flex items-center justify-center text-center text-[11px] font-bold text-text-muted">
+                  <div className="w-44 bg-surface2/40 border border-border/40 rounded-xl p-4 flex items-center justify-center text-center text-[13px] font-bold text-text-muted">
                     No documents uploaded
                   </div>
                 )}
@@ -223,7 +223,7 @@ const StaffDocs = () => {
                   ) : (
                     <Button
                       variant="outline"
-                      className="text-[11px] font-black text-text-muted group-hover:text-purple uppercase tracking-widest border-none bg-transparent shadow-none"
+                      className="text-[13px] font-black text-text-muted group-hover:text-purple uppercase tracking-widest border-none bg-transparent shadow-none"
                       onClick={() => setActiveUploadUserId(exec._id)}
                     >
                       + Add Document
@@ -236,7 +236,7 @@ const StaffDocs = () => {
           ))}
 
           {filteredExecutives.length === 0 && (
-            <div className="text-center text-sm text-text-muted py-10">No executives match this search.</div>
+            <div className="text-center text-[16px] text-text-muted py-10">No executives match this search.</div>
           )}
         </div>
       </div>

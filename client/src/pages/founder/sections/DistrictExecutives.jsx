@@ -68,7 +68,7 @@ const DistrictExecutives = () => {
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="flex items-center gap-2 mb-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">
+      <div className="flex items-center gap-2 mb-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">
         <span>Founder</span>
         <span className="text-text-muted/30">›</span>
         <span className="text-text-primary">District Managers</span>
@@ -77,7 +77,7 @@ const DistrictExecutives = () => {
       <div className="flex justify-between items-end mb-6">
         <div>
           <div className="text-[20px] font-bold text-text-primary">District Managers</div>
-          <div className="text-[12px] text-text-muted mt-1">Performance summary · Lead handling · Attendance · Click row to drill in</div>
+          <div className="text-[14px] text-text-muted mt-1">Performance summary · Lead handling · Attendance · Click row to drill in</div>
         </div>
         <div className="flex gap-2">
           <Button size="sm" className="bg-[#0f766e] hover:bg-[#0d645e] text-white border-none shadow-sm font-semibold" onClick={() => openModal('create-exec', { role: 'executive' })}>+ District Manager</Button>
@@ -87,13 +87,13 @@ const DistrictExecutives = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Work %, Leads, Meetings, Blockings and Revenue for the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Meetings, Blockings and Revenue for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
           <PeriodPicker {...picker} />
           <select
-            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[14px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
             value={filterState}
             onChange={e => setFilterState(e.target.value)}
           >
@@ -105,7 +105,7 @@ const DistrictExecutives = () => {
 
       <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+          <table className="w-full text-left border-collapse text-[13px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
                 <th className="p-4">Manager</th>
@@ -130,7 +130,7 @@ const DistrictExecutives = () => {
                   <td className="p-4 text-center">
                     {m.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state}</span>}
                   </td>
-                  <td className="p-4 text-[12px] text-text-secondary">{m.industry || '—'}</td>
+                  <td className="p-4 text-[14px] text-text-secondary">{m.industry || '—'}</td>
                   <td className="p-4">
                     <div className="flex items-center gap-2 justify-center">
                       <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">

@@ -4,6 +4,7 @@ import { Modal } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
+import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../../../components/PaymentAmountField';
 
 const OUTCOMES = [
   { id: 'connected',               icon: '✅', label: 'Connected',          color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
@@ -11,6 +12,7 @@ const OUTCOMES = [
   { id: 'meeting',                 icon: '🎥', label: 'Schedule Meeting',   color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
   { id: 'rnr',                     icon: '📵', label: 'RNR',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
   { id: 'blocking_amount_received',icon: '💰', label: 'Blocking Amount',    color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
+  { id: 'full_amount_received',    icon: '✅', label: 'Full Amount Received', color: '#065F46', bg: '#D1FAE5', border: '#6EE7B7' },
   // 'Converted' is no longer chosen directly — a lead becomes Converted only
   // once Full Amount Received and Agreement Signed have both been recorded.
   { id: 'not_interested',          icon: '✗',  label: 'Not Interested',     color: '#9B1C1C', bg: '#FEF2F2', border: '#FECACA' },
@@ -43,6 +45,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const [meetingLink, setMeetingLink] = useState('');
   const [inviteeId, setInviteeId] = useState('');
   const [strategyNote, setStrategyNote] = useState('');
+  const [amount, setAmount] = useState('');
   const [activeTip, setActiveTip] = useState(null);
 
   // Sync outcome and priority when lead/modal opens
@@ -82,6 +85,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     setMeetingTime('');
     setMeetingLink('');
     setInviteeId('');
+    setAmount('');
     onClose();
   };
 
@@ -103,6 +107,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     }
     if (selectedOutcome === 'followup' && !followUpDate) {
       addToast('Please set a follow-up date.', 'warning');
+      return;
+    }
+    if (AMOUNT_STAGES.has(selectedOutcome) && !parseAmount(amount)) {
+      addToast('Please enter the amount received.', 'warning');
       return;
     }
 
@@ -136,14 +144,17 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         await transitionMutation.mutateAsync(payload);
         addToast('Meeting scheduled!', 'success');
 
-      } else if (selectedOutcome === 'blocking_amount_received') {
+      } else if (AMOUNT_STAGES.has(selectedOutcome)) {
         await transitionMutation.mutateAsync({
           action: 'set_feedback',
-          nextAction: 'blocking_amount_received',
+          nextAction: selectedOutcome,
           note: notes,
           priority,
+          amount: parseAmount(amount),
         });
-        addToast('💰 Blocking amount received logged!', 'success');
+        addToast(selectedOutcome === 'blocking_amount_received'
+          ? '💰 Blocking amount received logged!'
+          : '✅ Full amount received logged!', 'success');
 
       } else if (selectedOutcome === 'converted') {
         await transitionMutation.mutateAsync({
@@ -214,7 +225,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
             <p className="text-sm text-text-primary leading-relaxed">
               📵 Mark this lead as <strong>RNR (Ring Not Responded)</strong>?
             </p>
-            <p className="text-xs text-text-muted mt-2">
+            <p className="text-[14px] text-text-muted mt-2">
               The call will be logged, and the lead will be automatically re-queued for retry.
             </p>
           </div>
@@ -223,7 +234,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
             <button
               onClick={handleClose}
-              className="px-5 py-2.5 rounded-xl border border-border text-sm font-bold text-text-secondary hover:bg-surface2 transition-all"
+              className="px-5 py-2.5 rounded-xl border border-border text-[16px] font-bold text-text-secondary hover:bg-surface2 transition-all"
             >
               Cancel
             </button>
@@ -314,7 +325,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
                   !
                 </button>
                 {activeTip === p.id && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[13px] text-text-secondary">
                     <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.def}
                   </div>
                 )}
@@ -338,13 +349,27 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         </div>
         )}
 
+        {/* Payment amount — counted as revenue */}
+        {AMOUNT_STAGES.has(selectedOutcome) && (
+          <div className="p-4 bg-green-light/20 border border-green/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
+            <PaymentAmountField
+              stage={selectedOutcome}
+              value={amount}
+              onChange={setAmount}
+              lead={lead}
+              labelClassName={lbl + ' text-green'}
+              inputClassName={inp}
+            />
+          </div>
+        )}
+
         {/* Follow-up section */}
         {selectedOutcome === 'followup' && (
           <div className="space-y-3 p-4 bg-amber-light/20 border border-amber/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
             <label className={lbl + ' text-amber'}>📅 Follow-up Details</label>
             {suggestedDates?.dates?.length > 0 && (
               <div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Suggested Dates</div>
+                <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-2">Suggested Dates</div>
                 <div className="flex flex-wrap gap-2">
                   {suggestedDates.dates.map(d => (
                     <button
@@ -453,7 +478,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-          <button onClick={handleClose} className="px-5 py-2.5 rounded-xl border border-border text-sm font-bold text-text-secondary hover:bg-surface2 transition-all">
+          <button onClick={handleClose} className="px-5 py-2.5 rounded-xl border border-border text-[16px] font-bold text-text-secondary hover:bg-surface2 transition-all">
             Cancel
           </button>
           <button

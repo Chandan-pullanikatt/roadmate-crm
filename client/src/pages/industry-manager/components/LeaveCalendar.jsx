@@ -111,7 +111,7 @@ const LeaveCalendar = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Leave Calendar · {userInfo.industry} Team</h2>
-          <p className="text-xs text-text-muted">District Manager leave approvals - My leave request to State Manager</p>
+          <p className="text-[14px] text-text-muted">District Manager leave approvals - My leave request to State Manager</p>
         </div>
         <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'leave-policy' }))}>
            📜 Leave Policy
@@ -124,15 +124,15 @@ const LeaveCalendar = () => {
             <div className="flex items-center justify-between mb-8">
                 <h3 className="text-lg font-black text-text-primary tracking-tight">{monthNames[month-1]} {year}</h3>
                 <div className="flex gap-4">
-                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red"></span> <span className="text-[10px] font-black text-text-muted uppercase">Holiday</span></div>
-                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber"></span> <span className="text-[10px] font-black text-text-muted uppercase">Optional</span></div>
-                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue"></span> <span className="text-[10px] font-black text-text-muted uppercase">Leave</span></div>
+                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red"></span> <span className="text-[12px] font-black text-text-muted uppercase">Holiday</span></div>
+                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber"></span> <span className="text-[12px] font-black text-text-muted uppercase">Optional</span></div>
+                    <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue"></span> <span className="text-[12px] font-black text-text-muted uppercase">Leave</span></div>
                 </div>
             </div>
 
             <div className="grid grid-cols-7 mb-4">
                 {weekDays.map(wd => (
-                    <div key={wd} className="text-center text-[10px] font-black text-text-muted uppercase tracking-widest py-2">{wd}</div>
+                    <div key={wd} className="text-center text-[12px] font-black text-text-muted uppercase tracking-widest py-2">{wd}</div>
                 ))}
             </div>
 
@@ -182,7 +182,7 @@ const LeaveCalendar = () => {
                                 <Avatar name={leave.user.name} size="sm" className={`av-${idx % 5} rounded-lg`} />
                                 <div>
                                     <p className="text-[11px] font-black text-text-primary">{leave.user.name}</p>
-                                    <p className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">
+                                    <p className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
                                         {leave.type.replace('_', ' ')} · {leave.days}d · {new Date(leave.fromDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(leave.toDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                     </p>
                                 </div>
@@ -200,7 +200,7 @@ const LeaveCalendar = () => {
                         </div>
                     ))}
                     {pendingLeaves.length === 0 && (
-                        <div className="py-12 text-center opacity-50 italic text-xs font-bold text-text-muted uppercase tracking-widest">No pending approvals</div>
+                        <div className="py-12 text-center opacity-50 italic text-[14px] font-bold text-text-muted uppercase tracking-widest">No pending approvals</div>
                     )}
                 </div>
             </div>
@@ -210,7 +210,7 @@ const LeaveCalendar = () => {
                 <h3 className="text-sm font-black text-text-primary uppercase tracking-tight mb-6">My Leave Request to State Manager</h3>
                 <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Leave Type</label>
+                        <label className="text-[12px] font-black text-text-muted uppercase tracking-widest">Leave Type</label>
                         <select 
                             className="w-full px-4 py-2 bg-surface2 border border-border rounded-xl outline-none text-xs font-bold"
                             value={leaveForm.type}
@@ -226,7 +226,7 @@ const LeaveCalendar = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">From Date</label>
+                            <label className="text-[12px] font-black text-text-muted uppercase tracking-widest">From Date</label>
                             <input 
                                 type="date" 
                                 className="w-full px-4 py-2 bg-surface2 border border-border rounded-xl outline-none text-xs font-bold"
@@ -235,7 +235,7 @@ const LeaveCalendar = () => {
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">To Date</label>
+                            <label className="text-[12px] font-black text-text-muted uppercase tracking-widest">To Date</label>
                             <input 
                                 type="date" 
                                 className="w-full px-4 py-2 bg-surface2 border border-border rounded-xl outline-none text-xs font-bold"
@@ -246,7 +246,7 @@ const LeaveCalendar = () => {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Reason</label>
+                        <label className="text-[12px] font-black text-text-muted uppercase tracking-widest">Reason</label>
                         <textarea 
                             placeholder="Reason.."
                             className="w-full px-4 py-3 bg-surface2 border border-border rounded-xl outline-none text-xs font-bold min-h-[80px]"

@@ -132,7 +132,7 @@ const Meetings = () => {
             <button
               key={tab}
               onClick={() => setFilterStatus(tab)}
-              className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${
+              className={`px-3 py-1 rounded-md text-[13px] font-bold transition-all ${
                 filterStatus === tab
                   ? 'bg-white text-text-primary shadow-sm'
                   : 'text-text-muted hover:text-text-secondary'
@@ -143,7 +143,7 @@ const Meetings = () => {
           ))}
         </div>
 
-        <div className="ml-auto text-[11px] text-text-muted font-medium">
+        <div className="ml-auto text-[13px] text-text-muted font-medium">
           {directMeetings.length + virtualMeetings.length} meeting{directMeetings.length + virtualMeetings.length !== 1 ? 's' : ''} shown
         </div>
       </div>
@@ -155,7 +155,7 @@ const Meetings = () => {
         <div className="m-column">
           <div className="section-label-v2">
             <span className="text-xl">🤝</span> Direct Meetings
-            <span className="ml-2 text-[11px] font-bold text-text-muted">({directMeetings.length})</span>
+            <span className="ml-2 text-[13px] font-bold text-text-muted">({directMeetings.length})</span>
           </div>
           {directMeetings.length === 0 ? (
             <div className="p-12 text-center text-muted border border-dashed rounded-xl bg-surface2/50">
@@ -196,7 +196,7 @@ const Meetings = () => {
         <div className="m-column">
           <div className="section-label-v2">
             <span className="text-xl">🎥</span> Virtual Meetings
-            <span className="ml-2 text-[11px] font-bold text-text-muted">({virtualMeetings.length})</span>
+            <span className="ml-2 text-[13px] font-bold text-text-muted">({virtualMeetings.length})</span>
           </div>
           {virtualMeetings.length === 0 ? (
             <div className="p-12 text-center text-muted border border-dashed rounded-xl bg-surface2/50">

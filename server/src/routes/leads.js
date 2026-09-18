@@ -380,10 +380,35 @@ const bulkCreateLeads = async (req, res) => {
   }
 };
 
+const PAYMENT_STAGES = ['blocking_amount_received', 'full_amount_received'];
+
 const updateLead = async (req, res) => {
   try {
     const payload = normalizeLeadPayload(req.body);
     delete payload.leadId; // IDs are permanent once assigned
+    // Money received is booked by the payment entries, never typed onto the lead.
+    delete payload.actualRevenue;
+    delete payload.blockingAmount;
+    delete payload.fullAmount;
+
+    // Moving a lead to a payment stage records a payment: route it through the
+    // same transition the call-feedback screens use, so the amount is captured
+    // and counted as revenue, and Converted is reached by the same rule.
+    const existing = await Lead.findById(req.params.id).select('status');
+    if (!existing) return res.status(404).json({ message: 'Lead not found' });
+    const paymentStage = PAYMENT_STAGES.includes(payload.status) && payload.status !== existing.status
+      ? payload.status
+      : null;
+    if (paymentStage) {
+      delete payload.status;
+      await leadService.transition(req.params.id, 'set_feedback', {
+        nextAction: paymentStage,
+        amount: req.body.amount,
+        revenueCategory: payload.revenueCategory,
+        note: req.body.notes,
+      }, req.user, req.app.get('io'));
+    }
+
     const lead = await Lead.findByIdAndUpdate(req.params.id, payload, { new: true });
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
 

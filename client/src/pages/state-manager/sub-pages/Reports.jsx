@@ -173,7 +173,7 @@ const Reports = () => {
                 {r.icon}
               </div>
               <div className="font-black text-[17px] tracking-tight mb-2 group-hover:text-blue transition-colors">{r.title}</div>
-              <div className="text-[13px] text-text-muted font-medium tracking-tight px-6">{r.desc}</div>
+              <div className="text-[15px] text-text-muted font-medium tracking-tight px-6">{r.desc}</div>
               
               <div className="mt-8 flex items-center gap-3">
                 <button
@@ -204,7 +204,7 @@ const Reports = () => {
           className="max-w-6xl"
         >
           {viewing.rows.length === 0 ? (
-            <div className="py-16 text-center text-sm text-text-muted">No records found for this report</div>
+            <div className="py-16 text-center text-[16px] text-text-muted">No records found for this report</div>
           ) : (
             <>
               <div className="flex justify-end mb-4">

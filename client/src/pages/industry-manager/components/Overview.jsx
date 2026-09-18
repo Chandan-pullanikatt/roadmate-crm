@@ -237,7 +237,7 @@ const Overview = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-text-primary tracking-tight">{userInfo.name}</h1>
-          <p className="text-sm text-text-muted mt-0.5 font-medium">
+          <p className="text-[16px] text-text-muted mt-0.5 font-medium">
             Industry Manager <span className="mx-2 opacity-30">·</span> {userInfo.industry} <span className="mx-2 opacity-30">·</span> {userInfo.state}
           </p>
         </div>
@@ -261,7 +261,7 @@ const Overview = () => {
               <button
                 key={key}
                 onClick={() => handlePeriodChange(key)}
-                className={`px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-xl text-[13px] font-bold transition-all ${
                   period === key
                     ? 'bg-white shadow-sm text-purple border border-border/40'
                     : 'text-text-muted hover:text-text-primary'
@@ -301,7 +301,7 @@ const Overview = () => {
           </button>
           <button
             className="btn btn-xs btn-outline"
-            style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}
+            style={{ fontSize: 13, padding: '3px 10px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}
             onClick={() => navigate('/dashboard?page=leads')}
           >
             Escalate to State Manager
@@ -330,7 +330,7 @@ const Overview = () => {
             onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow)'; }}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: card.color }} />
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 500 }}>{card.label}</div>
+            <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', fontWeight: 500 }}>{card.label}</div>
             <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.5px', margin: '6px 0 4px', fontFamily: "'DM Mono', monospace", color: card.valueColor }}>{card.value}</div>
             <div style={{ fontSize: '11.5px', color: card.deltaColor }}>{card.delta}</div>
           </div>
@@ -341,7 +341,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Lead Pipeline</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Expected onboarding leads &amp; current pipeline status</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Expected onboarding leads &amp; current pipeline status</div>
         </div>
       </div>
 
@@ -361,7 +361,7 @@ const Overview = () => {
               title={`View all ${st.label} leads`}
             >
               <div className="text-[28px] font-bold font-mono mb-1" style={{ color: bottomColor }}>{st.count}</div>
-              <div className="text-[12px] text-text-muted font-medium mb-5">{st.label}</div>
+              <div className="text-[14px] text-text-muted font-medium mb-5">{st.label}</div>
               <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: bottomColor }}></div>
             </div>
           );
@@ -384,7 +384,7 @@ const Overview = () => {
               title={`View all ${pr.label} leads`}
             >
               <div className={`text-[28px] font-bold font-mono mb-1 ${tone.text}`}>{pr.count}</div>
-              <div className="text-[12px] text-text-muted font-medium mb-5">{pr.label} Leads</div>
+              <div className="text-[14px] text-text-muted font-medium mb-5">{pr.label} Leads</div>
               <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: tone.bar }}></div>
             </div>
           );
@@ -395,7 +395,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Hot &amp; Warm leads expected to convert · Requires allocation</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Hot &amp; Warm leads expected to convert · Requires allocation</div>
         </div>
         <div className="flex items-center gap-2">
           {expectedOnboardingList.length > 5 && (
@@ -411,7 +411,7 @@ const Overview = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface2/50 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border">
+              <tr className="bg-surface2/50 text-[12px] font-bold text-text-muted uppercase tracking-wider border-b border-border">
                 <th className="p-4 font-bold">Lead Name</th>
                 <th className="p-4 font-bold">District</th>
                 <th className="p-4 font-bold">Assigned To</th>
@@ -425,18 +425,18 @@ const Overview = () => {
                 <tr key={idx} className="hover:bg-surface2/30 transition-colors">
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-text-primary">{lead.name}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5">{lead.phone || 'No contact number'}</div>
+                    <div className="text-[13px] text-text-muted mt-0.5">{lead.phone || 'No contact number'}</div>
                   </td>
                   <td className="p-4">
                     <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-blue/10 text-blue text-[10px] font-bold uppercase tracking-wider">{lead.district || '—'}</span>
                   </td>
-                  <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.assignedTo}</td>
+                  <td className="p-4 text-[15px] text-text-secondary font-medium">{lead.assignedTo}</td>
                   <td className="p-4 text-center">
                     <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${lead.priority === 'hot' ? 'bg-red/5 text-red border-red/20' : 'bg-amber/5 text-amber border-amber/20'}`}>
                       {lead.priority || 'warm'}
                     </span>
                   </td>
-                  <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.expectedDate}</td>
+                  <td className="p-4 text-[15px] text-text-secondary font-medium">{lead.expectedDate}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => goToLead(lead._id)}>View</Button>
@@ -448,7 +448,7 @@ const Overview = () => {
               ))}
               {expectedOnboardingList.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-text-muted text-[13px]">No expected onboarding leads found.</td>
+                  <td colSpan="6" className="p-8 text-center text-text-muted text-[15px]">No expected onboarding leads found.</td>
                 </tr>
               )}
             </tbody>
@@ -460,7 +460,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Performance by District Manager</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Click any row to drill into that District Manager</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Click any row to drill into that District Manager</div>
         </div>
         <Button size="sm" variant="outline" className="bg-white" onClick={() => navigate('/dashboard?page=team')}>View All</Button>
       </div>
@@ -481,7 +481,7 @@ const Overview = () => {
                   <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>{initials}</div>
                   <div>
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{exec.name}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
+                    <div className="text-[13px] text-text-muted mt-0.5 flex items-center gap-1">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                       {exec.district || 'No district'} · District Manager
                     </div>
@@ -491,15 +491,15 @@ const Overview = () => {
                 <div className="flex items-center justify-end gap-6 flex-1">
                   <div className="text-center w-14">
                     <div className="text-[15px] font-bold text-blue font-mono">{exec.leadsCount ?? 0}</div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Leads</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider">Leads</div>
                   </div>
                   <div className="text-center w-14">
                     <div className="text-[15px] font-bold text-[#16a34a] font-mono">{exec.converted ?? 0}</div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Conv.</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider">Conv.</div>
                   </div>
                   <div className="text-center w-20">
                     <div className="text-[15px] font-bold text-teal font-mono">{formatCurrency(exec.revenue || 0)}</div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Revenue</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider">Revenue</div>
                   </div>
                   <div className="flex flex-col items-center justify-center w-24 border-l border-border pl-4">
                     <div className="flex items-center gap-2">
@@ -508,7 +508,7 @@ const Overview = () => {
                       </div>
                       <div className="text-[13px] font-bold text-[#d97706]">{Math.round(exec.completionPct || 0)}%</div>
                     </div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">Work %</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider mt-0.5">Work %</div>
                   </div>
                 </div>
 
@@ -520,7 +520,7 @@ const Overview = () => {
             );
           })}
           {team.length === 0 && (
-            <div className="p-8 text-center text-text-muted text-[13px]">No district managers in this team yet.</div>
+            <div className="p-8 text-center text-text-muted text-[15px]">No district managers in this team yet.</div>
           )}
         </div>
       </div>
@@ -532,7 +532,7 @@ const Overview = () => {
           <div className="card-header border-none px-8 pt-8">
             <div>
               <h3 className="text-xl font-bold text-text-primary tracking-tight">Upcoming Events</h3>
-              <p className="text-sm text-text-muted mt-1 font-medium">
+              <p className="text-[16px] text-text-muted mt-1 font-medium">
                 Meetings &amp; follow-ups scheduled for {scheduleDay === 'today' ? 'today' : 'tomorrow'}
               </p>
             </div>
@@ -541,7 +541,7 @@ const Overview = () => {
                 <div
                   key={d}
                   onClick={() => setScheduleDay(d)}
-                  className={`py-1.5 px-3 rounded-xl text-[11px] font-bold cursor-pointer capitalize transition-all ${scheduleDay === d ? 'bg-purple text-white' : 'bg-surface2 border border-border text-text-secondary hover:bg-surface3'}`}
+                  className={`py-1.5 px-3 rounded-xl text-[13px] font-bold cursor-pointer capitalize transition-all ${scheduleDay === d ? 'bg-purple text-white' : 'bg-surface2 border border-border text-text-secondary hover:bg-surface3'}`}
                 >
                   {d}
                 </div>
@@ -559,11 +559,11 @@ const Overview = () => {
                     <div className="text-sm font-bold text-text-primary group-hover:text-purple transition-colors truncate">
                       {ev.name}
                     </div>
-                    <div className="text-[11px] text-text-muted font-medium mt-0.5">
+                    <div className="text-[13px] text-text-muted font-medium mt-0.5">
                       {ev.ownerName} <span className="mx-1">→</span> {ev.company}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                      <div className="px-2 py-0.5 rounded-lg bg-surface2 text-[9px] font-bold text-text-muted uppercase tracking-wider group-hover:bg-purple/5 group-hover:text-purple">
+                      <div className="px-2 py-0.5 rounded-lg bg-surface2 text-[11px] font-bold text-text-muted uppercase tracking-wider group-hover:bg-purple/5 group-hover:text-purple">
                         {new Date(ev.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                       <Tag
@@ -602,7 +602,7 @@ const Overview = () => {
           <div className="card-header border-none px-8 pt-8">
             <div>
               <h3 className="text-xl font-bold text-text-primary tracking-tight">Leave Approvals</h3>
-              <p className="text-sm text-text-muted mt-1 font-medium">Pending requests</p>
+              <p className="text-[16px] text-text-muted mt-1 font-medium">Pending requests</p>
             </div>
             {leaves.length > 0 && <div className="w-6 h-6 rounded-full bg-red text-white flex items-center justify-center text-[10px] font-bold shadow-lg shadow-red/20">{leaves.length}</div>}
           </div>
@@ -616,12 +616,12 @@ const Overview = () => {
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-bold text-text-primary">{leave.user?.name}</div>
-                      <div className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">
+                      <div className="text-[12px] text-text-muted font-semibold uppercase tracking-wider">
                         {leave.type.replace('_', ' ')} · {leave.days} Day{leave.days > 1 ? 's' : ''}
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-text-secondary leading-relaxed bg-surface2/50 p-2.5 rounded-xl border border-border/20 mb-4 line-clamp-2 italic">
+                  <p className="text-[14px] text-text-secondary leading-relaxed bg-surface2/50 p-2.5 rounded-xl border border-border/20 mb-4 line-clamp-2 italic">
                     "{leave.reason}"
                   </p>
                   <div className="grid grid-cols-2 gap-3">
@@ -639,7 +639,7 @@ const Overview = () => {
               {leaves.length === 0 && (
                 <div className="py-12 text-center">
                   <div className="text-3xl mb-3">✅</div>
-                  <div className="text-text-muted text-sm font-medium">All leave requests processed.</div>
+                  <div className="text-text-muted text-[16px] font-medium">All leave requests processed.</div>
                 </div>
               )}
               {leaves.length > 0 && (
@@ -660,7 +660,7 @@ const Overview = () => {
         <div className="card-header border-none px-8 pt-6 pb-4">
           <div>
             <h3 className="text-base font-bold text-text-primary tracking-tight">Lead Owner Mapping · {userInfo.industry} District Managers</h3>
-            <p className="text-xs text-text-muted mt-0.5 font-medium">Map &amp; reassign leads · One-by-one delivery to executive</p>
+            <p className="text-[14px] text-text-muted mt-0.5 font-medium">Map &amp; reassign leads · One-by-one delivery to executive</p>
           </div>
           <button
             className="px-4 py-2 rounded-xl bg-purple text-white text-xs font-bold hover:opacity-90 transition-all shadow-lg shadow-purple/20"
@@ -671,15 +671,15 @@ const Overview = () => {
         </div>
         <div className="overflow-x-auto">
           {recentLeads.length === 0 ? (
-            <div className="px-8 py-10 text-center text-text-muted text-sm">No leads to display.</div>
+            <div className="px-8 py-10 text-center text-text-muted text-[16px]">No leads to display.</div>
           ) : (
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="bg-surface2/60 border-b border-border">
-                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Name</th>
-                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Assigned To</th>
-                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">District</th>
-                  <th className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted">Status</th>
+                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">Name</th>
+                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">Assigned To</th>
+                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">District</th>
+                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">Status</th>
                   <th className="px-6 py-3"></th>
                 </tr>
               </thead>
@@ -699,15 +699,15 @@ const Overview = () => {
                           <span className="w-6 h-6 rounded-full bg-purple/10 text-purple text-[9px] font-bold flex items-center justify-center">
                             {lead.owner.charAt(0)}
                           </span>
-                          <span className="text-text-secondary text-[12px]">{lead.owner}</span>
+                          <span className="text-text-secondary text-[14px]">{lead.owner}</span>
                         </span>
                       ) : (
-                        <span className="text-text-muted text-[12px] italic">Unassigned</span>
+                        <span className="text-text-muted text-[14px] italic">Unassigned</span>
                       )}
                     </td>
                     <td className="px-6 py-3 text-text-secondary">{lead.district || '—'}</td>
                     <td className="px-6 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[12px] font-bold uppercase tracking-tight
                         ${lead.status === 'converted' ? 'bg-green/10 text-green' :
                           lead.status === 'hot' ? 'bg-red/10 text-red' :
                           lead.status === 'rnr' ? 'bg-surface2 text-text-muted' :
@@ -829,18 +829,18 @@ const Overview = () => {
               </div>
               <div>
                 <div className="text-sm font-bold text-text-primary">{cfg.title}</div>
-                <div className="text-xs text-text-muted mt-0.5">{cfg.subtitle}</div>
+                <div className="text-[14px] text-text-muted mt-0.5">{cfg.subtitle}</div>
               </div>
             </div>
 
             {/* Lead list or stat-only */}
             {cfg.loading ? (
-              <div className="py-10 text-center text-text-muted text-sm">Loading leads…</div>
+              <div className="py-10 text-center text-text-muted text-[16px]">Loading leads…</div>
             ) : cfg.callRows ? (
               cfg.callRows.length === 0 ? (
                 <div className="py-8 text-center">
                   <div className="text-3xl mb-3">📞</div>
-                  <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+                  <p className="text-[16px] text-text-muted">{cfg.emptyMsg}</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 -mr-2">
@@ -865,7 +865,7 @@ const Overview = () => {
                           <div className="text-sm font-bold text-text-primary truncate">
                             {lead?.company || lead?.name || 'Unknown Lead'}
                           </div>
-                          <div className="text-[11px] text-text-muted truncate">
+                          <div className="text-[13px] text-text-muted truncate">
                             {row.performedBy?.name || '—'} · {lead?.district || '—'} · {row.note || 'Call logged'}
                           </div>
                         </div>
@@ -883,7 +883,7 @@ const Overview = () => {
             ) : cfg.leads.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="text-3xl mb-3">📋</div>
-                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+                <p className="text-[16px] text-text-muted">{cfg.emptyMsg}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 -mr-2">
@@ -906,7 +906,7 @@ const Overview = () => {
                       <div className="text-sm font-bold text-text-primary truncate">
                         {lead.name || lead.company || 'Unnamed Lead'}
                       </div>
-                      <div className="text-[11px] text-text-muted truncate">
+                      <div className="text-[13px] text-text-muted truncate">
                         {lead.district || '—'} · {lead.company || 'No company'} · {lead.owner?.name || (typeof lead.owner === 'string' ? lead.owner : 'Unassigned')}
                       </div>
                     </div>
@@ -918,7 +918,7 @@ const Overview = () => {
                         {lead.status?.replace(/_/g, ' ') || 'new'}
                       </span>
                       {lead.priority && (
-                        <span className="text-[9px] font-bold text-text-muted uppercase">
+                        <span className="text-[11px] font-bold text-text-muted uppercase">
                           {lead.priority}
                         </span>
                       )}
@@ -954,11 +954,11 @@ const Overview = () => {
           <div className="p-3 bg-surface2/60 rounded-xl border border-border/40 mb-5">
             <div className="text-sm font-bold text-text-primary">{reassignModal.company || reassignModal.name}</div>
             <div className="flex items-center gap-3 mt-1.5">
-              <span className="text-[11px] text-text-muted">{reassignModal.district || '—'}</span>
+              <span className="text-[13px] text-text-muted">{reassignModal.district || '—'}</span>
               {reassignModal.owner && reassignModal.owner !== 'Unassigned' && (
                 <>
                   <span className="text-text-muted opacity-30">·</span>
-                  <span className="text-[11px] text-text-muted">Currently: <span className="font-bold text-text-primary">{reassignModal.owner}</span></span>
+                  <span className="text-[13px] text-text-muted">Currently: <span className="font-bold text-text-primary">{reassignModal.owner}</span></span>
                 </>
               )}
               <span className={`ml-auto px-2 py-0.5 rounded text-[9px] font-bold uppercase
@@ -972,7 +972,7 @@ const Overview = () => {
 
           {/* District Manager dropdown — only this IM's team */}
           <div className="space-y-2 mb-6">
-            <label className="block text-xs font-bold text-text-secondary">
+            <label className="block text-[14px] font-bold text-text-secondary">
               Assign To <span className="text-red">*</span>
             </label>
             <select
@@ -996,7 +996,7 @@ const Overview = () => {
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
             <button
-              className="px-4 py-2 rounded-xl text-xs font-bold border border-border text-text-secondary hover:bg-surface2 transition-all"
+              className="px-4 py-2 rounded-xl text-[14px] font-bold border border-border text-text-secondary hover:bg-surface2 transition-all"
               onClick={() => { setReassignModal(null); setReassignExecId(''); }}
             >
               Cancel
@@ -1030,7 +1030,7 @@ const Overview = () => {
               <div className={`text-base font-black ${eventModal.type === 'meeting' ? 'text-teal' : 'text-blue'}`}>
                 {new Date(eventModal.time).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
-              <div className="text-sm font-bold text-text-muted mt-0.5">
+              <div className="text-[16px] font-bold text-text-muted mt-0.5">
                 {new Date(eventModal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 <span className={`ml-3 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${eventModal.type === 'meeting' ? 'bg-teal/10 text-teal' : 'bg-blue/10 text-blue'}`}>
                   {eventModal.type === 'meeting' ? (eventModal.status?.includes('virtual') ? 'Virtual Meeting' : 'Direct Meeting') : 'Follow-up'}
@@ -1049,7 +1049,7 @@ const Overview = () => {
               { label: 'Priority',  value: eventModal.priority?.toUpperCase() || '—', colored: true },
             ].map(f => (
               <div key={f.label} className="p-3 rounded-xl bg-surface2 border border-border/40">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
+                <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
                 <div className={`text-sm font-bold ${f.colored && eventModal.priority === 'hot' ? 'text-red' : f.colored && eventModal.priority === 'warm' ? 'text-amber' : 'text-text-primary'}`}>
                   {f.value}
                 </div>
@@ -1060,18 +1060,18 @@ const Overview = () => {
           {/* Notes */}
           {eventModal.notes && (
             <div className="mb-5 p-3 bg-surface2/60 rounded-xl border border-border/40">
-              <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">Notes</div>
-              <p className="text-sm text-text-secondary leading-relaxed">{eventModal.notes}</p>
+              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">Notes</div>
+              <p className="text-[16px] text-text-secondary leading-relaxed">{eventModal.notes}</p>
             </div>
           )}
 
           {/* Activity history */}
           <div>
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Recent Activity</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Recent Activity</div>
             {eventActivityLoading ? (
-              <div className="py-6 text-center text-sm text-text-muted">Loading history…</div>
+              <div className="py-6 text-center text-[16px] text-text-muted">Loading history…</div>
             ) : eventActivity.length === 0 ? (
-              <div className="py-6 text-center text-sm text-text-muted italic">No activity recorded yet.</div>
+              <div className="py-6 text-center text-[16px] text-text-muted italic">No activity recorded yet.</div>
             ) : (
               <div className="relative pl-4 max-h-[220px] overflow-y-auto pr-1 -mr-2">
                 <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
@@ -1088,9 +1088,9 @@ const Overview = () => {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] font-semibold text-text-secondary">{a.action?.replace(/_/g, ' ')}</div>
+                    <div className="text-[13px] font-semibold text-text-secondary">{a.action?.replace(/_/g, ' ')}</div>
                     {a.note && (
-                      <div className="text-[11px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
+                      <div className="text-[13px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
                         {a.note}
                       </div>
                     )}
@@ -1152,7 +1152,7 @@ const Overview = () => {
               </div>
               <div>
                 <div className="text-sm font-bold text-text-primary">{exec.name}</div>
-                <div className="text-xs text-text-muted mt-0.5">{exec.district} · {cfg.subtitle}</div>
+                <div className="text-[14px] text-text-muted mt-0.5">{exec.district} · {cfg.subtitle}</div>
               </div>
             </div>
 
@@ -1160,7 +1160,7 @@ const Overview = () => {
             {execModalRows.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="text-3xl mb-3">📋</div>
-                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+                <p className="text-[16px] text-text-muted">{cfg.emptyMsg}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
@@ -1185,7 +1185,7 @@ const Overview = () => {
                       <div className="text-sm font-bold text-text-primary truncate">
                         {lead?.company || lead?.name || 'Unknown Lead'}
                       </div>
-                      <div className="text-[11px] text-text-muted truncate">
+                      <div className="text-[13px] text-text-muted truncate">
                         {type === 'calls'
                           ? `${lead?.district || '—'} · ${row.note || 'Call logged'}`
                           : `${lead?.district || '—'} · ${lead?.name || '—'}`}
@@ -1199,7 +1199,7 @@ const Overview = () => {
                         {type === 'calls' ? 'called' : (lead?.status?.replace(/_/g, ' ') || 'new')}
                       </span>
                       {lead?.priority && (
-                        <span className="text-[9px] font-bold text-text-muted uppercase">
+                        <span className="text-[11px] font-bold text-text-muted uppercase">
                           {lead.priority}
                         </span>
                       )}

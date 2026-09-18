@@ -66,12 +66,12 @@ const KeyAchievements = ({ userId, achievements = [], queryKey }) => {
               <div className="w-8 h-8 rounded-lg bg-surface2 flex items-center justify-center text-lg shrink-0">{a.icon || '⭐'}</div>
               <div>
                 <div className="text-[14px] font-bold text-text-primary">{a.title}</div>
-                {a.description && <div className="text-[12px] text-text-muted font-medium">{a.description}</div>}
+                {a.description && <div className="text-[14px] text-text-muted font-medium">{a.description}</div>}
               </div>
             </div>
           ))}
           {achievements.length === 0 && (
-            <div className="text-[13px] text-text-muted italic text-center py-4">
+            <div className="text-[15px] text-text-muted italic text-center py-4">
               No achievements yet.{canEdit ? ' Click “+ Add” to set one.' : ''}
             </div>
           )}
@@ -118,7 +118,7 @@ const KeyAchievements = ({ userId, achievements = [], queryKey }) => {
           {draft.length < MAX_ACHIEVEMENTS && (
             <button
               onClick={() => setDraft(rows => [...rows, emptyRow()])}
-              className="w-full border border-dashed border-border rounded-xl py-2 text-[12px] font-bold text-text-muted hover:border-blue hover:text-blue transition-colors"
+              className="w-full border border-dashed border-border rounded-xl py-2 text-[14px] font-bold text-text-muted hover:border-blue hover:text-blue transition-colors"
             >
               + Add achievement
             </button>
@@ -128,7 +128,7 @@ const KeyAchievements = ({ userId, achievements = [], queryKey }) => {
             <button
               onClick={() => setEditing(false)}
               disabled={saving}
-              className="px-4 py-1.5 rounded-lg border border-border text-[12px] font-bold text-text-secondary hover:bg-surface2"
+              className="px-4 py-1.5 rounded-lg border border-border text-[14px] font-bold text-text-secondary hover:bg-surface2"
             >
               Cancel
             </button>

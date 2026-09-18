@@ -31,7 +31,7 @@ const CreateExecutive = ({ onCancel }) => {
 
   return (
     <div className="flex flex-col items-center justify-center p-20 gap-4">
-      <p className="text-sm text-text-muted font-medium">Use the form above to create a new executive account.</p>
+      <p className="text-[16px] text-text-muted font-medium">Use the form above to create a new executive account.</p>
       <Button variant="outline" className="rounded-xl px-8 font-bold text-[10px] uppercase tracking-widest" onClick={handleBack}>
         ← Back to Team
       </Button>

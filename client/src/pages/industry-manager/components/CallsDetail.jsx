@@ -75,7 +75,7 @@ const CallsDetail = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Call Log</h1>
-          <p className="text-sm text-text-muted">
+          <p className="text-[16px] text-text-muted">
             {executiveName ? `${executiveName} · ` : ''}All calls · Outcomes · Feedback · {userInfo.industry} team
           </p>
         </div>
@@ -98,7 +98,7 @@ const CallsDetail = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Call Log · {userInfo.industry} District Managers</h2>
-          <p className="text-xs text-text-muted">Every call made by your team — outcome, notes, lead details</p>
+          <p className="text-[14px] text-text-muted">Every call made by your team — outcome, notes, lead details</p>
         </div>
         <Tag variant="blue" label={`${pagination.total || 0} Total Calls`} className="font-black px-5" />
       </div>
@@ -111,7 +111,7 @@ const CallsDetail = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-surface2/30 text-[9px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
+              <tr className="bg-surface2/30 text-[11px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
                 <th className="px-8 py-4">Lead / Company</th>
                 <th className="px-6 py-4">District Manager</th>
                 <th className="px-6 py-4">District</th>
@@ -132,10 +132,10 @@ const CallsDetail = () => {
                       {a.lead?.company || a.lead?.name || 'Unknown Lead'}
                     </button>
                     {a.lead?.company && a.lead?.name && (
-                      <div className="text-[10px] text-text-muted">{a.lead.name}</div>
+                      <div className="text-[12px] text-text-muted">{a.lead.name}</div>
                     )}
                     {a.lead?.phone && (
-                      <div className="text-[10px] text-text-muted font-mono">{a.lead.phone}</div>
+                      <div className="text-[12px] text-text-muted font-mono">{a.lead.phone}</div>
                     )}
                   </td>
                   <td className="px-6 py-4">
@@ -147,7 +147,7 @@ const CallsDetail = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-tight">
+                    <span className="text-[12px] font-bold text-text-secondary uppercase tracking-tight">
                       {a.performedBy?.district || a.lead?.district || '—'}
                     </span>
                   </td>
@@ -159,7 +159,7 @@ const CallsDetail = () => {
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[11px] text-text-secondary leading-relaxed">
+                    <span className="text-[13px] text-text-secondary leading-relaxed">
                       {a.note ? (a.note.length > 80 ? a.note.slice(0, 80) + '…' : a.note) : <span className="italic text-text-muted">No notes</span>}
                     </span>
                   </td>
@@ -167,7 +167,7 @@ const CallsDetail = () => {
                     <div className="text-[10px] font-bold text-text-primary">
                       {a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </div>
-                    <div className="text-[9px] text-text-muted">
+                    <div className="text-[11px] text-text-muted">
                       {a.createdAt ? new Date(a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                     </div>
                   </td>
@@ -187,21 +187,21 @@ const CallsDetail = () => {
         {/* Pagination */}
         {pagination.pages > 1 && (
           <div className="px-8 py-4 border-t border-border/40 flex items-center justify-between">
-            <span className="text-[11px] text-text-muted font-bold">
+            <span className="text-[13px] text-text-muted font-bold">
               Page {pagination.page} of {pagination.pages} · {pagination.total} records
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-4 py-1.5 rounded-lg border border-border text-[11px] font-bold text-text-muted hover:bg-surface2 disabled:opacity-40 transition-all"
+                className="px-4 py-1.5 rounded-lg border border-border text-[13px] font-bold text-text-muted hover:bg-surface2 disabled:opacity-40 transition-all"
               >
                 ← Prev
               </button>
               <button
                 onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
                 disabled={page === pagination.pages}
-                className="px-4 py-1.5 rounded-lg border border-border text-[11px] font-bold text-text-muted hover:bg-surface2 disabled:opacity-40 transition-all"
+                className="px-4 py-1.5 rounded-lg border border-border text-[13px] font-bold text-text-muted hover:bg-surface2 disabled:opacity-40 transition-all"
               >
                 Next →
               </button>

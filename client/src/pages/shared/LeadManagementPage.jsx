@@ -235,7 +235,7 @@ const LeadManagementPage = ({
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="flex items-center gap-2 mb-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">
+      <div className="flex items-center gap-2 mb-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">
         <span>{breadcrumbRoot}</span>
         <span className="text-text-muted/30">›</span>
         <span className="text-text-primary">Lead Management</span>
@@ -252,7 +252,7 @@ const LeadManagementPage = ({
                 ? `${priorityFilter.charAt(0).toUpperCase()}${priorityFilter.slice(1)} Leads`
                 : defaultTitle}
           </div>
-          <div className="text-[12px] text-text-muted mt-1">
+          <div className="text-[14px] text-text-muted mt-1">
             {priorityFilter
               ? `Showing ${priorityFilter} leads only · Allocation control · Lifecycle monitoring`
               : subtitle}
@@ -286,7 +286,7 @@ const LeadManagementPage = ({
           above them; a period arriving from a Founder Summary card (a week, a
           quarter, a year) is honoured too and shown as the chip on the right. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted mr-1">Period</span>
+        <span className="text-[12px] font-bold uppercase tracking-widest text-text-muted mr-1">Period</span>
         <select
           className="bg-white border border-border rounded-lg px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-blue transition-colors min-w-[150px]"
           value={period === 'month' || period === 'monthly' ? periodValue : ''}
@@ -320,7 +320,7 @@ const LeadManagementPage = ({
       {/* Priority filter — the Hot/Warm/Cold cards on the summary link straight in
           here, and without this row there was no sign the list was filtered. */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted mr-1">Priority</span>
+        <span className="text-[12px] font-bold uppercase tracking-widest text-text-muted mr-1">Priority</span>
         {[
           { id: '', label: 'All' },
           { id: 'hot', label: 'Hot' },
@@ -330,7 +330,7 @@ const LeadManagementPage = ({
           <button
             key={p.id || 'all'}
             onClick={() => { setPriorityFilter(p.id); setPage(1); }}
-            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border transition-all ${
+            className={`px-4 py-1.5 rounded-lg text-[13px] font-bold uppercase tracking-wider border transition-all ${
               priorityFilter === p.id
                 ? p.id === 'hot'
                   ? 'bg-[#fef2f2] text-[#dc2626] border-[#fecaca]'
@@ -352,7 +352,7 @@ const LeadManagementPage = ({
           <button 
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); setPage(1); }}
-            className={`px-5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border shadow-sm ${activeTab === tab.id ? 'bg-[#0f766e] text-white border-[#0f766e]' : 'bg-white text-text-muted border-border hover:border-blue/30'}`}
+            className={`px-5 py-2 rounded-xl text-[13px] font-bold uppercase tracking-wider transition-all border shadow-sm ${activeTab === tab.id ? 'bg-[#0f766e] text-white border-[#0f766e]' : 'bg-white text-text-muted border-border hover:border-blue/30'}`}
           >
             {tab.label} <span className={`ml-2 opacity-60 ${activeTab === tab.id ? 'text-white' : 'text-blue'}`}>{tab.count}</span>
           </button>
@@ -392,7 +392,7 @@ const LeadManagementPage = ({
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+          <table className="w-full text-left border-collapse text-[13px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
                 <th className="p-4">Lead Details</th>
@@ -408,7 +408,7 @@ const LeadManagementPage = ({
                 <tr key={l._id} className="hover:bg-surface2/30 transition-colors group">
                   <td className="p-4">
                     <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
-                    <div className="text-[10px] text-text-muted mt-0.5">{l.leadId}</div>
+                    <div className="text-[12px] text-text-muted mt-0.5">{l.leadId}</div>
                   </td>
                   {showStateColumn && (
                     <td className="p-4 text-center">
@@ -427,7 +427,7 @@ const LeadManagementPage = ({
                       label={l.status?.replace('_', ' ').toUpperCase() ?? 'UNKNOWN'} 
                     />
                   </td>
-                  <td className="p-4 text-center text-[11px] text-text-muted font-mono">{new Date(l.updatedAt).toLocaleDateString()}</td>
+                  <td className="p-4 text-center text-[13px] text-text-muted font-mono">{new Date(l.updatedAt).toLocaleDateString()}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       {/* Fix: Lead Pipeline — View Details button opens lead history */}
@@ -447,7 +447,7 @@ const LeadManagementPage = ({
         </div>
 
         <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/10">
-          <div className="text-[11px] text-text-muted font-bold uppercase tracking-tight">
+          <div className="text-[13px] text-text-muted font-bold uppercase tracking-tight">
             Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} of {total} {footerNoun}
           </div>
           <div className="flex gap-2">

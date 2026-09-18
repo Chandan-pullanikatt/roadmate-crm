@@ -46,7 +46,7 @@ export const ToastProvider = ({ children }) => {
                 {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : '!'}
               </div>
               <div className="flex-1">
-                <div className="text-xs font-bold text-text-muted uppercase tracking-wider mb-0.5">{toast.type}</div>
+                <div className="text-[14px] font-bold text-text-muted uppercase tracking-wider mb-0.5">{toast.type}</div>
                 <div className="text-sm font-semibold text-text-primary leading-tight">{toast.message}</div>
               </div>
               <button 

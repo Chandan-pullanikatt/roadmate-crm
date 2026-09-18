@@ -81,7 +81,7 @@ const MyAttendance = () => {
             </div>
           </div>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">My Attendance</h1>
-          <p className="text-sm text-text-muted mt-1 font-medium">
+          <p className="text-[16px] text-text-muted mt-1 font-medium">
             {userInfo.name} · {userInfo.industry} · Personal attendance record
           </p>
         </div>
@@ -97,19 +97,19 @@ const MyAttendance = () => {
       {/* Stats strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-5 border-l-4 border-purple">
-          <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Working Days</div>
+          <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-2">Working Days</div>
           <div className="text-2xl font-black text-text-primary">{daysInMonth}</div>
         </div>
         <div className="card p-5 border-l-4 border-green">
-          <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Days Present</div>
+          <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-2">Days Present</div>
           <div className="text-2xl font-black text-green">{presentCount}</div>
         </div>
         <div className="card p-5 border-l-4 border-red">
-          <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Leaves Taken</div>
+          <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-2">Leaves Taken</div>
           <div className="text-2xl font-black text-red">{leaveCount}</div>
         </div>
         <div className="card p-5 border-l-4 border-blue">
-          <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Holidays</div>
+          <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-2">Holidays</div>
           <div className="text-2xl font-black text-blue">{holidayCount}</div>
         </div>
       </div>
@@ -120,7 +120,7 @@ const MyAttendance = () => {
           <div className="text-sm font-extrabold">
             Attendance & Leave Matrix — {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
           </div>
-          <div className="flex gap-4 text-[11px] font-bold text-text-muted">
+          <div className="flex gap-4 text-[13px] font-bold text-text-muted">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-green inline-block" /> Present
             </span>
@@ -136,7 +136,7 @@ const MyAttendance = () => {
         <div>
           <div className="grid grid-cols-7 border-b border-border">
             {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-              <div key={d} className="p-3 text-[10px] font-black text-text-muted tracking-widest text-center">{d}</div>
+              <div key={d} className="p-3 text-[12px] font-black text-text-muted tracking-widest text-center">{d}</div>
             ))}
           </div>
           <div className="matrix-days-grid grid grid-cols-7">
@@ -151,7 +151,7 @@ const MyAttendance = () => {
                 >
                   {day && (
                     <>
-                      <div className={`text-[11px] font-black mb-1 ${isToday ? 'text-purple' : 'text-text-muted'}`}>
+                      <div className={`text-[13px] font-black mb-1 ${isToday ? 'text-purple' : 'text-text-muted'}`}>
                         {day < 10 ? `0${day}` : day}
                       </div>
                       <div className="flex flex-col gap-0.5">

@@ -14,10 +14,10 @@ const LeadQueueWorkBar = ({ done = 0, total = 0 }) => {
     <div className="w-full glass p-5 rounded-2xl shadow-md border border-white/40 animate-in">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="text-[10px] font-extrabold text-text-muted uppercase tracking-widest mb-1">Queue Velocity</div>
+          <div className="text-[12px] font-extrabold text-text-muted uppercase tracking-widest mb-1">Queue Velocity</div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-text-primary tracking-tighter">{done}</span>
-            <span className="text-xs font-bold text-text-muted">/ {total} <span className="opacity-60">Leads Handled</span></span>
+            <span className="text-[14px] font-bold text-text-muted">/ {total} <span className="opacity-60">Leads Handled</span></span>
           </div>
         </div>
         <div className={`px-3 py-1 rounded-full text-xs font-black text-white shadow-sm ${percentage >= 70 ? 'bg-accent-gradient' : percentage >= 30 ? 'bg-blue-gradient' : 'bg-red'}`}>

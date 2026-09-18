@@ -101,7 +101,7 @@ const DistrictExecutives = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">District Managers</h1>
-          <p className="text-sm text-text-muted">All district managers · {dashData?.user?.industry} · Performance</p>
+          <p className="text-[16px] text-text-muted">All district managers · {dashData?.user?.industry} · Performance</p>
         </div>
         <div className="flex items-center gap-3">
             <Avatar name={dashData?.user?.name} size="md" className="border-2 border-purple/10" />
@@ -112,7 +112,7 @@ const DistrictExecutives = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">District Managers · {dashData?.user?.industry} · {dashData?.user?.state}</h2>
-          <p className="text-xs text-text-muted">{stats.totalExecutives} executives - Performance & lead handling</p>
+          <p className="text-[14px] text-text-muted">{stats.totalExecutives} executives - Performance & lead handling</p>
         </div>
         <Button
             className="bg-purple text-white border-none rounded-xl px-6 h-10 font-bold shadow-lg shadow-purple/10"
@@ -164,7 +164,7 @@ const DistrictExecutives = () => {
                 <button 
                     key={d}
                     onClick={() => setActiveDistrict(d)}
-                    className={`px-4 py-1.5 text-[10px] font-bold rounded-md transition-all ${activeDistrict === d ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+                    className={`px-4 py-1.5 text-[12px] font-bold rounded-md transition-all ${activeDistrict === d ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
                 >{d}</button>
             ))}
           </div>

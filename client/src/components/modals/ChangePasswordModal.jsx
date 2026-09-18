@@ -11,7 +11,7 @@ import { useToast } from '../../context/ToastContext';
  */
 const PasswordField = ({ id, label, name, value, error, show, onToggle, onChange }) => (
   <div className="mb-4">
-    <label htmlFor={id} className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+    <label htmlFor={id} className="block text-[14px] font-bold text-text-muted uppercase tracking-wider mb-2">
       {label}
     </label>
     <div className="relative group">

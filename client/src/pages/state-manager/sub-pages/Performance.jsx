@@ -40,7 +40,7 @@ const Performance = () => {
       render: (val, row) => (
         <div>
           <div className="text-[13px] font-medium">{val}</div>
-          <div className="text-[11px] text-text-muted">{user.state} State</div>
+          <div className="text-[13px] text-text-muted">{user.state} State</div>
         </div>
       )
     },

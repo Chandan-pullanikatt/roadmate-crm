@@ -113,7 +113,7 @@ const Attendance = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Attendance</h1>
-          <p className="text-sm text-text-muted mt-1">Attendance register · Work %, half-days, salary</p>
+          <p className="text-[16px] text-text-muted mt-1">Attendance register · Work %, half-days, salary</p>
         </div>
       </div>
 
@@ -122,11 +122,11 @@ const Attendance = () => {
         <div className="p-6 border-b border-border flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-text-primary">Attendance</h2>
-            <p className="text-xs text-text-muted mt-0.5">All staff attendance {"\u00B7"} Work %, half-days, leaves {"\u00B7"} Auto-calculated</p>
+            <p className="text-[14px] text-text-muted mt-0.5">All staff attendance {"\u00B7"} Work %, half-days, leaves {"\u00B7"} Auto-calculated</p>
           </div>
           <div className="flex gap-3">
              <select 
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none"
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-[14px] font-bold text-text-secondary outline-none"
                value={month}
                onChange={e => setMonth(Number(e.target.value))}
              >
@@ -135,7 +135,7 @@ const Attendance = () => {
                ))}
              </select>
              <select
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none"
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-[14px] font-bold text-text-secondary outline-none"
                value={roleFilter}
                onChange={e => setRoleFilter(e.target.value)}
              >
@@ -161,7 +161,7 @@ const Attendance = () => {
               <span className="bg-[#dcfce7] text-[#166534] px-3 py-1 rounded-full text-[11px] font-bold border border-[#bbf7d0]">Normal: {workingHoursConfig?.normalStart || '9:30 AM'}</span>
               <span className="bg-[#eff6ff] text-[#1e40af] px-3 py-1 rounded-full text-[11px] font-bold border border-[#dbeafe]">Ramadan: {workingHoursConfig?.ramadanStart || '9:00 AM'}</span>
               <button className="bg-white border border-border px-4 py-1 rounded-lg text-[11px] font-bold ml-2 hover:bg-surface2 transition-all" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' }))}>Edit</button>
-              <span className="text-[10px] text-text-muted ml-4">Below {workingHoursConfig?.rules?.leaveThreshold ?? 30}% work → Leave | Below {workingHoursConfig?.rules?.halfDayThreshold ?? 70}% → Half Day</span>
+              <span className="text-[12px] text-text-muted ml-4">Below {workingHoursConfig?.rules?.leaveThreshold ?? 30}% work → Leave | Below {workingHoursConfig?.rules?.halfDayThreshold ?? 70}% → Half Day</span>
             </div>
           </div>
 
@@ -169,16 +169,16 @@ const Attendance = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-surface2/30 border-b border-border">
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Staff</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Present</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Absent</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Half Day</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Leave</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">WFH</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Late (min)</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Early Exit</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Work %</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Status</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted">Staff</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Present</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Absent</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Half Day</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Leave</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">WFH</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Late (min)</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Early Exit</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted">Work %</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -186,26 +186,26 @@ const Attendance = () => {
                   <tr key={idx} className="hover:bg-surface2/20 transition-colors">
                     <td className="p-4">
                       <div className="font-bold text-[14px] text-text-primary">{row.user?.name ?? 'Unknown'}</div>
-                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user?.role)}</div>
+                      <div className="text-[13px] text-text-muted">{getRoleLabel(row.user?.role)}</div>
                     </td>
-                    <td className="p-4 text-center font-bold text-[13px] text-text-secondary">{row.present}</td>
+                    <td className="p-4 text-center font-bold text-[15px] text-text-secondary">{row.present}</td>
                     <td className="p-4 text-center font-bold text-[13px] text-red">{row.absent || '0'}</td>
                     <td className="p-4 text-center font-bold text-[13px] text-orange">{row.halfDay || '0'}</td>
                     <td className="p-4 text-center font-bold text-[13px] text-blue">{row.leave || '0'}</td>
                     <td className="p-4 text-center">
                       {row.wfhDays > 0
                         ? <span className="px-2 py-0.5 bg-blue/10 text-blue rounded-full text-[10px] font-bold">{row.wfhDays}d</span>
-                        : <span className="text-[11px] text-text-muted">—</span>}
+                        : <span className="text-[13px] text-text-muted">—</span>}
                     </td>
                     <td className="p-4 text-center">
                       {(row.avgLateMinutes || 0) > 0
                         ? <span className="text-[12px] font-bold text-orange">{Math.round(row.avgLateMinutes)}m</span>
-                        : <span className="text-[11px] text-text-muted">—</span>}
+                        : <span className="text-[13px] text-text-muted">—</span>}
                     </td>
                     <td className="p-4 text-center">
                       {(row.avgEarlyExitMinutes || 0) > 0
                         ? <span className="text-[12px] font-bold text-red">{Math.round(row.avgEarlyExitMinutes)}m</span>
-                        : <span className="text-[11px] text-text-muted">—</span>}
+                        : <span className="text-[13px] text-text-muted">—</span>}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ const Attendance = () => {
         <div className="p-6 border-b border-border flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-text-primary">Auto Salary Calculation</h2>
-            <p className="text-xs text-text-muted mt-0.5">Basic salary + working days + leaves + incentives</p>
+            <p className="text-[14px] text-text-muted mt-0.5">Basic salary + working days + leaves + incentives</p>
           </div>
           <Button 
             className="bg-[#0f766e] text-white px-8 font-bold" 
@@ -259,14 +259,14 @@ const Attendance = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-surface2/10 border-b border-border">
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Staff</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Basic</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Working Days</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Leaves</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Deductions</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Incentives</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-center">Net Pay</th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-text-muted text-right">Action</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted">Staff</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted">Basic</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Working Days</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Leaves</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Deductions</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Incentives</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-center">Net Pay</th>
+                  <th className="p-4 text-[12px] font-bold uppercase tracking-widest text-text-muted text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -274,7 +274,7 @@ const Attendance = () => {
                   <tr key={idx} className="hover:bg-surface2/20 transition-colors">
                     <td className="p-4">
                       <div className="font-bold text-[14px] text-text-primary">{row.user?.name ?? 'Unknown'}</div>
-                      <div className="text-[11px] text-text-muted">{getRoleLabel(row.user?.role)}</div>
+                      <div className="text-[13px] text-text-muted">{getRoleLabel(row.user?.role)}</div>
                     </td>
                     <td className="p-4 font-medium text-[13px]">{"\u20B9"}{row.baseSalary?.toLocaleString()}</td>
                     <td className="p-4 text-center font-medium text-[13px]">{row.workingDays}</td>
@@ -284,7 +284,7 @@ const Attendance = () => {
                     <td className="p-4 text-center font-bold text-[14px] text-text-primary">{"\u20B9"}{row.netSalary?.toLocaleString()}</td>
                     <td className="p-4 text-right">
                       <button 
-                        className="bg-white border border-border text-text-secondary px-3 py-1 rounded-lg text-[11px] font-bold hover:bg-surface2 transition-all"
+                        className="bg-white border border-border text-text-secondary px-3 py-1 rounded-lg text-[13px] font-bold hover:bg-surface2 transition-all"
                         onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'edit-incentive', salaryId: row._id } }))}
                       >
                         Edit Incentive

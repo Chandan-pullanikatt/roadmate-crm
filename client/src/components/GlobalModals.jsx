@@ -621,10 +621,10 @@ const GlobalModals = () => {
         {duplicateWarning && (
           <div className="mb-6 rounded-2xl border border-orange/40 bg-orange/5 p-5">
             <div className="text-sm font-bold text-text-primary mb-1">Possible duplicate lead</div>
-            <div className="text-[13px] text-text-secondary mb-3">
+            <div className="text-[15px] text-text-secondary mb-3">
               A lead with this mobile number already exists. You can still create this one.
             </div>
-            <div className="rounded-xl bg-white border border-border p-3 text-[12px] text-text-secondary space-y-0.5">
+            <div className="rounded-xl bg-white border border-border p-3 text-[14px] text-text-secondary space-y-0.5">
               <div><span className="font-bold text-text-primary">{duplicateWarning.name}</span>{duplicateWarning.company ? ` · ${duplicateWarning.company}` : ''}</div>
               <div>{duplicateWarning.phone} · {String(duplicateWarning.status || '').replace(/_/g, ' ')}</div>
               <div>Owner: {duplicateWarning.owner}</div>
@@ -1017,7 +1017,7 @@ const GlobalModals = () => {
             <>
               <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-2xl flex gap-3 items-start">
                 <span className="text-amber text-lg">⚠️</span>
-                <div className="text-xs text-text-secondary leading-relaxed">
+                <div className="text-[14px] text-text-secondary leading-relaxed">
                   <span className="font-bold text-amber">{unassignedLeads.length} leads</span> are currently unallocated. 
                   Select the leads you want to assign to an executive.
                 </div>
@@ -1037,7 +1037,7 @@ const GlobalModals = () => {
                     />
                     <span className="text-xs font-bold uppercase tracking-wider">Select All Unallocated</span>
                   </div>
-                  <span className="text-[10px] font-bold text-text-muted">{selectedLeadIds.length} Selected</span>
+                  <span className="text-[12px] font-bold text-text-muted">{selectedLeadIds.length} Selected</span>
                 </div>
                 <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
                   {unassignedLeads.map(lead => (
@@ -1057,7 +1057,7 @@ const GlobalModals = () => {
                       />
                       <div className="flex-1">
                         <div className="text-sm font-bold text-text-primary">{lead.company || lead.name}</div>
-                        <div className="text-[10px] text-text-muted">{lead.name} · {lead.industry} · {lead.state}</div>
+                        <div className="text-[12px] text-text-muted">{lead.name} · {lead.industry} · {lead.state}</div>
                       </div>
                     </div>
                   ))}
@@ -1273,7 +1273,7 @@ const GlobalModals = () => {
               <Avatar initials="RS" colorClass="state" />
               <div className="flex-1">
                 <div className="text-sm font-bold text-text-primary">Rahul Sharma</div>
-                <div className="text-[10px] text-text-muted">State Manager · Maharashtra</div>
+                <div className="text-[12px] text-text-muted">State Manager · Maharashtra</div>
               </div>
               <Tag variant="amber">Pending</Tag>
             </div>
@@ -1285,7 +1285,7 @@ const GlobalModals = () => {
               <div className="text-text-muted">To: <span className="text-text-primary font-bold">Mar 29</span></div>
             </div>
 
-            <div className="text-xs bg-white/50 p-3 rounded-xl border border-border/50 text-text-secondary leading-relaxed italic">
+            <div className="text-[14px] bg-white/50 p-3 rounded-xl border border-border/50 text-text-secondary leading-relaxed italic">
               "Fever and cold since last night, need rest for recovery."
             </div>
 
@@ -1313,7 +1313,7 @@ const GlobalModals = () => {
         <div className="space-y-4">
           <div className="text-xs font-bold text-accent uppercase tracking-widest mb-2">Pending Requests</div>
           {pendingLeaves.length === 0 ? (
-            <div className="p-5 rounded-2xl bg-surface2/30 border border-border text-sm text-text-muted text-center">
+            <div className="p-5 rounded-2xl bg-surface2/30 border border-border text-[16px] text-text-muted text-center">
               No pending leave requests right now.
             </div>
           ) : (
@@ -1323,7 +1323,7 @@ const GlobalModals = () => {
                   <Avatar name={leave.user?.name || 'Staff'} />
                   <div className="flex-1">
                     <div className="text-sm font-bold text-text-primary">{leave.user?.name}</div>
-                    <div className="text-[10px] text-text-muted">
+                    <div className="text-[12px] text-text-muted">
                       {[leave.user?.role?.replace(/_/g, ' '), leave.user?.state, leave.user?.industry].filter(Boolean).join(' · ')}
                     </div>
                   </div>
@@ -1337,7 +1337,7 @@ const GlobalModals = () => {
                   <div className="text-text-muted">To: <span className="text-text-primary font-bold">{new Date(leave.toDate).toLocaleDateString()}</span></div>
                 </div>
 
-                <div className="text-xs bg-white/50 p-3 rounded-xl border border-border/50 text-text-secondary leading-relaxed italic">
+                <div className="text-[14px] bg-white/50 p-3 rounded-xl border border-border/50 text-text-secondary leading-relaxed italic">
                   "{leave.reason}"
                 </div>
 
@@ -1653,7 +1653,7 @@ const GlobalModals = () => {
                 <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center text-blue text-sm">01</div>
                 <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Casual Leave (CL)</div>
               </div>
-              <p className="text-xs text-text-muted leading-relaxed pl-11">
+              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
                 12 days per calendar year. Maximum 2 days at a time. Requests must be submitted at least 48 hours in advance for approval.
               </p>
             </div>
@@ -1663,7 +1663,7 @@ const GlobalModals = () => {
                 <div className="w-8 h-8 rounded-lg bg-purple/10 flex items-center justify-center text-purple text-sm">02</div>
                 <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Sick Leave (SL)</div>
               </div>
-              <p className="text-xs text-text-muted leading-relaxed pl-11">
+              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
                 8 days per calendar year. Medical certificate mandatory for any sick leave exceeding 2 consecutive days.
               </p>
             </div>
@@ -1673,7 +1673,7 @@ const GlobalModals = () => {
                 <div className="w-8 h-8 rounded-lg bg-amber/10 flex items-center justify-center text-amber text-sm">03</div>
                 <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Optional Holidays</div>
               </div>
-              <p className="text-xs text-text-muted leading-relaxed pl-11">
+              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
                 2 days per year from the approved list of religious/regional optional holidays. Subject to manager approval.
               </p>
             </div>
@@ -1683,7 +1683,7 @@ const GlobalModals = () => {
                 <div className="w-8 h-8 rounded-lg bg-red/10 flex items-center justify-center text-red text-sm">04</div>
                 <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Loss of Pay (LOP)</div>
               </div>
-              <p className="text-xs text-text-muted leading-relaxed pl-11">
+              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
                 Unapproved absence or leave exceeding the annual limit will result in pro-rata salary deduction.
               </p>
             </div>
@@ -1694,7 +1694,7 @@ const GlobalModals = () => {
                 <div className="text-xl">💡</div>
                 <div className="space-y-2">
                   <div className="text-sm font-bold text-text-primary">Approval Hierarchy</div>
-                  <ul className="space-y-1.5 text-xs text-text-muted">
+                  <ul className="space-y-1.5 text-[14px] text-text-muted">
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue"></span>
                       <span className="font-bold text-text-secondary">District Managers</span> leaves are approved by Industry Managers.
@@ -1768,19 +1768,19 @@ const GlobalModals = () => {
             {/* Identity Numbers */}
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-surface2/50 rounded-xl border border-border">
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Aadhaar Number</div>
-                <div className="text-[14px] font-bold text-text-primary font-mono">{viewDocsUser.aadhaarNumber || <span className="text-text-muted font-normal text-[12px]">Not provided</span>}</div>
+                <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-1">Aadhaar Number</div>
+                <div className="text-[14px] font-bold text-text-primary font-mono">{viewDocsUser.aadhaarNumber || <span className="text-text-muted font-normal text-[14px]">Not provided</span>}</div>
               </div>
               <div className="p-4 bg-surface2/50 rounded-xl border border-border">
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">PAN Number</div>
-                <div className="text-[14px] font-bold text-text-primary font-mono uppercase">{viewDocsUser.panNumber || <span className="text-text-muted font-normal text-[12px]">Not provided</span>}</div>
+                <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-1">PAN Number</div>
+                <div className="text-[14px] font-bold text-text-primary font-mono uppercase">{viewDocsUser.panNumber || <span className="text-text-muted font-normal text-[14px]">Not provided</span>}</div>
               </div>
             </div>
 
             {/* Existing Documents */}
             {viewDocsUser.documents?.length > 0 && (
               <div>
-                <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3">Attached Documents</div>
+                <div className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-3">Attached Documents</div>
                 <div className="space-y-2">
                   {viewDocsUser.documents.map((doc, i) => (
                     <div key={i} className="flex items-center justify-between p-3 bg-surface2/40 rounded-lg border border-border">
@@ -1790,7 +1790,7 @@ const GlobalModals = () => {
                         </div>
                         <div>
                           <div className="text-[12px] font-bold text-text-primary">{doc.name || 'Document'}</div>
-                          {doc.size && <div className="text-[10px] text-text-muted">{(doc.size / 1024).toFixed(1)} KB</div>}
+                          {doc.size && <div className="text-[12px] text-text-muted">{(doc.size / 1024).toFixed(1)} KB</div>}
                         </div>
                       </div>
                       {doc.url && (
@@ -1806,7 +1806,7 @@ const GlobalModals = () => {
 
             {/* Upload New Documents */}
             <div>
-              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3">Attach Documents</div>
+              <div className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-3">Attach Documents</div>
               <div className="grid grid-cols-2 gap-4">
                 <FileUpload
                   folder="staff-docs"

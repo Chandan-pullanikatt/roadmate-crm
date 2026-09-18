@@ -70,7 +70,7 @@ const StateManagerDetail = () => {
           <span className="text-lg">←</span>
         </button>
         <div>
-          <div className="flex items-center gap-2 text-[12px] font-medium text-text-muted">
+          <div className="flex items-center gap-2 text-[14px] font-medium text-text-muted">
             <span>State Manager Management</span>
             <span className="opacity-30">›</span>
             <span className="text-text-primary font-semibold">{user.name}</span>
@@ -92,7 +92,7 @@ const StateManagerDetail = () => {
               <span className="bg-green/10 text-green px-3 py-1 rounded-full text-[12px] font-bold">Active</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-y-2 gap-x-8 text-[14px] text-text-muted font-medium">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-y-2 gap-x-8 text-[16px] text-text-muted font-medium">
               <div className="flex items-center gap-2">
                 <span className="opacity-60 text-lg">📧</span> {user.email}
               </div>
@@ -115,9 +115,9 @@ const StateManagerDetail = () => {
           </div>
 
           <div className="bg-surface2/50 p-4 rounded-xl border border-border min-w-[200px]">
-            <div className="text-[11px] font-black text-text-muted uppercase tracking-wider mb-1">Monthly Salary</div>
+            <div className="text-[13px] font-black text-text-muted uppercase tracking-wider mb-1">Monthly Salary</div>
             <div className="text-[24px] font-black text-text-primary">₹{user.basicSalary?.toLocaleString() || 0}</div>
-            <div className="text-[11px] text-text-muted font-medium mt-1">Per Month · Regional Budget</div>
+            <div className="text-[13px] text-text-muted font-medium mt-1">Per Month · Regional Budget</div>
           </div>
         </div>
       </div>
@@ -133,7 +133,7 @@ const StateManagerDetail = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all ${activeTab === tab.id ? 'bg-white shadow-sm text-teal' : 'text-text-muted hover:text-text-primary'}`}
+            className={`px-6 py-2 rounded-lg text-[15px] font-bold transition-all ${activeTab === tab.id ? 'bg-white shadow-sm text-teal' : 'text-text-muted hover:text-text-primary'}`}
           >
             {tab.label}
           </button>
@@ -173,10 +173,10 @@ const StateManagerDetail = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4 pl-6 text-[11px] font-black uppercase text-text-muted tracking-widest">Manager</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Industry</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Joined</th>
+                <th className="p-4 pl-6 text-[13px] font-black uppercase text-text-muted tracking-widest">Manager</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Industry</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Joined</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -187,7 +187,7 @@ const StateManagerDetail = () => {
                       <Avatar name={mgr.name} size="sm" />
                       <div>
                         <div className="font-bold text-[14px]">{mgr.name}</div>
-                        <div className="text-[12px] text-text-muted">{mgr.phone}</div>
+                        <div className="text-[14px] text-text-muted">{mgr.phone}</div>
                       </div>
                     </div>
                   </td>
@@ -197,7 +197,7 @@ const StateManagerDetail = () => {
                   <td className="p-4">
                     <span className="bg-green/10 text-green px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-green/20">Active</span>
                   </td>
-                  <td className="p-4 text-[13px] font-medium text-text-muted">
+                  <td className="p-4 text-[15px] font-medium text-text-muted">
                     {mgr.dateOfJoining ? format(new Date(mgr.dateOfJoining), 'PP') : '—'}
                   </td>
                 </tr>
@@ -217,10 +217,10 @@ const StateManagerDetail = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4 pl-6 text-[11px] font-black uppercase text-text-muted tracking-widest">Type</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Duration</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Reason</th>
+                <th className="p-4 pl-6 text-[13px] font-black uppercase text-text-muted tracking-widest">Type</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Duration</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Reason</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -228,11 +228,11 @@ const StateManagerDetail = () => {
                 <tr key={leave._id} className="hover:bg-surface2/30 transition-all">
                   <td className="p-4 pl-6">
                     <div className="font-bold text-[14px] capitalize">{leave.type} Leave</div>
-                    <div className="text-[11px] text-text-muted">{format(new Date(leave.requestedAt), 'PP')}</div>
+                    <div className="text-[13px] text-text-muted">{format(new Date(leave.requestedAt), 'PP')}</div>
                   </td>
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-text-primary">{format(new Date(leave.fromDate), 'MMM dd')} - {format(new Date(leave.toDate), 'MMM dd')}</div>
-                    <div className="text-[11px] text-text-muted">{leave.days} Day(s)</div>
+                    <div className="text-[13px] text-text-muted">{leave.days} Day(s)</div>
                   </td>
                   <td className="p-4">
                     <Tag 
@@ -240,7 +240,7 @@ const StateManagerDetail = () => {
                       label={leave.status.toUpperCase()} 
                     />
                   </td>
-                  <td className="p-4 text-[12px] font-medium text-text-secondary max-w-xs truncate">
+                  <td className="p-4 text-[14px] font-medium text-text-secondary max-w-xs truncate">
                     {leave.reason}
                   </td>
                 </tr>
@@ -263,7 +263,7 @@ const StateManagerDetail = () => {
                 <div className="w-10 h-10 rounded-lg bg-surface2 flex items-center justify-center text-xl">📄</div>
                 <div>
                   <div className="text-[14px] font-bold truncate max-w-[150px]">{doc.name}</div>
-                  <div className="text-[11px] text-text-muted">Uploaded {format(new Date(doc.uploadedAt), 'PP')}</div>
+                  <div className="text-[13px] text-text-muted">Uploaded {format(new Date(doc.uploadedAt), 'PP')}</div>
                 </div>
               </div>
               <a 
@@ -291,9 +291,9 @@ const StateManagerDetail = () => {
 const StatCard = ({ label, value, sub, color }) => (
   <div className={`bg-white p-6 rounded-2xl border border-border shadow-sm relative overflow-hidden`}>
     <div className={`absolute top-0 left-0 w-1 h-full bg-${color}`}></div>
-    <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">{label}</div>
+    <div className="text-text-muted font-bold text-[13px] uppercase tracking-wider mb-2">{label}</div>
     <div className="text-[32px] font-black text-text-primary mb-1">{value}</div>
-    <div className="text-[12px] text-text-muted font-medium">{sub}</div>
+    <div className="text-[14px] text-text-muted font-medium">{sub}</div>
   </div>
 );
 
@@ -301,7 +301,7 @@ const OverviewItem = ({ label, value, icon }) => (
   <div className="flex items-center justify-between p-3 rounded-xl bg-surface2/30 border border-border/50">
     <div className="flex items-center gap-3">
       <span className="text-xl">{icon}</span>
-      <span className="text-[13px] font-bold text-text-muted uppercase tracking-wider tracking-tighter">{label}</span>
+      <span className="text-[15px] font-bold text-text-muted uppercase tracking-wider tracking-tighter">{label}</span>
     </div>
     <span className="text-[16px] font-black text-text-primary">{value}</span>
   </div>

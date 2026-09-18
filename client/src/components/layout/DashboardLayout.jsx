@@ -386,7 +386,7 @@ const DashboardLayout = ({
                         <>
                           {searchResults.leads.length > 0 && (
                             <div className="p-2">
-                              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-muted">Leads</div>
+                              <div className="px-3 py-2 text-[12px] font-black uppercase tracking-widest text-text-muted">Leads</div>
                               {searchResults.leads.map(lead => (
                                 <div 
                                   key={lead._id}
@@ -400,7 +400,7 @@ const DashboardLayout = ({
                                 >
                                   <div>
                                     <div className="text-[13px] font-bold group-hover:text-orange transition-colors">{lead.name}</div>
-                                    <div className="text-[11px] text-text-muted font-medium">{lead.company}</div>
+                                    <div className="text-[13px] text-text-muted font-medium">{lead.company}</div>
                                   </div>
                                   <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${lead.status === 'converted' ? 'bg-green/10 text-green' : 'bg-orange/10 text-orange'}`}>
                                     {lead.status}
@@ -412,7 +412,7 @@ const DashboardLayout = ({
 
                           {searchResults.staff.length > 0 && (
                             <div className="p-2 border-t border-border/50">
-                              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-muted">Staff</div>
+                              <div className="px-3 py-2 text-[12px] font-black uppercase tracking-widest text-text-muted">Staff</div>
                               {searchResults.staff.map(member => (
                                 <div 
                                   key={member._id}
@@ -428,7 +428,7 @@ const DashboardLayout = ({
                                   </div>
                                   <div>
                                     <div className="text-[13px] font-bold">{member.name}</div>
-                                    <div className="text-[11px] text-text-muted font-medium capitalize">{member.role.replace('_', ' ')}</div>
+                                    <div className="text-[13px] text-text-muted font-medium capitalize">{member.role.replace('_', ' ')}</div>
                                   </div>
                                 </div>
                               ))}
@@ -489,7 +489,7 @@ const DashboardLayout = ({
                           {unreadCount > 0 && (
                             <button onClick={handleMarkAllRead} className="text-[10px] font-bold text-blue hover:underline">Mark all read</button>
                           )}
-                          <button onClick={() => setIsNotificationOpen(false)} className="text-[10px] font-bold text-text-muted hover:underline">Close</button>
+                          <button onClick={() => setIsNotificationOpen(false)} className="text-[12px] font-bold text-text-muted hover:underline">Close</button>
                         </div>
                       </div>
                       <div className="max-h-[400px] overflow-y-auto">
@@ -516,7 +516,7 @@ const DashboardLayout = ({
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs font-bold text-text-primary line-clamp-2">{n.message}</div>
-                                  <div className="text-[9px] text-text-muted mt-1 font-medium">
+                                  <div className="text-[11px] text-text-muted mt-1 font-medium">
                                     {n.createdAt ? new Date(n.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                                   </div>
                                 </div>

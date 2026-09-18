@@ -187,7 +187,7 @@ const Reports = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
-          <p className="text-sm text-text-muted">Lead, performance, revenue, attendance, salary</p>
+          <p className="text-[16px] text-text-muted">Lead, performance, revenue, attendance, salary</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -211,7 +211,7 @@ const Reports = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Reports · {userInfo.industry} · {userInfo.state}</h2>
-          <p className="text-xs text-text-muted">View data inline or download as CSV</p>
+          <p className="text-[14px] text-text-muted">View data inline or download as CSV</p>
         </div>
         <Button
           className="bg-purple text-white border-none rounded-xl px-5 h-10 font-bold text-[11px] uppercase tracking-widest shadow-lg shadow-purple/10"
@@ -239,7 +239,7 @@ const Reports = () => {
               <h3 className={`text-base font-black mb-1 uppercase tracking-tight transition-colors ${isActive ? 'text-purple' : 'text-text-primary group-hover:text-purple'}`}>
                 {card.title}
               </h3>
-              <p className="text-[10px] text-text-muted font-bold uppercase tracking-tighter opacity-60 leading-relaxed mb-5">
+              <p className="text-[12px] text-text-muted font-bold uppercase tracking-tighter opacity-60 leading-relaxed mb-5">
                 {card.sub}
               </p>
               <div className="flex gap-2 w-full">
@@ -253,7 +253,7 @@ const Reports = () => {
                 <button
                   onClick={() => handleDownload(card.type)}
                   disabled={!!loading || !!previewLoading}
-                  className="flex-1 py-2 text-[11px] font-bold bg-surface2 text-text-muted rounded-xl hover:bg-text-primary hover:text-white transition-all"
+                  className="flex-1 py-2 text-[13px] font-bold bg-surface2 text-text-muted rounded-xl hover:bg-text-primary hover:text-white transition-all"
                 >
                   {loading === card.type ? 'Downloading...' : 'Download'}
                 </button>
@@ -276,7 +276,7 @@ const Reports = () => {
               <h3 className="text-sm font-black text-text-primary uppercase tracking-tight">
                 {previewCard.icon} {previewCard.title} — Preview
               </h3>
-              <p className="text-[10px] text-text-muted mt-0.5">
+              <p className="text-[12px] text-text-muted mt-0.5">
                 Showing first {Math.min(preview.rows.length, 20)} of {preview.rows.length} rows
               </p>
             </div>
@@ -290,7 +290,7 @@ const Reports = () => {
               </button>
               <button
                 onClick={() => setPreview(null)}
-                className="w-8 h-8 rounded-lg bg-surface2 text-text-muted hover:bg-surface3 flex items-center justify-center text-sm font-bold transition-colors"
+                className="w-8 h-8 rounded-lg bg-surface2 text-text-muted hover:bg-surface3 flex items-center justify-center text-[16px] font-bold transition-colors"
               >
                 ✕
               </button>
@@ -301,7 +301,7 @@ const Reports = () => {
               <thead>
                 <tr className="bg-surface2/40 border-b border-border/40">
                   {previewHeaders.map(h => (
-                    <th key={h} className="px-5 py-3 text-[9px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">
+                    <th key={h} className="px-5 py-3 text-[11px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">
                       {h.replace(/_/g, ' ')}
                     </th>
                   ))}
@@ -311,7 +311,7 @@ const Reports = () => {
                 {preview.rows.slice(0, 20).map((row, i) => (
                   <tr key={i} className="hover:bg-purple-light/5 transition-colors">
                     {previewHeaders.map(h => (
-                      <td key={h} className="px-5 py-3 text-[11px] text-text-secondary whitespace-nowrap">
+                      <td key={h} className="px-5 py-3 text-[13px] text-text-secondary whitespace-nowrap">
                         {row[h] !== undefined && row[h] !== '' ? String(row[h]) : '—'}
                       </td>
                     ))}

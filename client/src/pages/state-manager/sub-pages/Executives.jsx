@@ -74,13 +74,13 @@ const Executives = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
           <PeriodPicker {...picker} />
           <select
-            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[14px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
             value={filterState}
             onChange={e => setFilterState(e.target.value)}
           >
@@ -90,7 +90,7 @@ const Executives = () => {
             ))}
           </select>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">🔍</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[14px]">🔍</span>
             <input
               type="text"
               placeholder="Search name or district..."
@@ -104,7 +104,7 @@ const Executives = () => {
 
       <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[11px] uppercase tracking-wider font-bold text-text-muted">
+          <table className="w-full text-left border-collapse text-[13px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
                 <th className="p-4">Manager</th>
@@ -128,12 +128,12 @@ const Executives = () => {
                   <tr key={e._id} className="hover:bg-surface2/30 transition-colors group">
                     <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">
                       {e.name}
-                      {e.district && <span className="block text-[10px] font-medium text-text-muted normal-case mt-0.5">{e.district}</span>}
+                      {e.district && <span className="block text-[12px] font-medium text-text-muted normal-case mt-0.5">{e.district}</span>}
                     </td>
                     <td className="p-4 text-center">
                       <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{e.state || user.state}</span>
                     </td>
-                    <td className="p-4 text-[12px] text-text-secondary">{e.industry || '—'}</td>
+                    <td className="p-4 text-[14px] text-text-secondary">{e.industry || '—'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-2 justify-center">
                         <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">

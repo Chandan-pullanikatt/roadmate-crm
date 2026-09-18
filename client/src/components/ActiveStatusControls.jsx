@@ -12,7 +12,7 @@ export const ActiveFilter = ({ showInactive, onChange }) => (
         key={label}
         type="button"
         onClick={() => onChange(val)}
-        className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all ${showInactive === val ? 'bg-white shadow-sm text-text-primary' : 'text-text-muted hover:text-text-secondary'}`}
+        className={`px-3 py-1 text-[13px] font-bold rounded-lg transition-all ${showInactive === val ? 'bg-white shadow-sm text-text-primary' : 'text-text-muted hover:text-text-secondary'}`}
       >
         {label}
       </button>

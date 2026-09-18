@@ -87,7 +87,7 @@ const Targets = () => {
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
-                className={`px-4 py-2 text-[12px] font-bold capitalize transition-colors ${period === p ? 'bg-[#0f766e] text-white' : 'bg-white text-text-secondary hover:bg-surface2'}`}
+                className={`px-4 py-2 text-[14px] font-bold capitalize transition-colors ${period === p ? 'bg-[#0f766e] text-white' : 'bg-white text-text-secondary hover:bg-surface2'}`}
               >
                 {p}
               </button>
@@ -158,7 +158,7 @@ const Targets = () => {
       <div className="card">
         <div className="card-header border-b border-border bg-surface2/10">
           <div className="section-title text-sm">Team Progress — {label}</div>
-          <span className="text-[11px] text-text-muted">{teamTargets.length} targets set</span>
+          <span className="text-[13px] text-text-muted">{teamTargets.length} targets set</span>
         </div>
 
         {teamTargets.length === 0 ? (
@@ -169,7 +169,7 @@ const Targets = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface2/30 border-b border-border text-[10px] font-black uppercase tracking-widest text-text-muted">
+                <tr className="bg-surface2/30 border-b border-border text-[12px] font-black uppercase tracking-widest text-text-muted">
                   <th className="p-4">Staff</th>
                   {TARGET_METRICS.map(m => <th key={m.key} className="p-4">{m.label}</th>)}
                   <th className="p-4 text-center">Overall</th>
@@ -184,11 +184,11 @@ const Targets = () => {
                     <tr key={t._id || idx} className="hover:bg-surface2/20 transition-colors">
                       <td className="p-4">
                         <div className="font-bold text-[13px]">{t.user?.name || 'Unknown'}</div>
-                        <div className="text-[10px] text-text-muted capitalize">{t.user?.role?.replace(/_/g, ' ') || ''}</div>
+                        <div className="text-[12px] text-text-muted capitalize">{t.user?.role?.replace(/_/g, ' ') || ''}</div>
                       </td>
                       {TARGET_METRICS.map((m, i) => (
                         <td key={m.key} className="p-4 min-w-[160px]">
-                          <div className="text-[10px] text-text-muted mb-1">{t.achieved?.[m.key] || 0} / {t[m.key] || 0}</div>
+                          <div className="text-[12px] text-text-muted mb-1">{t.achieved?.[m.key] || 0} / {t[m.key] || 0}</div>
                           <ProgressBar value={percents[i]} color={m.color} />
                         </td>
                       ))}
@@ -197,7 +197,7 @@ const Targets = () => {
                           <div className="text-[22px] font-black font-mono" style={{ color: overall >= 100 ? '#059669' : overall >= 70 ? '#0f766e' : overall >= 40 ? '#D97706' : '#DC2626' }}>
                             {overall}%
                           </div>
-                          <div className="text-[9px] font-bold text-text-muted uppercase tracking-widest">
+                          <div className="text-[11px] font-bold text-text-muted uppercase tracking-widest">
                             {overall >= 100 ? '🏆 On Target' : overall >= 70 ? '✅ Good' : overall >= 40 ? '⚠️ At Risk' : '🔴 Critical'}
                           </div>
                         </div>

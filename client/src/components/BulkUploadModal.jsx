@@ -349,7 +349,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         {/* Info Banner */}
         <div className="p-4 bg-blue-light/30 border border-blue/20 rounded-2xl flex gap-3 items-start">
           <span className="text-blue text-lg">ℹ️</span>
-          <div className="text-xs text-text-secondary leading-relaxed">
+          <div className="text-[14px] text-text-secondary leading-relaxed">
             Required columns: <span className="font-bold text-text-primary">Name</span> and <span className="font-bold text-text-primary">Contact Information</span>. Missing either will skip that row.<br />
             To <span className="font-bold text-text-primary">update an existing lead</span>, include its <span className="font-bold text-text-primary">Lead ID</span> in the first column — the row will be treated as an update instead of a new insert.<br />
             <button type="button" onClick={handleDownloadTemplate} className="text-blue font-bold hover:underline mt-1 bg-transparent border-none cursor-pointer p-0">Download CSV Template</button>
@@ -374,7 +374,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                 📄
               </div>
               <div className="text-sm font-bold text-text-primary">Click to upload CSV file</div>
-              <div className="text-xs text-text-muted">Maximum file size: 5MB</div>
+              <div className="text-[14px] text-text-muted">Maximum file size: 5MB</div>
             </div>
           </div>
         )}
@@ -400,7 +400,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
             <div className="flex justify-between items-center">
               <div>
                 <div className="text-sm font-bold text-text-primary">Previewing {parsedData.rows.length} valid leads</div>
-                <div className="text-xs text-text-muted mt-1">File: {file?.name}</div>
+                <div className="text-[14px] text-text-muted mt-1">File: {file?.name}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => { setParsedData(null); setFile(null); setErrors([]); }}>
                 Change File
@@ -439,7 +439,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                 </table>
               </div>
               {parsedData.rows.length > 5 && (
-                <div className="px-4 py-2 bg-surface2/30 text-xs text-center text-text-muted border-t border-border font-medium">
+                <div className="px-4 py-2 bg-surface2/30 text-[14px] text-center text-text-muted border-t border-border font-medium">
                   Showing first 5 rows of {parsedData.rows.length} total rows
                 </div>
               )}
@@ -449,7 +449,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
-                  <div className="text-[11px] text-text-muted mt-0.5">Optionally assign every lead in this upload to one manager or district manager.</div>
+                  <div className="text-[13px] text-text-muted mt-0.5">Optionally assign every lead in this upload to one manager or district manager.</div>
                 </div>
                 <Tag variant={assignmentTargetId ? 'green' : 'gray'} label={assignmentTargetId ? 'Will assign' : 'Unallocated'} />
               </div>

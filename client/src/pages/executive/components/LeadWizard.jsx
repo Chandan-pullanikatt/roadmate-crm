@@ -4,6 +4,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 import { FileUpload } from '../../../components/ui';
+import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../../../components/PaymentAmountField';
 
 const STEPS = [
   { id: 'call', label: 'Call' },
@@ -49,6 +50,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
   const [escalationReason, setEscalationReason] = useState('');
   const [inviteeId, setInviteeId] = useState('');
   const [documents, setDocuments] = useState([]);
+  const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch suggested dates
@@ -80,6 +82,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
     setMeetingDate('');
     setMeetingTime('');
     setDocuments([]);
+    setAmount('');
   }, [lead?._id]);
 
   const transitionMutation = useMutation({
@@ -97,7 +100,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
           <div className="wizard-complete-anim">
             <div style={{ fontSize: 56, marginBottom: 16 }}>✨</div>
             <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>All Tasks Completed!</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Great work! Check your pipeline or take a break.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 16 }}>Great work! Check your pipeline or take a break.</p>
           </div>
         </div>
       </div>
@@ -174,6 +177,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
         await transitionMutation.mutateAsync(payload);
         addToast('Lead marked as Not Interested.', 'warning');
       } else if (PAYMENT_OUTCOMES.has(outcome)) {
+        if (AMOUNT_STAGES.has(outcome)) payload.amount = parseAmount(amount);
         await transitionMutation.mutateAsync(payload);
         const PAYMENT_LABELS = {
           blocking_amount_received: '💰 Blocking amount received!',
@@ -218,7 +222,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
   };
 
   const canProceed = () => {
-    if (step === 2) return feedback.trim().length > 0;
+    if (step === 2) return feedback.trim().length > 0 && (!AMOUNT_STAGES.has(outcome) || parseAmount(amount) > 0);
     if (step === 3) {
       if (outcome === 'followup') return selectedDate || (showCustomDate && customDate && customReason);
       if (outcome === 'schedule_virtual') return meetingDate && meetingLink;
@@ -253,12 +257,12 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
             {lead.rnrCount > 0 && <span className="tag tag-red" style={{ fontSize: 10 }}>RNR ×{lead.rnrCount}</span>}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>{lead.company || lead.name}</h2>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div style={{ fontSize: 15, color: 'var(--text-muted)', marginTop: 4 }}>
             {lead.name} · {lead.phone} · {lead.district || lead.state || ''}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             Lead {currentIndex} of {queueLength}
           </div>
           {lead.expectedRevenue > 0 && (
@@ -297,6 +301,9 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
               setStrategyNote={setStrategyNote}
               documents={documents}
               setDocuments={setDocuments}
+              lead={lead}
+              amount={amount}
+              setAmount={setAmount}
             />
           )}
           {step === 3 && outcome === 'followup' && (
@@ -402,7 +409,7 @@ const StepCall = ({ lead, onCallDone }) => {
       )}
       <div className="wizard-call-icon">📞</div>
       <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Call {lead.name}</h3>
-      <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 6 }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 16, marginBottom: 6 }}>
         {lead.phone} · {lead.company || 'Private Client'}
       </p>
       {lead.notes && (
@@ -422,7 +429,7 @@ const StepOutcome = ({ onSelect }) => (
   <div>
     <div style={{ marginBottom: 20 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>What's the outcome?</h3>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Select what happened on this call</p>
+      <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>Select what happened on this call</p>
     </div>
     <div className="wizard-outcomes">
       {OUTCOMES.map(o => (
@@ -436,16 +443,24 @@ const StepOutcome = ({ onSelect }) => (
   </div>
 );
 
-const StepFeedback = ({ leadId, outcome, prompt, feedback, setFeedback, strategyNote, setStrategyNote, documents, setDocuments }) => (
+const StepFeedback = ({ leadId, outcome, prompt, feedback, setFeedback, strategyNote, setStrategyNote, documents, setDocuments, lead, amount, setAmount }) => (
   <div className="wizard-feedback-form">
     <div style={{ marginBottom: 4 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>
         {outcome === 'converted' ? '🎉 Congratulations!' : outcome === 'not_interested' ? 'Capture Insights' : 'Call Feedback'}
       </h3>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{prompt}</p>
+      <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>{prompt}</p>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 }}>
       <div className="space-y-4">
+        <PaymentAmountField
+          stage={outcome}
+          value={amount}
+          onChange={setAmount}
+          lead={lead}
+          labelClassName="wizard-field-label"
+          inputClassName="input"
+        />
         <div>
           <div className="wizard-field-label">Feedback & Important Notes *</div>
           <textarea className="wizard-textarea" placeholder="What was discussed? Key points from the call..." value={feedback} onChange={e => setFeedback(e.target.value)} autoFocus />
@@ -488,7 +503,7 @@ const StepFollowUp = ({ suggestedDates, selectedDate, setSelectedDate, showCusto
   <div>
     <div style={{ marginBottom: 20 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Schedule Follow-Up</h3>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Pick a suggested date or choose your own</p>
+      <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>Pick a suggested date or choose your own</p>
     </div>
     <div className="wizard-dates">
       {(suggestedDates || []).map((d, i) => (
@@ -530,7 +545,7 @@ const StepMeeting = ({ type, meetingDate, setMeetingDate, meetingTime, setMeetin
         {type === 'schedule_virtual' ? '🎥 Schedule Virtual Meeting' : 
          type === 'reschedule' ? '🔄 Reschedule Meeting' : '🏢 Schedule Direct Meeting'}
       </h3>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+      <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>
         {type === 'reschedule' ? 'Select the new date and time for this meeting' : `Set the date, time${type === 'schedule_virtual' ? ' and meeting link' : ''}`}
       </p>
     </div>
@@ -556,7 +571,7 @@ const StepMeeting = ({ type, meetingDate, setMeetingDate, meetingTime, setMeetin
         <option value="">No Manager Invited</option>
         {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.role?.replace('_', ' ')})</option>)}
       </select>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
         Manager will receive a real-time notification.
       </p>
     </div>
@@ -567,7 +582,7 @@ const StepEscalate = ({ managers, selectedId, setSelectedId, reason, setReason }
   <div className="wizard-feedback-form">
     <div style={{ marginBottom: 4 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>⬆️ Escalate to Manager</h3>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Choose which manager should handle this lead</p>
+      <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>Choose which manager should handle this lead</p>
     </div>
     <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
       {managers.length > 0 ? managers.map(m => (
@@ -582,7 +597,7 @@ const StepEscalate = ({ managers, selectedId, setSelectedId, reason, setReason }
         </button>
       )) : (
         <div style={{ padding: 20, textAlign: 'center', background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No direct managers found in your hierarchy.</p>
+          <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>No direct managers found in your hierarchy.</p>
         </div>
       )}
     </div>
@@ -667,17 +682,17 @@ const MeetingConfirmCard = ({ lead, onComplete }) => {
             {is30m && <span className="tag tag-red" style={{ fontSize: 10 }}>30 MIN!</span>}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>{lead.company || lead.name}</h2>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div style={{ fontSize: 15, color: 'var(--text-muted)', marginTop: 4 }}>
             {lead.name} · {lead.phone}
           </div>
         </div>
         {meetingAt && (
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Meeting</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Meeting</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--accent)', marginTop: 4 }}>
               {meetingAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-secondary)' }}>
               {meetingAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
@@ -691,7 +706,7 @@ const MeetingConfirmCard = ({ lead, onComplete }) => {
             {isVM ? '🎥' : '📍'}
           </div>
           <h3 style={{ fontSize: 17, fontWeight: 800, marginTop: 16, marginBottom: 6 }}>{taskLabel}</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>
             Call the lead to confirm this meeting will go ahead as planned.
           </p>
         </div>

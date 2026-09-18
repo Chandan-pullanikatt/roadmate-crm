@@ -104,9 +104,9 @@ const FileUpload = ({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <i className={`ri-upload-cloud-2-line text-2xl ${error ? 'text-red-400' : 'text-gray-400'}`}></i>
-            <span className="text-sm font-medium text-gray-300">{error || label}</span>
-            <span className="text-xs text-gray-500">{subtitle || `Max size ${maxSize}MB`}</span>
+            <i className={`ri-upload-cloud-2-line text-2xl ${error ? 'text-red-400' : 'text-gray-500'}`}></i>
+            <span className="text-sm font-medium text-gray-700">{error || label}</span>
+            <span className="text-xs text-gray-600">{subtitle || `Max size ${maxSize}MB`}</span>
           </div>
         )}
       </div>

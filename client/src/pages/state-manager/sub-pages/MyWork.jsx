@@ -179,7 +179,7 @@ const MyWork = () => {
                 <div className="flex flex-col items-center justify-center h-[350px] text-center p-8">
                    <div className="text-5xl mb-6">🧔</div>
                    <div className="text-lg font-bold mb-2">Press "Start Work" to begin your session</div>
-                   <p className="text-text-muted text-sm max-w-[350px] leading-relaxed">
+                   <p className="text-text-muted text-[16px] max-w-[350px] leading-relaxed">
                      Industry Partner leads appear one-by-one · Direct meetings first, then follow-ups, then new leads
                    </p>
                 </div>
@@ -187,7 +187,7 @@ const MyWork = () => {
                 <div className="flex flex-col items-center justify-center h-[350px] text-center p-8">
                    <div className="text-5xl mb-6">🎉</div>
                    <div className="text-lg font-bold mb-2">All work done for today!</div>
-                   <p className="text-text-muted text-sm">You've completed your entire personal queue.</p>
+                   <p className="text-text-muted text-[16px]">You've completed your entire personal queue.</p>
                 </div>
              ) : (
                 <div className="card-body">
@@ -195,7 +195,7 @@ const MyWork = () => {
                       <div>
                          <div className="text-2xl font-black tracking-tight">{currentLead.company || currentLead.business}</div>
                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs text-text-muted">Primary Contact:</span>
+                            <span className="text-[14px] text-text-muted">Primary Contact:</span>
                             <span className="text-sm font-bold">{currentLead.name}</span>
                             <span className="w-1 h-1 rounded-full bg-border"></span>
                             <span className="text-sm font-bold text-blue">{currentLead.phone}</span>
@@ -206,20 +206,20 @@ const MyWork = () => {
 
                    <div className="grid grid-cols-3 gap-4 mb-8">
                       <div className="bg-surface2 p-4 rounded-xl border border-border/50">
-                         <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">District</div>
+                         <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-1">District</div>
                          <div className="text-sm font-bold">{currentLead.district}</div>
                       </div>
                       <div className="bg-surface2 p-4 rounded-xl border border-border/50">
-                         <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Status</div>
+                         <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-1">Status</div>
                          <div className="text-sm font-bold capitalize">{currentLead.status}</div>
                       </div>
                       <div className="bg-surface2 p-4 rounded-xl border border-border/50">
-                         <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">RNR Count</div>
+                         <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-1">RNR Count</div>
                          <div className="text-sm font-bold">{currentLead.rnrCount || 0}x</div>
                       </div>
                    </div>
 
-                   <div className="bg-blue-light/5 border border-blue/10 p-5 rounded-2xl mb-10 text-[13px] leading-relaxed italic text-text-secondary shadow-inner">
+                   <div className="bg-blue-light/5 border border-blue/10 p-5 rounded-2xl mb-10 text-[15px] leading-relaxed italic text-text-secondary shadow-inner">
                       <strong>💡 Strategy Note:</strong> High-priority Industry Partner. Focus on state-wide franchise benefits and volume-based revenue sharing models.
                    </div>
 
@@ -237,7 +237,7 @@ const MyWork = () => {
            <div className="card flex-1 flex flex-col">
               <div className="card-header border-b border-border bg-surface2/5">
                  <div className="section-title text-sm">Today's Queue · My Leads</div>
-                 <div className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">Meetings {"\u2192"} Follow-ups {"\u2192"} New</div>
+                 <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">Meetings {"\u2192"} Follow-ups {"\u2192"} New</div>
               </div>
               {/* Scrolls inside a fixed height so a 30-lead queue cannot set the row height */}
               <div className="divide-y divide-border overflow-y-auto max-h-[560px]">
@@ -254,21 +254,21 @@ const MyWork = () => {
                       title={`Work ${l.company || l.business || l.name} next`}
                       className={`group flex items-center gap-4 p-4 hover:bg-surface2 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/50 ${i === currentLeadIdx ? 'bg-blue-light/5 border-l-4 border-blue' : ''}`}
                     >
-                       <div className="w-5 h-5 rounded-full border border-border flex items-center justify-center text-[10px] font-bold text-text-muted">{i + 1}</div>
+                       <div className="w-5 h-5 rounded-full border border-border flex items-center justify-center text-[12px] font-bold text-text-muted">{i + 1}</div>
                        <div className="flex-1 min-w-0">
                           <div className="text-[13px] font-bold truncate group-hover:text-blue">{l.company || l.business}</div>
-                          <div className="text-[11px] text-text-muted">{l.district} · {l.name}</div>
+                          <div className="text-[13px] text-text-muted">{l.district} · {l.name}</div>
                        </div>
                        <div className="text-right">
                           <div className="text-[10px] font-bold mono">10:00 AM</div>
-                          <div className="text-[9px] text-text-muted uppercase font-bold mt-0.5">{l.status === 'meeting_scheduled' ? '🤝 meeting' : '📞 followup'}</div>
+                          <div className="text-[11px] text-text-muted uppercase font-bold mt-0.5">{l.status === 'meeting_scheduled' ? '🤝 meeting' : '📞 followup'}</div>
                        </div>
                     </div>
                  ))}
-                 {myLeads.length === 0 && <div className="p-12 text-center text-text-muted text-xs italic">No leads in queue today</div>}
+                 {myLeads.length === 0 && <div className="p-12 text-center text-text-muted text-[14px] italic">No leads in queue today</div>}
               </div>
               <div className="card-footer bg-surface2/5 border-t border-border p-3 text-center">
-                 <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{todayStats.completedLeads || 0}/{myLeads.length + (todayStats.completedLeads || 0)} completed today {"·"} {myLeads.length} in queue</div>
+                 <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest">{todayStats.completedLeads || 0}/{myLeads.length + (todayStats.completedLeads || 0)} completed today {"·"} {myLeads.length} in queue</div>
               </div>
            </div>
 
@@ -280,7 +280,7 @@ const MyWork = () => {
         <div className="card-header border-b border-border bg-surface2/5">
            <div>
               <div className="section-title text-[15px]">My All Leads - {currentUser?.state} State Level</div>
-              <div className="text-[11px] text-text-muted mt-0.5">Industry Partners & State-level connections assigned to me directly</div>
+              <div className="text-[13px] text-text-muted mt-0.5">Industry Partners & State-level connections assigned to me directly</div>
            </div>
            <div className="flex gap-2">
               <div className="flex bg-surface2 p-1 rounded-lg border border-border">
@@ -292,7 +292,7 @@ const MyWork = () => {
         <DataTable
           columns={[
             { header: 'ID', accessor: 'leadId', render: (val, row) => <span className="mono text-[11px] font-bold">{val}</span> },
-            { header: 'PARTNER / ORGANISATION', accessor: 'company', render: (val, row) => <div><div className="font-bold text-[13px]">{val || row.business}</div><div className="text-[11px] text-text-muted">{row.name} {"\u00B7"} {row.phone}</div></div> },
+            { header: 'PARTNER / ORGANISATION', accessor: 'company', render: (val, row) => <div><div className="font-bold text-[13px]">{val || row.business}</div><div className="text-[13px] text-text-muted">{row.name} {"\u00B7"} {row.phone}</div></div> },
             { header: 'DISTRICT', accessor: 'district' },
             { header: 'SOURCE', accessor: 'leadSource', render: (val) => <Tag variant="gray" label={val || 'Direct'} /> },
             { header: 'STATUS', accessor: 'status', render: (val) => <Tag variant={val === 'converted' ? 'green' : (val === 'meeting_virtual' || val === 'meeting_direct') ? 'blue' : val === 'followup' ? 'amber' : 'gray'} label={(val || 'NEW').toUpperCase()} /> },
@@ -327,7 +327,7 @@ const MyWork = () => {
         />
         {allMyLeadsTotal > 0 && (
           <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/5">
-            <div className="text-[11px] text-text-muted font-bold uppercase tracking-tight">
+            <div className="text-[13px] text-text-muted font-bold uppercase tracking-tight">
               Showing {((leadsPage - 1) * LEADS_PER_PAGE) + 1} - {Math.min(leadsPage * LEADS_PER_PAGE, allMyLeadsTotal)} of {allMyLeadsTotal} leads
             </div>
             <div className="flex gap-2">
@@ -363,25 +363,25 @@ const MyWork = () => {
            <div className="card-body">
               <div className="grid grid-cols-2 gap-4 mb-8">
                  <div className="p-6 bg-surface2 rounded-2xl border border-border text-center">
-                    <div className="text-[13px] font-bold text-text-muted mb-1">Total Calls</div>
+                    <div className="text-[15px] font-bold text-text-muted mb-1">Total Calls</div>
                     <div className="text-3xl font-black text-blue">{monthlyStats.totalCalls || 0}</div>
                  </div>
                  <div className="p-6 bg-surface2 rounded-2xl border border-border text-center">
-                    <div className="text-[13px] font-bold text-text-muted mb-1">Meetings</div>
+                    <div className="text-[15px] font-bold text-text-muted mb-1">Meetings</div>
                     <div className="text-3xl font-black text-purple">{monthlyStats.totalMeetings || 0}</div>
                  </div>
                  <div className="p-6 bg-surface2 rounded-2xl border border-border text-center">
-                    <div className="text-[13px] font-bold text-text-muted mb-1">Conversions</div>
+                    <div className="text-[15px] font-bold text-text-muted mb-1">Conversions</div>
                     <div className="text-3xl font-black text-green">{monthlyStats.converted || 0}</div>
                  </div>
                  <div className="p-6 bg-surface2 rounded-2xl border border-border text-center">
-                    <div className="text-[13px] font-bold text-text-muted mb-1">Revenue Closed</div>
+                    <div className="text-[15px] font-bold text-text-muted mb-1">Revenue Closed</div>
                     <div className="text-3xl font-black text-accent">{"\u20B9"}{(monthlyStats.revenue / 100000).toFixed(1)}L</div>
                  </div>
               </div>
               <div className="px-2">
                  <div className="flex justify-between items-end mb-2">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-text-muted">Work Completion</div>
+                    <div className="text-[13px] font-bold uppercase tracking-widest text-text-muted">Work Completion</div>
                     <div className="text-[13px] font-black text-blue">84%</div>
                  </div>
                  <div className="h-3 w-full bg-surface2 rounded-full overflow-hidden border border-border">
@@ -396,7 +396,7 @@ const MyWork = () => {
               <div className="section-title text-sm">My Strategy Log</div>
            </div>
            <div className="card-body">
-              <div className="text-[11px] font-bold text-text-muted uppercase mb-4 tracking-widest">Strategies that worked for conversions</div>
+              <div className="text-[13px] font-bold text-text-muted uppercase mb-4 tracking-widest">Strategies that worked for conversions</div>
               <div className="space-y-4 mb-8">
                  {strategyLogs.map((log, i) => (
                     <div key={i} className="p-4 bg-surface2 rounded-2xl border border-border/50">
@@ -404,12 +404,12 @@ const MyWork = () => {
                           <div className="text-[12px] font-black">{log.leadName}</div>
                           <Tag variant="green" label="Converted" />
                        </div>
-                       <div className="text-[11.5px] text-text-secondary leading-relaxed italic">
+                       <div className="text-[13.5px] text-text-secondary leading-relaxed italic">
                           "Strategy: {log.strategy}"
                        </div>
                     </div>
                  ))}
-                 {strategyLogs.length === 0 && <div className="text-center py-8 text-text-muted italic text-xs">No conversions logged yet</div>}
+                 {strategyLogs.length === 0 && <div className="text-center py-8 text-text-muted italic text-[14px]">No conversions logged yet</div>}
               </div>
               
               <textarea 

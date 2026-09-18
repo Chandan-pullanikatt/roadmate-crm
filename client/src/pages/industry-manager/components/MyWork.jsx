@@ -282,7 +282,7 @@ const MyWork = () => {
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
             My Work — {dashData?.user?.name} · {dashData?.user?.industry}
             {isRefreshing && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-text-muted bg-surface2 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-text-muted bg-surface2 px-2 py-0.5 rounded-full">
                 <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
                 </svg>
@@ -290,13 +290,13 @@ const MyWork = () => {
               </span>
             )}
           </h2>
-          <p className="text-xs text-text-muted mt-0.5">
+          <p className="text-[14px] text-text-muted mt-0.5">
             Your personal lead queue · District Partner leads · One-by-one execution
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <span
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-bold uppercase tracking-wider
               ${workStarted ? 'bg-green/10 text-green' : workCompleted ? 'bg-surface2 text-text-muted' : 'bg-amber/10 text-amber'}`}
           >
             <span className={`w-2 h-2 rounded-full ${workStarted ? 'bg-green animate-pulse' : 'bg-amber'}`} />
@@ -315,7 +315,7 @@ const MyWork = () => {
                   style={{ width: `${completionPct}%` }}
                 />
               </div>
-              <span className="text-[9px] text-text-muted uppercase tracking-widest font-bold leading-none">
+              <span className="text-[11px] text-text-muted uppercase tracking-widest font-bold leading-none">
                 {workCompleted ? 'Final' : 'Live'}
               </span>
             </div>
@@ -354,7 +354,7 @@ const MyWork = () => {
                 <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl" style={{ background: card.color }} />
 
                 <div className="pt-1">
-                  <div className="text-[10px] sm:text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 sm:mb-3 leading-tight">
+                  <div className="text-[12px] sm:text-[13px] font-bold text-text-muted uppercase tracking-wider mb-2 sm:mb-3 leading-tight">
                     {card.label}
                   </div>
                   <div
@@ -365,7 +365,7 @@ const MyWork = () => {
                       ? <div className="h-8 w-14 rounded-lg animate-pulse" style={{ backgroundColor: `${card.color}22` }} />
                       : card.value}
                   </div>
-                  <div className="text-[10px] sm:text-[11px] font-medium text-text-muted leading-tight truncate">
+                  <div className="text-[12px] sm:text-[13px] font-medium text-text-muted leading-tight truncate">
                     {card.delta}
                   </div>
                 </div>
@@ -392,7 +392,7 @@ const MyWork = () => {
                 <span className="text-lg">🎯</span>
                 <div>
                   <div className="font-bold text-sm text-text-primary">Active Lead</div>
-                  <div className="text-[11px] text-text-muted">
+                  <div className="text-[13px] text-text-muted">
                     {workStarted && activeLead
                       ? `${activeIndex + 1} of ${workQueue.length} leads`
                       : 'Start work to load your first lead'}
@@ -421,13 +421,13 @@ const MyWork = () => {
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <div className="w-20 h-20 rounded-full bg-surface2 flex items-center justify-center text-3xl mb-4 border border-border/50">👨‍💼</div>
                   <h4 className="text-base font-bold text-text-primary mb-1">Press "Start Work" to begin</h4>
-                  <p className="text-xs text-text-muted max-w-xs">Leads appear one-by-one · Direct meetings first, then follow-ups, then new leads</p>
+                  <p className="text-[14px] text-text-muted max-w-xs">Leads appear one-by-one · Direct meetings first, then follow-ups, then new leads</p>
                 </div>
               ) : isQueueEmpty ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <div className="text-4xl mb-3">✅</div>
                   <h4 className="text-base font-bold">Queue Completed!</h4>
-                  <p className="text-xs text-text-muted mt-1">You've worked through all your tasks for now.</p>
+                  <p className="text-[14px] text-text-muted mt-1">You've worked through all your tasks for now.</p>
                 </div>
               ) : queueComplete ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
@@ -437,7 +437,7 @@ const MyWork = () => {
                 </div>
               ) : !activeLead ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <div className="text-sm text-text-muted italic">Loading next lead…</div>
+                  <div className="text-[16px] text-text-muted italic">Loading next lead…</div>
                 </div>
               ) : (
                 /* Active lead: 2-column layout */
@@ -449,10 +449,10 @@ const MyWork = () => {
                       className="text-xl font-bold text-text-primary tracking-tight hover:text-purple transition-colors text-left group"
                     >
                       {activeLead.company || activeLead.name}
-                      <span className="ml-2 text-[11px] font-semibold text-text-muted opacity-0 group-hover:opacity-60 transition-opacity">↗ Details</span>
+                      <span className="ml-2 text-[13px] font-semibold text-text-muted opacity-0 group-hover:opacity-60 transition-opacity">↗ Details</span>
                     </button>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-xs text-text-muted">Contact: <span className="font-semibold text-text-primary">{activeLead.name}</span></span>
+                      <span className="text-[14px] text-text-muted">Contact: <span className="font-semibold text-text-primary">{activeLead.name}</span></span>
                       <span className="w-1 h-1 rounded-full bg-border2" />
                       <span className="text-xs text-purple font-bold">{activeLead.phone}</span>
                     </div>
@@ -469,7 +469,7 @@ const MyWork = () => {
                           { label: 'Revenue', value: activeLead.expectedRevenue ? formatCurrency(activeLead.expectedRevenue) : '—' },
                         ].map(f => (
                           <div key={f.label} className="p-3 rounded-xl bg-surface2 border border-border/40">
-                            <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
+                            <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
                             <div className={`text-sm font-bold ${f.colored ? getStatusColor(activeLead.status) : 'text-text-primary'}`}>{f.value}</div>
                           </div>
                         ))}
@@ -482,28 +482,28 @@ const MyWork = () => {
                           className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-green hover:bg-green/5 transition-all group cursor-pointer"
                         >
                           <span className="text-xl">✓</span>
-                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-green">Call Done</span>
+                          <span className="text-[13px] font-bold text-text-secondary group-hover:text-green">Call Done</span>
                         </button>
                         <button
                           onClick={() => openFeedback('rnr')}
                           className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-red hover:bg-red/5 transition-all group cursor-pointer"
                         >
                           <span className="text-xl">📵</span>
-                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-red">RNR</span>
+                          <span className="text-[13px] font-bold text-text-secondary group-hover:text-red">RNR</span>
                         </button>
                         <button
                           onClick={advanceToNext}
                           className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 border-border bg-surface hover:border-purple hover:bg-purple/5 transition-all group cursor-pointer"
                         >
                           <span className="text-xl">⏭️</span>
-                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-purple">Skip for Now</span>
+                          <span className="text-[13px] font-bold text-text-secondary group-hover:text-purple">Skip for Now</span>
                         </button>
                       </div>
                     </div>
 
                     {/* Right: Interaction history */}
                     <div>
-                      <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Interaction History</div>
+                      <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Interaction History</div>
                       <div className="relative pl-4">
                         <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
                         {recentActivity.length > 0 ? (
@@ -513,14 +513,14 @@ const MyWork = () => {
                               <div className="text-xs font-bold text-text-primary">
                                 {new Date(a.createdAt || a.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </div>
-                              <div className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
+                              <div className="text-[13px] text-text-secondary mt-0.5 leading-relaxed">
                                 {a.action?.replace(/_/g, ' ')}
                                 {a.note ? ` — ${a.note.slice(0, 60)}${a.note.length > 60 ? '…' : ''}` : ''}
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-xs text-text-muted italic">No activity yet for this lead.</div>
+                          <div className="text-[14px] text-text-muted italic">No activity yet for this lead.</div>
                         )}
                       </div>
                     </div>
@@ -538,7 +538,7 @@ const MyWork = () => {
             <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
               <div>
                 <div className="font-bold text-sm text-text-primary">Today's Queue · My Leads</div>
-                <div className="text-[10px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Direct meetings → Follow-ups → New leads</div>
+                <div className="text-[12px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Direct meetings → Follow-ups → New leads</div>
               </div>
             </div>
             <div className="divide-y divide-border/40 max-h-[280px] overflow-y-auto">
@@ -548,13 +548,13 @@ const MyWork = () => {
                   onClick={() => { setQueueComplete(false); setActiveLeadId(lead._id); }}
                   className={`px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-all hover:bg-surface2/60 ${activeLead?._id === lead._id ? 'bg-purple-light/20 border-l-4 border-purple' : 'border-l-4 border-transparent'}`}
                 >
-                  <div className="text-[10px] font-bold text-text-muted w-5 shrink-0">{idx + 1}</div>
+                  <div className="text-[12px] font-bold text-text-muted w-5 shrink-0">{idx + 1}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-text-primary truncate">{lead.company || lead.name}</div>
-                    <div className="text-[11px] text-text-muted truncate">{lead.district} · {lead.name}</div>
+                    <div className="text-[13px] text-text-muted truncate">{lead.district} · {lead.name}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-[10px] font-bold text-text-muted">
+                    <div className="text-[12px] font-bold text-text-muted">
                       {(lead.meetingAt || lead.nextActionAt || lead.followUpDate)
                         ? new Date(lead.meetingAt || lead.nextActionAt || lead.followUpDate)
                             .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -566,10 +566,10 @@ const MyWork = () => {
                   </div>
                 </div>
               ))}
-              {isQueueEmpty && <div className="p-10 text-center text-text-muted text-sm italic">Queue empty</div>}
+              {isQueueEmpty && <div className="p-10 text-center text-text-muted text-[16px] italic">Queue empty</div>}
             </div>
             <div className="px-5 py-3 bg-surface2/50 border-t border-border/40 text-center">
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
+              <span className="text-[12px] font-bold text-text-muted uppercase tracking-widest">
                 {todayStats.completedLeads || 0}/{myQueue.length} completed today
               </span>
             </div>
@@ -580,7 +580,7 @@ const MyWork = () => {
             <div className="card overflow-hidden">
               <div className="px-5 py-4 border-b border-border/50">
                 <div className="font-bold text-sm text-text-primary">My Lead Sources</div>
-                <div className="text-[11px] text-text-muted mt-0.5">Leads from District Partners · Mapped to me</div>
+                <div className="text-[13px] text-text-muted mt-0.5">Leads from District Partners · Mapped to me</div>
               </div>
               <div className="p-4 space-y-2">
                 {dashData.leadSources.map((source, idx) => (
@@ -589,7 +589,7 @@ const MyWork = () => {
                       <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">{source.icon}</div>
                       <div>
                         <div className="text-xs font-bold text-text-primary">{source.label}</div>
-                        <div className="text-[10px] text-text-muted">District Partner Leads</div>
+                        <div className="text-[12px] text-text-muted">District Partner Leads</div>
                       </div>
                     </div>
                     <div className="text-sm font-bold text-purple">{source.count} leads</div>
@@ -607,7 +607,7 @@ const MyWork = () => {
         <div className="px-6 py-5 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="font-bold text-sm text-text-primary">Allocated Tasks</div>
-            <div className="text-[11px] text-text-muted mt-0.5">
+            <div className="text-[13px] text-text-muted mt-0.5">
               Tasks assigned to you · {(tasksData?.tasks || []).filter(t => t.status !== 'completed').length} pending
             </div>
           </div>
@@ -616,7 +616,7 @@ const MyWork = () => {
               <button
                 key={tab}
                 onClick={() => setTaskFilter(tab)}
-                className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md transition-all ${taskFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+                className={`px-3.5 py-1.5 text-[12px] font-bold rounded-md transition-all ${taskFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
               >
                 {tab}
               </button>
@@ -629,7 +629,7 @@ const MyWork = () => {
             <thead className="bg-surface2/50 border-b border-border/50">
               <tr>
                 {['', 'Task', 'Assigned By', 'Due Date', 'Priority', 'Status', ''].map((h, i) => (
-                  <th key={i} className="px-5 py-3.5 text-[10px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={i} className="px-5 py-3.5 text-[12px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -652,11 +652,11 @@ const MyWork = () => {
 
                     {/* Task title + description */}
                     <td className="px-5 py-3.5 max-w-[300px]">
-                      <div className={`text-sm font-bold truncate ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}`}>
+                      <div className={`text-[16px] font-bold truncate ${isDone ? 'line-through text-text-muted' : 'text-text-primary'}`}>
                         {task.title}
                       </div>
                       {task.description && (
-                        <div className="text-[11px] text-text-muted mt-0.5 truncate max-w-[260px]">
+                        <div className="text-[13px] text-text-muted mt-0.5 truncate max-w-[260px]">
                           {task.description}
                         </div>
                       )}
@@ -668,7 +668,7 @@ const MyWork = () => {
                         <span className="w-5 h-5 rounded-full bg-purple/10 text-purple text-[9px] font-bold flex items-center justify-center shrink-0">
                           {task.assignedBy?.name?.charAt(0) || '?'}
                         </span>
-                        <span className="text-xs text-text-secondary font-medium">
+                        <span className="text-[14px] text-text-secondary font-medium">
                           {task.assignedBy?.name || '—'}
                         </span>
                       </div>
@@ -679,19 +679,19 @@ const MyWork = () => {
                       <div className={`text-xs font-bold ${isOverdue ? 'text-red' : 'text-text-primary'}`}>
                         {new Date(task.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </div>
-                      <div className="text-[10px] text-text-muted mt-0.5">{task.endTime}</div>
+                      <div className="text-[12px] text-text-muted mt-0.5">{task.endTime}</div>
                     </td>
 
                     {/* Priority badge */}
                     <td className="px-5 py-3.5">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-tight ${PRIORITY_STYLE[task.priority] || 'bg-surface2 text-text-muted'}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[12px] font-bold uppercase tracking-tight ${PRIORITY_STYLE[task.priority] || 'bg-surface2 text-text-muted'}`}>
                         {task.priority}
                       </span>
                     </td>
 
                     {/* Status badge */}
                     <td className="px-5 py-3.5">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${TASK_STATUS_STYLE[task.status] || 'bg-surface2 text-text-muted'}`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-[12px] font-bold uppercase tracking-tight ${TASK_STATUS_STYLE[task.status] || 'bg-surface2 text-text-muted'}`}>
                         {task.status.replace(/_/g, ' ')}
                       </span>
                     </td>
@@ -726,7 +726,7 @@ const MyWork = () => {
           {filteredTasks.length === 0 && (
             <div className="py-14 text-center">
               <div className="text-3xl mb-3">📋</div>
-              <p className="text-sm font-medium text-text-muted">
+              <p className="text-[16px] font-medium text-text-muted">
                 {taskFilter === 'All' ? 'No tasks allocated yet' : `No ${taskFilter.toLowerCase()} tasks`}
               </p>
             </div>
@@ -741,7 +741,7 @@ const MyWork = () => {
             <div className="font-bold text-sm text-text-primary">
               My All Leads · {dashData?.user?.industry} · {dashData?.user?.state}
             </div>
-            <div className="text-[11px] text-text-muted mt-0.5">Leads assigned to me from district partners across all districts</div>
+            <div className="text-[13px] text-text-muted mt-0.5">Leads assigned to me from district partners across all districts</div>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex bg-surface2 p-1 rounded-lg border border-border/40">
@@ -749,7 +749,7 @@ const MyWork = () => {
                 <button
                   key={tab}
                   onClick={() => { setTableFilter(tab); setShowAllLeads(false); }}
-                  className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md transition-all ${tableFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+                  className={`px-3.5 py-1.5 text-[12px] font-bold rounded-md transition-all ${tableFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
                 >
                   {tab}
                 </button>
@@ -770,7 +770,7 @@ const MyWork = () => {
             <thead className="bg-surface2/50 border-b border-border/50">
               <tr>
                 {['#', 'Partner / Business', 'District', 'Source', 'Status', 'RNR', 'Revenue', ''].map(h => (
-                  <th key={h} className="px-5 py-3.5 text-[10px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-5 py-3.5 text-[12px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -781,19 +781,19 @@ const MyWork = () => {
                   className="hover:bg-surface2/30 transition-colors group cursor-pointer"
                   onClick={() => goToLead(lead._id)}
                 >
-                  <td className="px-5 py-3.5 text-[10px] font-bold text-text-muted">MN-{String(idx + 1).padStart(2, '0')}</td>
+                  <td className="px-5 py-3.5 text-[12px] font-bold text-text-muted">MN-{String(idx + 1).padStart(2, '0')}</td>
                   <td className="px-5 py-3.5">
                     <div className="text-sm font-bold text-text-primary group-hover:text-purple transition-colors">{lead.company || lead.name}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5">{lead.name} · {lead.phone}</div>
+                    <div className="text-[13px] text-text-muted mt-0.5">{lead.name} · {lead.phone}</div>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-text-secondary">{lead.district || '—'}</td>
+                  <td className="px-5 py-3.5 text-[16px] text-text-secondary">{lead.district || '—'}</td>
                   <td className="px-5 py-3.5">
-                    <span className="px-2 py-1 rounded-lg bg-surface2 text-[10px] font-bold text-text-secondary border border-border/40">
+                    <span className="px-2 py-1 rounded-lg bg-surface2 text-[12px] font-bold text-text-secondary border border-border/40">
                       {lead.source || 'District Partner'}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight
+                    <span className={`px-2.5 py-1 rounded-lg text-[12px] font-bold uppercase tracking-tight
                       ${lead.status === 'converted' ? 'bg-green/10 text-green' :
                         lead.priority === 'hot' ? 'bg-red/10 text-red' :
                         lead.status === 'rnr' ? 'bg-surface2 text-text-muted' :
@@ -802,7 +802,7 @@ const MyWork = () => {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`text-[11px] font-bold ${lead.rnrCount > 0 ? 'text-amber' : 'text-text-muted opacity-40'}`}>
+                    <span className={`text-[13px] font-bold ${lead.rnrCount > 0 ? 'text-amber' : 'text-text-muted opacity-40'}`}>
                       {lead.rnrCount > 0 ? `${lead.rnrCount}× RNR` : '—'}
                     </span>
                   </td>
@@ -832,7 +832,7 @@ const MyWork = () => {
             </tbody>
           </table>
           {filteredLeads.length === 0 && (
-            <div className="p-14 text-center text-text-muted italic text-sm">No leads found with this filter</div>
+            <div className="p-14 text-center text-text-muted italic text-[16px]">No leads found with this filter</div>
           )}
           {filteredLeads.length > 5 && (
             <div className="px-5 py-3.5 border-t border-border/40 bg-surface2/30 text-center">
@@ -868,15 +868,15 @@ const MyWork = () => {
               ].map(stat => (
                 <div key={stat.label} className="p-4 bg-surface2 rounded-2xl text-center border border-border/40">
                   <div className={`text-2xl font-black ${stat.color}`}>{stat.value}</div>
-                  <div className="text-[10px] text-text-muted uppercase font-bold tracking-widest mt-1">{stat.label}</div>
+                  <div className="text-[12px] text-text-muted uppercase font-bold tracking-widest mt-1">{stat.label}</div>
                 </div>
               ))}
             </div>
             <div>
               <div className="flex justify-between items-end mb-2">
                 <div>
-                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Monthly Lead Review</span>
-                  <div className="text-[10px] text-text-muted mt-0.5">
+                  <span className="text-[12px] font-bold text-text-muted uppercase tracking-widest">Monthly Lead Review</span>
+                  <div className="text-[12px] text-text-muted mt-0.5">
                     {monthlyStats.reviewedLeads || 0} of {monthlyStats.totalAllLeads || 0} leads reviewed
                   </div>
                 </div>
@@ -898,7 +898,7 @@ const MyWork = () => {
             <div className="font-bold text-sm text-text-primary">My Strategy Log</div>
           </div>
           <div className="flex-1 p-5 space-y-4">
-            <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">What strategy worked for recent conversions?</p>
+            <p className="text-[12px] text-text-muted uppercase font-bold tracking-widest">What strategy worked for recent conversions?</p>
             <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1">
               {dashData?.strategyLogs?.map((log, idx) => (
                 <div key={idx} className="p-3 bg-green/5 border border-green/10 rounded-xl">
@@ -906,11 +906,11 @@ const MyWork = () => {
                     <div className="text-xs font-bold text-text-primary">{log.leadName}</div>
                     <Tag variant="green" label="Converted" className="text-[8px] py-0 px-1.5" />
                   </div>
-                  <div className="text-[11px] text-text-muted italic leading-relaxed">Strategy: {log.strategy}</div>
+                  <div className="text-[13px] text-text-muted italic leading-relaxed">Strategy: {log.strategy}</div>
                 </div>
               ))}
               {(!dashData?.strategyLogs || dashData.strategyLogs.length === 0) && (
-                <div className="p-4 text-center text-text-muted text-[11px] italic">No recent conversions logged</div>
+                <div className="p-4 text-center text-text-muted text-[13px] italic">No recent conversions logged</div>
               )}
             </div>
             <div className="space-y-2.5 pt-1">
@@ -1017,7 +1017,7 @@ const MyWork = () => {
               </div>
               <div>
                 <div className="text-sm font-bold text-text-primary">{cfg.title}</div>
-                <div className="text-xs text-text-muted mt-0.5">{cfg.subtitle}</div>
+                <div className="text-[14px] text-text-muted mt-0.5">{cfg.subtitle}</div>
               </div>
             </div>
 
@@ -1026,7 +1026,7 @@ const MyWork = () => {
               cfg.callRows.length === 0 ? (
                 <div className="py-8 text-center">
                   <div className="text-3xl mb-3">📞</div>
-                  <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+                  <p className="text-[16px] text-text-muted">{cfg.emptyMsg}</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
@@ -1042,7 +1042,7 @@ const MyWork = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-bold text-text-primary truncate">{lead?.name || lead?.company || 'Unknown Lead'}</div>
-                          <div className="text-[11px] text-text-muted truncate">{lead?.district || '—'} · {row.note || 'Call logged'}</div>
+                          <div className="text-[13px] text-text-muted truncate">{lead?.district || '—'} · {row.note || 'Call logged'}</div>
                         </div>
                         <span className="text-[9px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md shrink-0" style={{ background: `${cfg.color}15`, color: cfg.color }}>
                           called
@@ -1055,7 +1055,7 @@ const MyWork = () => {
             ) : cfg.leads.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="text-3xl mb-3">📋</div>
-                <p className="text-sm text-text-muted">{cfg.emptyMsg}</p>
+                <p className="text-[16px] text-text-muted">{cfg.emptyMsg}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 -mr-2">
@@ -1079,7 +1079,7 @@ const MyWork = () => {
                       <div className="text-sm font-bold text-text-primary truncate">
                         {lead.company || lead.name}
                       </div>
-                      <div className="text-[11px] text-text-muted truncate">
+                      <div className="text-[13px] text-text-muted truncate">
                         {lead.district || '—'} · {lead.name}
                       </div>
                     </div>
@@ -1123,11 +1123,11 @@ const MyWork = () => {
         >
           <div className="p-3 bg-surface2 rounded-xl border border-border/40 mb-5">
             <div className="text-sm font-bold text-text-primary">{activeLead.company || activeLead.name}</div>
-            <div className="text-[11px] text-text-muted mt-0.5">{activeLead.district} · {activeLead.phone}</div>
+            <div className="text-[13px] text-text-muted mt-0.5">{activeLead.district} · {activeLead.phone}</div>
           </div>
 
           <div className="space-y-2 mb-6">
-            <label className="block text-xs font-bold text-text-secondary mb-1.5">
+            <label className="block text-[14px] font-bold text-text-secondary mb-1.5">
               Select District Manager <span className="text-red">*</span>
             </label>
             <select
@@ -1178,7 +1178,7 @@ const MyWork = () => {
               { label: 'Phone',    value: activeLead.phone || '—' },
             ].map(f => (
               <div key={f.label} className="p-3 rounded-xl bg-surface2 border border-border/40">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
+                <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">{f.label}</div>
                 <div className="text-sm font-bold text-text-primary">{f.value}</div>
               </div>
             ))}
@@ -1192,7 +1192,7 @@ const MyWork = () => {
               .filter(p => p && !seen.has(p._id || p) && seen.add(p._id || p));
             return handlers.length > 0 ? (
               <div className="mb-5">
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">All Handlers</div>
+                <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-2">All Handlers</div>
                 <div className="flex flex-wrap gap-2">
                   {handlers.map((p, i) => (
                     <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple/5 border border-purple/10">
@@ -1209,7 +1209,7 @@ const MyWork = () => {
 
           {/* Remarks history */}
           <div>
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Full Remarks History</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Full Remarks History</div>
             <div className="relative pl-4 max-h-[280px] overflow-y-auto pr-1 -mr-2">
               <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
               {recentActivity.length > 0 ? (
@@ -1226,18 +1226,18 @@ const MyWork = () => {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] font-semibold text-text-secondary">
+                    <div className="text-[13px] font-semibold text-text-secondary">
                       {a.action?.replace(/_/g, ' ')}
                     </div>
                     {a.note && (
-                      <div className="text-[11px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
+                      <div className="text-[13px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
                         {a.note}
                       </div>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="py-6 text-center text-sm text-text-muted italic">No activity recorded yet.</div>
+                <div className="py-6 text-center text-[16px] text-text-muted italic">No activity recorded yet.</div>
               )}
             </div>
           </div>

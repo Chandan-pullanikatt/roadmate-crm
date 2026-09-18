@@ -78,7 +78,7 @@ const MyPerformance = () => {
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-[12px] font-medium text-text-muted">
+      <div className="flex items-center gap-2 text-[14px] font-medium text-text-muted">
         <span>Industry Manager</span>
         <span className="text-text-muted/30">›</span>
         <span className="text-text-primary font-semibold">My Performance</span>
@@ -87,7 +87,7 @@ const MyPerformance = () => {
       {/* Header */}
       <div>
         <h1 className="text-[24px] font-bold text-text-primary tracking-tight">My Performance</h1>
-        <p className="text-[14px] text-text-muted mt-0.5">
+        <p className="text-[16px] text-text-muted mt-0.5">
           {user?.name} · {user?.industry} · {user?.state} · Personal lead metrics & conversion tracking
         </p>
       </div>
@@ -108,7 +108,7 @@ const MyPerformance = () => {
           <h3 className="text-[16px] font-bold text-text-primary mb-1 flex items-center gap-2">
             <span className="text-purple">📊</span> Lead Status Breakdown
           </h3>
-          <p className="text-[12px] text-text-muted mb-6">Distribution across all statuses</p>
+          <p className="text-[14px] text-text-muted mb-6">Distribution across all statuses</p>
 
           {pieData.length > 0 ? (
             <div className="flex flex-col md:flex-row items-center gap-8">
@@ -141,14 +141,14 @@ const MyPerformance = () => {
                 {pieData.map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-[11px] font-medium text-text-muted truncate">{item.name}</span>
+                    <span className="text-[13px] font-medium text-text-muted truncate">{item.name}</span>
                     <span className="text-[11px] font-bold text-text-primary ml-auto">{item.value}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="h-[200px] flex items-center justify-center text-text-muted italic text-sm">
+            <div className="h-[200px] flex items-center justify-center text-text-muted italic text-[16px]">
               No lead data available
             </div>
           )}
@@ -159,7 +159,7 @@ const MyPerformance = () => {
           <h3 className="text-[16px] font-bold text-text-primary mb-1 flex items-center gap-2">
             <span className="text-green">🎯</span> Monthly Progress
           </h3>
-          <p className="text-[12px] text-text-muted mb-6">This month's activity summary</p>
+          <p className="text-[14px] text-text-muted mb-6">This month's activity summary</p>
           
           <div className="space-y-5 flex-1">
             <ProgressMetric label="Calls This Week" value={imStats.callsThisWeek || 0} target={50} color="#8B5CF6" />
@@ -170,7 +170,7 @@ const MyPerformance = () => {
 
           <div className="mt-auto pt-6 border-t border-border">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Conversion Rate</span>
+              <span className="text-[12px] font-bold text-text-muted uppercase tracking-wider">Conversion Rate</span>
               <span className="text-sm font-black text-purple">{completionPct}%</span>
             </div>
             <div className="h-2.5 bg-surface2 rounded-full overflow-hidden border border-border/50">
@@ -190,7 +190,7 @@ const MyPerformance = () => {
             <h3 className="text-[16px] font-bold text-text-primary flex items-center gap-2">
               <span className="text-blue">📋</span> Recent Lead Activity
             </h3>
-            <p className="text-[12px] text-text-muted mt-0.5">Last 20 leads in your pipeline</p>
+            <p className="text-[14px] text-text-muted mt-0.5">Last 20 leads in your pipeline</p>
           </div>
           <Tag variant="blue" label={`${recentLeads.length} leads`} />
         </div>
@@ -198,11 +198,11 @@ const MyPerformance = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
-                <th className="px-6 py-3 text-[10px] font-black uppercase text-text-muted tracking-widest">Lead</th>
-                <th className="px-6 py-3 text-[10px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="px-6 py-3 text-[10px] font-black uppercase text-text-muted tracking-widest">Priority</th>
-                <th className="px-6 py-3 text-[10px] font-black uppercase text-text-muted tracking-widest">District</th>
-                <th className="px-6 py-3 text-[10px] font-black uppercase text-text-muted tracking-widest">Updated</th>
+                <th className="px-6 py-3 text-[12px] font-black uppercase text-text-muted tracking-widest">Lead</th>
+                <th className="px-6 py-3 text-[12px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="px-6 py-3 text-[12px] font-black uppercase text-text-muted tracking-widest">Priority</th>
+                <th className="px-6 py-3 text-[12px] font-black uppercase text-text-muted tracking-widest">District</th>
+                <th className="px-6 py-3 text-[12px] font-black uppercase text-text-muted tracking-widest">Updated</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -210,7 +210,7 @@ const MyPerformance = () => {
                 <tr key={lead._id} className="hover:bg-surface2/20 transition-colors">
                   <td className="px-6 py-3">
                     <div className="text-[13px] font-bold text-text-primary">{lead.company || lead.name}</div>
-                    <div className="text-[11px] text-text-muted">{lead.name} · {lead.phone}</div>
+                    <div className="text-[13px] text-text-muted">{lead.name} · {lead.phone}</div>
                   </td>
                   <td className="px-6 py-3">
                     <Tag 
@@ -224,15 +224,15 @@ const MyPerformance = () => {
                       {lead.priority || 'cold'}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-[12px] text-text-secondary">{lead.district || '—'}</td>
-                  <td className="px-6 py-3 text-[11px] text-text-muted">
+                  <td className="px-6 py-3 text-[14px] text-text-secondary">{lead.district || '—'}</td>
+                  <td className="px-6 py-3 text-[13px] text-text-muted">
                     {lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
                   </td>
                 </tr>
               ))}
               {recentLeads.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-text-muted italic text-sm">No recent lead activity</td>
+                  <td colSpan="5" className="px-6 py-12 text-center text-text-muted italic text-[16px]">No recent lead activity</td>
                 </tr>
               )}
             </tbody>

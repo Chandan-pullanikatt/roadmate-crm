@@ -20,17 +20,17 @@ const TaskStep = ({
       } ${className}`}
       onClick={onClick}
     >
-      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${
         iconClass || (isDone ? 'bg-accent text-white' : isActive ? 'bg-purple text-white' : 'bg-border2 text-text-muted')
       }`}>
         {icon || (isDone ? '✓' : step)}
       </div>
       <div>
-        <div className={`text-sm font-semibold ${isActive ? 'text-purple' : isDone ? 'text-text-primary' : 'text-text-secondary'}`}>
+        <div className={`text-[16px] font-semibold ${isActive ? 'text-purple' : isDone ? 'text-text-primary' : 'text-text-secondary'}`}>
           {title}
         </div>
         {subtitle && (
-          <div className="text-[11px] text-text-muted mt-0.5">
+          <div className="text-[13px] text-text-muted mt-0.5">
             {subtitle}
           </div>
         )}

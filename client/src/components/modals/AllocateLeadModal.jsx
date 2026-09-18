@@ -92,11 +92,11 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
     <Modal isOpen={isOpen} onClose={handleClose} title="Allocate Lead" subtitle="Assign through the hierarchy — Industry Manager and District Manager are optional for direct SM allocation">
       {/* Lead info */}
       <div className="mb-6">
-        <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Target Lead</label>
+        <label className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Target Lead</label>
         <div className="p-3 bg-surface2/50 rounded-xl border border-border flex items-center justify-between">
           <div>
             <span className="font-bold text-text-primary">{lead.company || lead.name}</span>
-            {lead.company && <div className="text-[11px] text-text-muted mt-0.5">{lead.name}</div>}
+            {lead.company && <div className="text-[13px] text-text-muted mt-0.5">{lead.name}</div>}
           </div>
           <div className="flex gap-2">
             {lead.country && <span className="bg-purple/10 text-purple px-2 py-0.5 rounded text-[10px] font-bold uppercase">{lead.country}</span>}
@@ -136,7 +136,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
           <div className="space-y-2">
             <label className="form-label">
               Industry Manager
-              <span className="ml-1 text-[10px] text-text-muted normal-case font-normal">
+              <span className="ml-1 text-[12px] text-text-muted normal-case font-normal">
                 (optional — skip to allocate directly to State Manager)
               </span>
             </label>
@@ -161,7 +161,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
           <div className="space-y-2">
             <label className="form-label">
               District Manager
-              <span className="ml-1 text-[10px] text-text-muted normal-case font-normal">
+              <span className="ml-1 text-[12px] text-text-muted normal-case font-normal">
                 (optional — skip to allocate to Industry Manager)
               </span>
             </label>
@@ -179,7 +179,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
               ))}
             </select>
             {!loadingExecs && executives.length === 0 && (
-              <p className="text-[11px] text-text-muted font-medium mt-1">
+              <p className="text-[13px] text-text-muted font-medium mt-1">
                 No executives found under this Industry Manager
               </p>
             )}

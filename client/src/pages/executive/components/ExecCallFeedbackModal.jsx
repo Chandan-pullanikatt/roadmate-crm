@@ -4,6 +4,7 @@ import { Modal } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
+import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../../../components/PaymentAmountField';
 
 const OUTCOMES = [
   { id: 'connected',               icon: '✅', label: 'Connected',             color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
@@ -52,6 +53,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const [inviteeId, setInviteeId]             = useState('');
   const [escalateTo, setEscalateTo]           = useState('');
   const [escalateReason, setEscalateReason]   = useState('');
+  const [amount, setAmount]                   = useState('');
 
   useEffect(() => {
     setSelectedOutcome(initialOutcome);
@@ -82,13 +84,16 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     setNotes(''); setStrategyNote(''); setFollowUpDate(''); setCustomDate('');
     setCustomReason(''); setIsCustomDate(false); setMeetingDate(''); setMeetingTime('');
     setMeetingLink(''); setInviteeId(''); setEscalateTo(''); setEscalateReason('');
-    setShowPriorityTip(false);
+    setAmount('');
   };
 
   const handleClose = () => { reset(); onClose(); };
 
   const handleSubmit = async () => {
     if (!selectedOutcome) { addToast('Please select a call outcome first', 'warning'); return; }
+    if (AMOUNT_STAGES.has(selectedOutcome) && !parseAmount(amount)) {
+      addToast('Please enter the amount received.', 'warning'); return;
+    }
 
     try {
       if (selectedOutcome === 'connected') {
@@ -150,7 +155,13 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
         addToast('🎉 Lead Converted! Great work!', 'success');
 
       } else if (PAYMENT_IDS.has(selectedOutcome)) {
-        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: selectedOutcome, note: notes, priority });
+        await transitionMutation.mutateAsync({
+          action: 'set_feedback',
+          nextAction: selectedOutcome,
+          note: notes,
+          priority,
+          ...(AMOUNT_STAGES.has(selectedOutcome) ? { amount: parseAmount(amount) } : {}),
+        });
         const labels = {
           blocking_amount_received: '💰 Blocking amount received!',
           full_amount_received:     '✅ Full amount received!',
@@ -254,7 +265,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
                   {p.icon} {p.label}
                 </button>
                 <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">i</span>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary hidden group-hover:block pointer-events-none">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[13px] text-text-secondary hidden group-hover:block pointer-events-none">
                   <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.desc}
                 </div>
               </div>
@@ -280,7 +291,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
             <label className={lbl + ' text-amber'}>📅 Follow-up Details</label>
             {!isCustomDate && suggestedDates?.dates?.length > 0 && (
               <div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Suggested Dates</div>
+                <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-2">Suggested Dates</div>
                 <div className="flex flex-wrap gap-2">
                   {suggestedDates.dates.map(d => (
                     <button
@@ -298,7 +309,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
                   ))}
                   <button
                     onClick={() => setIsCustomDate(true)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold border border-dashed border-border text-text-muted hover:border-amber hover:text-amber cursor-pointer transition-all"
+                    className="px-3 py-1.5 rounded-lg text-[14px] font-bold border border-dashed border-border text-text-muted hover:border-amber hover:text-amber cursor-pointer transition-all"
                   >
                     + Custom Date
                   </button>
@@ -315,7 +326,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
                   <label className={lbl}>Custom Date</label>
                   <input type="date" className={inp} value={customDate} onChange={e => setCustomDate(e.target.value)} />
                 </div>
-                <button onClick={() => setIsCustomDate(false)} className="text-xs text-text-muted hover:text-text-primary cursor-pointer">← Back to suggestions</button>
+                <button onClick={() => setIsCustomDate(false)} className="text-[14px] text-text-muted hover:text-text-primary cursor-pointer">← Back to suggestions</button>
               </div>
             )}
             <div>
@@ -361,6 +372,20 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           </div>
         )}
 
+        {/* Payment amount — counted as revenue */}
+        {AMOUNT_STAGES.has(selectedOutcome) && (
+          <div className="p-4 bg-green/5 border border-green/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
+            <PaymentAmountField
+              stage={selectedOutcome}
+              value={amount}
+              onChange={setAmount}
+              lead={lead}
+              labelClassName={`${lbl} text-green`}
+              inputClassName={inp}
+            />
+          </div>
+        )}
+
         {/* Converted / Not Interested — strategy */}
         {needsStrategy && (
           <div className={`space-y-2 p-4 rounded-xl animate-in slide-in-from-top-2 duration-200 ${selectedOutcome === 'converted' ? 'bg-green/5 border border-green/20' : 'bg-red-light/20 border border-red/20'}`}>
@@ -390,7 +415,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
                 </select>
               </div>
             ) : (
-              <p className="text-xs text-text-muted italic">No managers found in your hierarchy.</p>
+              <p className="text-[14px] text-text-muted italic">No managers found in your hierarchy.</p>
             )}
             <div>
               <label className={lbl}>Escalation Reason (Optional)</label>
@@ -407,7 +432,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-          <button onClick={handleClose} className="px-5 py-2.5 rounded-xl border border-border text-sm font-bold text-text-secondary hover:bg-surface2 transition-all">
+          <button onClick={handleClose} className="px-5 py-2.5 rounded-xl border border-border text-[16px] font-bold text-text-secondary hover:bg-surface2 transition-all">
             Cancel
           </button>
           <button

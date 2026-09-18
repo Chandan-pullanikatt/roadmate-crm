@@ -53,7 +53,7 @@ const LeadDetail = () => {
             Back
           </button>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">{displayName}</h1>
-          <p className="text-sm text-text-muted mt-1 font-medium">
+          <p className="text-[16px] text-text-muted mt-1 font-medium">
             {lead.name} · {lead.district || 'No district'} · {lead.industry || 'No industry'}
           </p>
         </div>
@@ -83,7 +83,7 @@ const LeadDetail = () => {
               ['Created', lead.createdAt ? new Date(lead.createdAt).toLocaleString('en-IN') : '—'],
             ].map(([label, value]) => (
               <div key={label} className="p-3 rounded-xl bg-surface2 border border-border/40">
-                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">{label}</div>
+                <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">{label}</div>
                 <div className="text-sm font-bold text-text-primary break-words">{value}</div>
               </div>
             ))}
@@ -94,14 +94,14 @@ const LeadDetail = () => {
           <div className="card-header border-border/40">
             <div>
               <h2 className="text-sm font-black text-text-primary uppercase">Complete History</h2>
-              <p className="text-xs text-text-muted mt-1">Calls, follow-ups, meetings, conversion updates, and notes</p>
+              <p className="text-[14px] text-text-muted mt-1">Calls, follow-ups, meetings, conversion updates, and notes</p>
             </div>
           </div>
           <div className="p-6">
             {activityLoading ? (
-              <div className="py-10 text-center text-sm text-text-muted">Loading history...</div>
+              <div className="py-10 text-center text-[16px] text-text-muted">Loading history...</div>
             ) : activities.length === 0 ? (
-              <div className="py-10 text-center text-sm text-text-muted italic">No history recorded yet.</div>
+              <div className="py-10 text-center text-[16px] text-text-muted italic">No history recorded yet.</div>
             ) : (
               <div className="relative pl-5">
                 <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/70" />
@@ -110,7 +110,7 @@ const LeadDetail = () => {
                     <div className={`absolute -left-[18px] top-1 w-3 h-3 rounded-full border-2 border-white ${idx === 0 ? 'bg-purple' : 'bg-border2'}`} />
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="text-sm font-black text-text-primary capitalize">{(activity.action || 'updated').replace(/_/g, ' ')}</div>
-                      <div className="text-[10px] font-bold text-text-muted">
+                      <div className="text-[12px] font-bold text-text-muted">
                         {activity.createdAt ? new Date(activity.createdAt).toLocaleString('en-IN') : ''}
                       </div>
                     </div>
@@ -118,7 +118,7 @@ const LeadDetail = () => {
                       <div className="text-[11px] font-bold text-purple mt-0.5">{activity.performedBy.name}</div>
                     )}
                     {activity.note && (
-                      <div className="mt-2 p-3 rounded-xl bg-surface2 border border-border/40 text-xs text-text-secondary leading-relaxed">
+                      <div className="mt-2 p-3 rounded-xl bg-surface2 border border-border/40 text-[14px] text-text-secondary leading-relaxed">
                         {activity.note}
                       </div>
                     )}

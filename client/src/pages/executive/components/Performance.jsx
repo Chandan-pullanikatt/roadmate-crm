@@ -91,7 +91,7 @@ const Performance = () => {
           <select
             value={periodValue}
             onChange={(e) => setPeriodValue(e.target.value)}
-            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[11px] font-bold text-text-secondary outline-none focus:border-orange shadow-sm"
+            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-orange shadow-sm"
           >
             {getOptions(timeFilter).map(opt => (
               <option key={opt} value={opt}>{opt}</option>
@@ -191,7 +191,7 @@ const Performance = () => {
 const StatusRow = ({ label, count, color, total }) => (
   <div className="space-y-2">
     <div className="flex justify-between items-center">
-      <span className="text-xs font-bold text-text-secondary">{label}</span>
+      <span className="text-[14px] font-bold text-text-secondary">{label}</span>
       <span className="text-xs font-black">{count || 0}</span>
     </div>
     <div className="h-1.5 w-full bg-surface2 rounded-full overflow-hidden">

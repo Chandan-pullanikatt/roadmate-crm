@@ -80,7 +80,11 @@ const leadSchema = new mongoose.Schema({
   nextAction: { type: String },
   outcome: { type: String },
   blockingDate: { type: Date },
+  // Money collected at each payment stage (₹). Re-recording a stage adds to it;
+  // actualRevenue is kept as the sum of the two.
+  blockingAmount: { type: Number, default: 0 },
   fullAmountReceivedDate: { type: Date },
+  fullAmount: { type: Number, default: 0 },
   agreementSignedAt: { type: Date },
   reasonForLost: { type: String },
 }, { timestamps: true });

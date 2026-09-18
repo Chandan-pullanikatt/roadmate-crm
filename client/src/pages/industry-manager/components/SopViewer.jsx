@@ -51,7 +51,7 @@ const DocumentBody = ({ doc }) => {
   if (doc.fileType === 'txt') {
     if (textLoading) {
       return (
-        <div className="flex items-center justify-center h-64 text-text-muted text-sm font-bold">
+        <div className="flex items-center justify-center h-64 text-text-muted text-[16px] font-bold">
           Loading document…
         </div>
       );
@@ -107,11 +107,11 @@ const SopViewer = ({ role }) => {
       <div className="space-y-6 animate-in fade-in duration-700 pb-12">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{meta.title}</h1>
-          <p className="text-sm text-text-muted mt-1">{meta.subtitle}</p>
+          <p className="text-[16px] text-text-muted mt-1">{meta.subtitle}</p>
         </div>
         <div className="card p-16 text-center">
           <div className="text-5xl mb-4 opacity-30">{meta.icon}</div>
-          <div className="text-text-muted font-bold text-sm">
+          <div className="text-text-muted font-bold text-[16px]">
             {isError
               ? 'Unable to load documents. Please try again.'
               : 'No documents have been shared yet. The founder will upload them soon.'}
@@ -131,12 +131,12 @@ const SopViewer = ({ role }) => {
               Documents
             </div>
             <span className="text-text-muted opacity-30">/</span>
-            <span className="text-text-muted text-[10px] font-bold uppercase tracking-wider">{meta.title}</span>
+            <span className="text-text-muted text-[12px] font-bold uppercase tracking-wider">{meta.title}</span>
           </div>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">{meta.title}</h1>
-          <p className="text-sm text-text-muted mt-1 font-medium">{meta.subtitle}</p>
+          <p className="text-[16px] text-text-muted mt-1 font-medium">{meta.subtitle}</p>
         </div>
-        <div className="text-[11px] font-bold text-text-muted">
+        <div className="text-[13px] font-bold text-text-muted">
           <span className="px-3 py-1.5 rounded-xl bg-surface2 border border-border/40">
             {documents.length} {documents.length === 1 ? 'document' : 'documents'}
           </span>
@@ -150,7 +150,7 @@ const SopViewer = ({ role }) => {
             <button
               key={doc._id}
               onClick={() => setSelectedId(doc._id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold border shadow-sm transition-all flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-[14px] font-bold border shadow-sm transition-all flex items-center gap-2 ${
                 selected?._id === doc._id
                   ? 'bg-[#f0fdf4] text-[#166534] border-[#dcfce7]'
                   : 'bg-white text-text-muted border-border hover:border-blue/30'
@@ -171,7 +171,7 @@ const SopViewer = ({ role }) => {
             <span className="text-2xl shrink-0">{meta.icon}</span>
             <div className="min-w-0">
               <div className="text-sm font-black text-text-primary truncate">{selected.title || selected.fileName}</div>
-              <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-0.5">
+              <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mt-0.5">
                 {selected.fileType === 'pdf' ? 'PDF Document' : selected.fileType === 'txt' ? 'Text Document' : 'Word Document'}
                 {' · '}Added {formatDate(selected.createdAt)}
               </div>
@@ -181,7 +181,7 @@ const SopViewer = ({ role }) => {
             href={selected.viewUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 px-4 py-2 rounded-xl bg-surface2 border border-border/40 text-[10px] font-black uppercase tracking-widest text-text-muted hover:text-text-primary hover:bg-surface3 transition-colors"
+            className="shrink-0 px-4 py-2 rounded-xl bg-surface2 border border-border/40 text-[12px] font-black uppercase tracking-widest text-text-muted hover:text-text-primary hover:bg-surface3 transition-colors"
           >
             Open in New Tab ↗
           </a>

@@ -184,7 +184,7 @@ const Reports = () => {
               {card.icon}
             </div>
             <h3 className="text-lg font-bold text-text-primary mb-2 group-hover:text-blue transition-colors">{card.title}</h3>
-            <p className="text-sm text-text-muted leading-relaxed max-w-[200px]">
+            <p className="text-[16px] text-text-muted leading-relaxed max-w-[200px]">
               {card.description}
             </p>
             <div className="mt-8 flex items-center gap-3">
@@ -215,7 +215,7 @@ const Reports = () => {
           className="max-w-6xl"
         >
           {viewing.rows.length === 0 ? (
-            <div className="py-16 text-center text-sm text-text-muted">No records found for this report</div>
+            <div className="py-16 text-center text-[16px] text-text-muted">No records found for this report</div>
           ) : (
             <>
               <div className="flex justify-end mb-4">

@@ -27,10 +27,10 @@ const MeetingAlertBanner = ({ meeting, onConfirm, onReject, onFeedback }) => {
             <h4 className="font-extrabold text-base text-text-primary leading-tight">
               {meeting.reminderType === '15m' ? 'Meeting in 15 minutes!' : 'Meeting in 1 hour'}
             </h4>
-            <p className="text-xs font-bold text-text-secondary mt-1">
+            <p className="text-[14px] font-bold text-text-secondary mt-1">
               {meeting.type === 'virtual' ? '🎥 Virtual' : '📍 Direct'} · <span className="text-blue">{meeting.lead}</span>
             </p>
-            <p className="text-[10px] text-text-muted mt-0.5">
+            <p className="text-[12px] text-text-muted mt-0.5">
               {new Date(meeting.meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>

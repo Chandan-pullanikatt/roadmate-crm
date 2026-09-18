@@ -35,9 +35,9 @@ const LeadHistoryModal = ({ isOpen, onClose, leadId, leadName }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Lead History`} subtitle={leadName || ''} className="modal-lg">
       {isLoading ? (
-        <div className="py-12 text-center text-text-muted text-sm">Loading activity log...</div>
+        <div className="py-12 text-center text-text-muted text-[16px]">Loading activity log...</div>
       ) : activities.length === 0 ? (
-        <div className="py-12 text-center text-text-muted italic text-sm">No activity recorded for this lead yet.</div>
+        <div className="py-12 text-center text-text-muted italic text-[16px]">No activity recorded for this lead yet.</div>
       ) : (
         <div className="relative">
           {/* Timeline line */}
@@ -60,7 +60,7 @@ const LeadHistoryModal = ({ isOpen, onClose, leadId, leadName }) => {
                         <span className="text-base">{meta.icon}</span>
                         <span className="text-[13px] font-bold text-text-primary">{meta.label}</span>
                       </div>
-                      <div className="text-[10px] font-bold text-text-muted whitespace-nowrap">
+                      <div className="text-[12px] font-bold text-text-muted whitespace-nowrap">
                         {new Date(a.createdAt).toLocaleString('en-US', {
                           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                         })}
@@ -68,11 +68,11 @@ const LeadHistoryModal = ({ isOpen, onClose, leadId, leadName }) => {
                     </div>
 
                     {a.note && (
-                      <p className="text-xs text-text-secondary mt-1.5 leading-relaxed line-clamp-3">{a.note}</p>
+                      <p className="text-[14px] text-text-secondary mt-1.5 leading-relaxed line-clamp-3">{a.note}</p>
                     )}
 
                     {a.performedBy?.name && (
-                      <div className="text-[10px] text-text-muted mt-1.5 font-medium">
+                      <div className="text-[12px] text-text-muted mt-1.5 font-medium">
                         By {a.performedBy.name}
                         {a.performedBy.role && ` · ${a.performedBy.role.replace(/_/g, ' ')}`}
                       </div>

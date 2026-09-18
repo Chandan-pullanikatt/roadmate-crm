@@ -6,6 +6,7 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Attendance = require('../models/Attendance');
 const { createdAtRange } = require('../utils/dateRange');
+const { sumRevenue } = require('../services/revenueService');
 
 // Counts of each lead action in a list of LeadActivity records.
 const countActions = (activities) => ({
@@ -18,9 +19,7 @@ const countActions = (activities) => ({
   fullAmount: activities.filter(a => a.action === 'full_amount_received').length,
   lost: activities.filter(a => ['lost', 'not_interested'].includes(a.action)).length,
   escalated: activities.filter(a => a.action === 'escalated').length,
-  revenue: activities
-    .filter(a => a.action === 'converted' && a.metadata?.revenue)
-    .reduce((sum, a) => sum + (Number(a.metadata.revenue) || 0), 0)
+  revenue: sumRevenue(activities)
 });
 
 // Protect all routes

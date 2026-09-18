@@ -189,7 +189,7 @@ const Tasks = () => {
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
-            className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${filterStatus === s ? 'bg-surface text-[#0f766e] shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+            className={`px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${filterStatus === s ? 'bg-surface text-[#0f766e] shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
           >
             {s.replace('_', ' ')}
           </button>
@@ -216,10 +216,10 @@ const Tasks = () => {
                     <span className="font-bold text-[15px] text-text-primary">{task.title}</span>
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
                     <span className="text-[10px] font-bold" style={{ color: sm.color }}>{sm.label}</span>
-                    {task.category && <span className="text-[10px] text-text-muted bg-surface2 px-2 py-0.5 rounded-full">{task.category}</span>}
+                    {task.category && <span className="text-[12px] text-text-muted bg-surface2 px-2 py-0.5 rounded-full">{task.category}</span>}
                   </div>
-                  {task.description && <p className="text-xs text-text-muted mb-2 line-clamp-2">{task.description}</p>}
-                  <div className="flex items-center gap-4 text-[11px] text-text-muted flex-wrap">
+                  {task.description && <p className="text-[14px] text-text-muted mb-2 line-clamp-2">{task.description}</p>}
+                  <div className="flex items-center gap-4 text-[13px] text-text-muted flex-wrap">
                     <span>👤 <strong className="text-text-secondary">{task.assignedTo?.name}</strong> ({task.assignedTo?.role?.replace(/_/g, ' ')})</span>
                     <span>📅 {fmt(task.startDate)} → {fmt(task.endDate)}</span>
                     <span>⏱ {task.startTime} – {task.endTime}</span>

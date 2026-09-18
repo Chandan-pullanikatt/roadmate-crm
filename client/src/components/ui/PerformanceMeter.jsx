@@ -6,7 +6,7 @@ const PerformanceMeter = ({ value = 0, color = 'var(--accent)' }) => {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Performance</span>
+        <span className="text-[12px] font-bold text-text-secondary uppercase tracking-wider">Performance</span>
         <span className="text-xs font-bold text-text-primary">{percentage}%</span>
       </div>
       <div className="h-2 w-full bg-surface2 rounded-full overflow-hidden border border-border/50">

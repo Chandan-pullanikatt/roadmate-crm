@@ -32,7 +32,7 @@ const StatCard = ({ label, value, delta, deltaType, deltaLabel = "vs last month"
               )
             }
             {!loading && deltaLabel && (
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">{deltaLabel}</span>
+              <span className="text-[12px] font-bold text-text-muted uppercase tracking-tighter">{deltaLabel}</span>
             )}
           </div>
         )}

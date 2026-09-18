@@ -181,7 +181,7 @@ const LocationSelector = ({
           <label className={labelClass}>
             Region
             {value.regionType && (
-              <span className="ml-1 text-[9px] normal-case font-normal text-text-muted">
+              <span className="ml-1 text-[11px] normal-case font-normal text-text-muted">
                 ({value.regionType})
               </span>
             )}

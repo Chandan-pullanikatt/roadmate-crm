@@ -165,7 +165,7 @@ const ExpectedOnboarding = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-text-primary">Expected Onboarding Leads</h2>
-              <p className="text-xs text-text-muted mt-0.5">
+              <p className="text-[14px] text-text-muted mt-0.5">
                 Hot &amp; Warm leads still open, across all states{periodLabel ? ` - created in ${periodLabel}` : ''}
               </p>
             </div>
@@ -177,7 +177,7 @@ const ExpectedOnboarding = () => {
               <button
                 key={tab.label}
                 onClick={() => setActiveTab(tab.label)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm flex items-center gap-2 ${activeTab === tab.label ? 'bg-[#f0fdf4] text-[#166534] border-[#dcfce7]' : 'bg-white text-text-muted border-border hover:border-blue/30'}`}
+                className={`px-4 py-2 rounded-xl text-[14px] font-bold transition-all border shadow-sm flex items-center gap-2 ${activeTab === tab.label ? 'bg-[#f0fdf4] text-[#166534] border-[#dcfce7]' : 'bg-white text-text-muted border-border hover:border-blue/30'}`}
               >
                 {tab.label} <span className={`opacity-60 ${activeTab === tab.label ? 'text-[#166534]' : 'text-blue'}`}>({tab.count})</span>
               </button>
@@ -211,7 +211,7 @@ const ExpectedOnboarding = () => {
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
              </div>
              <select
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px] max-w-[180px]"
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-[14px] font-bold text-text-secondary outline-none focus:border-blue min-w-[120px] max-w-[180px]"
                value={filterCountry}
                onChange={e => { setFilterCountry(e.target.value); setFilterState('All'); }}
              >
@@ -221,7 +221,7 @@ const ExpectedOnboarding = () => {
                ))}
              </select>
              <select
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-xs font-bold text-text-secondary outline-none focus:border-blue min-w-[120px] max-w-[180px]"
+               className="bg-white border border-border rounded-lg px-4 py-1.5 text-[14px] font-bold text-text-secondary outline-none focus:border-blue min-w-[120px] max-w-[180px]"
                value={filterState}
                onChange={e => setFilterState(e.target.value)}
              >
@@ -238,13 +238,13 @@ const ExpectedOnboarding = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface2/30 border-b border-border">
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Lead</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Phone</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Assigned</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted text-center">Status</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Last Action</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Next Follow-up</th>
-                <th className="p-4 text-[11px] font-bold uppercase tracking-widest text-text-muted text-right">Actions</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">Lead</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">Phone</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">Assigned</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted text-center">Status</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">Last Action</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">Next Follow-up</th>
+                <th className="p-4 text-[13px] font-bold uppercase tracking-widest text-text-muted text-right">Actions</th>
               </tr>
             </thead>
             <tbody className={`divide-y divide-border font-medium text-text-primary ${isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}`}>
@@ -253,7 +253,7 @@ const ExpectedOnboarding = () => {
                   <td className="p-4">
                     <div className="font-bold text-[14px] text-text-primary">{l.name}</div>
                   </td>
-                  <td className="p-4 text-[13px] font-mono text-text-secondary">{l.phone || 'N/A'}</td>
+                  <td className="p-4 text-[15px] font-mono text-text-secondary">{l.phone || 'N/A'}</td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                        <div className="w-6 h-6 rounded-full bg-blue-light text-blue flex items-center justify-center text-[10px] font-bold uppercase border border-blue/10">
@@ -268,15 +268,15 @@ const ExpectedOnboarding = () => {
                     </span>
                   </td>
                   <td className="p-4">
-                     <span className="text-[12.5px] text-text-muted line-clamp-1 max-w-[150px]">{l.notes || 'No action recorded'}</span>
+                     <span className="text-[14.5px] text-text-muted line-clamp-1 max-w-[150px]">{l.notes || 'No action recorded'}</span>
                   </td>
                   <td className="p-4">
                      <div className="text-[13px] font-medium">{formatFollowUp(l.followUpDate, l.followUpTime)}</div>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('view-lead', { leadId: l._id })}>View</button>
-                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[11px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>History</button>
+                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[13px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('view-lead', { leadId: l._id })}>View</button>
+                      <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[13px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>History</button>
                       <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
                       <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>
                       <button className="bg-white border border-red/20 text-red px-3 py-1 rounded-md text-[11px] font-bold hover:bg-red-light transition-all" onClick={() => leadsApi.deleteLead(l._id).then(() => window.location.reload())}>Delete</button>
@@ -297,11 +297,11 @@ const ExpectedOnboarding = () => {
         </div>
 
         <div className="flex justify-between items-center p-5 border-t border-border bg-surface2/10">
-          <div className="text-xs text-text-muted font-medium">
+          <div className="text-[14px] text-text-muted font-medium">
             {`Showing ${rangeStart}-${rangeEnd} of ${total} ${activeTab.toLowerCase()} leads`}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-text-muted font-medium">Page {page} of {totalPages}</span>
+            <span className="text-[14px] text-text-muted font-medium">Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <Button
                 size="xs"

@@ -3,8 +3,7 @@ import { Modal, Button, FileUpload } from '../ui';
 import { useToast } from '../../context/ToastContext';
 import { leadsApi } from '../../api/leadsApi';
 import { useQueryClient } from '@tanstack/react-query';
-
-const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
+import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../PaymentAmountField';
 
 const PRIORITIES = [
   { id: 'hot',  icon: '🔥', label: 'Hot',  color: '#B45309', bg: '#FEF3C7', border: '#FCD34D', def: 'Interested, budget available, meeting done' },
@@ -22,7 +21,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     nextActionAt: '',
     notes: '',
     expectedOnboarding: '',
-    actualRevenue: '',
+    amount: '',
     revenueCategory: 'other',
     meetingLink: '',
     documents: []
@@ -36,7 +35,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         nextActionAt: lead.nextActionAt ? new Date(lead.nextActionAt).toISOString().split('T')[0] : '',
         notes: lead.notes || '',
         expectedOnboarding: lead.expectedOnboarding ? new Date(lead.expectedOnboarding).toISOString().split('T')[0] : '',
-        actualRevenue: lead.actualRevenue || '',
+        amount: '',
         revenueCategory: lead.revenueCategory || 'other',
         meetingLink: lead.meetingLink || '',
         documents: lead.documents || []
@@ -44,8 +43,16 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
     }
   }, [lead]);
 
+  // Moving the lead to Blocking / Full Amount records a payment, which needs the
+  // amount received — that is what the revenue figures add up.
+  const recordsPayment = AMOUNT_STAGES.has(formData.status) && formData.status !== lead?.status;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (recordsPayment && !parseAmount(formData.amount)) {
+      addToast('Please enter the amount received.', 'warning');
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
@@ -54,7 +61,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         nextActionAt: formData.nextActionAt,
         convertedAt: formData.expectedOnboarding,
         notes: formData.notes,
-        actualRevenue: formData.actualRevenue,
+        ...(recordsPayment ? { amount: parseAmount(formData.amount) } : {}),
         revenueCategory: formData.revenueCategory,
         meetingLink: formData.status === 'meeting_virtual' ? formData.meetingLink.trim() : lead.meetingLink || '',
         documents: formData.documents
@@ -66,6 +73,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
       // Invalidate both leads and counts
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['leads', 'counts'] });
+      if (recordsPayment) queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
       onClose();
     } catch (err) {
@@ -145,19 +153,14 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="form-label">Actual Revenue (\u20B9)</label>
-              <input 
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                className="input" 
-                placeholder="Enter conversion amount"
-                value={formData.actualRevenue} 
-                onChange={(e) => setFormData({...formData, actualRevenue: digitsOnly(e.target.value)})} 
-                required
+            {recordsPayment && (
+              <PaymentAmountField
+                stage={formData.status}
+                value={formData.amount}
+                onChange={(amount) => setFormData({...formData, amount})}
+                lead={lead}
               />
-            </div>
+            )}
             <div className="space-y-1">
               <label className="form-label">Expected Onboarding Date</label>
               <input 
@@ -191,7 +194,7 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
                   {p.icon} {p.label}
                 </button>
                 <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm shadow-sky-300 cursor-default select-none">i</span>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[11px] text-text-secondary hidden group-hover:block pointer-events-none">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-44 bg-white border border-border rounded-xl shadow-lg px-3 py-2 text-[13px] text-text-secondary hidden group-hover:block pointer-events-none">
                   <span className="font-bold" style={{ color: p.color }}>{p.icon} {p.label}:</span> {p.def}
                 </div>
               </div>

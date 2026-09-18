@@ -48,14 +48,14 @@ const LeaveApprovals = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div>
         <h2 className="text-xl font-bold text-text-primary tracking-tight">Pending Leave Approvals</h2>
-        <p className="text-sm text-text-muted">Review and approve district manager leave requests.</p>
+        <p className="text-[16px] text-text-muted">Review and approve district manager leave requests.</p>
       </div>
 
       {pendingLeaves.length === 0 ? (
         <div className="bg-surface border border-border border-dashed rounded-2xl p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-surface2 flex items-center justify-center mx-auto mb-4 text-2xl">🌴</div>
             <p className="text-sm font-bold text-text-primary">No pending requests</p>
-            <p className="text-[11px] text-text-muted mt-1">All leave requests for your district have been processed.</p>
+            <p className="text-[13px] text-text-muted mt-1">All leave requests for your district have been processed.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -74,20 +74,20 @@ const LeaveApprovals = () => {
 
               <div className="grid grid-cols-2 gap-4 bg-surface2/50 rounded-xl p-4 mb-4 border border-border/50">
                 <div>
-                   <p className="text-[9px] font-bold text-text-muted uppercase mb-0.5">Duration</p>
+                   <p className="text-[11px] font-bold text-text-muted uppercase mb-0.5">Duration</p>
                    <p className="text-sm font-bold text-text-primary">{leave.days} Day{leave.days > 1 && 's'}</p>
                 </div>
                 <div>
-                   <p className="text-[9px] font-bold text-text-muted uppercase mb-0.5">Dates</p>
-                   <p className="text-xs font-medium text-text-secondary">
+                   <p className="text-[11px] font-bold text-text-muted uppercase mb-0.5">Dates</p>
+                   <p className="text-[14px] font-medium text-text-secondary">
                       {new Date(leave.fromDate).toLocaleDateString()} - {new Date(leave.toDate).toLocaleDateString()}
                    </p>
                 </div>
               </div>
 
               <div className="mb-6 px-1">
-                 <p className="text-[9px] font-bold text-text-muted uppercase mb-1">Reason</p>
-                 <p className="text-xs text-text-secondary leading-relaxed italic">"{leave.reason}"</p>
+                 <p className="text-[11px] font-bold text-text-muted uppercase mb-1">Reason</p>
+                 <p className="text-[14px] text-text-secondary leading-relaxed italic">"{leave.reason}"</p>
               </div>
 
               <div className="flex gap-2">
@@ -122,7 +122,7 @@ const LeaveApprovals = () => {
         >
           <div className="space-y-4 pt-2">
              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-text-secondary uppercase">Rejection Reason</label>
+                <label className="text-[14px] font-bold text-text-secondary uppercase">Rejection Reason</label>
                 <textarea 
                   className="w-full px-4 py-3 bg-surface2 border border-border rounded-xl focus:ring-2 focus:ring-red/20 focus:border-red outline-none transition-all text-sm min-h-[120px]"
                   placeholder="Ex: Critical lead follow-ups pending for this district. Alternative dates suggested."

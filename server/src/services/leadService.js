@@ -72,11 +72,37 @@ const maybeConvert = (lead, performedBy) => {
     performedBy: performedBy?._id ?? null,
     action: 'converted',
     note: 'Full amount received and agreement signed.',
-    metadata: {
-      revenue: lead.actualRevenue || lead.expectedRevenue || 0,
-      category: lead.revenueCategory,
-    },
+    // The money was already booked as revenue on the payment entries themselves;
+    // only a lead whose payments predate amount capture carries its deal value here.
+    metadata: paymentsReceived(lead) > 0
+      ? { category: lead.revenueCategory, totalReceived: paymentsReceived(lead) }
+      : { revenue: lead.actualRevenue || lead.expectedRevenue || 0, category: lead.revenueCategory },
   };
+};
+
+const paymentsReceived = (lead) => (lead.blockingAmount || 0) + (lead.fullAmount || 0);
+
+/**
+ * Parses the amount entered with a Blocking / Full Amount entry. It is required:
+ * that amount is what every revenue figure in the CRM adds up.
+ */
+const paymentAmountOf = (data) => {
+  const amount = Number(String(data.amount ?? '').replace(/[^\d.]/g, ''));
+  if (!(amount > 0)) throw new Error('Enter the amount received (₹).');
+  return amount;
+};
+
+/**
+ * Books a payment against the lead: adds it to the stage's running total, keeps
+ * actualRevenue as the sum of all payments, and returns the activity metadata
+ * that the revenue figures read.
+ */
+const recordPayment = (lead, amountField, data) => {
+  const amount = paymentAmountOf(data);
+  lead[amountField] = (lead[amountField] || 0) + amount;
+  lead.actualRevenue = paymentsReceived(lead);
+  if (data.revenueCategory) lead.revenueCategory = data.revenueCategory;
+  return { revenue: amount, category: lead.revenueCategory };
 };
 
 const leadService = {
@@ -131,10 +157,10 @@ const leadService = {
           if (data.actualRevenue) lead.actualRevenue = data.actualRevenue;
           
           activityData.action = 'converted';
-          activityData.metadata = {
-            revenue: lead.actualRevenue || lead.expectedRevenue || 0,
-            category: lead.revenueCategory
-          };
+          // Payments already recorded were booked as revenue when they came in.
+          activityData.metadata = paymentsReceived(lead) > 0
+            ? { category: lead.revenueCategory, totalReceived: paymentsReceived(lead) }
+            : { revenue: lead.actualRevenue || lead.expectedRevenue || 0, category: lead.revenueCategory };
         } else if (nextAction === 'not_interested') {
           lead.status = 'not_interested';
           lead.strategyNote = data.strategyNote;
@@ -182,10 +208,12 @@ const leadService = {
           // Each stage keeps the date it first happened, and the `convertedAt`
           // guard stops a re-recorded stage from knocking an already-converted
           // lead back out of Converted and into a payment bucket.
+          activityData.metadata = recordPayment(lead, 'blockingAmount', data);
           lead.blockingDate = lead.blockingDate || new Date();
           if (!lead.convertedAt) lead.status = 'blocking_amount_received';
           activityData.action = 'blocking_amount_received';
         } else if (nextAction === 'full_amount_received') {
+          activityData.metadata = recordPayment(lead, 'fullAmount', data);
           lead.fullAmountReceivedDate = lead.fullAmountReceivedDate || new Date();
           if (!lead.convertedAt) lead.status = 'full_amount_received';
           activityData.action = 'full_amount_received';

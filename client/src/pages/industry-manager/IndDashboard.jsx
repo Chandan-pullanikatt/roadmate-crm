@@ -71,7 +71,7 @@ const IndDashboard = () => {
       {/* Page Header (Internal to Dashboard) - Only show for overview */}
       {activePage === 'overview' && (
         <div className="mb-8 border-b border-border/50 pb-6 hidden md:block">
-           <div className="flex items-center gap-3 text-[10px] font-bold text-text-muted uppercase tracking-[0.2em]">
+           <div className="flex items-center gap-3 text-[12px] font-bold text-text-muted uppercase tracking-[0.2em]">
               <span>Industry Hub</span>
               <span className="opacity-30">/</span>
               <span className="text-purple">{activePage.replace('-', ' ')}</span>

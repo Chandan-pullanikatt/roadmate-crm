@@ -58,7 +58,7 @@ const Performance = () => {
 
   const th = (label, key) => (
     <th
-      className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-text-muted cursor-pointer select-none hover:text-text-primary transition-colors"
+      className="p-4 text-left text-[12px] font-black uppercase tracking-widest text-text-muted cursor-pointer select-none hover:text-text-primary transition-colors"
       onClick={() => toggleSort(key)}
     >
       <span className="inline-flex items-center gap-1">
@@ -83,7 +83,7 @@ const Performance = () => {
               <button
                 key={type}
                 onClick={() => { setViewType(type); setSubValue(''); }}
-                className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+                className={`px-6 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
               >
                 {type}
               </button>
@@ -91,7 +91,7 @@ const Performance = () => {
           </div>
           {SECONDARY_OPTIONS[viewType] && (
             <select
-              className="bg-white border border-border rounded-lg px-3 py-1.5 text-[11px] font-bold text-text-secondary outline-none focus:border-purple transition-colors"
+              className="bg-white border border-border rounded-lg px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-purple transition-colors"
               value={subValue}
               onChange={e => setSubValue(e.target.value)}
             >
@@ -156,7 +156,7 @@ const Performance = () => {
       <div className="card">
         <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center">
           <div className="section-title text-sm">State Office Leaderboard</div>
-          <span className="text-[11px] text-text-muted font-medium">Click column headers to sort</span>
+          <span className="text-[13px] text-text-muted font-medium">Click column headers to sort</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -168,7 +168,7 @@ const Performance = () => {
                 {th('Leads', 'leadsCount')}
                 {th('Converted', 'conversionsTotal')}
                 {th('Revenue', 'revenue')}
-                <th className="p-4 text-[10px] font-black uppercase tracking-widest text-text-muted text-right">Actions</th>
+                <th className="p-4 text-[12px] font-black uppercase tracking-widest text-text-muted text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -181,7 +181,7 @@ const Performance = () => {
                       <Avatar name={m.name} size="sm" className="av-state" />
                       <div>
                         <div className="font-bold text-[13px]">{m.name}</div>
-                        <div className="text-[10px] text-text-muted uppercase">📍 {m.state} Head</div>
+                        <div className="text-[12px] text-text-muted uppercase">📍 {m.state} Head</div>
                       </div>
                     </div>
                   </td>

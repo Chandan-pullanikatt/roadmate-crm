@@ -117,12 +117,12 @@ const LeadFlow = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Lead Task Flow</h1>
-          <p className="text-sm text-text-muted">One-by-one task delivery system · RNR auto-reallocation rules</p>
+          <p className="text-[16px] text-text-muted">One-by-one task delivery system · RNR auto-reallocation rules</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-border/60 shadow-sm">
             <div className="pr-2 pl-4">
-              <div className="text-[10px] font-bold text-text-muted uppercase tracking-tight">Monitoring</div>
+              <div className="text-[12px] font-bold text-text-muted uppercase tracking-tight">Monitoring</div>
               <div className="text-sm font-bold text-purple">
                 {selectedExecId ? '1 Active Session' : 'No Session'}
               </div>
@@ -152,14 +152,14 @@ const LeadFlow = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Lead Task Flow · {userInfo.industry}</h2>
-          <p className="text-xs text-text-muted">
+          <p className="text-[14px] text-text-muted">
             {selectedExec ? `Shadowing ${selectedExec.name} · ${selectedExec.district}` : 'Select an executive to begin monitoring'}
           </p>
         </div>
         {selectedExec && (
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${queueLoading ? 'bg-amber animate-pulse' : 'bg-green animate-pulse'}`} />
-            <span className="text-xs font-bold text-text-muted uppercase tracking-tight">
+            <span className="text-[14px] font-bold text-text-muted uppercase tracking-tight">
               {queueLoading ? 'Syncing...' : 'Live'}
             </span>
           </div>
@@ -172,7 +172,7 @@ const LeadFlow = () => {
             👁️‍🗨️
           </div>
           <h3 className="text-2xl font-black text-text-primary tracking-tight">Monitor Active Execution</h3>
-          <p className="text-sm text-text-muted max-w-sm mx-auto mt-4 font-medium leading-relaxed">
+          <p className="text-[16px] text-text-muted max-w-sm mx-auto mt-4 font-medium leading-relaxed">
             Select a District Manager from the monitor control above to shadow their current lead processing workflow.
           </p>
         </div>
@@ -185,7 +185,7 @@ const LeadFlow = () => {
             {/* Current Lead Card */}
             <div className="card shadow-sm border-border/40">
               <div className="card-header border-b border-border/40 px-6 py-4 flex items-center justify-between">
-                <div className="text-sm font-black uppercase tracking-widest text-text-muted">
+                <div className="text-[16px] font-black uppercase tracking-widest text-text-muted">
                   Current Lead · {currentLead?.leadId || (queueLoading ? '…' : 'No Active Lead')}
                 </div>
                 {currentLead && (
@@ -199,19 +199,19 @@ const LeadFlow = () => {
 
               <div className="card-body px-6 py-6">
                 {queueLoading ? (
-                  <div className="py-10 text-center text-sm text-text-muted italic">Loading queue...</div>
+                  <div className="py-10 text-center text-[16px] text-text-muted italic">Loading queue...</div>
                 ) : !currentLead ? (
                   <div className="py-10 text-center">
                     <div className="text-4xl mb-3 opacity-20">🧊</div>
-                    <p className="text-sm text-text-muted font-bold italic">District Manager is idle or queue is empty</p>
+                    <p className="text-[16px] text-text-muted font-bold italic">District Manager is idle or queue is empty</p>
                   </div>
                 ) : (
                   <>
                     {/* Lead identity */}
                     <div className="mb-5">
                       <div className="text-base font-bold text-text-primary mb-1">{currentLead.company || currentLead.name}</div>
-                      <div className="text-[12.5px] text-text-muted">Contact: {currentLead.name} · {currentLead.phone}</div>
-                      <div className="text-[12.5px] text-text-muted">
+                      <div className="text-[14.5px] text-text-muted">Contact: {currentLead.name} · {currentLead.phone}</div>
+                      <div className="text-[14.5px] text-text-muted">
                         District: {currentLead.district}
                         {selectedExec && ` · Assigned: ${selectedExec.name}`}
                       </div>
@@ -269,7 +269,7 @@ const LeadFlow = () => {
                       </button>
                       <button
                         onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'escalate-lead', leadId: currentLead._id, leadData: currentLead } }))}
-                        className="btn btn-sm px-4 py-1.5 rounded-lg bg-surface2 text-text-muted border border-border text-[11px] font-bold hover:bg-text-primary hover:text-white transition-all"
+                        className="btn btn-sm px-4 py-1.5 rounded-lg bg-surface2 text-text-muted border border-border text-[13px] font-bold hover:bg-text-primary hover:text-white transition-all"
                       >
                         ⬆ Escalate
                       </button>
@@ -282,9 +282,9 @@ const LeadFlow = () => {
             {/* RNR Rules Card */}
             <div className="card border-border/40 shadow-sm">
               <div className="card-header border-b border-border/40 px-6 py-4">
-                <div className="text-sm font-black uppercase tracking-widest text-text-muted">RNR Auto-Reallocation Rules</div>
+                <div className="text-[16px] font-black uppercase tracking-widest text-text-muted">RNR Auto-Reallocation Rules</div>
               </div>
-              <div className="card-body px-6 py-5 space-y-3 text-[12.5px] leading-relaxed text-text-secondary">
+              <div className="card-body px-6 py-5 space-y-3 text-[14.5px] leading-relaxed text-text-secondary">
                 <div>📵 <strong>1st RNR (New Lead):</strong> Lead re-queued for afternoon same day</div>
                 <div>📵 <strong>2nd RNR (Afternoon):</strong> Comes as lead for next working day</div>
                 <div>📵 <strong>3rd RNR (Next Day):</strong> Comes after 2 days at different time</div>
@@ -300,7 +300,7 @@ const LeadFlow = () => {
             {/* Task Flow Steps */}
             <div className="card border-border/40 shadow-sm">
               <div className="card-header border-b border-border/40 px-6 py-4">
-                <div className="text-sm font-black uppercase tracking-widest text-text-muted">Task Flow Steps</div>
+                <div className="text-[16px] font-black uppercase tracking-widest text-text-muted">Task Flow Steps</div>
               </div>
               <div className="card-body px-6 py-4 space-y-1">
                 {steps.map((step) => (
@@ -321,7 +321,7 @@ const LeadFlow = () => {
                       >
                         {step.label}
                       </div>
-                      <div className="text-[11.5px] text-text-muted">{step.sub}</div>
+                      <div className="text-[13.5px] text-text-muted">{step.sub}</div>
                     </div>
                   </div>
                 ))}
@@ -331,15 +331,15 @@ const LeadFlow = () => {
             {/* Today's Queue */}
             <div className="card border-border/40 shadow-sm overflow-hidden">
               <div className="card-header border-b border-border/40 px-6 py-4">
-                <div className="text-sm font-black uppercase tracking-widest text-text-muted">
+                <div className="text-[16px] font-black uppercase tracking-widest text-text-muted">
                   Today's Queue{selectedExec ? ` · ${selectedExec.name}` : ''}
                 </div>
               </div>
 
               {queueLoading ? (
-                <div className="py-10 text-center text-sm text-text-muted italic">Loading queue...</div>
+                <div className="py-10 text-center text-[16px] text-text-muted italic">Loading queue...</div>
               ) : taskSequence.length === 0 ? (
-                <div className="py-10 text-center text-[11px] font-bold text-text-muted uppercase tracking-widest italic opacity-50">
+                <div className="py-10 text-center text-[13px] font-bold text-text-muted uppercase tracking-widest italic opacity-50">
                   No tasks in queue
                 </div>
               ) : (

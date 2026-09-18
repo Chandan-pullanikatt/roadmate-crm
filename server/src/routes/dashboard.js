@@ -12,6 +12,7 @@ const Salary = require('../models/Salary');
 const { getScopeOwnerIds } = require('../utils/hierarchy');
 const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
 const { getDateRange } = require('../utils/dateRange');
+const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
 
 // Protect all routes
 router.use(verifyToken);
@@ -131,9 +132,7 @@ router.get('/executive', async (req, res) => {
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       converted: todayActivities.filter(a => a.action === 'converted').length,
-      revenueToday: todayActivities
-        .filter(a => a.action === 'converted' && a.metadata?.revenue)
-        .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
+      revenueToday: sumRevenue(todayActivities),
       hotPipelineCount: await Lead.countDocuments({
         owner: req.user._id,
         priority: 'hot',
@@ -169,9 +168,7 @@ router.get('/executive', async (req, res) => {
     const monthlyStats = {
       totalLeads: await Lead.countDocuments({ owner: req.user._id, createdAt: { $gte: monthStart } }),
       converted: monthlyConversionActivityDocs.length,
-      revenue: monthlyActivities
-        .filter(a => a.action === 'converted' && a.metadata?.revenue)
-        .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
+      revenue: sumRevenue(monthlyActivities),
       totalCalls: monthlyActivities.filter(a => a.action === 'called').length,
       totalMeetings: monthlyActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       leaveDays: await Leave.countDocuments({ 
@@ -442,7 +439,7 @@ router.get('/industry-manager', async (req, res) => {
     const revenueStats = await LeadActivity.aggregate([
       { 
         $match: { 
-          action: 'converted', 
+          ...REVENUE_MATCH,
           performedBy: { $in: teamIds },
           createdAt: { $gte: prevMonthStart }
         } 
@@ -592,9 +589,7 @@ router.get('/industry-manager', async (req, res) => {
       hot: periodLeads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
       calls: periodActivities.filter(a => a.action === 'called').length,
       meetings: periodMeetingLeads,
-      revenue: periodActivities
-        .filter(a => a.action === 'converted' && a.metadata?.revenue)
-        .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
+      revenue: sumRevenue(periodActivities),
     };
 
     const formatSummaryLead = (l, idx = 0) => {
@@ -666,9 +661,7 @@ router.get('/industry-manager', async (req, res) => {
         calls: callRows.length,
         meetings: userActs.filter(a => a.action.startsWith('meeting')).length,
         converted: convertedRows.length,
-        revenue: userActs
-          .filter(a => a.action === 'converted' && a.metadata?.revenue)
-          .reduce((sum, a) => sum + (a.metadata.revenue || 0), 0),
+        revenue: sumRevenue(userActs),
         hotCount: hotRows.length,
         drilldowns: {
           calls: callRows,
@@ -992,7 +985,7 @@ router.get('/state-manager', async (req, res) => {
         // 3. Stats for Top Cards
         const totalRevenue = await LeadActivity.aggregate([
             { $match: {
-                action: 'converted',
+                ...REVENUE_MATCH,
                 createdAt: { $gte: monthStart },
                 performedBy: { $in: scopeIds }
             }},
@@ -1094,7 +1087,7 @@ router.get('/state-manager', async (req, res) => {
     const prevMonthEnd = new Date(monthStart);
 
     const prevMonthRevenue = await LeadActivity.aggregate([
-      { $match: { action: 'converted', createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd }, performedBy: { $in: scopeIds } } },
+      { $match: { ...REVENUE_MATCH, createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd }, performedBy: { $in: scopeIds } } },
       { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
     ]);
 
@@ -1111,20 +1104,10 @@ router.get('/state-manager', async (req, res) => {
 
         // Headline cards — same set the Founder overview shows, scoped to this State
         // Manager's reporting subtree (the State Managers card is founder-only).
-        const REVENUE_ACTIONS = ['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
-        // Revenue can be booked on any payment-stage activity, and an amount typed
-        // straight onto the lead lives in actualRevenue — take the larger of the two and
-        // collapse to one amount per lead so a lead that walks converted -> blocking ->
-        // full amount is not counted three times.
+        // Revenue = the payments recorded in the window (see revenueService).
         const sumScopedRevenue = (createdAt) => LeadActivity.aggregate([
-            { $match: { action: { $in: REVENUE_ACTIONS }, performedBy: { $in: scopeIds }, ...(createdAt ? { createdAt } : {}) } },
-            { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'leadDetails' } },
-            { $unwind: '$leadDetails' },
-            { $group: { _id: '$lead', revenue: { $max: { $max: [
-                { $ifNull: ['$metadata.revenue', 0] },
-                { $ifNull: ['$leadDetails.actualRevenue', 0] }
-            ] } } } },
-            { $group: { _id: null, total: { $sum: '$revenue' } } }
+            { $match: { ...REVENUE_MATCH, performedBy: { $in: scopeIds }, ...(createdAt ? { createdAt } : {}) } },
+            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
         ]).then(r => r[0]?.total || 0);
 
         // Growth compares the selected window against the window of the same length
@@ -1266,7 +1249,7 @@ router.get('/state-manager', async (req, res) => {
                         meetings:  { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
                         followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] },  1, 0] } },
                         convs:     { $sum: { $cond: [{ $eq: ['$action', 'converted'] },     1, 0] } },
-                        revenue:   { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, { $ifNull: ['$metadata.revenue', 0] }, 0] } }
+                        revenue:   { $sum: REVENUE_EXPR }
                     }
                 }
             ]),
@@ -1343,7 +1326,7 @@ router.get('/state-manager', async (req, res) => {
                         meetings:    { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
                         followups:   { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] },  1, 0] } },
                         conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] },     1, 0] } },
-                        revenue:     { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, { $ifNull: ['$metadata.revenue', 0] }, 0] } }
+                        revenue:     { $sum: REVENUE_EXPR }
                     }
                 }
             ]),
@@ -1569,106 +1552,81 @@ router.get('/revenue', verifyToken, async (req, res) => {
     const { period = 'month', value } = req.query;
     const { start, end } = getDateRange(period, value);
     
-    const query = { 
-      action: 'converted',
-      createdAt: { $gte: start, $lte: end }
+    // Revenue = the payments recorded in the window (see revenueService). A lead
+    // that paid a blocking amount and then the balance contributes both payments
+    // but counts once in the lead counts.
+    const buildAggregation = (from, to) => {
+      const pipeline = [
+        { $match: { ...REVENUE_MATCH, createdAt: { $gte: from, $lte: to } } },
+        {
+          $lookup: {
+            from: 'leads',
+            localField: 'lead',
+            foreignField: '_id',
+            as: 'leadDetails'
+          }
+        },
+        { $unwind: '$leadDetails' }
+      ];
+      if (req.user.role === 'state_manager') {
+        pipeline.push({ $match: { 'leadDetails.state': req.user.state } });
+      } else if (req.user.role === 'industry_manager') {
+        pipeline.push({ $match: { 'leadDetails.industry': req.user.industry } });
+      }
+      return pipeline;
+    };
+    const revenueAggregation = buildAggregation(start, end);
+
+    const summarise = async (pipeline) => {
+      const [row] = await LeadActivity.aggregate([
+        ...pipeline,
+        { $group: { _id: null, totalRevenue: { $sum: '$metadata.revenue' }, payments: { $sum: 1 }, leads: { $addToSet: '$lead' } } }
+      ]);
+      const count = row?.leads.length || 0;
+      return {
+        totalRevenue: row?.totalRevenue || 0,
+        payments: row?.payments || 0,
+        count,
+        avgDealValue: count ? Math.round(row.totalRevenue / count) : 0
+      };
     };
 
-    const revenueAggregation = [
-      { $match: query },
-      {
-        $lookup: {
-          from: 'leads',
-          localField: 'lead',
-          foreignField: '_id',
-          as: 'leadDetails'
-        }
-      },
-      { $unwind: '$leadDetails' }
-    ];
-
-    if (req.user.role === 'state_manager') {
-      revenueAggregation.push({ $match: { 'leadDetails.state': req.user.state } });
-    } else if (req.user.role === 'industry_manager') {
-      revenueAggregation.push({ $match: { 'leadDetails.industry': req.user.industry } });
-    }
-
-    const revenueData = await LeadActivity.aggregate([
+    const groupBy = (key) => LeadActivity.aggregate([
       ...revenueAggregation,
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
-          count: { $sum: 1 },
-          avgDealValue: { $avg: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } }
-        }
-      }
-    ]);
-
-    const byCategory = await LeadActivity.aggregate([
-      ...revenueAggregation,
-      {
-        $group: {
-          _id: { $ifNull: ['$metadata.category', '$leadDetails.revenueCategory', 'other'] },
-          revenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    const byState = await LeadActivity.aggregate([
-      ...revenueAggregation,
-      {
-        $group: {
-          _id: '$leadDetails.state',
-          revenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
-          count: { $sum: 1 }
-        }
-      },
+      { $group: { _id: key, revenue: { $sum: '$metadata.revenue' }, leads: { $addToSet: '$lead' } } },
+      { $project: { revenue: 1, count: { $size: '$leads' } } },
       { $sort: { revenue: -1 } }
     ]);
 
-    const byIndustry = await LeadActivity.aggregate([
-      ...revenueAggregation,
-      {
-        $group: {
-          _id: '$leadDetails.industry',
-          revenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } },
-          count: { $sum: 1 }
+    const [currentSummary, byCategory, byState, byIndustry, recentConversions] = await Promise.all([
+      summarise(revenueAggregation),
+      groupBy({ $ifNull: ['$metadata.category', '$leadDetails.revenueCategory', 'other'] }),
+      groupBy('$leadDetails.state'),
+      groupBy('$leadDetails.industry'),
+      LeadActivity.aggregate([
+        ...revenueAggregation,
+        { $sort: { createdAt: -1 } },
+        { $limit: 10 },
+        {
+          $project: {
+            _id: 1,
+            lead: 1,
+            leadName: '$leadDetails.name',
+            company: '$leadDetails.company',
+            stage: '$action',
+            revenue: '$metadata.revenue',
+            category: { $ifNull: ['$metadata.category', '$leadDetails.revenueCategory', 'other'] },
+            createdAt: 1
+          }
         }
-      },
-      { $sort: { revenue: -1 } }
-    ]);
-
-    const recentConversions = await LeadActivity.aggregate([
-      ...revenueAggregation,
-      { $sort: { createdAt: -1 } },
-      { $limit: 10 },
-      {
-        $project: {
-          _id: 1,
-          leadName: '$leadDetails.name',
-          company: '$leadDetails.company',
-          revenue: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] },
-          category: { $ifNull: ['$metadata.category', '$leadDetails.revenueCategory', 'other'] },
-          createdAt: 1
-        }
-      }
+      ])
     ]);
 
     // Previous period for growth calculation
     const periodMs = end - start;
     const prevStart = new Date(start.getTime() - periodMs);
     const prevEnd   = new Date(start);
-    const prevQuery = { action: 'converted', createdAt: { $gte: prevStart, $lte: prevEnd } };
-    const prevRevAgg = [...revenueAggregation];
-    prevRevAgg[0] = { $match: prevQuery }; // replace the first $match
-    const prevRevenueData = await LeadActivity.aggregate([
-      ...prevRevAgg,
-      { $group: { _id: null, totalRevenue: { $sum: { $ifNull: ['$metadata.revenue', '$leadDetails.actualRevenue', 0] } }, count: { $sum: 1 } } }
-    ]);
-    const prevSummary = prevRevenueData[0] || { totalRevenue: 0, count: 0 };
-    const currentSummary = revenueData[0] || { totalRevenue: 0, count: 0, avgDealValue: 0 };
+    const prevSummary = await summarise(buildAggregation(prevStart, prevEnd));
     const growthPct = prevSummary.totalRevenue > 0
       ? Math.round(((currentSummary.totalRevenue - prevSummary.totalRevenue) / prevSummary.totalRevenue) * 1000) / 10
       : (currentSummary.totalRevenue > 0 ? 100 : 0);
@@ -1727,28 +1685,13 @@ router.get('/founder', async (req, res) => {
         const totalConversions = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } });
         const convertedThisMonth = await LeadActivity.countDocuments({ action: 'converted', createdAt: { $gte: monthStart } });
 
-        // Revenue was reading zero on this card: it only summed metadata.revenue on
-        // 'converted' activities. Money booked through the payment stages logs its own
-        // action with empty metadata, and an amount typed straight onto the lead lives in
-        // actualRevenue — both were invisible here. Count every revenue-bearing action and
-        // fall back to the lead's own figure, then collapse to one amount per lead so a
-        // lead that walks converted -> blocking -> full amount isn't counted three times.
-        const REVENUE_ACTIONS = ['converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
-        const sumRevenue = (createdAt) => LeadActivity.aggregate([
-            { $match: { action: { $in: REVENUE_ACTIONS }, createdAt } },
-            { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'leadDetails' } },
-            { $unwind: '$leadDetails' },
-            // Take the larger of the activity's own figure and the lead's actualRevenue —
-            // converting without entering an amount writes revenue:0, so a plain $ifNull
-            // would never fall through to a figure added on the lead afterwards.
-            { $group: { _id: '$lead', revenue: { $max: { $max: [
-                { $ifNull: ['$metadata.revenue', 0] },
-                { $ifNull: ['$leadDetails.actualRevenue', 0] }
-            ] } } } },
-            { $group: { _id: null, total: { $sum: '$revenue' } } }
+        // Revenue = the payments recorded in the window (see revenueService).
+        const sumPeriodRevenue = (createdAt) => LeadActivity.aggregate([
+            { $match: { ...REVENUE_MATCH, createdAt } },
+            { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
         ]).then(r => r[0]?.total || 0);
 
-        const totalRevenue = await sumRevenue({ $gte: periodStart, $lte: periodEnd });
+        const totalRevenue = await sumPeriodRevenue({ $gte: periodStart, $lte: periodEnd });
 
         const totalCalls = await LeadActivity.countDocuments({ action: 'called', createdAt: { $gte: periodStart, $lte: periodEnd } });
         const reachRate = totalLeads ? (totalCalls / totalLeads) * 100 : 0;
@@ -1810,7 +1753,7 @@ router.get('/founder', async (req, res) => {
         // Revenue growth vs previous month
         const prevMonthStartF = new Date(monthStart);
         prevMonthStartF.setMonth(prevMonthStartF.getMonth() - 1);
-        const prevMonthRevenueF = await sumRevenue({ $gte: prevMonthStartF, $lt: monthStart });
+        const prevMonthRevenueF = await sumPeriodRevenue({ $gte: prevMonthStartF, $lt: monthStart });
         const revGrowthF = prevMonthRevenueF > 0
             ? Math.round(((totalRevenue - prevMonthRevenueF) / prevMonthRevenueF) * 100 * 10) / 10
             : (totalRevenue > 0 ? 100 : 0);
@@ -1872,14 +1815,14 @@ router.get('/founder', async (req, res) => {
                 }}
             ]),
             LeadActivity.aggregate([
-                { $match: { action: { $in: ['called', 'converted', 'meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'] }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
+                { $match: { action: { $in: ['called', 'meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct', ...REVENUE_ACTIONS] }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
                 { $unwind: '$lead' },
                 { $group: {
                     _id: '$lead.state',
                     calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
                     meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
-                    revenue: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, '$metadata.revenue', 0] } }
+                    revenue: { $sum: REVENUE_EXPR }
                 }}
             ]),
             Attendance.aggregate([
@@ -1918,7 +1861,7 @@ router.get('/founder', async (req, res) => {
                 { $group: { _id: '$industry', leads: { $sum: 1 }, converted: { $sum: { $cond: [{ $eq: ['$status', 'converted'] }, 1, 0] } } } }
             ]),
             LeadActivity.aggregate([
-                { $match: { action: 'converted', createdAt: { $gte: periodStart, $lte: periodEnd } } },
+                { $match: { ...REVENUE_MATCH, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
                 { $unwind: '$lead' },
                 { $group: { _id: '$lead.industry', revenue: { $sum: '$metadata.revenue' } } }
@@ -2053,7 +1996,7 @@ router.get('/founder', async (req, res) => {
                     followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] }, 1, 0] } },
                     conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
                     blocking: { $sum: { $cond: [{ $eq: ['$action', 'blocking_amount_received'] }, 1, 0] } },
-                    revenue: { $sum: '$metadata.revenue' }
+                    revenue: { $sum: REVENUE_EXPR }
                 }}
             ]),
             Lead.aggregate([
@@ -2248,7 +2191,7 @@ router.get('/reports/performance', async (req, res) => {
                 calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
                 meetings: { $sum: { $cond: [{ $regexMatch: { input: '$action', regex: /meeting/i } }, 1, 0] } },
                 conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
-                revenue: { $sum: '$metadata.revenue' }
+                revenue: { $sum: REVENUE_EXPR }
             }},
             { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
             { $unwind: '$user' },
@@ -2410,7 +2353,7 @@ router.get('/reports/salary', async (req, res) => {
 router.get('/reports/revenue', async (req, res) => {
     try {
         const { from, to, state, industry, page = 1, limit = 20 } = req.query;
-        const query = { action: 'converted' };
+        const query = { ...REVENUE_MATCH };
         
         const dateFilter = {};
         if (from) dateFilter.$gte = new Date(from);
@@ -2448,7 +2391,7 @@ router.get('/reports/revenue', async (req, res) => {
             pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
             summary: {
                 totalRevenue: allResults.reduce((sum, r) => sum + r.totalRevenue, 0),
-                totalConversions: allResults.reduce((sum, r) => sum + r.totalConversions, 0)
+                totalConversions: allResults.reduce((sum, r) => sum + r.count, 0)
             }
         });
     } catch (err) {
@@ -2624,9 +2567,9 @@ router.get('/performance', async (req, res) => {
       createdAt: { $gte: prevStart, $lte: prevEnd }
     });
 
-    const prevRevenueData = await Lead.aggregate([
-      { $match: { owner: userId, status: 'converted', updatedAt: { $gte: prevStart, $lte: prevEnd } } },
-      { $group: { _id: null, total: { $sum: "$expectedRevenue" } } }
+    const prevRevenueData = await LeadActivity.aggregate([
+      { $match: { ...REVENUE_MATCH, performedBy: userId, createdAt: { $gte: prevStart, $lte: prevEnd } } },
+      { $group: { _id: null, total: { $sum: '$metadata.revenue' } } }
     ]);
     const prevRevenue = prevRevenueData[0]?.total || 0;
 
@@ -2635,9 +2578,7 @@ router.get('/performance', async (req, res) => {
     const conversions = currentActivities.filter(a => a.action === 'converted').length;
     const meetings = currentActivities.filter(a => a.action === 'meeting_done' || a.action === 'meeting_scheduled').length;
     
-    const revenue = currentLeads
-      .filter(l => l.status === 'converted')
-      .reduce((sum, l) => sum + (l.expectedRevenue || 0), 0);
+    const revenue = sumRevenue(currentActivities);
 
     const rnrLeads = currentActivities.filter(a => a.action === 'rnr').length;
     const freshLeads = currentLeads.filter(l => l.status === 'new').length;

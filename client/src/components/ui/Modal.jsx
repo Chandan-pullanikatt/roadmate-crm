@@ -31,13 +31,13 @@ const Modal = ({ isOpen = true, title, subtitle, children, onClose, className = 
         <div className="px-8 py-6 border-b border-border flex items-start justify-between bg-white">
           <div>
             <h2 className="text-xl font-bold text-text-primary">{title}</h2>
-            {subtitle && <p className="text-sm text-text-muted mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-[16px] text-text-muted mt-0.5">{subtitle}</p>}
           </div>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-gray-100 transition-all"
           >
-            <span className="text-sm text-text-muted">✕</span>
+            <span className="text-[16px] text-text-muted">✕</span>
           </button>
         </div>
         <div className="p-8 max-h-[85vh] overflow-y-auto custom-scrollbar">

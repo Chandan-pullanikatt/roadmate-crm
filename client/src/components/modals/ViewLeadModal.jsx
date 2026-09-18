@@ -30,7 +30,7 @@ const Field = ({ label, value }) => {
   if (value === null || value === undefined || value === '') return null;
   return (
     <div className="min-w-0">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{label}</div>
+      <div className="text-[12px] font-bold uppercase tracking-wider text-text-muted">{label}</div>
       <div className="text-[13px] font-medium text-text-primary mt-0.5 break-words">{value}</div>
     </div>
   );
@@ -42,7 +42,7 @@ const Section = ({ title, children }) => {
   if (!hasContent) return null;
   return (
     <div className="rounded-xl border border-border/60 bg-surface2/20 p-5">
-      <div className="text-[11px] font-black uppercase tracking-widest text-text-muted mb-4">{title}</div>
+      <div className="text-[13px] font-black uppercase tracking-widest text-text-muted mb-4">{title}</div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">{children}</div>
     </div>
   );
@@ -114,7 +114,9 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
         <Field label="Partnership Category" value={lead.partnershipCategory} />
         <Field label="Revenue Category" value={titleCase(lead.revenueCategory)} />
         <Field label="Expected Revenue" value={formatMoney(lead.expectedRevenue)} />
-        <Field label="Actual Revenue" value={formatMoney(lead.actualRevenue)} />
+        <Field label="Blocking Amount Received" value={formatMoney(lead.blockingAmount)} />
+        <Field label="Full Amount Received" value={formatMoney(lead.fullAmount)} />
+        <Field label="Total Received" value={formatMoney(lead.actualRevenue)} />
       </Section>
 
       <Section title="Dates">
@@ -140,14 +142,14 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
 
       {lead.feedback?.length > 0 && (
         <div className="rounded-xl border border-border/60 bg-surface2/20 p-5">
-          <div className="text-[11px] font-black uppercase tracking-widest text-text-muted mb-4">
+          <div className="text-[13px] font-black uppercase tracking-widest text-text-muted mb-4">
             Feedback ({lead.feedback.length})
           </div>
           <div className="space-y-2">
             {[...lead.feedback].reverse().map((f, i) => (
               <div key={f._id || i} className="bg-white rounded-lg border border-border/60 px-4 py-3">
                 <div className="text-[13px] text-text-primary">{f.note}</div>
-                <div className="text-[10px] font-bold text-text-muted mt-1">{formatDate(f.createdAt, true)}</div>
+                <div className="text-[12px] font-bold text-text-muted mt-1">{formatDate(f.createdAt, true)}</div>
               </div>
             ))}
           </div>
@@ -156,7 +158,7 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
 
       {lead.documents?.length > 0 && (
         <div className="rounded-xl border border-border/60 bg-surface2/20 p-5">
-          <div className="text-[11px] font-black uppercase tracking-widest text-text-muted mb-4">
+          <div className="text-[13px] font-black uppercase tracking-widest text-text-muted mb-4">
             Documents ({lead.documents.length})
           </div>
           <div className="space-y-2">
@@ -180,10 +182,10 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
 
   const renderHistory = () => {
     if (activityLoading) {
-      return <div className="py-12 text-center text-text-muted text-sm">Loading activity log…</div>;
+      return <div className="py-12 text-center text-text-muted text-[16px]">Loading activity log…</div>;
     }
     if (!activities.length) {
-      return <div className="py-12 text-center text-text-muted italic text-sm">No activity recorded for this lead yet.</div>;
+      return <div className="py-12 text-center text-text-muted italic text-[16px]">No activity recorded for this lead yet.</div>;
     }
     return (
       <div className="relative">
@@ -203,13 +205,13 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
                       <span className="text-base">{meta.icon}</span>
                       <span className="text-[13px] font-bold text-text-primary">{meta.label}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-text-muted shrink-0">
+                    <span className="text-[12px] font-bold text-text-muted shrink-0">
                       {formatDate(a.createdAt, true)}
                     </span>
                   </div>
-                  {a.note && <div className="text-[12.5px] text-text-secondary mt-1.5">{a.note}</div>}
+                  {a.note && <div className="text-[14.5px] text-text-secondary mt-1.5">{a.note}</div>}
                   {a.performedBy?.name && (
-                    <div className="text-[10px] font-bold text-text-muted mt-1.5">by {a.performedBy.name}</div>
+                    <div className="text-[12px] font-bold text-text-muted mt-1.5">by {a.performedBy.name}</div>
                   )}
                 </div>
               </div>
@@ -229,9 +231,9 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
       className="modal-lg"
     >
       {isLoading ? (
-        <div className="py-16 text-center text-text-muted text-sm">Loading lead…</div>
+        <div className="py-16 text-center text-text-muted text-[16px]">Loading lead…</div>
       ) : isError || !lead ? (
-        <div className="py-16 text-center text-text-muted italic text-sm">
+        <div className="py-16 text-center text-text-muted italic text-[16px]">
           Could not load this lead. It may have been removed.
         </div>
       ) : (
@@ -241,11 +243,11 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${PRIORITY_STYLES[lead.priority] || PRIORITY_STYLES.cold}`}>
               {lead.priority || 'cold'}
             </span>
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-border bg-surface2 text-text-secondary">
+            <span className="px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-wider border border-border bg-surface2 text-text-secondary">
               {titleCase(lead.status)}
             </span>
             {lead.leadId && (
-              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-border bg-white text-text-muted font-mono">
+              <span className="px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-wider border border-border bg-white text-text-muted font-mono">
                 {lead.leadId}
               </span>
             )}
@@ -260,7 +262,7 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 -mb-px ${
+                className={`px-4 py-2 text-[14px] font-bold transition-colors border-b-2 -mb-px ${
                   tab === t.id
                     ? 'border-[#0f766e] text-[#0f766e]'
                     : 'border-transparent text-text-muted hover:text-text-primary'

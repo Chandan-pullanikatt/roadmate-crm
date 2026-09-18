@@ -59,7 +59,7 @@ export const PeriodPicker = ({ period, value, setPeriod, setValue }) => (
         <button
           key={t}
           onClick={() => setPeriod(t)}
-          className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${period === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+          className={`px-3 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${period === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
         >
           {t}
         </button>
@@ -69,7 +69,7 @@ export const PeriodPicker = ({ period, value, setPeriod, setValue }) => (
       <select
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="bg-white border border-border rounded-xl px-3 py-1.5 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+        className="bg-white border border-border rounded-xl px-3 py-1.5 text-[14px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
       >
         {periodOptions(period).map(opt => (
           <option key={opt} value={opt}>{opt}</option>
@@ -124,7 +124,7 @@ const LeadPipelinePanel = ({ ownerId, ownerName, className = '' }) => {
       <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
         <div>
           <h3 className="text-[16px] font-bold text-text-primary">Lead Pipeline</h3>
-          <div className="text-[12px] text-text-muted mt-0.5">{ownerName}'s own leads, created in the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">{ownerName}'s own leads, created in the selected period</div>
         </div>
         <PeriodPicker {...picker} />
       </div>
@@ -143,7 +143,7 @@ const LeadPipelinePanel = ({ ownerId, ownerName, className = '' }) => {
               title={`View ${ownerName}'s ${s.label} leads`}
             >
               <div className="text-[24px] font-bold font-mono mb-1" style={{ color }}>{s.count}</div>
-              <div className="text-[11px] text-text-muted font-medium mb-4 text-center">{s.label}</div>
+              <div className="text-[13px] text-text-muted font-medium mb-4 text-center">{s.label}</div>
               <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: color }}></div>
             </div>
           );
@@ -189,7 +189,7 @@ export const LeadMetricsBreakdown = ({ userId }) => {
           <h3 className="text-[18px] font-bold mb-1 flex items-center gap-2">
             <span className="text-teal">📊</span> Lead Metrics Breakdown
           </h3>
-          <div className="text-[12px] text-text-muted">Lead actions {periodLabel(period, value)} · {total} in total</div>
+          <div className="text-[14px] text-text-muted">Lead actions {periodLabel(period, value)} · {total} in total</div>
         </div>
         <PeriodPicker {...picker} />
       </div>
@@ -201,7 +201,7 @@ export const LeadMetricsBreakdown = ({ userId }) => {
             <div key={r.key}>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[13px] font-bold text-text-primary">{r.label}</span>
-                <span className="text-[12px] font-black text-text-muted">{count} ({pct}%)</span>
+                <span className="text-[14px] font-black text-text-muted">{count} ({pct}%)</span>
               </div>
               <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden border border-border/50">
                 <div className={`h-full ${r.color} transition-all duration-1000`} style={{ width: `${pct}%` }}></div>

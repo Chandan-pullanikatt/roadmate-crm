@@ -68,7 +68,7 @@ const Performance = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Staff Performance</h1>
-          <p className="text-sm text-text-muted">Industry Manager · {userInfo.industry} · All executives</p>
+          <p className="text-[16px] text-text-muted">Industry Manager · {userInfo.industry} · All executives</p>
         </div>
         <div className="flex items-center gap-3">
             <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
@@ -92,45 +92,45 @@ const Performance = () => {
       {/* Sub Header */}
       <div className="bg-surface1 border border-border/40 rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-bold">Staff Performance - {userInfo.industry} - {userInfo.state}</h2>
-        <p className="text-xs text-text-muted">Calls · Meetings · Revenue · Leaves · Real-time metrics</p>
+        <p className="text-[14px] text-text-muted">Calls · Meetings · Revenue · Leaves · Real-time metrics</p>
       </div>
 
       {/* Top 4 Performance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Top Performer */}
         <div className="card p-6 border-l-4 border-purple shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Top Performer</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Top Performer</div>
             <div className="flex items-center gap-4">
                 <div className="text-xl font-black text-purple">{topPerformer?.name || '—'}</div>
             </div>
-            <div className="mt-2 text-xs font-bold text-text-muted">
+            <div className="mt-2 text-[14px] font-bold text-text-muted">
                 <span className="text-purple">{topPerformer?.completionPct || 0}% Work</span> · {topPerformer?.converted || 0} Conv.
             </div>
         </div>
 
         {/* Best Revenue */}
         <div className="card p-6 border-l-4 border-green shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Best Revenue</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Best Revenue</div>
             <div className="text-2xl font-black text-text-primary">{formatCurrency(bestRevenue?.revenue || 0)}</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted">
+            <div className="mt-2 text-[12px] font-bold text-text-muted">
                 {bestRevenue?.name} · {bestRevenue?.district}
             </div>
         </div>
 
         {/* Most Calls */}
         <div className="card p-6 border-l-4 border-blue shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Most Calls</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Most Calls</div>
             <div className="text-2xl font-black text-text-primary">{mostCalls?.calls || 0}</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted">
+            <div className="mt-2 text-[12px] font-bold text-text-muted">
                 {mostCalls?.name} · {mostCalls?.district}
             </div>
         </div>
 
         {/* Most Follow-ups */}
         <div className="card p-6 border-l-4 border-amber shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Most Follow-ups</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Most Follow-ups</div>
             <div className="text-2xl font-black text-text-primary">{mostFollowups?.followupsCount || 0}</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted">
+            <div className="mt-2 text-[12px] font-bold text-text-muted">
                 {mostFollowups?.name} · {mostFollowups?.district}
             </div>
         </div>
@@ -139,13 +139,13 @@ const Performance = () => {
       {/* Detail Table Card */}
       <div className="card shadow-lg shadow-purple/5 border-border/40 overflow-hidden">
         <div className="card-header border-none px-8 pt-8 pb-4">
-           <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Staff-by-Staff Detail Report</h3>
+           <h3 className="text-[16px] font-black uppercase tracking-widest text-text-muted">Staff-by-Staff Detail Report</h3>
         </div>
         
         <div className="p-0 overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="bg-surface2/30 text-[9px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
+              <tr className="bg-surface2/30 text-[11px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
                 <th className="px-8 py-4">District Manager</th>
                 <th className="px-6 py-4">District</th>
                 <th className="px-6 py-4 text-center">Calls</th>
@@ -170,7 +170,7 @@ const Performance = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-tight">{exec.district}</span>
+                    <span className="text-[12px] font-bold text-text-secondary uppercase tracking-tight">{exec.district}</span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className="text-[11px] font-black text-blue">{exec.calls}</span>
@@ -188,7 +188,7 @@ const Performance = () => {
                     <span className="text-[11px] font-black text-text-primary">{formatCurrency(exec.revenue)}</span>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="text-[11px] font-bold text-text-muted">{exec.leaves ?? 0}</span>
+                    <span className="text-[13px] font-bold text-text-muted">{exec.leaves ?? 0}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

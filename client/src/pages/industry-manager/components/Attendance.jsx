@@ -75,7 +75,7 @@ const Attendance = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Attendance</h1>
-          <p className="text-sm text-text-muted">Work %, leaves, salary - All executives</p>
+          <p className="text-[16px] text-text-muted">Work %, leaves, salary - All executives</p>
         </div>
         <div className="flex items-center gap-3">
             <div className="relative">
@@ -99,7 +99,7 @@ const Attendance = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Attendance · {userInfo.industry} Team</h2>
-          <p className="text-xs text-text-muted">All {executives.length} district managers · Work %, leaves, salary</p>
+          <p className="text-[14px] text-text-muted">All {executives.length} district managers · Work %, leaves, salary</p>
         </div>
         <div className="flex gap-2">
             <Button variant="outline" className="rounded-xl h-10 px-5 font-bold border-border/60 text-[11px] uppercase tracking-widest" onClick={exportRegister}>
@@ -111,33 +111,33 @@ const Attendance = () => {
       {/* 4 Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="card p-6 border-l-4 border-green shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Present Today</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Present Today</div>
             <div className="text-2xl font-black text-text-primary">{stats.activeToday || 0}</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted italic">
+            <div className="mt-2 text-[12px] font-bold text-text-muted italic">
                 of {executives.length} total
             </div>
         </div>
 
         <div className="card p-6 border-l-4 border-amber shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Half Day</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Half Day</div>
             <div className="text-2xl font-black text-text-primary">{stats.halfDayToday || 1}</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted">
+            <div className="mt-2 text-[12px] font-bold text-text-muted">
                 Work % <span className="text-amber">52</span>
             </div>
         </div>
 
         <div className="card p-6 border-l-4 border-blue shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Avg Attendance %</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Avg Attendance %</div>
             <div className="text-2xl font-black text-blue">{stats.avgWorkPct || 94}%</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted">
+            <div className="mt-2 text-[12px] font-bold text-text-muted">
                 <span className="text-blue">↑</span> This month
             </div>
         </div>
 
         <div className="card p-6 border-l-4 border-purple shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Working Hours</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest mb-3">Working Hours</div>
             <div className="text-xl font-black text-purple">9:30 AM – 6:30 PM</div>
-            <div className="mt-2 text-[10px] font-bold text-text-muted uppercase tracking-tighter">
+            <div className="mt-2 text-[12px] font-bold text-text-muted uppercase tracking-tighter">
                 Standard working hours
             </div>
         </div>
@@ -146,13 +146,13 @@ const Attendance = () => {
       {/* Attendance Register Section */}
       <div className="card shadow-lg shadow-purple/5 border-border/40 overflow-hidden">
         <div className="card-header border-none px-8 pt-8 pb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-           <h3 className="text-sm font-black uppercase tracking-widest text-text-muted">Attendance Register</h3>
+           <h3 className="text-[16px] font-black uppercase tracking-widest text-text-muted">Attendance Register</h3>
            <div className="flex bg-surface2 p-1 rounded-xl border border-border/40 shadow-sm">
                 {['Today', 'This Week', 'This Month'].map(tab => (
                     <button 
                         key={tab}
                         onClick={() => setViewType(tab)}
-                        className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-widest ${viewType === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+                        className={`px-4 py-2 text-[12px] font-black rounded-lg transition-all uppercase tracking-widest ${viewType === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
                     >{tab}</button>
                 ))}
             </div>
@@ -161,7 +161,7 @@ const Attendance = () => {
         <div className="p-0 overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="bg-surface2/30 text-[9px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
+              <tr className="bg-surface2/30 text-[11px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
                 <th className="px-8 py-4">Name</th>
                 <th className="px-6 py-4">District</th>
                 <th className="px-6 py-4 text-center">Status</th>
@@ -186,7 +186,7 @@ const Attendance = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-tight">{exec.district}</span>
+                    <span className="text-[12px] font-bold text-text-secondary uppercase tracking-tight">{exec.district}</span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <Tag 
@@ -204,12 +204,12 @@ const Attendance = () => {
                   <td className="px-6 py-4 text-center">
                     {exec.isWFH
                       ? <span className="px-2 py-0.5 bg-blue/10 text-blue rounded-full text-[9px] font-bold">WFH</span>
-                      : <span className="text-[10px] text-text-muted">Office</span>}
+                      : <span className="text-[12px] text-text-muted">Office</span>}
                   </td>
                   <td className="px-6 py-4 text-center">
                     {(exec.lateLoginMinutes || 0) > 0
                       ? <span className="text-[10px] font-bold text-orange">{exec.lateLoginMinutes}m</span>
-                      : <span className="text-[10px] text-text-muted">—</span>}
+                      : <span className="text-[12px] text-text-muted">—</span>}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

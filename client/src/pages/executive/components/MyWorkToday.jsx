@@ -129,7 +129,7 @@ const MyWorkToday = () => {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-10 animate-in">
         <div className="wizard-call-icon" style={{ background: 'linear-gradient(135deg, #D97706, #F59E0B)', marginBottom: 24 }}>💼</div>
         <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-1px', marginBottom: 8 }}>Good Morning, {userName.split(' ')[0]}</h1>
-        <p style={{ color: 'var(--text-muted)', maxWidth: 480, marginBottom: 32, fontSize: 14 }}>
+        <p style={{ color: 'var(--text-muted)', maxWidth: 480, marginBottom: 32, fontSize: 16 }}>
           Your workspace is ready. Priority leads and scheduled meetings await your attention.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 40, width: '100%', maxWidth: 560 }}>
@@ -210,7 +210,7 @@ const MyWorkToday = () => {
           <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px' }}>Start My Work</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', animation: 'callPulse 2s infinite' }}></div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)' }}>
               Session Active · {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
               {attendanceData?.attendance?.isWFH && (
                 <span className="ml-3 px-2 py-0.5 bg-orange/10 text-orange rounded-full text-[10px] uppercase font-black">Working From Home</span>
@@ -264,7 +264,7 @@ const MyWorkToday = () => {
                   <span className={`tag ${lead.status?.includes('meeting_virtual') ? 'tag-blue' : lead.status?.includes('meeting_direct') ? 'tag-amber' : 'tag-gray'}`} style={{ fontSize: 10 }}>
                     {lead.status?.includes('meeting') ? (lead.status.includes('virtual') ? '🎥 Virtual Meeting' : '🤝 Direct Meeting') : 'Call Lead'}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
                     TASK {(workflow?.queueLength || 1) - (workflow?.queueLength || 1) + 1} OF {workflow?.queueLength || 1}
                   </span>
                 </div>
@@ -304,14 +304,14 @@ const MyWorkToday = () => {
                   {lead.notes && (
                     <div style={{ padding: '12px 14px', background: 'var(--blue-light)', borderRadius: 10, borderLeft: '4px solid var(--blue)', marginBottom: 16 }}>
                       <div style={{ fontWeight: 700, color: 'var(--blue)', marginBottom: 4, fontSize: 13 }}>Client Brief</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{lead.notes}</div>
+                      <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{lead.notes}</div>
                     </div>
                   )}
 
                   {/* Virtual meeting link */}
                   {isVirtualLead && lead.meetingLink && (
                     <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lead.meetingLink}</span>
+                      <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{lead.meetingLink}</span>
                       <a href={lead.meetingLink} target="_blank" rel="noopener noreferrer"
                         className="wizard-btn wizard-btn-primary" style={{ padding: '4px 12px', fontSize: 11, textDecoration: 'none' }}>
                         Join →
@@ -341,7 +341,7 @@ const MyWorkToday = () => {
                       >
                         <span style={{ fontSize: 22 }}>📞</span>
                         <strong style={{ fontSize: 12 }}>Call Done</strong>
-                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Log call outcome</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Log call outcome</span>
                       </button>
                     )}
 
@@ -353,7 +353,7 @@ const MyWorkToday = () => {
                     >
                       <span style={{ fontSize: 22 }}>✏️</span>
                       <strong style={{ fontSize: 12 }}>Update Lead</strong>
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Edit & set status</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Edit & set status</span>
                     </button>
 
                     {/* Bottom-left: No Reach (RNR) */}
@@ -364,7 +364,7 @@ const MyWorkToday = () => {
                     >
                       <span style={{ fontSize: 22 }}>📵</span>
                       <strong style={{ fontSize: 12 }}>No Reach (RNR)</strong>
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Retry Logic #{(lead.rnrCount || 0) + 1}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Retry Logic #{(lead.rnrCount || 0) + 1}</span>
                     </button>
 
                     {/* Bottom-right: Escalate */}
@@ -375,7 +375,7 @@ const MyWorkToday = () => {
                     >
                       <span style={{ fontSize: 22 }}>⚠️</span>
                       <strong style={{ fontSize: 12 }}>Escalate</strong>
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>To Manager</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>To Manager</span>
                     </button>
                   </div>
                 </div>
@@ -384,7 +384,7 @@ const MyWorkToday = () => {
                 <div className="wizard-lead-body" style={{ paddingLeft: 20 }}>
                   {/* Interaction History */}
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
                       Interaction History
                     </div>
                     <div style={{ position: 'relative', paddingLeft: 18 }}>
@@ -402,17 +402,17 @@ const MyWorkToday = () => {
                           </div>
                         </div>
                       )) : (
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No activity yet for this lead.</div>
+                        <div style={{ fontSize: 14, color: 'var(--text-muted)', fontStyle: 'italic' }}>No activity yet for this lead.</div>
                       )}
                     </div>
                   </div>
 
                   {/* Lead Details */}
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
                       Lead Details
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 14, color: 'var(--text-secondary)' }}>
                       <div><b>Contact:</b> {lead.name}</div>
                       {lead.phone && <div><b>Phone:</b> {lead.phone}</div>}
                       {lead.email && <div><b>Email:</b> {lead.email}</div>}
@@ -440,7 +440,7 @@ const MyWorkToday = () => {
                 <div className="wizard-complete-anim">
                   <div style={{ fontSize: 56, marginBottom: 16 }}>✨</div>
                   <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>All Tasks Completed!</h2>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Great work! Check your pipeline or take a break.</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 16 }}>Great work! Check your pipeline or take a break.</p>
                 </div>
               </div>
             </div>
@@ -460,14 +460,14 @@ const MyWorkToday = () => {
                 <div className="wizard-queue-idx">{t.index}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                     {t.type} · {t.time ? new Date(t.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                   </div>
                 </div>
                 {t.priority === 'hot' && <span className="tag tag-red" style={{ fontSize: 8, padding: '2px 6px' }}>HOT</span>}
               </div>
             )) : (
-              <div style={{ padding: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>No tasks in queue</div>
+              <div style={{ padding: 20, textAlign: 'center', fontSize: 15, color: 'var(--text-muted)' }}>No tasks in queue</div>
             )}
           </div>
 
@@ -482,7 +482,7 @@ const MyWorkToday = () => {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{m.type === 'Virtual' ? '🎥' : '📍'} {m.type}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.type === 'Virtual' ? '🎥' : '📍'} {m.type}</div>
                   </div>
                   <span className={`tag ${m.type === 'Virtual' ? 'tag-blue' : 'tag-amber'}`} style={{ fontSize: 9 }}>
                     {m.status || 'Confirm'}
@@ -502,13 +502,13 @@ const MyWorkToday = () => {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, fontWeight: 700 }}>{a.leadName}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {a.action?.replace(/_/g, ' ')} · {new Date(a.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               </div>
             )) : (
-              <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>No activity yet today</div>
+              <div style={{ padding: 16, textAlign: 'center', fontSize: 14, color: 'var(--text-muted)' }}>No activity yet today</div>
             )}
           </div>
         </div>
@@ -532,21 +532,21 @@ const MyWorkToday = () => {
 const SummaryCard = ({ icon, label, count, color }) => (
   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: 20, borderRadius: 16, textAlign: 'center' }}>
     <div style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, margin: '0 auto 10px', background: `${color}10`, color }}>{icon}</div>
-    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
+    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
     <div style={{ fontSize: 24, fontWeight: 900 }}>{count}</div>
   </div>
 );
 
 const MiniStat = ({ label, value }) => (
   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: 16, borderRadius: 12, textAlign: 'center' }}>
-    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
     <div style={{ fontSize: 22, fontWeight: 900 }}>{value}</div>
   </div>
 );
 
 const MetricCard = ({ label, value, color, sub }) => (
   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '14px 16px', borderRadius: 14, borderTop: `3px solid ${color}` }}>
-    <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
+    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
     <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.5px' }}>{value}</div>
     {sub && <div style={{ fontSize: 10, fontWeight: 700, color, marginTop: 3 }}>{sub}</div>}
   </div>

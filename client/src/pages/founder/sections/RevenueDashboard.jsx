@@ -8,6 +8,12 @@ import {
 } from 'recharts';
 import { Button } from '../../../components/ui';
 
+const STAGE_LABELS = {
+  blocking_amount_received: 'Blocking amount',
+  full_amount_received: 'Full amount',
+  converted: 'Conversion',
+};
+
 const RevenueDashboard = () => {
   const [period, setPeriod] = useState('month');
   const [periodValue, setPeriodValue] = useState(() => {
@@ -84,7 +90,7 @@ const RevenueDashboard = () => {
                   else if (t === 'year') setPeriodValue(String(now.getFullYear()));
                   else setPeriodValue('Week 1');
                 }}
-                className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${period === t ? 'bg-white text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+                className={`px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-xl transition-all ${period === t ? 'bg-white text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
               >
                 {t}
               </button>
@@ -94,7 +100,7 @@ const RevenueDashboard = () => {
           <select 
             value={periodValue}
             onChange={(e) => setPeriodValue(e.target.value)}
-            className="bg-transparent border-none text-[11px] font-bold text-text-secondary outline-none pr-4 cursor-pointer"
+            className="bg-transparent border-none text-[13px] font-bold text-text-secondary outline-none pr-4 cursor-pointer"
           >
             {getDropdownOptions().map(opt => (
               <option key={opt} value={opt}>{opt}</option>
@@ -106,7 +112,7 @@ const RevenueDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="stat-card bg-white p-6 rounded-3xl border border-border shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-teal/5 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-110"></div>
-          <div className="stat-label text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Total Revenue</div>
+          <div className="stat-label text-[14px] font-bold text-text-muted uppercase tracking-widest mb-2">Total Revenue</div>
           <div className="text-3xl font-black text-text-primary mb-1">{formatCurrency(summary.totalRevenue)}</div>
           <div className="text-[11px] font-bold text-teal flex items-center gap-1">
              <span className="w-4 h-4 bg-teal/10 rounded-full flex items-center justify-center">↑</span>
@@ -116,7 +122,7 @@ const RevenueDashboard = () => {
 
         <div className="stat-card bg-white p-6 rounded-3xl border border-border shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue/5 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-110"></div>
-          <div className="stat-label text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Conversions</div>
+          <div className="stat-label text-[14px] font-bold text-text-muted uppercase tracking-widest mb-2">Paying Leads</div>
           <div className="text-3xl font-black text-text-primary mb-1">{summary.count}</div>
           <div className="text-[11px] font-bold text-blue flex items-center gap-1">
              <span className="w-4 h-4 bg-blue/10 rounded-full flex items-center justify-center">↑</span>
@@ -126,7 +132,7 @@ const RevenueDashboard = () => {
 
         <div className="stat-card bg-white p-6 rounded-3xl border border-border shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple/5 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-110"></div>
-          <div className="stat-label text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Avg Deal Value</div>
+          <div className="stat-label text-[14px] font-bold text-text-muted uppercase tracking-widest mb-2">Avg Received per Lead</div>
           <div className="text-3xl font-black text-text-primary mb-1">{formatCurrency(summary.avgDealValue)}</div>
           <div className="text-[11px] font-bold text-purple flex items-center gap-1">
              <span className="w-4 h-4 bg-purple/10 rounded-full flex items-center justify-center">→</span>
@@ -142,7 +148,7 @@ const RevenueDashboard = () => {
             <div className="flex gap-2">
                <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-teal"></div>
-                  <span className="text-[10px] font-bold text-text-muted">Actuals</span>
+                  <span className="text-[12px] font-bold text-text-muted">Actuals</span>
                </div>
             </div>
           </div>
@@ -237,17 +243,17 @@ const RevenueDashboard = () => {
 
         <div className="card bg-white p-0 rounded-[32px] border border-border shadow-sm overflow-hidden mt-4">
           <div className="p-8 border-b border-border flex justify-between items-center">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-text-primary">Recent Revenue Conversions</h3>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-text-primary">Recent Payments</h3>
             <Button variant="outline" size="xs" className="rounded-full text-[10px] font-bold uppercase tracking-widest">View All Ledger</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface2/50 text-[10px] font-bold text-text-muted uppercase tracking-widest border-b border-border">
+                <tr className="bg-surface2/50 text-[12px] font-bold text-text-muted uppercase tracking-widest border-b border-border">
                   <th className="px-8 py-4">Entity / Business</th>
                   <th className="px-8 py-4">Category</th>
                   <th className="px-8 py-4">Amount</th>
-                  <th className="px-8 py-4">Converted Date</th>
+                  <th className="px-8 py-4">Received On</th>
                   <th className="px-8 py-4 text-right">Reference</th>
                 </tr>
               </thead>
@@ -256,15 +262,18 @@ const RevenueDashboard = () => {
                   <tr key={idx} className="hover:bg-surface2/30 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="text-[13px] font-bold text-text-primary group-hover:text-blue transition-colors">{rev.company || rev.leadName}</div>
-                      <div className="text-[11px] text-text-muted mt-0.5">{rev.leadName}</div>
+                      <div className="text-[13px] text-text-muted mt-0.5">{rev.leadName}</div>
                     </td>
                     <td className="px-8 py-5">
-                      <span className="inline-flex px-2 py-1 rounded-lg bg-surface2 text-text-secondary text-[10px] font-bold uppercase tracking-wider border border-border">
+                      <span className="inline-flex px-2 py-1 rounded-lg bg-surface2 text-text-secondary text-[12px] font-bold uppercase tracking-wider border border-border">
                         {rev.category.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-8 py-5 text-[13px] font-black text-teal">{formatCurrency(rev.revenue)}</td>
-                    <td className="px-8 py-5 text-[12px] font-medium text-text-secondary">
+                    <td className="px-8 py-5">
+                      <div className="text-[13px] font-black text-teal">{formatCurrency(rev.revenue)}</div>
+                      <div className="text-[12px] text-text-muted mt-0.5">{STAGE_LABELS[rev.stage] || 'Payment'}</div>
+                    </td>
+                    <td className="px-8 py-5 text-[14px] font-medium text-text-secondary">
                        {new Date(rev.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-8 py-5 text-right">
@@ -274,7 +283,7 @@ const RevenueDashboard = () => {
                 ))}
                 {recentConversions.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="p-12 text-center text-text-muted italic text-sm">No recent conversions found for this period.</td>
+                    <td colSpan="5" className="p-12 text-center text-text-muted italic text-[16px]">No payments recorded in this period.</td>
                   </tr>
                 )}
               </tbody>

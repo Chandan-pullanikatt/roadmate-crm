@@ -102,7 +102,7 @@ const LeaveCalendar = () => {
           >
             {uploadState === 'parsing' ? 'Uploading...' : '📅 Upload Holiday Calendar'}
           </Button>
-          <span className="text-[10px] text-text-muted">CSV: Name, Date, Type</span>
+          <span className="text-[12px] text-text-muted">CSV: Name, Date, Type</span>
         </div>
       </div>
 
@@ -118,7 +118,7 @@ const LeaveCalendar = () => {
           {pendingLeaves?.length > 0 ? (
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-surface2/50 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                <tr className="bg-surface2/50 text-[12px] font-black uppercase tracking-widest text-text-muted">
                   <th className="px-6 py-3">Employee</th>
                   <th className="px-6 py-3">Type</th>
                   <th className="px-6 py-3">Dates</th>
@@ -135,7 +135,7 @@ const LeaveCalendar = () => {
                         <Avatar name={leave.user?.name} size="xs" />
                         <div>
                           <div className="text-xs font-bold">{leave.user?.name}</div>
-                          <div className="text-[10px] text-text-muted capitalize">{leave.user?.role?.replace('_', ' ')}</div>
+                          <div className="text-[12px] text-text-muted capitalize">{leave.user?.role?.replace('_', ' ')}</div>
                         </div>
                       </div>
                     </td>
@@ -151,7 +151,7 @@ const LeaveCalendar = () => {
                       <span className="text-xs font-bold bg-surface2 px-2 py-1 rounded-lg">{leave.days}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-[11px] text-text-secondary italic max-w-[200px] truncate" title={leave.reason}>
+                      <div className="text-[13px] text-text-secondary italic max-w-[200px] truncate" title={leave.reason}>
                         "{leave.reason}"
                       </div>
                     </td>
@@ -184,7 +184,7 @@ const LeaveCalendar = () => {
               </tbody>
             </table>
           ) : (
-            <div className="p-12 text-center text-text-muted text-xs italic">
+            <div className="p-12 text-center text-text-muted text-[14px] italic">
               No pending leave requests
             </div>
           )}
@@ -196,7 +196,7 @@ const LeaveCalendar = () => {
         <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center px-6 py-4">
           <h3 className="text-sm font-bold">Leave Calendar / History</h3>
           <div className="flex items-center gap-2">
-            <label className="text-[10px] font-black uppercase text-text-muted">Month:</label>
+            <label className="text-[12px] font-black uppercase text-text-muted">Month:</label>
             <select 
               className="bg-surface2 border border-border rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:border-accent transition-all"
               value={selectedMonth}
@@ -212,7 +212,7 @@ const LeaveCalendar = () => {
           {allLeaves?.length > 0 ? (
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-surface2/50 text-[10px] font-black uppercase tracking-widest text-text-muted">
+                <tr className="bg-surface2/50 text-[12px] font-black uppercase tracking-widest text-text-muted">
                   <th className="px-6 py-3">Employee</th>
                   <th className="px-6 py-3">Type</th>
                   <th className="px-6 py-3">From</th>
@@ -247,7 +247,7 @@ const LeaveCalendar = () => {
               </tbody>
             </table>
           ) : (
-            <div className="p-12 text-center text-text-muted text-xs italic">
+            <div className="p-12 text-center text-text-muted text-[14px] italic">
               No leave records for this month
             </div>
           )}

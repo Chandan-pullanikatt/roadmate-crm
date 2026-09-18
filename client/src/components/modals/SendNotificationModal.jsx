@@ -81,7 +81,7 @@ const SendNotificationModal = ({ isOpen, onClose }) => {
     >
       <div className="space-y-5">
         <div>
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
+          <label className="block text-[13px] font-bold uppercase tracking-wider text-text-muted mb-2">
             Send to
           </label>
           <select
@@ -97,7 +97,7 @@ const SendNotificationModal = ({ isOpen, onClose }) => {
         </div>
 
         <div>
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
+          <label className="block text-[13px] font-bold uppercase tracking-wider text-text-muted mb-2">
             Message
           </label>
           <textarea
@@ -108,7 +108,7 @@ const SendNotificationModal = ({ isOpen, onClose }) => {
             placeholder="e.g. Team meeting tomorrow at 10 AM. Please update all pending follow-ups before then."
             className="w-full bg-white border border-border rounded-xl px-4 py-3 text-sm text-text-primary outline-none focus:border-blue resize-none disabled:opacity-60"
           />
-          <div className="text-[10px] font-bold text-text-muted text-right mt-1">
+          <div className="text-[12px] font-bold text-text-muted text-right mt-1">
             {message.length}/{MAX_LENGTH}
           </div>
         </div>

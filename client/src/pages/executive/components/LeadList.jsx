@@ -165,7 +165,7 @@ const LeadList = () => {
       <div className="table-container shadow-sm border border-border rounded-xl overflow-hidden">
         <table className="lead-list-table w-full">
           <thead>
-            <tr className="bg-surface2/50 border-b border-border text-[10px] font-black uppercase tracking-widest text-text-muted">
+            <tr className="bg-surface2/50 border-b border-border text-[12px] font-black uppercase tracking-widest text-text-muted">
               <th className="p-4 text-left">Company / Name</th>
               <th className="p-4 text-left">Phone</th>
               <th className="p-4 text-center">Status</th>
@@ -182,9 +182,9 @@ const LeadList = () => {
               <tr key={lead._id} className="hover:bg-surface transition-colors group">
                 <td className="p-4">
                   <div className="font-bold text-sm text-text-primary group-hover:text-orange transition-colors">{lead.company || lead.name}</div>
-                  <div className="text-[10px] text-text-muted">{lead.name}</div>
+                  <div className="text-[12px] text-text-muted">{lead.name}</div>
                 </td>
-                <td className="p-4 text-xs font-medium text-text-secondary">{lead.phone}</td>
+                <td className="p-4 text-[14px] font-medium text-text-secondary">{lead.phone}</td>
                 <td className="p-4 text-center">
                   <Tag
                     variant={
@@ -200,7 +200,7 @@ const LeadList = () => {
                     }
                   />
                 </td>
-                <td className="p-4 text-center text-xs text-text-muted font-bold">{formatLastContact(lead.updatedAt)}</td>
+                <td className="p-4 text-center text-[14px] text-text-muted font-bold">{formatLastContact(lead.updatedAt)}</td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2">
                     <Button size="xs" variant="outline" className="font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
@@ -214,7 +214,7 @@ const LeadList = () => {
       </div>
 
       <div className="flex justify-between items-center mt-6 p-4 bg-surface rounded-xl border border-border shadow-sm">
-        <div className="text-[11px] font-black text-text-muted uppercase tracking-widest">
+        <div className="text-[13px] font-black text-text-muted uppercase tracking-widest">
            Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} of {total} leads
         </div>
         <div className="flex gap-2">

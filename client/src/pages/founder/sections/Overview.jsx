@@ -228,7 +228,7 @@ const Overview = () => {
               <button
                 key={t}
                 onClick={() => handleTabChange(t)}
-                className={`px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
+                className={`px-6 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${summaryTab === t ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
               >
                 {t}
               </button>
@@ -239,7 +239,7 @@ const Overview = () => {
             <select
               value={summaryPeriodValue}
               onChange={(e) => setSummaryPeriodValue(e.target.value)}
-              className="bg-white border border-border rounded-xl px-4 py-2 text-[12px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm min-w-[120px]"
+              className="bg-white border border-border rounded-xl px-4 py-2 text-[14px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm min-w-[120px]"
             >
               {getDropdownOptions().map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
@@ -370,7 +370,7 @@ const Overview = () => {
           </div>
           <div className="flex-1">
             <div className="text-sm font-bold text-red">Unallocated Leads</div>
-            <div className="text-xs text-text-muted mt-0.5">{unallocatedCount} lead{unallocatedCount !== 1 ? 's' : ''} have no executive assigned — click to allocate</div>
+            <div className="text-[14px] text-text-muted mt-0.5">{unallocatedCount} lead{unallocatedCount !== 1 ? 's' : ''} have no executive assigned — click to allocate</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </div>
@@ -379,7 +379,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Lead Pipeline</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Expected onboarding leads & current pipeline status</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Expected onboarding leads & current pipeline status</div>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="bg-white" onClick={() => openModal('bulk-upload')}>Bulk Upload</Button>
@@ -420,7 +420,7 @@ const Overview = () => {
               <div className="text-[28px] font-bold font-mono mb-1" style={{ color: bottomColor }}>
                 {s.count}
               </div>
-              <div className="text-[12px] text-text-muted font-medium mb-5">{s.label}</div>
+              <div className="text-[14px] text-text-muted font-medium mb-5">{s.label}</div>
               <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: bottomColor }}></div>
             </div>
           );
@@ -443,7 +443,7 @@ const Overview = () => {
               title={`View all ${p.label} leads`}
             >
               <div className={`text-[28px] font-bold font-mono mb-1 ${tone.text}`}>{p.count}</div>
-              <div className="text-[12px] text-text-muted font-medium mb-5">{p.label} Leads</div>
+              <div className="text-[14px] text-text-muted font-medium mb-5">{p.label} Leads</div>
               <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: tone.bar }}></div>
             </div>
           );
@@ -453,7 +453,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Expected Onboarding Leads</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Hot &amp; Warm leads expected to convert {"\u00B7"} Requires allocation</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Hot &amp; Warm leads expected to convert {"\u00B7"} Requires allocation</div>
         </div>
         <div className="flex items-center gap-2">
           {/* Fix: Expected Onboarding "View All" \u2014 shown when item count \u2265 5 */}
@@ -470,7 +470,7 @@ const Overview = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface2/50 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border">
+              <tr className="bg-surface2/50 text-[12px] font-bold text-text-muted uppercase tracking-wider border-b border-border">
                 <th className="p-4 font-bold">Lead Name</th>
                 <th className="p-4 font-bold">State</th>
                 <th className="p-4 font-bold">Assigned To</th>
@@ -484,18 +484,18 @@ const Overview = () => {
                 <tr key={idx} className="hover:bg-surface2/30 transition-colors">
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-text-primary">{lead.name}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5">{lead.phone || 'No contact number'}</div>
+                    <div className="text-[13px] text-text-muted mt-0.5">{lead.phone || 'No contact number'}</div>
                   </td>
                   <td className="p-4">
                     <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-blue/10 text-blue text-[10px] font-bold uppercase tracking-wider">{lead.state}</span>
                   </td>
-                  <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.assignedTo}</td>
+                  <td className="p-4 text-[15px] text-text-secondary font-medium">{lead.assignedTo}</td>
                   <td className="p-4 text-center">
                     <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${lead.priority === 'hot' ? 'bg-red/5 text-red border-red/20' : 'bg-amber/5 text-amber border-amber/20'}`}>
                       {lead.priority || 'warm'}
                     </span>
                   </td>
-                  <td className="p-4 text-[13px] text-text-secondary font-medium">{lead.expectedDate}</td>
+                  <td className="p-4 text-[15px] text-text-secondary font-medium">{lead.expectedDate}</td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary" onClick={() => openModal({ type: 'view-lead', leadId: lead._id })}>View</Button>
@@ -507,7 +507,7 @@ const Overview = () => {
               ))}
               {expectedOnboardingList.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-text-muted text-[13px]">No expected onboarding leads found.</td>
+                  <td colSpan="6" className="p-8 text-center text-text-muted text-[15px]">No expected onboarding leads found.</td>
                 </tr>
               )}
             </tbody>
@@ -518,7 +518,7 @@ const Overview = () => {
       <div className="flex justify-between items-end mb-4 mt-8">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Performance by State Manager</div>
-          <div className="text-[12px] text-text-muted mt-0.5">Click any row to drill into full State Manager dashboard</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Click any row to drill into full State Manager dashboard</div>
         </div>
         <Button size="sm" variant="outline" className="bg-white">View All</Button>
       </div>
@@ -539,7 +539,7 @@ const Overview = () => {
                   </div>
                   <div>
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1">
+                    <div className="text-[13px] text-text-muted mt-0.5 flex items-center gap-1">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                       {managerData.state} {"\u00B7"} State Manager
                     </div>
@@ -549,17 +549,17 @@ const Overview = () => {
                 <div className="flex items-center justify-end gap-6 flex-1">
                   <div className="text-center w-14">
                     <div className="text-[15px] font-bold text-blue font-mono">{managerData.leads}</div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Leads</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider">Leads</div>
                   </div>
                   <div className="text-center w-14">
                     <div className="text-[15px] font-bold text-[#16a34a] font-mono">{managerData.converted}</div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Conv.</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider">Conv.</div>
                   </div>
                   <div className="text-center w-20">
                     <div className="text-[15px] font-bold text-teal font-mono">
                       {"\u20B9"}{managerData.revenue >= 100000 ? (managerData.revenue >= 10000000 ? (managerData.revenue / 10000000).toFixed(1) + 'Cr' : (managerData.revenue / 100000).toFixed(1) + 'L') : managerData.revenue.toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider">Revenue</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider">Revenue</div>
                   </div>
 
                   <div className="flex flex-col items-center justify-center w-24 border-l border-border pl-4">
@@ -569,7 +569,7 @@ const Overview = () => {
                       </div>
                       <div className="text-[13px] font-bold text-[#d97706]">{Math.round(managerData.avgWorkPct || 0)}%</div>
                     </div>
-                    <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">k %</div>
+                    <div className="text-[12px] text-text-muted uppercase tracking-wider mt-0.5">k %</div>
                   </div>
                 </div>
 
@@ -599,7 +599,7 @@ const Overview = () => {
             );
           })}
           {(!dashData?.byState || dashData.byState.length === 0) && (
-            <div className="p-8 text-center text-text-muted text-[13px]">No performance data found.</div>
+            <div className="p-8 text-center text-text-muted text-[15px]">No performance data found.</div>
           )}
         </div>
       </div>
@@ -608,7 +608,7 @@ const Overview = () => {
       <div ref={leaveApprovalsRef} className="flex justify-between items-end mb-4 mt-8 scroll-mt-6">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Leave Approvals</div>
-          <div className="text-[12px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
+          <div className="text-[14px] text-text-muted mt-0.5">State Manager leave requests awaiting founder approval</div>
         </div>
         <div className="bg-amber/10 border border-amber/20 text-amber text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
           {"\u26A0"} {pendingLeaves.length} Pending
@@ -635,7 +635,7 @@ const Overview = () => {
                   </div>
                   <div>
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
-                    <div className="text-[11px] text-text-muted mt-0.5">
+                    <div className="text-[13px] text-text-muted mt-0.5">
                       {roleDisplay}, {stateDisplay} {"\u00B7"} {typeDisplay} {"\u00B7"} {l.days} day(s) {"\u00B7"} <span className="italic">{l.reason}</span>
                     </div>
                   </div>
@@ -657,7 +657,7 @@ const Overview = () => {
             );
           })}
           {pendingLeaves.length === 0 && (
-            <div className="p-8 text-center text-text-muted text-[13px]">No pending leave requests.</div>
+            <div className="p-8 text-center text-text-muted text-[15px]">No pending leave requests.</div>
           )}
           {pendingLeaves.length > 0 && (
             <div className="p-3 bg-surface2/30 flex justify-end">
@@ -692,7 +692,7 @@ const Overview = () => {
                     </div>
                     <div>
                       <div className="text-[13px] font-bold text-text-primary">{u.name}</div>
-                      <div className="text-[11px] text-text-muted mt-0.5">
+                      <div className="text-[13px] text-text-muted mt-0.5">
                         {[u.state, u.industry].filter(Boolean).join(' · ')}
                       </div>
                     </div>
@@ -717,11 +717,11 @@ const Overview = () => {
         {meetingDetail && (
           <div className="space-y-4">
             <div className="p-4 bg-surface2/50 rounded-xl border border-border">
-              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">Time</div>
+              <div className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-1">Time</div>
               <div className="text-sm font-bold text-text-primary">{new Date(meetingDetail.meetingAt).toLocaleString()}</div>
             </div>
             <div className="p-4 bg-surface2/50 rounded-xl border border-border">
-              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1">Assigned Staff</div>
+              <div className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-1">Assigned Staff</div>
               <div className="text-sm font-bold text-text-primary">{meetingDetail.inviteeSummary || meetingDetail.owner?.name || 'Assigned staff'}</div>
             </div>
             {meetingDetail.meetingLink ? (
@@ -735,7 +735,7 @@ const Overview = () => {
               <div className="p-4 bg-amber/5 rounded-xl border border-amber/10 text-sm font-medium text-amber">No meeting link has been added yet.</div>
             )}
             <div className="p-4 bg-surface2/50 rounded-xl border border-border">
-              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Add / Update Meeting Link</label>
+              <label className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Add / Update Meeting Link</label>
               <input
                 className="input"
                 type="url"

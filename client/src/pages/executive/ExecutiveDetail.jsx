@@ -47,7 +47,7 @@ const ExecutiveDetail = () => {
   if (error) return (
     <div className="p-8 text-center">
       <h2 className="text-xl font-bold text-red-500">Error loading executive details</h2>
-      <p className="text-text-muted mt-2 text-sm">{error?.message || 'Please try again later.'}</p>
+      <p className="text-text-muted mt-2 text-[16px]">{error?.message || 'Please try again later.'}</p>
       <Button className="mt-4" onClick={() => navigate('/dashboard?page=executives')}>Back to List</Button>
     </div>
   );
@@ -80,7 +80,7 @@ const ExecutiveDetail = () => {
           <span className="text-lg">←</span>
         </button>
         <div>
-          <div className="flex items-center gap-2 text-[12px] font-medium text-text-muted">
+          <div className="flex items-center gap-2 text-[14px] font-medium text-text-muted">
             <span>{roleLabel}s</span>
             <span className="opacity-30">›</span>
             <span className="text-text-primary font-semibold">{user?.name || roleLabel}</span>
@@ -102,7 +102,7 @@ const ExecutiveDetail = () => {
               <span className="bg-green/10 text-green px-3 py-1 rounded-full text-[12px] font-bold">{user?.isActive !== false ? 'Active' : 'Inactive'}</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-y-2 gap-x-8 text-[14px] text-text-muted font-medium">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-y-2 gap-x-8 text-[16px] text-text-muted font-medium">
               <div className="flex items-center gap-2">
                 <span className="opacity-60 text-lg">📧</span> {user?.email || 'N/A'}
               </div>
@@ -125,9 +125,9 @@ const ExecutiveDetail = () => {
           </div>
 
           <div className="bg-surface2/50 p-4 rounded-xl border border-border min-w-[200px]">
-            <div className="text-[11px] font-black text-text-muted uppercase tracking-wider mb-1">Current Salary</div>
+            <div className="text-[13px] font-black text-text-muted uppercase tracking-wider mb-1">Current Salary</div>
             <div className="text-[24px] font-black text-text-primary">₹{user?.basicSalary?.toLocaleString() || 0}</div>
-            <div className="text-[11px] text-text-muted font-medium mt-1">Per Month · Fixed</div>
+            <div className="text-[13px] text-text-muted font-medium mt-1">Per Month · Fixed</div>
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@ const ExecutiveDetail = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all ${activeTab === tab.id ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text-primary'}`}
+            className={`px-6 py-2 rounded-lg text-[15px] font-bold transition-all ${activeTab === tab.id ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text-primary'}`}
           >
             {tab.label}
           </button>
@@ -197,10 +197,10 @@ const ExecutiveDetail = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4 pl-6 text-[11px] font-black uppercase text-text-muted tracking-widest">Lead / Company</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Priority</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Last Action</th>
+                <th className="p-4 pl-6 text-[13px] font-black uppercase text-text-muted tracking-widest">Lead / Company</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Priority</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Last Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -208,7 +208,7 @@ const ExecutiveDetail = () => {
                 <tr key={lead._id} className="hover:bg-surface2/30 transition-all">
                   <td className="p-4 pl-6">
                     <div className="font-bold text-[14px]">{lead.company || lead.name}</div>
-                    <div className="text-[12px] text-text-muted">{lead.industry} · {lead.city}</div>
+                    <div className="text-[14px] text-text-muted">{lead.industry} · {lead.city}</div>
                   </td>
                   <td className="p-4">
                     <Tag 
@@ -221,7 +221,7 @@ const ExecutiveDetail = () => {
                       {(lead.priority || 'cold').toUpperCase()}
                     </span>
                   </td>
-                  <td className="p-4 text-[13px] font-medium text-text-muted">
+                  <td className="p-4 text-[15px] font-medium text-text-muted">
                     {safeFormat(lead.updatedAt, 'MMM dd, yyyy')}
                   </td>
                 </tr>
@@ -241,10 +241,10 @@ const ExecutiveDetail = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4 pl-6 text-[11px] font-black uppercase text-text-muted tracking-widest">Manager</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">District</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Joined</th>
+                <th className="p-4 pl-6 text-[13px] font-black uppercase text-text-muted tracking-widest">Manager</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">District</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Joined</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -255,7 +255,7 @@ const ExecutiveDetail = () => {
                       <Avatar name={dm.name} size="sm" />
                       <div>
                         <div className="font-bold text-[14px]">{dm.name}</div>
-                        <div className="text-[12px] text-text-muted">{dm.phone}</div>
+                        <div className="text-[14px] text-text-muted">{dm.phone}</div>
                       </div>
                     </div>
                   </td>
@@ -267,7 +267,7 @@ const ExecutiveDetail = () => {
                       ? <span className="bg-green/10 text-green px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-green/20">Active</span>
                       : <span className="bg-red/10 text-red px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-red/20">Inactive</span>}
                   </td>
-                  <td className="p-4 text-[13px] font-medium text-text-muted">
+                  <td className="p-4 text-[15px] font-medium text-text-muted">
                     {safeFormat(dm.dateOfJoining, 'PP')}
                   </td>
                 </tr>
@@ -288,11 +288,11 @@ const ExecutiveDetail = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4 pl-6 text-[11px] font-black uppercase text-text-muted tracking-widest">Date</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Work %</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Started</th>
-                <th className="p-4 text-[11px] font-black uppercase text-text-muted tracking-widest">Notes</th>
+                <th className="p-4 pl-6 text-[13px] font-black uppercase text-text-muted tracking-widest">Date</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Status</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Work %</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Started</th>
+                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Notes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -313,10 +313,10 @@ const ExecutiveDetail = () => {
                       <span className="text-[12px] font-bold">{record.completionPct || 0}%</span>
                     </div>
                   </td>
-                  <td className="p-4 text-[13px] font-medium text-text-muted">
+                  <td className="p-4 text-[15px] font-medium text-text-muted">
                     {record.workStartedAt ? safeFormat(record.workStartedAt, 'hh:mm a') : '—'}
                   </td>
-                  <td className="p-4 text-[13px] font-medium text-text-muted italic">
+                  <td className="p-4 text-[15px] font-medium text-text-muted italic">
                     {record.note || 'No remarks'}
                   </td>
                 </tr>
@@ -339,7 +339,7 @@ const ExecutiveDetail = () => {
                 <div className="w-10 h-10 rounded-lg bg-surface2 flex items-center justify-center text-xl">📄</div>
                 <div>
                   <div className="text-[14px] font-bold truncate max-w-[150px]">{doc.name}</div>
-                  <div className="text-[11px] text-text-muted">Uploaded {safeFormat(doc.uploadedAt, 'PP')}</div>
+                  <div className="text-[13px] text-text-muted">Uploaded {safeFormat(doc.uploadedAt, 'PP')}</div>
                 </div>
               </div>
               <a 
@@ -367,9 +367,9 @@ const ExecutiveDetail = () => {
 const StatCard = ({ label, value, sub, color }) => (
   <div className={`bg-white p-6 rounded-2xl border border-border shadow-sm relative overflow-hidden`}>
     <div className={`absolute top-0 left-0 w-1 h-full bg-${color}`}></div>
-    <div className="text-text-muted font-bold text-[11px] uppercase tracking-wider mb-2">{label}</div>
+    <div className="text-text-muted font-bold text-[13px] uppercase tracking-wider mb-2">{label}</div>
     <div className="text-[32px] font-black text-text-primary mb-1">{value}</div>
-    <div className="text-[12px] text-text-muted font-medium">{sub}</div>
+    <div className="text-[14px] text-text-muted font-medium">{sub}</div>
   </div>
 );
 
@@ -377,7 +377,7 @@ const OverviewItem = ({ label, value, icon }) => (
   <div className="flex items-center justify-between p-3 rounded-xl bg-surface2/30 border border-border/50">
     <div className="flex items-center gap-3">
       <span className="text-xl">{icon}</span>
-      <span className="text-[13px] font-bold text-text-muted uppercase tracking-wider">{label}</span>
+      <span className="text-[15px] font-bold text-text-muted uppercase tracking-wider">{label}</span>
     </div>
     <span className="text-[16px] font-black text-text-primary">{value}</span>
   </div>

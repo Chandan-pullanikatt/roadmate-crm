@@ -129,17 +129,17 @@ const DocumentCard = ({ config, documents, onChanged }) => {
           <span className="text-3xl">{config.icon}</span>
           <div>
             <div className="text-base font-black text-text-primary">{config.label}</div>
-            <div className="text-[11px] font-bold text-text-muted mt-0.5">{config.description}</div>
+            <div className="text-[13px] font-bold text-text-muted mt-0.5">{config.description}</div>
           </div>
         </div>
-        <span className="px-3 py-1.5 rounded-xl border border-border/40 bg-surface2 text-text-muted text-[10px] font-black uppercase tracking-wider">
+        <span className="px-3 py-1.5 rounded-xl border border-border/40 bg-surface2 text-text-muted text-[12px] font-black uppercase tracking-wider">
           {documents.length} {documents.length === 1 ? 'file' : 'files'}
         </span>
       </div>
 
       <div className="px-8 py-5">
         {documents.length === 0 ? (
-          <div className="p-4 rounded-xl bg-surface2 border border-dashed border-border/60 text-center text-[11px] font-bold text-text-muted">
+          <div className="p-4 rounded-xl bg-surface2 border border-dashed border-border/60 text-center text-[13px] font-bold text-text-muted">
             No documents uploaded yet for this role.
           </div>
         ) : (
@@ -147,12 +147,12 @@ const DocumentCard = ({ config, documents, onChanged }) => {
             {documents.map(doc => (
               <div key={doc._id} className="flex items-center justify-between p-4 rounded-xl bg-surface2 border border-border/40">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 shrink-0 rounded-xl bg-surface3 border border-border/40 flex items-center justify-center text-[11px] font-black uppercase text-text-muted">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-surface3 border border-border/40 flex items-center justify-center text-[13px] font-black uppercase text-text-muted">
                     {doc.fileType}
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-black text-text-primary truncate">{doc.title || doc.fileName}</div>
-                    <div className="text-[10px] font-bold text-text-muted mt-0.5">
+                    <div className="text-[12px] font-bold text-text-muted mt-0.5">
                       Added {formatDate(doc.createdAt)}
                       {doc.uploadedBy?.name && ` · by ${doc.uploadedBy.name}`}
                     </div>
@@ -201,7 +201,7 @@ const DocumentCard = ({ config, documents, onChanged }) => {
               </>
             )}
           </label>
-          <div className="text-[10px] font-bold text-text-muted text-center mt-2">
+          <div className="text-[12px] font-bold text-text-muted text-center mt-2">
             Select one or more PDF, Word (.doc / .docx) or text (.txt) files — max 50MB each
           </div>
 
@@ -235,21 +235,21 @@ const Documents = () => {
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <div className="px-2.5 py-1 rounded-md bg-surface2 text-text-muted text-[10px] font-bold uppercase tracking-wider border border-border/40">
+          <div className="px-2.5 py-1 rounded-md bg-surface2 text-text-muted text-[12px] font-bold uppercase tracking-wider border border-border/40">
             Management
           </div>
           <span className="text-text-muted opacity-30">/</span>
-          <span className="text-text-muted text-[10px] font-bold uppercase tracking-wider">Documents</span>
+          <span className="text-text-muted text-[12px] font-bold uppercase tracking-wider">Documents</span>
         </div>
         <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">Documents</h1>
-        <p className="text-sm text-text-muted mt-1 font-medium">
+        <p className="text-[16px] text-text-muted mt-1 font-medium">
           Publish documents to your team. Each role can hold as many as you need.
         </p>
       </div>
 
       <div className="flex items-start gap-4 p-5 rounded-2xl bg-amber/5 border border-amber/20">
         <span className="text-xl mt-0.5">💡</span>
-        <div className="text-[11px] font-bold text-text-muted leading-relaxed">
+        <div className="text-[13px] font-bold text-text-muted leading-relaxed">
           <span className="text-text-primary font-black">How this works:</span> Upload one or more PDF, Word or text files
           for a role. Everyone in that role is notified as soon as a document is added, and it appears in their
           Documents tab straight away. Removing a document takes it off their list.
