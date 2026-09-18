@@ -328,20 +328,6 @@ const MyWork = () => {
           >
             {workStarted ? '■ Stop Work' : workCompleted ? 'Work Ended' : '▶ Start Work'}
           </Button>
-          <Button
-            variant="outline"
-            className="border-purple/30 text-purple hover:bg-purple/5 rounded-xl px-5 h-9 font-bold"
-            onClick={() => openModal('create-exec', {
-              prefill: {
-                role: 'executive',
-                state: currentUser?.state || '',
-                industry: currentUser?.industry || '',
-                reportingTo: currentUser?._id || '',
-              }
-            })}
-          >
-            + Create District Manager
-          </Button>
         </div>
       </div>
 

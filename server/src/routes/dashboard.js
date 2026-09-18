@@ -530,6 +530,34 @@ router.get('/industry-manager', async (req, res) => {
       escalated: allLeads.filter(l => l.status === 'escalated').length,
     };
 
+    // Founder-style pipeline buckets for the Overview, scoped to this subtree and the
+    // selected window. Buckets come from the canonical grouping so the cards always
+    // sum to 'All' -- see constants/leadStatusGroups.js.
+    const imGroupCount = (statuses) => periodLeads.filter(l => statuses.includes(l.status)).length;
+    const IM_GROUP_COLORS = {
+        New: 'blue', 'Follow-up': 'purple', Meeting: 'teal', Converted: 'green',
+        Blocking: 'amber', 'Full Amount Received': 'cyan',
+        Lost: 'red', RNR: 'gray', Escalated: 'orange'
+    };
+    const pipelineStats = [
+      { label: 'All', count: periodLeads.length, color: 'blue' },
+      ...GROUP_ORDER.map(label => ({
+        label,
+        count: imGroupCount(LEAD_STATUS_GROUPS[label]),
+        color: IM_GROUP_COLORS[label] || 'gray'
+      }))
+    ];
+
+    // Hot/Warm/Cold is a different axis from status, so it is returned separately --
+    // the status buckets above have to keep summing to 'All'.
+    const IM_PRIORITY_COLORS = { hot: 'red', warm: 'amber', cold: 'blue' };
+    const priorityStats = ['hot', 'warm', 'cold'].map(pr => ({
+      label: pr.charAt(0).toUpperCase() + pr.slice(1),
+      priority: pr,
+      count: periodLeads.filter(l => l.priority === pr).length,
+      color: IM_PRIORITY_COLORS[pr]
+    }));
+
     // Period-filtered activity stats (calls, revenue) + live meeting count (status-based, not date-based)
     const [periodActivities, periodMeetingLeads, activeLeadsCount] = await Promise.all([
       LeadActivity.find({
@@ -548,10 +576,19 @@ router.get('/industry-manager', async (req, res) => {
       })
     ]);
 
+    // "Expected onboarding" = open leads the team is actually forecasting, i.e. tagged
+    // Hot or Warm. Same definition the Founder and State Manager dashboards use.
+    const OPEN_FOR_ONBOARDING = (l) => !['converted', 'lost', 'not_interested'].includes(l.status);
+    const expectedOnboardingHot  = periodLeads.filter(l => l.priority === 'hot'  && OPEN_FOR_ONBOARDING(l)).length;
+    const expectedOnboardingWarm = periodLeads.filter(l => l.priority === 'warm' && OPEN_FOR_ONBOARDING(l)).length;
+
     const periodStats = {
       totalLeads: periodLeads.length,
       converted: periodLeads.filter(l => l.status === 'converted').length,
       new: periodLeads.filter(l => l.status === 'new').length,
+      expectedOnboarding: expectedOnboardingHot + expectedOnboardingWarm,
+      expectedOnboardingHot,
+      expectedOnboardingWarm,
       hot: periodLeads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
       calls: periodActivities.filter(a => a.action === 'called').length,
       meetings: periodMeetingLeads,
@@ -855,6 +892,30 @@ router.get('/industry-manager', async (req, res) => {
       ? Math.round((imCompletedLeadsCount / imTotalLeadsForDenom) * 100) 
       : 0;
 
+    // Rows behind the Expected Onboarding table, newest activity first.
+    const expectedOnboardingLeads = await Lead.find({
+      ...ownerScope,
+      status: { $nin: ['converted', 'lost', 'not_interested'] },
+      priority: { $in: ['hot', 'warm'] }
+    })
+      .sort({ updatedAt: -1 })
+      .limit(20)
+      .populate('owner', 'name');
+
+    const expectedOnboardingList = expectedOnboardingLeads.map(l => ({
+      _id: l._id,
+      leadId: l.leadId,
+      name: l.company || l.name,
+      phone: l.phone,
+      district: l.district,
+      assignedTo: l.owner?.name || 'Unassigned',
+      priority: l.priority || 'warm',
+      status: l.status,
+      expectedDate: l.nextActionAt
+        ? new Date(l.nextActionAt).toLocaleDateString()
+        : (l.meetingAt ? new Date(l.meetingAt).toLocaleDateString() : 'Not set')
+    }));
+
     res.json({
       user: { name: req.user.name, state: req.user.state, industry: req.user.industry },
       stats: {
@@ -878,6 +939,9 @@ router.get('/industry-manager', async (req, res) => {
         convertedLastMonth
       },
       periodStats,
+      pipelineStats,
+      priorityStats,
+      expectedOnboardingList,
       activeLeads: activeLeadsCount,
       activePeriod: { period, value: value || null },
       summaryDrilldowns,

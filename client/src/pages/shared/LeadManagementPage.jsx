@@ -38,6 +38,13 @@ const LeadManagementPage = ({
   // Role-specific row actions. A State Manager can escalate a lead to the Founder;
   // the Founder has nobody to escalate to, so its page passes nothing.
   extraRowActions = null,
+  // Default owner filter for routes that are scoped by definition -- the Industry
+  // Manager has a "my leads" route ('self') and a "team leads" route ('team'). An
+  // explicit ?owner= in the URL still wins, so drill-downs can widen the scope.
+  defaultOwnerScope = '',
+  // Hidden when a role has no use for it: every row on a state-scoped page is the
+  // same state, so the column and its filter say nothing.
+  showStateColumn = true,
 } = {}) => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -49,7 +56,7 @@ const LeadManagementPage = ({
   });
   const [ownerFilter, setOwnerFilter] = useState(() => {
     const params = new URLSearchParams(location.search);
-    return params.get('owner') || '';
+    return params.get('owner') || defaultOwnerScope;
   });
   // Set when a manager's own pipeline links here, so the page can say whose leads these are.
   const [ownerName, setOwnerName] = useState(() => {
@@ -100,7 +107,7 @@ const LeadManagementPage = ({
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     setActiveTab(params.get('status') || 'all');
-    setOwnerFilter(params.get('owner') || '');
+    setOwnerFilter(params.get('owner') || defaultOwnerScope);
     setOwnerName(params.get('ownerName') || '');
     setPriorityFilter(params.get('priority') || '');
     setPeriod(params.get('period') || '');
@@ -366,19 +373,21 @@ const LeadManagementPage = ({
                  onChange={e => setSearchTerm(e.target.value)}
                />
              </div>
-             <select 
-               className="bg-white border border-border rounded-lg px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-blue transition-colors min-w-[140px]"
-               value={filterState}
-               onChange={e => { setFilterState(e.target.value); setPage(1); }}
-             >
-               <option value="All">All States</option>
-               {/* This is a simple list of states, could be fetched from API if needed */}
-               <option>Telangana</option>
-               <option>Maharashtra</option>
-               <option>Karnataka</option>
-               <option>Tamil Nadu</option>
-               <option>Kerala</option>
-             </select>
+             {showStateColumn && (
+               <select
+                 className="bg-white border border-border rounded-lg px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-blue transition-colors min-w-[140px]"
+                 value={filterState}
+                 onChange={e => { setFilterState(e.target.value); setPage(1); }}
+               >
+                 <option value="All">All States</option>
+                 {/* This is a simple list of states, could be fetched from API if needed */}
+                 <option>Telangana</option>
+                 <option>Maharashtra</option>
+                 <option>Karnataka</option>
+                 <option>Tamil Nadu</option>
+                 <option>Kerala</option>
+               </select>
+             )}
           </div>
         </div>
         
@@ -387,7 +396,7 @@ const LeadManagementPage = ({
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
                 <th className="p-4">Lead Details</th>
-                <th className="p-4 text-center">State</th>
+                {showStateColumn && <th className="p-4 text-center">State</th>}
                 <th className="p-4">Assigned To</th>
                 <th className="p-4 text-center">Status</th>
                 <th className="p-4 text-center">Last Updated</th>
@@ -401,9 +410,11 @@ const LeadManagementPage = ({
                     <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
                     <div className="text-[10px] text-text-muted mt-0.5">{l.leadId}</div>
                   </td>
-                  <td className="p-4 text-center">
-                    <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{l.state || 'N/A'}</span>
-                  </td>
+                  {showStateColumn && (
+                    <td className="p-4 text-center">
+                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{l.state || 'N/A'}</span>
+                    </td>
+                  )}
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                        <div className="w-6 h-6 rounded-full bg-surface2 flex items-center justify-center text-[10px] font-bold">{l.owner?.name?.[0] || 'U'}</div>
@@ -429,7 +440,7 @@ const LeadManagementPage = ({
                 </tr>
               ))}
               {leads.length === 0 && !isLoading && (
-                 <tr><td colSpan="6" className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
+                 <tr><td colSpan={showStateColumn ? 6 : 5} className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
               )}
             </tbody>
           </table>
