@@ -138,6 +138,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Management',
           items: [
             { label: 'Tasks', path: '/dashboard?page=tasks', icon: 'work' },
+            { label: 'Targets', path: '/dashboard?page=targets', icon: 'performance' },
             { label: 'Reports', path: '/dashboard?page=reports', icon: 'reports' },
             { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' }
           ]
@@ -180,6 +181,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Management',
           items: [
             { label: 'Task',             path: '/dashboard?page=tasks',          icon: 'work' },
+            { label: 'Targets',          path: '/dashboard?page=targets',        icon: 'performance' },
             { label: 'Lead Task Flow',   path: '/dashboard?page=lead-flow',      icon: 'leads' },
             { label: 'Leave Calendar',   path: '/dashboard?page=calendar',       icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
             { label: 'Reports',          path: '/dashboard?page=reports',        icon: 'reports' },

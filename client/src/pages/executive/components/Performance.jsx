@@ -203,7 +203,7 @@ const StatusRow = ({ label, count, color, total }) => (
   </div>
 );
 
-const TargetSection = () => {
+export const TargetSection = () => {
   const periods = ['monthly', 'weekly'].map(period => ({ period, periodKey: currentPeriodKey(period) }));
   const results = useQueries({
     queries: periods.map(({ period, periodKey }) => ({

@@ -20,6 +20,7 @@ import CallsDetail from './components/CallsDetail';
 import MeetingsDetail from './components/MeetingsDetail';
 import SopViewer from './components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
+import Targets from '../founder/sections/Targets';
 
 
 const IndDashboard = () => {
@@ -51,6 +52,7 @@ const IndDashboard = () => {
 
       // ── Management ────────────────────────────────────────
       case 'tasks':           return <Tasks />;
+      case 'targets':         return <Targets />;
       case 'lead-flow':       return <LeadFlow />;
       case 'calendar':        return <LeaveCalendar />;
       case 'reports':         return <Reports />;

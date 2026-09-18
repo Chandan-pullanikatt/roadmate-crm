@@ -159,14 +159,17 @@ const DistrictExecutives = () => {
       <div className="card">
         <div className="card-header border-none pb-0">
           <h3 className="section-title text-base font-bold">All District Managers · {dashData?.user?.industry}</h3>
-          <div className="flex bg-surface2 p-1 rounded-lg">
-            {districts.map(d => (
-                <button 
-                    key={d}
-                    onClick={() => setActiveDistrict(d)}
-                    className={`px-4 py-1.5 text-[12px] font-bold rounded-md transition-all ${activeDistrict === d ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
-                >{d}</button>
-            ))}
+          <div className="flex items-center gap-3">
+            <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'assign-target', executive: { _id: currentUser?._id, name: `${currentUser?.name} (Myself)` } } }))}>Set My Target</Button>
+            <div className="flex bg-surface2 p-1 rounded-lg">
+              {districts.map(d => (
+                  <button 
+                      key={d}
+                      onClick={() => setActiveDistrict(d)}
+                      className={`px-4 py-1.5 text-[12px] font-bold rounded-md transition-all ${activeDistrict === d ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
+                  >{d}</button>
+              ))}
+            </div>
           </div>
         </div>
         

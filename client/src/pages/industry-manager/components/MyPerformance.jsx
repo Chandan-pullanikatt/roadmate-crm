@@ -5,6 +5,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { useAuth } from '../../../context/AuthContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { StatCard, Tag, DashboardSkeleton } from '../../../components/ui';
+import { TargetSection } from '../../executive/components/Performance';
 
 const STATUS_COLORS = {
   new: '#3B82F6',
@@ -239,6 +240,8 @@ const MyPerformance = () => {
           </table>
         </div>
       </div>
+
+      <TargetSection />
     </div>
   );
 };

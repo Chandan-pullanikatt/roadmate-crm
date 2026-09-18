@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { targetsApi } from '../../../api/targetsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
 import { TARGET_METRICS, monthKey, currentPeriodKey, shiftWeek, periodLabel } from '../../../utils/targetPeriod';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
@@ -32,6 +33,7 @@ const EMPTY_FORM = { userId: '', directMeetings: '', blocking: '', conversions: 
 const Targets = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const { user } = useAuth();
   const now = new Date();
   const [period, setPeriod] = useState('monthly');
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -56,6 +58,12 @@ const Targets = () => {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Founders can target anyone; managers only the staff who report to them
+  const isFounder = user?.role === 'founder';
+  const staff = allUsers.filter(u => isFounder
+    ? u.role !== 'founder'
+    : String(u.reportingTo?._id || u.reportingTo) === String(user?._id));
+
   const handleAssign = async (e) => {
     e.preventDefault();
     if (!assignForm.userId) return;
@@ -77,7 +85,7 @@ const Targets = () => {
       <div className="section-header flex-wrap gap-3">
         <div>
           <div className="section-title">Targets &amp; Achievement</div>
-          <div className="section-sub">Set monthly or weekly targets and track live progress across all roles</div>
+          <div className="section-sub">Set monthly or weekly targets for yourself{isFounder ? ' and any staff member' : ' and your team'}, and track live progress</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Period type */}
@@ -130,7 +138,8 @@ const Targets = () => {
                 <label className="form-label">Staff Member</label>
                 <select className="select" value={assignForm.userId} onChange={e => setAssignForm(f => ({ ...f, userId: e.target.value }))} required>
                   <option value="">Select Staff</option>
-                  {allUsers.filter(u => u.role !== 'founder').map(u => (
+                  {user?._id && <option value={user._id}>Myself ({user.name})</option>}
+                  {staff.map(u => (
                     <option key={u._id} value={u._id}>{u.name} ({u.role?.replace(/_/g, ' ')})</option>
                   ))}
                 </select>
@@ -183,7 +192,7 @@ const Targets = () => {
                   return (
                     <tr key={t._id || idx} className="hover:bg-surface2/20 transition-colors">
                       <td className="p-4">
-                        <div className="font-bold text-[13px]">{t.user?.name || 'Unknown'}</div>
+                        <div className="font-bold text-[13px]">{t.user?.name || 'Unknown'}{t.user?._id === user?._id && ' (You)'}</div>
                         <div className="text-[12px] text-text-muted capitalize">{t.user?.role?.replace(/_/g, ' ') || ''}</div>
                       </td>
                       {TARGET_METRICS.map((m, i) => (
