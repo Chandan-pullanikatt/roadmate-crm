@@ -19,7 +19,11 @@ router.get('/', async (req, res) => {
     // it is never deleted — so allow a larger page for a full history view.
     const limit = Math.min(Number(req.query.limit) || 20, 100);
 
-    const notifications = await Notification.find({ userId: req.user._id })
+    // ?unread=true returns only what the user hasn't seen yet (the must-read popup).
+    const filter = { userId: req.user._id };
+    if (req.query.unread === 'true') filter.read = false;
+
+    const notifications = await Notification.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
@@ -55,14 +59,15 @@ router.patch('/:id/read', async (req, res) => {
 
 /**
  * PATCH /api/notifications/read-all
- * Mark all of the current user's notifications as read
+ * Mark all of the current user's notifications as read.
+ * Body: { ids? } — only those ids, so anything that arrived after the user
+ * looked stays unread.
  */
 router.patch('/read-all', async (req, res) => {
   try {
-    await Notification.updateMany(
-      { userId: req.user._id, read: false },
-      { read: true }
-    );
+    const filter = { userId: req.user._id, read: false };
+    if (Array.isArray(req.body?.ids)) filter._id = { $in: req.body.ids };
+    await Notification.updateMany(filter, { read: true });
     res.json({ message: 'All notifications marked as read' });
   } catch (err) {
     res.status(400).json({ message: err.message });

@@ -1,17 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  StatCard, 
-  Avatar, 
-  Tag,
-  DataTable,
-  DashboardSkeleton
-} from '../../../components/ui';
+import { Tag, DashboardSkeleton } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 
 const Performance = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
     queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
@@ -19,16 +11,7 @@ const Performance = () => {
     placeholderData: (prev) => prev
   });
 
-  const allExecutives = useMemo(() => dashData?.executivePerformance || [], [dashData]);
-
-  const executives = useMemo(() => {
-    if (!searchTerm.trim()) return allExecutives;
-    const q = searchTerm.toLowerCase();
-    return allExecutives.filter(e =>
-      e.name?.toLowerCase().includes(q) ||
-      e.district?.toLowerCase().includes(q)
-    );
-  }, [allExecutives, searchTerm]);
+  const executives = useMemo(() => dashData?.executivePerformance || [], [dashData]);
   const userInfo = dashData?.user || {};
 
   // Calculate Winners for Stat Cards
@@ -69,23 +52,6 @@ const Performance = () => {
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Staff Performance</h1>
           <p className="text-[16px] text-text-muted">Industry Manager · {userInfo.industry} · All executives</p>
-        </div>
-        <div className="flex items-center gap-3">
-            <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
-                <span className="text-lg">🔔</span>
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red rounded-full border-2 border-surface2"></span>
-            </button>
-            <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
-            <div className="relative">
-                <input
-                    type="text"
-                    placeholder="Search leads, executives..."
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
-            </div>
         </div>
       </div>
 

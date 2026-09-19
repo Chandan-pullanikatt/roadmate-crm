@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { targetsApi } from '../../../api/targetsApi';
-import { TARGET_METRICS, currentPeriodKey, periodLabel } from '../../../utils/targetPeriod';
+import { TARGET_METRICS, currentPeriodKey, periodLabel, shiftWeek } from '../../../utils/targetPeriod';
 import { useAuth } from '../../../hooks/useAuth';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -203,12 +203,36 @@ const StatusRow = ({ label, count, color, total }) => (
   </div>
 );
 
-export const TargetSection = () => {
-  const periods = ['monthly', 'weekly'].map(period => ({ period, periodKey: currentPeriodKey(period) }));
+// Monthly keys for the last 12 months and weekly keys for the last 12 weeks, newest first.
+const recentTargetKeys = (period) => {
+  const keys = [currentPeriodKey(period)];
+  for (let i = 1; i < 12; i++) {
+    if (period === 'weekly') {
+      keys.push(shiftWeek(keys[i - 1], -1));
+    } else {
+      const [y, m] = keys[i - 1].split('-').map(Number);
+      const d = new Date(y, m - 2, 1);
+      keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+  }
+  return keys;
+};
+
+/**
+ * Target vs achievement for the current month and week. With `filterable`, each
+ * period gets a picker to look back at earlier months and weeks.
+ */
+export const TargetSection = ({ filterable = false }) => {
+  const [selectedKeys, setSelectedKeys] = useState(() => ({
+    monthly: currentPeriodKey('monthly'),
+    weekly: currentPeriodKey('weekly')
+  }));
+  const periods = ['monthly', 'weekly'].map(period => ({ period, periodKey: selectedKeys[period] }));
   const results = useQueries({
     queries: periods.map(({ period, periodKey }) => ({
       queryKey: ['targets', 'my', period, periodKey],
-      queryFn: () => targetsApi.getMyTargets({ period, periodKey }).then(res => res.data)
+      queryFn: () => targetsApi.getMyTargets({ period, periodKey }).then(res => res.data),
+      placeholderData: keepPreviousData
     }))
   });
 
@@ -226,13 +250,29 @@ export const TargetSection = () => {
         return (
           <div key={period} className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="text-sm font-extrabold">{period === 'weekly' ? 'This Week' : 'This Month'}</div>
-              <div className="text-[10px] font-black px-3 py-1 bg-surface2 rounded-full uppercase tracking-widest border border-border">
-                {periodLabel(period, periodKey)}
+              <div className="text-sm font-extrabold">
+                {periodKey === currentPeriodKey(period)
+                  ? (period === 'weekly' ? 'This Week' : 'This Month')
+                  : (period === 'weekly' ? 'Week' : 'Month')}
               </div>
+              {filterable ? (
+                <select
+                  value={periodKey}
+                  onChange={(e) => setSelectedKeys(prev => ({ ...prev, [period]: e.target.value }))}
+                  className="bg-white border border-border rounded-xl px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm"
+                >
+                  {recentTargetKeys(period).map(key => (
+                    <option key={key} value={key}>{periodLabel(period, key)}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="text-[10px] font-black px-3 py-1 bg-surface2 rounded-full uppercase tracking-widest border border-border">
+                  {periodLabel(period, periodKey)}
+                </div>
+              )}
             </div>
             {!target._id ? (
-              <div className="text-xs text-muted italic">No {period} target set yet.</div>
+              <div className="text-xs text-muted italic">No {period} target set for this {period === 'weekly' ? 'week' : 'month'}.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 {TARGET_METRICS.map(({ key, label }) => {

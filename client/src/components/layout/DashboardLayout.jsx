@@ -8,6 +8,7 @@ import { searchApi } from '../../api/searchApi';
 import { notificationsApi } from '../../api/notificationsApi';
 import { useMeetingAlerts } from '../../hooks/useMeetingAlerts';
 import MeetingAlertBanner from '../ui/MeetingAlertBanner';
+import UnreadNotificationsGate from '../UnreadNotificationsGate';
 import { useToast } from '../../context/ToastContext';
 import { getPushStatus, enablePush, disablePush } from '../../utils/push';
 
@@ -261,7 +262,9 @@ const DashboardLayout = ({
   const effectiveSections = sections.length > 0 ? sections : [{ label: 'Main', items: navItems }];
 
   const activePage = new URLSearchParams(location.search).get('page') || 'overview';
-  const shouldShowGlobalHeader = userRole !== 'industry_manager' || activePage === 'overview';
+  const shouldShowGlobalHeader = userRole === 'industry_manager'
+    ? activePage === 'overview'
+    : !(userRole === 'state_manager' && activePage === 'performance');
 
   return (
     <div className="flex min-h-screen">
@@ -585,6 +588,9 @@ const DashboardLayout = ({
           {children}
         </div>
       </div>
+
+      {/* Unread notifications must be acknowledged before using the CRM */}
+      <UnreadNotificationsGate />
 
       {/* Meeting reminder banner — fixed bottom-right, appears for 1h and 15m alerts */}
       {activeMeeting && (
