@@ -30,7 +30,15 @@ const leadSchema = new mongoose.Schema({
   country: { type: String },
   industry: { type: String },
   leadSource: { type: String },
+  // Best-ranked status ever reached; the displayed status never falls below it
+  // (see constants/leadStatusRank.js).
+  peakStatus: { type: String, default: null },
+  // RNRs logged by the current owner. Reset when the lead is handed to a peer.
   rnrCount: { type: Number, default: 0 },
+  // Set when an unengaged lead is handed to a peer after RNR_LIMIT RNRs. A second
+  // run of RNR_LIMIT RNRs after that marks the lead Lost.
+  rnrTransferredAt: { type: Date, default: null },
+  rnrTransferredFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   hasBeenEngaged: { type: Boolean, default: false }, // True if lead has ever moved to engaged status (called, followup, meeting, etc.)
   nextActionAt: { type: Date },
   followUpDate: { type: Date },

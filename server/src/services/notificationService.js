@@ -176,7 +176,7 @@ const notificationService = {
   async onLeadAutoReallocated({ executiveId, leadName, rnrCount, io }) {
     return this.create({
       userId: executiveId,
-      message: `Lead "${leadName}" was auto-assigned to you after ${rnrCount} missed calls by the previous executive.`,
+      message: `Lead "${leadName}" was auto-assigned to you after ${rnrCount} unanswered calls by a teammate.`,
       type: 'lead_allocated',
       meta: { leadName, rnrCount, autoAssigned: true },
       io,

@@ -4,6 +4,7 @@ const User = require('../models/User');
 const LeavePolicy = require('../models/LeavePolicy');
 const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
+const { applyStatus } = require('../constants/leadStatusRank');
 
 /**
  * Helper to check if a date is a working day (not Sunday and not a holiday)
@@ -64,7 +65,7 @@ const maybeConvert = (lead, performedBy) => {
   // already-converted lead would otherwise log a second conversion.
   if (lead.convertedAt) return null;
 
-  lead.status = 'converted';
+  applyStatus(lead, 'converted');
   lead.convertedAt = new Date();
 
   return {
@@ -105,6 +106,60 @@ const recordPayment = (lead, amountField, data) => {
   return { revenue: amount, category: lead.revenueCategory };
 };
 
+/** Unanswered calls an owner makes on a never-reached lead before it moves on. */
+const RNR_LIMIT = 5;
+
+/**
+ * A lead is engaged once it has got past the first call — connected, follow-up,
+ * meeting, payment, or any closing outcome. Engaged leads take unlimited RNRs
+ * without their status changing.
+ */
+const isEngaged = (lead) =>
+  !!lead.hasBeenEngaged || !!lead.peakStatus || !['new', 'rnr'].includes(lead.status);
+
+/** When to retry a never-reached lead after its nth RNR (n < RNR_LIMIT). */
+const nextRnrRetryAt = (n) => {
+  const at = new Date();
+  if (n === 1) {
+    // Same afternoon at 1:30 PM
+    at.setHours(13, 30, 0, 0);
+  } else if (n === 3) {
+    // Two days later, random hour 9 AM–4 PM
+    at.setDate(at.getDate() + 2);
+    at.setHours(9 + Math.floor(Math.random() * 8), 0, 0, 0);
+  } else {
+    // Next day, random time 10 AM–2 PM
+    at.setDate(at.getDate() + 1);
+    at.setHours(10 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 60), 0, 0);
+  }
+  return at;
+};
+
+/**
+ * A same-level teammate of the lead's owner: same role, same reporting manager,
+ * active. Picks whoever has the fewest open leads. Null if there is none.
+ */
+const findRnrPeer = async (lead) => {
+  if (!lead.owner) return null;
+  const owner = await User.findById(lead.owner).select('role reportingTo');
+  if (!owner?.reportingTo) return null;
+
+  const peers = await User.find({
+    role: owner.role,
+    reportingTo: owner.reportingTo,
+    isActive: true,
+    _id: { $ne: owner._id },
+  }).select('name');
+  if (!peers.length) return null;
+
+  const loads = await Lead.aggregate([
+    { $match: { owner: { $in: peers.map(p => p._id) }, status: { $nin: ['converted', 'lost', 'not_interested'] } } },
+    { $group: { _id: '$owner', count: { $sum: 1 } } },
+  ]);
+  const loadOf = (id) => loads.find(l => String(l._id) === String(id))?.count || 0;
+  return peers.reduce((best, p) => (loadOf(p._id) < loadOf(best._id) ? p : best));
+};
+
 const leadService = {
   /**
    * Transition lead state.
@@ -131,7 +186,7 @@ const leadService = {
 
     switch (action) {
       case 'mark_called':
-        lead.status = 'called';
+        applyStatus(lead, 'called');
         lead.hasBeenEngaged = true; // Mark as engaged once called
         lead.lastCallAt = new Date();
         activityData.action = 'called';
@@ -147,10 +202,10 @@ const leadService = {
         lead.hasBeenEngaged = true;
         
         if (nextAction === 'followup') {
-          lead.status = 'followup';
+          applyStatus(lead, 'followup');
           activityData.action = 'followup_set';
         } else if (nextAction === 'converted') {
-          lead.status = 'converted';
+          applyStatus(lead, 'converted');
           lead.convertedAt = new Date();
           lead.strategyNote = data.strategyNote;
           if (data.revenueCategory) lead.revenueCategory = data.revenueCategory;
@@ -162,11 +217,11 @@ const leadService = {
             ? { category: lead.revenueCategory, totalReceived: paymentsReceived(lead) }
             : { revenue: lead.actualRevenue || lead.expectedRevenue || 0, category: lead.revenueCategory };
         } else if (nextAction === 'not_interested') {
-          lead.status = 'not_interested';
+          applyStatus(lead, 'not_interested');
           lead.strategyNote = data.strategyNote;
           activityData.action = 'not_interested';
         } else if (nextAction === 'schedule_virtual') {
-          lead.status = 'meeting_virtual';
+          applyStatus(lead, 'meeting_virtual');
           lead.meetingAt = new Date(data.meetingAt);
           lead.meetingLink = data.meetingLink;
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
@@ -180,7 +235,7 @@ const leadService = {
           lead.subStatus = 'pre_meeting_confirm';
 
         } else if (nextAction === 'direct_meeting') {
-          lead.status = 'meeting_direct';
+          applyStatus(lead, 'meeting_direct');
           lead.meetingAt = new Date(data.meetingAt);
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
@@ -205,17 +260,17 @@ const leadService = {
           }
         } else if (nextAction === 'blocking_amount_received') {
           // "Blocking" is the advance. It is a stage on the way, never a close.
-          // Each stage keeps the date it first happened, and the `convertedAt`
-          // guard stops a re-recorded stage from knocking an already-converted
-          // lead back out of Converted and into a payment bucket.
+          // Each stage keeps the date it first happened, and the status rank
+          // stops a re-recorded stage from knocking an already-converted lead
+          // back out of Converted and into a payment bucket.
           activityData.metadata = recordPayment(lead, 'blockingAmount', data);
           lead.blockingDate = lead.blockingDate || new Date();
-          if (!lead.convertedAt) lead.status = 'blocking_amount_received';
+          applyStatus(lead, 'blocking_amount_received');
           activityData.action = 'blocking_amount_received';
         } else if (nextAction === 'full_amount_received') {
           activityData.metadata = recordPayment(lead, 'fullAmount', data);
           lead.fullAmountReceivedDate = lead.fullAmountReceivedDate || new Date();
-          if (!lead.convertedAt) lead.status = 'full_amount_received';
+          applyStatus(lead, 'full_amount_received');
           activityData.action = 'full_amount_received';
           extraActivity = maybeConvert(lead, performedBy);
         } else if (nextAction === 'agreement_signed') {
@@ -228,7 +283,7 @@ const leadService = {
             throw new Error('Record the full amount received before the agreement is signed.');
           }
           lead.agreementSignedAt = lead.agreementSignedAt || new Date();
-          if (!lead.convertedAt) lead.status = 'agreement_signed';
+          applyStatus(lead, 'agreement_signed');
           activityData.action = 'agreement_signed';
           extraActivity = maybeConvert(lead, performedBy);
         }
@@ -236,110 +291,84 @@ const leadService = {
       }
 
       case 'mark_rnr': {
-        const wasFollowup = lead.status === 'followup';
         lead.rnrCount = (lead.rnrCount || 0) + 1;
         if (data.priority) lead.priority = data.priority;
         activityData.action = 'rnr';
 
-        // ── Special case: Direct Meeting lead on the DAY of the meeting ──────
-        // Keep retrying every hour until the scheduled meeting time.
-        // Do not escalate or change status — the meeting is still on.
-        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-        const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
-        const meetingAt  = lead.meetingAt ? new Date(lead.meetingAt) : null;
-        const isDMDay    = lead.status === 'meeting_direct' &&
-                           meetingAt && meetingAt >= todayStart && meetingAt <= todayEnd;
+        // ── Engaged lead: unlimited RNRs, status untouched ───────────────────
+        // Once a lead has reached any status past the first call (called,
+        // follow-up, meeting, payment...), an RNR is only logged. The status
+        // stays where it is and the lead is never handed on or lost for it.
+        if (isEngaged(lead)) {
+          // A Direct Meeting lead on the day of the meeting: retry hourly until
+          // the meeting time — the meeting is still on.
+          const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+          const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+          const meetingAt  = lead.meetingAt ? new Date(lead.meetingAt) : null;
+          const isDMDay    = lead.status === 'meeting_direct' &&
+                             meetingAt && meetingAt >= todayStart && meetingAt <= todayEnd;
 
-        if (isDMDay) {
-          const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
-          lead.nextActionAt = oneHourFromNow < meetingAt ? oneHourFromNow : meetingAt;
-          activityData.note = `Pre-meeting retry #${lead.rnrCount}. Next attempt: ${lead.nextActionAt.toLocaleTimeString()}. Meeting at: ${meetingAt.toLocaleTimeString()}`;
-          break; // skip normal RNR escalation
-        }
-
-        // ── Follow-up RNR: re-queue only, no auto-escalation ─────────────────
-        if (wasFollowup) {
-          lead.status = 'followup'; // keep status as followup
-          const nextDay = new Date();
-          nextDay.setDate(nextDay.getDate() + 1);
-          nextDay.setHours(10, 0, 0, 0);
-          lead.nextActionAt = nextDay;
-          activityData.action = 'rnr';
-          activityData.note = `RNR during follow-up #${lead.rnrCount}. Re-queued for next day — no auto-escalation.`;
+          if (isDMDay) {
+            const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+            lead.nextActionAt = oneHourFromNow < meetingAt ? oneHourFromNow : meetingAt;
+            activityData.note = `Pre-meeting retry #${lead.rnrCount}. Next attempt: ${lead.nextActionAt.toLocaleTimeString()}. Meeting at: ${meetingAt.toLocaleTimeString()}`;
+          } else {
+            const nextDay = new Date();
+            nextDay.setDate(nextDay.getDate() + 1);
+            nextDay.setHours(10, 0, 0, 0);
+            lead.nextActionAt = nextDay;
+            activityData.note = data.note || `RNR #${lead.rnrCount}. Status kept; re-queued for next day.`;
+          }
           break;
         }
 
-        // ── Normal RNR path (new leads) ──────────────────────────────────────
+        // ── New lead that has never been reached ─────────────────────────────
         lead.status = 'rnr';
 
-        if (lead.rnrCount === 1) {
-          // Retry same afternoon at 1:30 PM
-          const today = new Date();
-          today.setHours(13, 30, 0, 0);
-          lead.nextActionAt = today;
-        } else if (lead.rnrCount === 2) {
-          // Next working day at a random time between 10 AM–2 PM
-          const nextDay = new Date();
-          nextDay.setDate(nextDay.getDate() + 1);
-          const rHour2 = Math.floor(Math.random() * (14 - 10 + 1)) + 10;
-          const rMin2  = Math.floor(Math.random() * 60);
-          nextDay.setHours(rHour2, rMin2, 0, 0);
-          lead.nextActionAt = nextDay;
-        } else if (lead.rnrCount === 3) {
-          // Two days later at a random time between 9 AM–4 PM
-          const twoDaysLater = new Date();
-          twoDaysLater.setDate(twoDaysLater.getDate() + 2);
-          const rHour3 = Math.floor(Math.random() * (16 - 9 + 1)) + 9;
-          twoDaysLater.setHours(rHour3, 0, 0, 0);
-          lead.nextActionAt = twoDaysLater;
-        } else if (lead.rnrCount >= 4) {
-          // ── Auto-reallocation: Only for NEW, UNINGAGED leads ──────────────
-          // Leads that have been connected, in follow-up, or in meetings should 
-          // NEVER be auto-reallocated, no matter how many RNRs. They must stay 
-          // with their assigned executive until manually marked as Lost.
-          if (lead.hasBeenEngaged) {
-            // Lead has been engaged → keep it with current owner, just re-queue
-            lead.status = 'rnr';
-            const nextRetryDay = new Date();
-            nextRetryDay.setDate(nextRetryDay.getDate() + 1);
-            nextRetryDay.setHours(10, 0, 0, 0);
-            lead.nextActionAt = nextRetryDay;
-            activityData.action = 'rnr'; // Keep action as RNR
-            activityData.note = `RNR #${lead.rnrCount}. Lead has been engaged—no auto-reallocation. Re-queued for next day.`;
-            break;
-          }
+        if (lead.rnrCount < RNR_LIMIT) {
+          lead.nextActionAt = nextRnrRetryAt(lead.rnrCount);
+          break;
+        }
 
-          // Lead has NOT been engaged (still new) → attempt reallocation
-          // Capture previous owner BEFORE reassigning
-          const previousOwnerId = lead.owner;
+        // RNR_LIMIT reached. First time: hand the lead to a peer on the same
+        // team. If that peer also reaches RNR_LIMIT, the lead is lost.
+        const previousOwnerId = lead.owner;
+        const peer = lead.rnrTransferredAt ? null : await findRnrPeer(lead);
 
-          const otherExec = await User.findOne({
-            role: 'executive',
-            isActive: true,
-            state: lead.state,
-            industry: lead.industry,
-            _id: { $ne: previousOwnerId }
+        if (peer) {
+          lead.owner = peer._id;
+          lead.rnrCount = 0;
+          lead.rnrTransferredAt = new Date();
+          lead.rnrTransferredFrom = previousOwnerId;
+          lead.nextActionAt = new Date(); // Queue immediately for the new owner
+          extraActivity = {
+            lead: lead._id,
+            performedBy: null,
+            action: 'reallocated',
+            note: `Auto-transferred to ${peer.name} after ${RNR_LIMIT} RNR attempts.`,
+            metadata: { from: previousOwnerId, to: peer._id, reason: 'rnr_limit' },
+          };
+
+          await notificationService.onLeadAutoReallocated({
+            executiveId: peer._id,
+            leadName: lead.company || lead.name || 'Lead',
+            rnrCount: RNR_LIMIT,
+            io,
           });
-
-          if (otherExec) {
-            lead.owner = otherExec._id;
-            lead.nextActionAt = new Date(); // Queue immediately for new executive
-            activityData.action = 'reallocated';
-            activityData.note = `Auto-reallocated after ${lead.rnrCount} RNR attempts. Previous owner: ${previousOwnerId}`;
-
-            await notificationService.onLeadAutoReallocated({
-              executiveId: otherExec._id,
-              leadName: lead.company || lead.name || 'Lead',
-              rnrCount: lead.rnrCount,
-              io,
-            });
-          } else {
-            // No available executive in same territory — mark as lost
-            lead.status = 'lost';
-            lead.lostAt = new Date();
-            activityData.action = 'lost';
-            activityData.note = `Auto-lost: no available executive in ${lead.state}/${lead.industry} after ${lead.rnrCount} RNR attempts`;
-          }
+        } else {
+          const reason = lead.rnrTransferredAt
+            ? `No response after ${RNR_LIMIT} RNR attempts by each of two owners.`
+            : `No response after ${RNR_LIMIT} RNR attempts; no teammate available to transfer to.`;
+          applyStatus(lead, 'lost');
+          lead.lostAt = new Date();
+          lead.reasonForLost = reason;
+          lead.nextActionAt = null;
+          extraActivity = {
+            lead: lead._id,
+            performedBy: null,
+            action: 'lost',
+            note: `Auto-lost: ${reason}`,
+          };
         }
         break;
       }
@@ -422,32 +451,34 @@ const leadService = {
     // SORT ORDER:
     // 1. Direct meetings scheduled for today
     // 2. Virtual meetings scheduled for today
-    // 3. Follow-ups due today (hot first, then warm, then cold, then call-back/RNR)
-    // 4. New leads allocated
+    // 3. New leads
+    // 4. Follow-ups due today (hot, then warm, then cold)
+    // 5. RNR retries due today
+    // 6. Everything else
+    const PRIORITY_RANK = { hot: 0, warm: 1, cold: 2 };
+
+    const getBucket = (lead) => {
+      const isTodayMeeting = lead.meetingAt && lead.meetingAt >= todayStart && lead.meetingAt <= todayEnd;
+      if (isTodayMeeting && lead.status === 'meeting_direct') return 1;
+      if (isTodayMeeting && lead.status === 'meeting_virtual') return 2;
+      if (lead.status === 'new') return 3;
+
+      const isDueToday = lead.nextActionAt && lead.nextActionAt <= todayEnd;
+      if (isDueToday) return lead.status === 'rnr' ? 5 : 4;
+      return 6;
+    };
 
     return leads.sort((a, b) => {
-      const getPriorityValue = (lead) => {
-        const isTodayMeeting = lead.meetingAt && lead.meetingAt >= todayStart && lead.meetingAt <= todayEnd;
-        if (isTodayMeeting && lead.status === 'meeting_direct') return 1;
-        if (isTodayMeeting && lead.status === 'meeting_virtual') return 2;
-        
-        const isTodayFollowup = lead.nextActionAt && lead.nextActionAt <= todayEnd;
-        if (isTodayFollowup) {
-          if (lead.priority === 'hot') return 3;
-          if (lead.priority === 'warm') return 4;
-          if (lead.priority === 'cold') return 5;
-          return 6; // RNR etc
-        }
-        
-        if (lead.status === 'new') return 7;
-        return 8;
-      };
+      const bucketA = getBucket(a);
+      const bucketB = getBucket(b);
+      if (bucketA !== bucketB) return bucketA - bucketB;
 
-      const valA = getPriorityValue(a);
-      const valB = getPriorityValue(b);
+      if (bucketA === 4) {
+        const rankA = PRIORITY_RANK[a.priority] ?? 3;
+        const rankB = PRIORITY_RANK[b.priority] ?? 3;
+        if (rankA !== rankB) return rankA - rankB;
+      }
 
-      if (valA !== valB) return valA - valB;
-      
       // Secondary sort by date
       const dateA = a.meetingAt || a.nextActionAt || a.createdAt;
       const dateB = b.meetingAt || b.nextActionAt || b.createdAt;
@@ -481,7 +512,7 @@ const leadService = {
       id: l._id,
       index: i + 1,
       name: l.company || l.name,
-      type: l.status.includes('meeting') ? 'Meeting' : l.status === 'new' ? 'New Lead' : 'Follow-up',
+      type: l.status.includes('meeting') ? 'Meeting' : l.status === 'new' ? 'New Lead' : l.status === 'rnr' ? 'RNR' : 'Follow-up',
       time: l.meetingAt || l.nextActionAt,
       priority: l.priority
     }));

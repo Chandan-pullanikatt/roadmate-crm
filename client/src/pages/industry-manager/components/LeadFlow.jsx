@@ -226,7 +226,7 @@ const LeadFlow = () => {
                       <div>
                         <span className="text-text-muted">RNR Count: </span>
                         <span className={`font-bold ${currentLead.rnrCount > 0 ? 'text-amber' : 'text-text-primary'}`}>
-                          {currentLead.rnrCount || 0}/3
+                          {currentLead.rnrCount || 0}/5
                         </span>
                       </div>
                       <div>

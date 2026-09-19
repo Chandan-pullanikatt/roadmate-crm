@@ -96,11 +96,14 @@ const MyWork = () => {
 
     return myLeads.reduce((acc, l) => {
       if (isMeetingToday(l)) acc.meetings += 1;
-      else if (l.nextActionAt && new Date(l.nextActionAt) <= dayEnd) acc.followups += 1;
       else if (l.status === 'new') acc.fresh += 1;
+      else if (l.nextActionAt && new Date(l.nextActionAt) <= dayEnd) {
+        if (l.status === 'rnr') acc.rnr += 1;
+        else acc.followups += 1;
+      }
       else acc.other += 1;
       return acc;
-    }, { meetings: 0, followups: 0, fresh: 0, other: 0 });
+    }, { meetings: 0, fresh: 0, followups: 0, rnr: 0, other: 0 });
   })();
 
   const todayStats = personalDash?.todayStats || {};
@@ -139,7 +142,7 @@ const MyWork = () => {
           <div className="stat-label">My Leads Today</div>
           <div className="stat-value text-blue">{myLeads.length}</div>
           <div className="stat-delta text-[11px] font-medium opacity-70">
-             {"\u2192"} {queueBreakdown.meetings} meetings, {queueBreakdown.followups} follow-ups, {queueBreakdown.fresh} new{queueBreakdown.other > 0 ? `, ${queueBreakdown.other} other` : ''}
+             {"\u2192"} {queueBreakdown.meetings} meetings, {queueBreakdown.fresh} new, {queueBreakdown.followups} follow-ups, {queueBreakdown.rnr} RNR{queueBreakdown.other > 0 ? `, ${queueBreakdown.other} other` : ''}
           </div>
         </div>
         <div className="stat-card border-l-4 border-green">

@@ -9,6 +9,7 @@ const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const { getScopeOwnerIds, applyLeadScope } = require('../utils/hierarchy');
 const { statusesForParam } = require('../constants/leadStatusGroups');
+const { resolveStatus } = require('../constants/leadStatusRank');
 const { createdAtRange } = require('../utils/dateRange');
 const { generateLeadId, syncCountersWithIds } = require('../services/leadIdService');
 const { prefixForSource } = require('../constants/leadSources');
@@ -390,6 +391,10 @@ const updateLead = async (req, res) => {
     delete payload.actualRevenue;
     delete payload.blockingAmount;
     delete payload.fullAmount;
+    // Maintained by the status rank and RNR rules only.
+    delete payload.peakStatus;
+    delete payload.rnrTransferredAt;
+    delete payload.rnrTransferredFrom;
 
     // Moving a lead to a payment stage records a payment: route it through the
     // same transition the call-feedback screens use, so the amount is captured
@@ -407,6 +412,12 @@ const updateLead = async (req, res) => {
         revenueCategory: payload.revenueCategory,
         note: req.body.notes,
       }, req.user, req.app.get('io'));
+    }
+
+    // A status picked by hand obeys the same rank lock as the call screens.
+    if (payload.status) {
+      const current = await Lead.findById(req.params.id).select('status peakStatus');
+      Object.assign(payload, resolveStatus(current, payload.status));
     }
 
     const lead = await Lead.findByIdAndUpdate(req.params.id, payload, { new: true });
