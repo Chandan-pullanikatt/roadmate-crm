@@ -8,6 +8,7 @@ const Config = require('../models/Config');
 const { verifyToken } = require('../middleware/auth');
 const { generatePresignedDownload } = require('../config/r2');
 const notificationService = require('../services/notificationService');
+const scheduleService = require('../services/scheduleService');
 const mongoose = require('mongoose');
 
 // Helper to get dates between range
@@ -272,10 +273,14 @@ router.patch('/:id/approve', verifyToken, async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to approve this leave' });
     }
 
+    const wasApproved = leave.status === 'approved';
     leave.status = 'approved';
     leave.approvedBy = req.user._id;
     leave.approvedAt = new Date();
     await leave.save();
+
+    // Shift the leave days' work forward — once, or it would shift again
+    if (!wasApproved) await scheduleService.cascadeForLeave(leave);
 
     // Create Attendance docs
     const dates = getDatesInRange(leave.fromDate, leave.toDate);

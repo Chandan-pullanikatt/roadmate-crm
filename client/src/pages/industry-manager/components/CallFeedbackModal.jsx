@@ -5,6 +5,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../../../components/PaymentAmountField';
+import FixedFollowUpToggle from '../../../components/FixedFollowUpToggle';
 
 const OUTCOMES = [
   { id: 'connected',               icon: '✅', label: 'Connected',          color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
@@ -39,6 +40,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState(TIME_SLOTS[0]);
+  const [isFixedDate, setIsFixedDate] = useState(false);
   const [meetingType, setMeetingType] = useState('direct');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
@@ -81,6 +83,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     setNotes('');
     setStrategyNote('');
     setFollowUpDate('');
+    setIsFixedDate(false);
     setMeetingDate('');
     setMeetingTime('');
     setMeetingLink('');
@@ -125,7 +128,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
 
       } else if (selectedOutcome === 'followup') {
         await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes, priority });
-        await transitionMutation.mutateAsync({ action: 'set_followup_date', followUpDate, followUpTime });
+        await transitionMutation.mutateAsync({ action: 'set_followup_date', followUpDate, followUpTime, isFixed: isFixedDate });
         addToast('Follow-up scheduled.', 'success');
 
       } else if (selectedOutcome === 'meeting') {
@@ -406,6 +409,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
                 </select>
               </div>
             )}
+            <FixedFollowUpToggle checked={isFixedDate} onChange={setIsFixedDate} />
           </div>
         )}
 

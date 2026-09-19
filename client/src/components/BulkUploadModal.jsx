@@ -5,6 +5,7 @@ import { Modal, Button, Tag } from './ui';
 import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const EXPECTED_HEADERS = [
   'Lead ID', 'Date', 'Name', 'District & Place', 'Contact Information',
@@ -18,6 +19,7 @@ const REQUIRED_HEADERS = ['Name', 'Contact Information'];
 const BulkUploadModal = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const { user: currentUser } = useAuth();
   
   const [file, setFile] = useState(null);
   const [parsedData, setParsedData] = useState(null); // { headers: [], rows: [] }
@@ -54,18 +56,31 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       .catch(() => setAssignableUsers([]));
   }, [isOpen]);
 
-  const stateManagers = useMemo(
-    () => assignableUsers.filter(u => u.role === 'state_manager'),
-    [assignableUsers]
-  );
+  // GET /users is hierarchy-scoped: a State Manager never gets themselves back (only their
+  // reports), and an Industry Manager gets every SM in their state. So the chain has to be
+  // anchored on the uploader's own position rather than read purely from that list.
+  const role = currentUser?.role;
+  const bossId = String(currentUser?.reportingTo?._id || currentUser?.reportingTo || '');
 
-  const industryManagerOptions = useMemo(
-    () => assignableUsers.filter(u => u.role === 'industry_manager' && u.reportingTo === selectedStateManagerId),
-    [assignableUsers, selectedStateManagerId]
-  );
+  const stateManagers = useMemo(() => {
+    if (role === 'state_manager') return [currentUser];
+    const sms = assignableUsers.filter(u => u.role === 'state_manager');
+    if (role === 'industry_manager') {
+      const boss = sms.filter(u => String(u._id) === bossId);
+      // /auth/me populates reportingTo, so fall back to it if the SM sits outside our state.
+      if (!boss.length && currentUser?.reportingTo?.role === 'state_manager') return [currentUser.reportingTo];
+      return boss;
+    }
+    return sms;
+  }, [assignableUsers, role, currentUser, bossId]);
+
+  const industryManagerOptions = useMemo(() => {
+    if (role === 'industry_manager') return selectedStateManagerId ? [currentUser] : [];
+    return assignableUsers.filter(u => u.role === 'industry_manager' && String(u.reportingTo) === selectedStateManagerId);
+  }, [assignableUsers, selectedStateManagerId, role, currentUser]);
 
   const executiveOptions = useMemo(
-    () => assignableUsers.filter(u => u.role === 'executive' && u.reportingTo === selectedIndustryManagerId),
+    () => assignableUsers.filter(u => u.role === 'executive' && String(u.reportingTo) === selectedIndustryManagerId),
     [assignableUsers, selectedIndustryManagerId]
   );
 

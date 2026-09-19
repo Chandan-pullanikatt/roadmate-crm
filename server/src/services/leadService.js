@@ -1,52 +1,30 @@
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
-const LeavePolicy = require('../models/LeavePolicy');
+const { loadCalendar, startOfDay, addDays } = require('../utils/workingDays');
 const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
 const { applyStatus } = require('../constants/leadStatusRank');
 
 /**
- * Helper to check if a date is a working day (not Sunday and not a holiday)
+ * The next N days the user can work: working days (Sundays and the 2nd/4th
+ * Saturday off, state holidays off) that are not on their approved leave.
  */
-async function isWorkingDay(date, state) {
-  const day = date.getDay();
-  if (day === 0) return false; // Sunday
-
-  const year = date.getFullYear();
-  const policy = await LeavePolicy.findOne({ state, year });
-  if (policy && policy.holidays) {
-    const isHoliday = policy.holidays.some(h => 
-      h.date.toDateString() === date.toDateString()
-    );
-    if (isHoliday) return false;
-  }
-  return true;
-}
-
-/**
- * Get next N working days
- */
-async function getNextWorkingDays(count, state) {
+async function getNextWorkingDays(count, user) {
+  const calendar = await loadCalendar(user);
   const workingDays = [];
-  let current = new Date();
-  current.setHours(0, 0, 0, 0);
+  let current = startOfDay(new Date());
 
   // We start looking from tomorrow
-  let daysAdded = 0;
-  let safetyCounter = 0;
-
-  while (workingDays.length < count && safetyCounter < 30) {
-    current.setDate(current.getDate() + 1);
-    if (await isWorkingDay(current, state)) {
-      workingDays.push(new Date(current));
-    }
-    safetyCounter++;
+  for (let i = 0; workingDays.length < count && i < 60; i++) {
+    current = addDays(current, 1);
+    if (calendar.isAvailable(current)) workingDays.push(current);
   }
 
   return workingDays.map(d => ({
     label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-    value: d.toISOString().split('T')[0]
+    // Local calendar date; toISOString() would give the previous day east of UTC
+    value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }));
 }
 
@@ -377,6 +355,7 @@ const leadService = {
         lead.followUpDate = new Date(data.followUpDate);
         lead.followUpTime = data.followUpTime;
         lead.nextActionAt = new Date(data.followUpDate);
+        lead.followUpFixed = !!data.isFixed;
         if (data.isCustom) {
           lead.notes = data.customReason; // Store in notes if isCustom
         }
@@ -487,10 +466,10 @@ const leadService = {
   },
 
   /**
-   * Get suggested dates for a state
+   * Suggested follow-up dates for a user
    */
-  async getSuggestedDates(state) {
-    return await getNextWorkingDays(4, state);
+  async getSuggestedDates(user) {
+    return await getNextWorkingDays(4, user);
   },
   
   /**

@@ -99,7 +99,7 @@ const GlobalModals = () => {
     normalStart: '09:30', normalEnd: '18:30',
     ramadanStart: '09:00', ramadanEnd: '17:30',
     ramadanFrom: '', ramadanTo: '',
-    rules: { leaveThreshold: 30, halfDayThreshold: 70, delayedLoginHalfDay: true, earlyExitThresholdMinutes: 120 }
+    rules: { leaveBelowPct: 30, halfDayBelowPct: 60, lateMarkMinutes: 10, lateHalfDayMinutes: 30, earlyMarkMinutes: 15, earlyHalfDayMinutes: 60 }
   });
 
   const [leaveFormData, setLeaveFormData] = useState({
@@ -1528,57 +1528,35 @@ const GlobalModals = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
-                <span className="text-sm font-medium text-text-primary">Work completion below <span className="font-bold text-red">30%</span> of allotted tasks → Auto-mark as <span className="font-bold">Leave</span></span>
-                <input 
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold" 
-                  value={workingHours.rules.leaveThreshold}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, leaveThreshold: Number(digitsOnly(e.target.value))}})}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
-                <span className="text-sm font-medium text-text-primary">Work completion below <span className="font-bold text-orange">70%</span> of allotted tasks → Auto-mark as <span className="font-bold">Half Day</span></span>
-                <input 
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold" 
-                  value={workingHours.rules.halfDayThreshold}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, halfDayThreshold: Number(digitsOnly(e.target.value))}})}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
-                <span className="text-sm font-medium text-text-primary">Delayed login → <span className="font-bold">Half day</span> (based on time frame above)</span>
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded accent-[#0f766e]"
-                  checked={workingHours.rules.delayedLoginHalfDay}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, delayedLoginHalfDay: e.target.checked}})}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-surface2/30 rounded-xl border border-border">
-                <span className="text-sm font-medium text-text-primary">Early exit threshold → <span className="font-bold">Half day</span> if left this many minutes before end time</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold"
-                  value={workingHours.rules.earlyExitThresholdMinutes ?? 120}
-                  onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, earlyExitThresholdMinutes: Number(digitsOnly(e.target.value))}})}
-                />
-              </div>
+              {[
+                { key: 'leaveBelowPct', unit: '%', text: <>Work completion below this → <span className="font-bold text-red">Leave</span></> },
+                { key: 'halfDayBelowPct', unit: '%', text: <>Work completion below this → <span className="font-bold text-orange">Half Day</span></> },
+                { key: 'lateMarkMinutes', unit: 'min', text: <>Login this late (from start time) → <span className="font-bold">Late Coming</span> mark</> },
+                { key: 'lateHalfDayMinutes', unit: 'min', text: <>Login this late (from start time) → <span className="font-bold text-orange">Half Day</span></> },
+                { key: 'earlyMarkMinutes', unit: 'min', text: <>Leaving this early (before end time) → <span className="font-bold">Early Exit</span> mark</> },
+                { key: 'earlyHalfDayMinutes', unit: 'min', text: <>Leaving this early (before end time) → <span className="font-bold text-orange">Half Day</span></> },
+              ].map(({ key, unit, text }) => (
+                <div key={key} className="flex items-center justify-between gap-4 p-4 bg-surface2/30 rounded-xl border border-border">
+                  <span className="text-sm font-medium text-text-primary">{text}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="w-16 bg-white border border-border rounded-lg px-2 py-1.5 text-center text-sm font-bold"
+                      value={workingHours.rules[key] ?? ''}
+                      onChange={(e) => setWorkingHours({...workingHours, rules: {...workingHours.rules, [key]: Number(digitsOnly(e.target.value))}})}
+                    />
+                    <span className="text-xs text-text-muted w-6">{unit}</span>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-xl flex gap-3 items-start">
                <span className="text-amber">⚠️</span>
                <div className="text-xs text-amber font-medium leading-relaxed">
-                 End of day: staff must mark "Today Work Completed". Uncompleted work is auto-evaluated for leave/half-day.
+                 End of day: staff must mark "Today Work Completed" (anyone who forgets is completed automatically at 11:59 PM). Unfinished work moves to the next working day. Working days exclude Sundays and the 2nd and 4th Saturday.
                </div>
             </div>
           </div>

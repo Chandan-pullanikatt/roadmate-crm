@@ -5,6 +5,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../../../components/PaymentAmountField';
+import FixedFollowUpToggle from '../../../components/FixedFollowUpToggle';
 
 const OUTCOMES = [
   { id: 'connected',               icon: '✅', label: 'Connected',             color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
@@ -45,6 +46,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const [followUpDate, setFollowUpDate]       = useState('');
   const [followUpTime, setFollowUpTime]       = useState(TIME_SLOTS[0]);
   const [isCustomDate, setIsCustomDate]       = useState(false);
+  const [isFixedDate, setIsFixedDate]         = useState(false);
   const [customDate, setCustomDate]           = useState('');
   const [customReason, setCustomReason]       = useState('');
   const [meetingDate, setMeetingDate]         = useState('');
@@ -82,7 +84,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
   const reset = () => {
     setNotes(''); setStrategyNote(''); setFollowUpDate(''); setCustomDate('');
-    setCustomReason(''); setIsCustomDate(false); setMeetingDate(''); setMeetingTime('');
+    setCustomReason(''); setIsCustomDate(false); setIsFixedDate(false); setMeetingDate(''); setMeetingTime('');
     setMeetingLink(''); setInviteeId(''); setEscalateTo(''); setEscalateReason('');
     setAmount('');
   };
@@ -114,6 +116,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
             followUpTime,
             isCustom: isCustomDate,
             customReason: isCustomDate ? customReason : undefined,
+            isFixed: isFixedDate,
           });
         }
         addToast('Follow-up scheduled.', 'success');
@@ -335,6 +338,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
                 {TIME_SLOTS.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
+            <FixedFollowUpToggle checked={isFixedDate} onChange={setIsFixedDate} />
           </div>
         )}
 

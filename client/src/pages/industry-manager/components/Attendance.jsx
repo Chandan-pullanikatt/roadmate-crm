@@ -215,7 +215,7 @@ const Attendance = () => {
                     <div className="flex items-center gap-3">
                         <div className="w-16 h-1.5 bg-surface2 rounded-full overflow-hidden border border-border/40">
                             <div 
-                                className={`h-full rounded-full transition-all duration-1000 ${exec.completionPct >= 70 ? 'bg-green' : exec.completionPct >= 30 ? 'bg-amber' : 'bg-red'}`} 
+                                className={`h-full rounded-full transition-all duration-1000 ${exec.completionPct >= 60 ? 'bg-green' : exec.completionPct >= 30 ? 'bg-amber' : 'bg-red'}`} 
                                 style={{ width: `${exec.completionPct}%` }} 
                             />
                         </div>

@@ -13,6 +13,7 @@ const { getScopeOwnerIds } = require('../utils/hierarchy');
 const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
 const { getDateRange } = require('../utils/dateRange');
 const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
+const { countWeekdayWorkingDays } = require('../utils/workingDays');
 
 // Protect all routes
 router.use(verifyToken);
@@ -1056,28 +1057,19 @@ router.get('/state-manager', async (req, res) => {
         const below30Work = todayAttendance.filter(a => a.completionPct < 30).length;
 
         // 3b. Attendance Presence Stats
-        const presentToday = todayAttendance.filter(a => a.status === 'present' || a.status === 'half-day').length;
+        const presentToday = todayAttendance.filter(a => a.status === 'present' || a.status === 'half_day').length;
         
         const halfDaysThisWeek = await Attendance.countDocuments({
             user: { $in: executiveIds },
             date: { $gte: weekStart },
-            status: 'half-day'
+            status: 'half_day'
         });
 
-        const totalWorkDays = (() => {
-            const y = monthStart.getFullYear(), m = monthStart.getMonth();
-            const daysInMonth = new Date(y, m + 1, 0).getDate();
-            let count = 0;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const day = new Date(y, m, d).getDay();
-                if (day !== 0 && day !== 6) count++;
-            }
-            return count;
-        })();
+        const totalWorkDays = countWeekdayWorkingDays(monthStart.getFullYear(), monthStart.getMonth() + 1);
         const monthlyAttendanceRecords = await Attendance.countDocuments({
             user: { $in: executiveIds },
             date: { $gte: monthStart },
-            status: { $in: ['present', 'half-day'] }
+            status: { $in: ['present', 'half_day'] }
         });
         const avgAttendanceMonth = Math.round((monthlyAttendanceRecords / (executiveIds.length * totalWorkDays || 1)) * 100);
 

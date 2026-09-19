@@ -564,7 +564,7 @@ router.get('/counts', async (req, res) => {
  */
 router.get('/suggested-dates', async (req, res) => {
   try {
-    const dates = await leadService.getSuggestedDates(req.user.state || 'default');
+    const dates = await leadService.getSuggestedDates(req.user);
     res.json(dates);
   } catch (err) {
     res.status(500).json({ message: err.message });

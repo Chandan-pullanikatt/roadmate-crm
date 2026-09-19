@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const Config = require('../models/Config');
+const { DEFAULT_WORKING_HOURS, resolveAttendanceRules } = require('../constants/attendanceRules');
 
 // Protect all routes - Founder only for writing
 router.use(verifyToken);
@@ -15,24 +16,11 @@ router.get('/:key', async (req, res) => {
     
     // Default values if not found
     if (!config && req.params.key === 'working-hours') {
-      config = {
-        key: 'working-hours',
-        value: {
-          normalStart: '09:30',
-          normalEnd: '18:30',
-          ramadanStart: '09:00',
-          ramadanEnd: '17:30',
-          ramadanFrom: null,
-          ramadanTo: null,
-          rules: {
-            leaveThreshold: 30,
-            halfDayThreshold: 70,
-            delayedLoginHalfDay: true,
-            earlyExitThresholdMinutes: 120,
-            lateLoginGraceMinutes: 30
-          }
-        }
-      };
+      config = { key: 'working-hours', value: DEFAULT_WORKING_HOURS };
+    } else if (config && req.params.key === 'working-hours') {
+      // Rules saved before the Sep 2026 spec used other keys; fill in the new ones.
+      config = config.toObject();
+      config.value = { ...config.value, rules: resolveAttendanceRules(config.value?.rules) };
     }
 
     res.json(config);

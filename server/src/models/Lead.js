@@ -43,6 +43,8 @@ const leadSchema = new mongoose.Schema({
   nextActionAt: { type: Date },
   followUpDate: { type: Date },
   followUpTime: { type: String },
+  // A fixed follow-up keeps its date: leave and carry-forward never move it.
+  followUpFixed: { type: Boolean, default: false },
   lastCallAt: { type: Date },
   convertedAt: { type: Date },
   lostAt: { type: Date },

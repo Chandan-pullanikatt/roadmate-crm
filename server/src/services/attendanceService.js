@@ -4,7 +4,18 @@ const Leave = require('../models/Leave');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
-const leadService = require('./leadService');
+const scheduleService = require('./scheduleService');
+const { isWeeklyOff, loadCalendar, startOfDay } = require('../utils/workingDays');
+const { resolveAttendanceRules } = require('../constants/attendanceRules');
+
+const ATTENDANCE_LABELS = { present: 'Present', half_day: 'Half Day', leave: 'Leave', holiday: 'Holiday' };
+
+// Actions that count as having worked a lead that day.
+const WORK_ACTIONS = [
+  'called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'meeting_confirmed',
+  'converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed',
+  'lost', 'not_interested', 'escalated',
+];
 
 const attendanceService = {
   /**
@@ -30,6 +41,10 @@ const attendanceService = {
         isHoliday = true;
         holidayName = holiday.name;
       }
+    }
+    if (!isHoliday && isWeeklyOff(today)) {
+      isHoliday = true;
+      holidayName = 'Weekly off';
     }
 
     // 2. Check if already started
@@ -63,24 +78,24 @@ const attendanceService = {
       }
     }
 
-    // 4. Calculate if late
+    // 4. Late login, measured from the start time: Late Coming from
+    //    lateMarkMinutes, Half Day (decided at completeWork) from lateHalfDayMinutes.
+    const rules = resolveAttendanceRules(whConfig.rules);
     const now = new Date();
     const [startHour, startMin] = workStartTimeStr.split(':').map(Number);
     const expectedStart = new Date(today);
     expectedStart.setHours(startHour, startMin, 0, 0);
-    
-    // Load config for grace period (default 30 min)
-    const configRules = configDoc?.value?.rules || {};
-    const gracePeriodMin = configRules.lateLoginGraceMinutes ?? 30;
 
-    const lateThreshold = new Date(expectedStart.getTime() + gracePeriodMin * 60000);
-    const isLateLogin = now > lateThreshold;
-    const lateLoginMinutes = isLateLogin ? Math.floor((now - lateThreshold) / 60000) : 0;
-    let note = isLateLogin ? `Late login: ${lateLoginMinutes} min past grace period` : '';
+    const lateLoginMinutes = Math.max(0, Math.floor((now - expectedStart) / 60000));
+    const isLateLogin = lateLoginMinutes >= rules.lateMarkMinutes;
+    const isLateHalfDay = lateLoginMinutes >= rules.lateHalfDayMinutes;
+    let note = isLateHalfDay
+      ? `Late login: ${lateLoginMinutes} min (Half Day)`
+      : isLateLogin ? `Late Coming: ${lateLoginMinutes} min` : '';
 
-    // 5. Count leads in queue
-    const queue = await leadService.getQueue(userId);
-    const todayLeadsCount = queue.length;
+    // 5. The day's work: due today plus pending from earlier days
+    const plannedLeads = await scheduleService.getDayPlan(userId, today);
+    const todayLeadsCount = plannedLeads.length;
 
     // 6. Create or update Attendance doc
     if (!attendance) {
@@ -89,6 +104,7 @@ const attendanceService = {
         date: today,
         workStartedAt: now,
         totalLeads: todayLeadsCount,
+        plannedLeads,
         isLateLogin,
         lateLoginMinutes,
         note,
@@ -101,6 +117,7 @@ const attendanceService = {
     } else {
       attendance.workStartedAt = now;
       attendance.totalLeads = todayLeadsCount;
+      attendance.plannedLeads = plannedLeads;
       attendance.isLateLogin = isLateLogin;
       attendance.lateLoginMinutes = lateLoginMinutes;
       if (note) attendance.note = note;
@@ -121,6 +138,7 @@ const attendanceService = {
       isHoliday,
       holidayName,
       isLateLogin,
+      isLateHalfDay,
       lateLoginMinutes,
     };
   },
@@ -139,65 +157,72 @@ const attendanceService = {
     if (!attendance) throw new Error('Attendance record not found');
     if (attendance.workCompletedAt) throw new Error('Work already completed for today');
 
-    // 1. Count completed leads (activity logs created today by user with completed actions)
-    // We group by lead to avoid counting multiple activities on the same lead as multiple completions
-    const completedLeadsIds = await LeadActivity.distinct('lead', {
+    // 1. Leads worked today (several activities on one lead count once)
+    const workedLeadIds = await LeadActivity.distinct('lead', {
       performedBy: userId,
       createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
+      action: { $in: WORK_ACTIONS }
     });
-    
-    const completedLeadsCount = completedLeadsIds.length;
+
+    // 2. Completion % = share of the day's planned work that was done
+    const planned = new Set((attendance.plannedLeads || []).map(String));
+    let completedLeadsCount;
+    let completionPct;
+    if (planned.size) {
+      completedLeadsCount = workedLeadIds.filter(id => planned.has(String(id))).length;
+      completionPct = (completedLeadsCount / planned.size) * 100;
+    } else if (attendance.totalLeads > 0) {
+      // Started before plans were recorded: the old whole-queue count
+      completedLeadsCount = workedLeadIds.length;
+      completionPct = Math.min(100, (completedLeadsCount / attendance.totalLeads) * 100);
+    } else {
+      // Nothing was due: any work done counts as a full day's work
+      completedLeadsCount = workedLeadIds.length;
+      completionPct = completedLeadsCount > 0 ? 100 : 0;
+    }
     attendance.workCompletedAt = now;
     attendance.completedLeads = completedLeadsCount;
-
-    // 2. Calculate completion %
-    const totalLeads = attendance.totalLeads || 1; // Avoid div by zero
-    const completionPct = (completedLeadsCount / totalLeads) * 100;
     attendance.completionPct = completionPct;
 
-    // 3. Fetch dynamic rules and working-hours config
+    // 3. Rules and working-hours config
     const Config = require('../models/Config');
     const configDoc = await Config.findOne({ key: 'working-hours' });
     const whConfig = configDoc?.value || {};
-    const rules = whConfig.rules || {
-      leaveThreshold: 30,
-      halfDayThreshold: 70,
-      delayedLoginHalfDay: true,
-      earlyExitThresholdMinutes: 120,
-    };
+    const rules = resolveAttendanceRules(whConfig.rules);
 
-    // 4. Early exit detection — compare completeWork time vs expected end time
-    //    Ramadan-aware: use ramadanEnd if today falls in the Ramadan window
+    // 4. Early exit, measured from the end time (Ramadan-aware): Early Exit
+    //    from earlyMarkMinutes, Half Day from earlyHalfDayMinutes.
     let expectedEndStr = whConfig.normalEnd || '18:30';
     if (whConfig.ramadanFrom && whConfig.ramadanTo) {
       const ramFrom = new Date(whConfig.ramadanFrom);
       const ramTo   = new Date(whConfig.ramadanTo);
-      const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
-      if (todayDate >= ramFrom && todayDate <= ramTo) {
+      if (todayStart >= ramFrom && todayStart <= ramTo) {
         expectedEndStr = whConfig.ramadanEnd || '17:30';
       }
     }
     const [endHour, endMin] = expectedEndStr.split(':').map(Number);
-    const expectedEnd = new Date();
+    const expectedEnd = new Date(todayStart);
     expectedEnd.setHours(endHour, endMin, 0, 0);
 
-    // Positive value = completed before expected end (early exit)
-    const minutesBeforeEnd = Math.floor((expectedEnd.getTime() - now.getTime()) / 60000);
-    const earlyExitThreshold = rules.earlyExitThresholdMinutes ?? 120;
-    const isEarlyExit = minutesBeforeEnd > earlyExitThreshold;
-
-    if (isEarlyExit) {
-      attendance.earlyExitMinutes = minutesBeforeEnd;
+    const earlyExitMinutes = Math.max(0, Math.floor((expectedEnd - now) / 60000));
+    attendance.earlyExitMinutes = earlyExitMinutes;
+    attendance.isEarlyExit = earlyExitMinutes >= rules.earlyMarkMinutes;
+    if (attendance.isEarlyExit) {
+      const exitNote = earlyExitMinutes >= rules.earlyHalfDayMinutes
+        ? `Early exit: ${earlyExitMinutes} min (Half Day)`
+        : `Early Exit: ${earlyExitMinutes} min`;
+      attendance.note = [attendance.note, exitNote].filter(Boolean).join(' · ');
     }
 
-    // 5. Determine final attendance status
-    //    Priority: completion % rules → late login / early exit → present
-    if (completionPct < rules.leaveThreshold) {
+    // 5. Final status: work completion first, then late login / early exit
+    if (completionPct < rules.leaveBelowPct) {
       attendance.status = 'leave';
-    } else if (completionPct < rules.halfDayThreshold) {
+    } else if (completionPct < rules.halfDayBelowPct) {
       attendance.status = 'half_day';
-    } else if ((rules.delayedLoginHalfDay && attendance.isLateLogin) || isEarlyExit) {
+    } else if (
+      (attendance.lateLoginMinutes || 0) >= rules.lateHalfDayMinutes ||
+      earlyExitMinutes >= rules.earlyHalfDayMinutes
+    ) {
       attendance.status = 'half_day';
     } else {
       attendance.status = 'present';
@@ -205,6 +230,34 @@ const attendanceService = {
 
     await attendance.save();
     return attendance;
+  },
+
+  /**
+   * Nightly: a working day with no login and no approved leave is an
+   * unapproved leave, recorded as Absent. (Its work was never done, so the
+   * pending-work sweep stacks it on the next working day.)
+   */
+  async markAbsentees(day = new Date()) {
+    const date = startOfDay(day);
+    const users = await User.find({
+      isActive: true,
+      role: { $in: ['executive', 'industry_manager', 'state_manager'] },
+    }).select('state');
+    const recorded = new Set((await Attendance.distinct('user', { date })).map(String));
+
+    let marked = 0;
+    for (const user of users) {
+      if (recorded.has(String(user._id))) continue;
+      const calendar = await loadCalendar(user, date);
+      if (!calendar.isAvailable(date)) continue;
+      await Attendance.updateOne(
+        { user: user._id, date },
+        { $setOnInsert: { status: 'absent', note: 'No login (unapproved leave)' } },
+        { upsert: true }
+      );
+      marked++;
+    }
+    return marked;
   },
 
   /**
@@ -309,8 +362,10 @@ const attendanceService = {
         date: a.date,
         type: 'attendance',
         status: a.status,
-        label: a.status === 'present' ? 'Present' : a.status === 'half_day' ? 'Half Day' : 'Absent',
-        details: a.note
+        label: ATTENDANCE_LABELS[a.status] || 'Absent',
+        details: a.note,
+        isLateComing: !!a.isLateLogin,
+        isEarlyExit: !!a.isEarlyExit
       });
     });
 

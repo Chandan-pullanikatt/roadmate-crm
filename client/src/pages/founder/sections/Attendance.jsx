@@ -161,7 +161,7 @@ const Attendance = () => {
               <span className="bg-[#dcfce7] text-[#166534] px-3 py-1 rounded-full text-[11px] font-bold border border-[#bbf7d0]">Normal: {workingHoursConfig?.normalStart || '9:30 AM'}</span>
               <span className="bg-[#eff6ff] text-[#1e40af] px-3 py-1 rounded-full text-[11px] font-bold border border-[#dbeafe]">Ramadan: {workingHoursConfig?.ramadanStart || '9:00 AM'}</span>
               <button className="bg-white border border-border px-4 py-1 rounded-lg text-[11px] font-bold ml-2 hover:bg-surface2 transition-all" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'work-time' }))}>Edit</button>
-              <span className="text-[12px] text-text-muted ml-4">Below {workingHoursConfig?.rules?.leaveThreshold ?? 30}% work → Leave | Below {workingHoursConfig?.rules?.halfDayThreshold ?? 70}% → Half Day</span>
+              <span className="text-[12px] text-text-muted ml-4">Below {workingHoursConfig?.rules?.leaveBelowPct ?? 30}% work → Leave | Below {workingHoursConfig?.rules?.halfDayBelowPct ?? 60}% → Half Day</span>
             </div>
           </div>
 

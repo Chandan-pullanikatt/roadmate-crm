@@ -68,11 +68,10 @@ const MyWorkToday = () => {
     mutationFn: attendanceApi.startWork,
     onSuccess: (res) => {
       const data = res?.data || res;
-      if (data?.isLateLogin && data?.lateLoginMinutes) {
-        addToast(
-          `Late login: ${data.lateLoginMinutes} min past grace period — attendance may be marked half day.`,
-          'warning'
-        );
+      if (data?.isLateHalfDay) {
+        addToast(`Late login: ${data.lateLoginMinutes} min late — today will be marked Half Day.`, 'warning');
+      } else if (data?.isLateLogin) {
+        addToast(`Late Coming: ${data.lateLoginMinutes} min late.`, 'warning');
       } else {
         addToast("Workspace initialized. Let's make it count!", 'success');
       }

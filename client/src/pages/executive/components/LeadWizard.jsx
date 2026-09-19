@@ -5,6 +5,7 @@ import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 import { FileUpload } from '../../../components/ui';
 import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../../../components/PaymentAmountField';
+import FixedFollowUpToggle from '../../../components/FixedFollowUpToggle';
 
 const STEPS = [
   { id: 'call', label: 'Call' },
@@ -43,6 +44,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
   const [customDate, setCustomDate] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [customTime, setCustomTime] = useState('');
+  const [isFixedDate, setIsFixedDate] = useState(false);
   const [meetingLink, setMeetingLink] = useState('');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
@@ -78,6 +80,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
     setCustomDate('');
     setCustomReason('');
     setCustomTime('');
+    setIsFixedDate(false);
     setMeetingLink('');
     setMeetingDate('');
     setMeetingTime('');
@@ -195,6 +198,7 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
             followUpTime: customTime || '10:00',
             isCustom: showCustomDate,
             customReason: customReason,
+            isFixed: isFixedDate,
           });
         }
         addToast('Follow-up scheduled successfully!', 'success');
@@ -319,6 +323,8 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
               setCustomReason={setCustomReason}
               customTime={customTime}
               setCustomTime={setCustomTime}
+              isFixedDate={isFixedDate}
+              setIsFixedDate={setIsFixedDate}
             />
           )}
           {step === 3 && (outcome === 'schedule_virtual' || outcome === 'direct_meeting' || outcome === 'reschedule') && (
@@ -499,7 +505,7 @@ const StepFeedback = ({ leadId, outcome, prompt, feedback, setFeedback, strategy
   </div>
 );
 
-const StepFollowUp = ({ suggestedDates, selectedDate, setSelectedDate, showCustomDate, setShowCustomDate, customDate, setCustomDate, customReason, setCustomReason, customTime, setCustomTime }) => (
+const StepFollowUp = ({ suggestedDates, selectedDate, setSelectedDate, showCustomDate, setShowCustomDate, customDate, setCustomDate, customReason, setCustomReason, customTime, setCustomTime, isFixedDate, setIsFixedDate }) => (
   <div>
     <div style={{ marginBottom: 20 }}>
       <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Schedule Follow-Up</h3>
@@ -535,6 +541,9 @@ const StepFollowUp = ({ suggestedDates, selectedDate, setSelectedDate, showCusto
         </div>
       </div>
     )}
+    <div style={{ paddingTop: 12 }}>
+      <FixedFollowUpToggle checked={isFixedDate} onChange={setIsFixedDate} />
+    </div>
   </div>
 );
 

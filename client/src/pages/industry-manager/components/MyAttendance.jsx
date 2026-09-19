@@ -143,7 +143,8 @@ const MyAttendance = () => {
             {calendarDays.map((day, idx) => {
               const dayEvents  = getDayEvents(day);
               const isToday    = day === new Date().getDate() && month === (new Date().getMonth() + 1) && year === new Date().getFullYear();
-              const isWeekend  = idx % 7 === 0 || idx % 7 === 6;
+              // Weekly off: Sundays and the 2nd / 4th Saturday
+              const isWeekend  = idx % 7 === 0 || (idx % 7 === 6 && [2, 4].includes(Math.ceil(day / 7)));
               return (
                 <div
                   key={idx}
@@ -158,6 +159,8 @@ const MyAttendance = () => {
                         {dayEvents.map((ev, eidx) => (
                           <div key={eidx} className={`matrix-status-badge text-[9px] font-bold px-1.5 py-0.5 rounded ${getStatusClass(ev)}`}>
                             {ev.type === 'attendance' && ev.status === 'present' ? '✓ Present' : ev.label || ev.type}
+                            {ev.isLateComing && <span title="Late Coming"> · LC</span>}
+                            {ev.isEarlyExit && <span title="Early Exit"> · EE</span>}
                           </div>
                         ))}
                       </div>

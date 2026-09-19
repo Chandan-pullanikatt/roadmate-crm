@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const Lead = require('../models/Lead');
 const attendanceService = require('../services/attendanceService');
 const leadService = require('../services/leadService');
+const scheduleService = require('../services/scheduleService');
 const pushService = require('../services/pushService');
 
 // In-memory dedup: prevents duplicate reminder pushes within the same day.
@@ -40,6 +41,25 @@ const initCronJobs = (io = null) => {
       }
     } catch (err) {
       console.error('[Cron] Attendance auto-complete error:', err.message);
+    }
+
+    try {
+      const marked = await attendanceService.markAbsentees();
+      console.log(`[Cron] Marked ${marked} absent (no login, no approved leave).`);
+    } catch (err) {
+      console.error('[Cron] Absentee marking error:', err.message);
+    }
+  });
+
+  // ─── 00:30 daily: Carry pending work to the next working day ─────────────
+  // Anything not done on its day moves to the owner's next available working
+  // day. Meetings and fixed follow-ups keep their date (see scheduleService).
+  cron.schedule('30 0 * * *', async () => {
+    try {
+      const moved = await scheduleService.escalatePending();
+      console.log(`[Cron] Carried ${moved} pending lead(s) forward.`);
+    } catch (err) {
+      console.error('[Cron] Pending carry-forward error:', err.message);
     }
   });
 
