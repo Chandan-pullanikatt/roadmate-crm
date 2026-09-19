@@ -14,7 +14,7 @@ const EXPECTED_HEADERS = [
   'No. of Followups', 'Priority Level', 'Next Action', 'Lead Value', 'Outcome',
   'Blocking Date', 'Full Amount Received Date', 'Reason for Lost Leads'
 ];
-const REQUIRED_HEADERS = ['Name', 'Contact Information'];
+const REQUIRED_HEADERS = ['Contact Information'];
 
 const BulkUploadModal = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
@@ -180,14 +180,18 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         const rowErrors = [];
 
         results.data.forEach((row, index) => {
-          const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name' || k.toLowerCase() === 'lead name');
-          const contactKey = Object.keys(row).find(k => k.toLowerCase().includes('contact'));
-          const idKey = Object.keys(row).find(k => k.toLowerCase() === 'lead id' || k.toLowerCase() === 'id');
+          const keys = Object.keys(row);
+          // Match "Contact Information" / phone columns, but not "Last Contact Date"
+          const contactKey = keys.find(k => k.toLowerCase().trim() === 'contact information')
+            || keys.find(k => ['phone number', 'phone'].includes(k.toLowerCase().trim()));
+          const idKey = keys.find(k => k.toLowerCase() === 'lead id' || k.toLowerCase() === 'id');
           const isUpdateRow = !!(idKey && row[idKey]?.trim());
 
-          // Update rows (with a Lead ID) don't require Name/Contact — server will match by ID
-          if (!isUpdateRow && (!row[nameKey] || !row[contactKey])) {
-            rowErrors.push(`Row ${index + 1}: Missing Name or Contact Information (required for new leads)`);
+          // Name is optional (the server falls back to the phone number). Only the
+          // contact number is required, and update rows (with a Lead ID) don't need it.
+          if (!isUpdateRow && !row[contactKey]?.trim()) {
+            // +2: sheet row 1 is the header, and index is 0-based
+            rowErrors.push(`Row ${index + 2}: Missing Contact Information (required for new leads)`);
           } else {
             validRows.push(row);
           }
@@ -365,7 +369,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         <div className="p-4 bg-blue-light/30 border border-blue/20 rounded-2xl flex gap-3 items-start">
           <span className="text-blue text-lg">ℹ️</span>
           <div className="text-[14px] text-text-secondary leading-relaxed">
-            Required columns: <span className="font-bold text-text-primary">Name</span> and <span className="font-bold text-text-primary">Contact Information</span>. Missing either will skip that row.<br />
+            Required column: <span className="font-bold text-text-primary">Contact Information</span>. Rows without it are skipped. <span className="font-bold text-text-primary">Name</span> is optional — if blank, the phone number is used.<br />
             To <span className="font-bold text-text-primary">update an existing lead</span>, include its <span className="font-bold text-text-primary">Lead ID</span> in the first column — the row will be treated as an update instead of a new insert.<br />
             <button type="button" onClick={handleDownloadTemplate} className="text-blue font-bold hover:underline mt-1 bg-transparent border-none cursor-pointer p-0">Download CSV Template</button>
           </div>
