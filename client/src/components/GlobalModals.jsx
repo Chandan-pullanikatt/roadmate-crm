@@ -19,6 +19,7 @@ import AllocateLeadModal from './modals/AllocateLeadModal';
 import LeadHistoryModal from './modals/LeadHistoryModal';
 import SendNotificationModal from './modals/SendNotificationModal';
 import ViewLeadModal from './modals/ViewLeadModal';
+import LeavePolicyModal from './modals/LeavePolicyModal';
 import { PHONE_CODES, dialCodeFor } from '../data/phoneCodes';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
@@ -1670,85 +1671,10 @@ const GlobalModals = () => {
           </div>
         </form>
       </Modal>
-      {/* LEAVE POLICY MODAL */}
-      <Modal 
-        isOpen={activeModal === 'leave-policy'} 
-        title="Leave Policy · RoadMate Team"
-        subtitle="Standard corporate policies for staff and management"
+      <LeavePolicyModal
+        isOpen={activeModal === 'leave-policy'}
         onClose={handleCloseModal}
-        className="modal-lg"
-      >
-        <div className="space-y-8 py-2">
-          <div className="grid grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center text-blue text-sm">01</div>
-                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Casual Leave (CL)</div>
-              </div>
-              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
-                12 days per calendar year. Maximum 2 days at a time. Requests must be submitted at least 48 hours in advance for approval.
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-purple/10 flex items-center justify-center text-purple text-sm">02</div>
-                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Sick Leave (SL)</div>
-              </div>
-              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
-                8 days per calendar year. Medical certificate mandatory for any sick leave exceeding 2 consecutive days.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber/10 flex items-center justify-center text-amber text-sm">03</div>
-                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Optional Holidays</div>
-              </div>
-              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
-                2 days per year from the approved list of religious/regional optional holidays. Subject to manager approval.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-red/10 flex items-center justify-center text-red text-sm">04</div>
-                <div className="text-[13px] font-bold text-text-primary uppercase tracking-wider">Loss of Pay (LOP)</div>
-              </div>
-              <p className="text-[14px] text-text-muted leading-relaxed pl-11">
-                Unapproved absence or leave exceeding the annual limit will result in pro-rata salary deduction.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-5 bg-surface2/50 border border-border rounded-2xl">
-             <div className="flex items-start gap-4">
-                <div className="text-xl">💡</div>
-                <div className="space-y-2">
-                  <div className="text-sm font-bold text-text-primary">Approval Hierarchy</div>
-                  <ul className="space-y-1.5 text-[14px] text-text-muted">
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue"></span>
-                      <span className="font-bold text-text-secondary">District Managers</span> leaves are approved by Industry Managers.
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple"></span>
-                      <span className="font-bold text-text-secondary">Industry Managers</span> leaves are approved by State Managers.
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange"></span>
-                      <span className="font-bold text-text-secondary">State Managers</span> leaves are approved directly by the Founder.
-                    </li>
-                  </ul>
-                </div>
-             </div>
-          </div>
-
-          <div className="flex justify-end pt-4">
-            <Button variant="primary" onClick={handleCloseModal} className="px-8">I Understand</Button>
-          </div>
-        </div>
-      </Modal>
+      />
       <ChangePasswordModal 
         isOpen={activeModal === 'change-password'} 
         onClose={handleCloseModal} 

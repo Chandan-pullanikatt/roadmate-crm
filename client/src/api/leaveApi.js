@@ -12,6 +12,8 @@ export const leaveApi = {
    getLeaveBalance: (userId) => api.get(`/leaves/balance/${userId}`),
    getLeavePolicy: (state) => api.get(`/leaves/policy/${state}`),
    updateLeavePolicy: (data) => api.post('/leaves/policy', data),
+   getPolicyDocument: () => api.get('/leaves/policy-document'),
+   savePolicyDocument: (data) => api.put('/leaves/policy-document', data),
    getLeaveCalendar: (state, params) => api.get(`/leaves/calendar/${state}`, { params }),
 };
 

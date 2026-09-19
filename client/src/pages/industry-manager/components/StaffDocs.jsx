@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Tag, Button, Avatar, DashboardSkeleton } from '../../../components/ui';
 import FileUpload from '../../../components/ui/FileUpload';
@@ -10,7 +10,6 @@ import { useToast } from '../../../context/ToastContext';
 const StaffDocs = () => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
   const [activeUploadUserId, setActiveUploadUserId] = useState(null);
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
@@ -48,24 +47,7 @@ const StaffDocs = () => {
 
   const userInfo = dashData?.user || {};
 
-  const filteredExecutives = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return executives || [];
-
-    return (executives || []).filter((exec) => {
-      const haystack = [
-        exec.name,
-        exec.email,
-        exec.phone,
-        exec.district,
-        exec.industry
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [executives, searchTerm]);
+  const filteredExecutives = executives || [];
 
   if ((dashLoading || execsLoading) && !executives) return <DashboardSkeleton />;
 
@@ -121,29 +103,6 @@ const StaffDocs = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Staff Documents</h1>
-          <p className="text-[16px] text-text-muted">Upload & manage executive documents</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search executives..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
-            />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-sm">🔍</span>
-          </div>
-          <button className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center hover:bg-surface3 transition-colors relative">
-            <span className="text-lg">🔔</span>
-          </button>
-          <Avatar name={userInfo.name} size="md" className="border-2 border-purple/10" />
-        </div>
-      </div>
-
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Staff Documents · {userInfo.industry} District Managers</h2>

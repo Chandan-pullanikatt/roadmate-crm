@@ -39,8 +39,6 @@ const Overview = () => {
   const [periodValue, setPeriodValue] = useState('');
   const [execModal, setExecModal] = useState(null); // { exec, type: 'calls' | 'converted' | 'hot' }
   const [eventModal, setEventModal] = useState(null); // event object from upcomingEvents
-  const [reassignModal, setReassignModal] = useState(null); // lead object
-  const [reassignExecId, setReassignExecId] = useState('');
   const [summaryModal, setSummaryModal] = useState(null); // stat card id
   const [scheduleDay, setScheduleDay] = useState('today'); // 'today' | 'tomorrow'
 
@@ -61,17 +59,6 @@ const Overview = () => {
     queryFn: () => leadsApi.getLeadActivity(eventModal.leadId).then(r => r.data.activities || []),
     enabled: !!eventModal?.leadId,
     staleTime: 0,
-  });
-
-  const reassignMutation = useMutation({
-    mutationFn: ({ leadId, execId }) => leadsApi.allocateLead(leadId, execId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard', 'industry-manager'] });
-      addToast('Lead reassigned successfully', 'success');
-      setReassignModal(null);
-      setReassignExecId('');
-    },
-    onError: (err) => addToast(err?.response?.data?.message || 'Reassignment failed', 'error'),
   });
 
   const approveMutation = useMutation({
@@ -108,7 +95,6 @@ const Overview = () => {
   const leaves = dashData?.leaveRequests || [];
   const userInfo = dashData?.user || {};
   const escalatedLeads = dashData?.escalatedLeads || [];
-  const recentLeads = dashData?.leads || [];
   const summaryDrilldowns = dashData?.summaryDrilldowns || {};
   const pipelineStats = dashData?.pipelineStats || [];
   const priorityStats = dashData?.priorityStats || [];
@@ -655,92 +641,6 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Lead Owner Mapping */}
-      <div className="card shadow-sm border-border/40">
-        <div className="card-header border-none px-8 pt-6 pb-4">
-          <div>
-            <h3 className="text-base font-bold text-text-primary tracking-tight">Lead Owner Mapping · {userInfo.industry} District Managers</h3>
-            <p className="text-[14px] text-text-muted mt-0.5 font-medium">Map &amp; reassign leads · One-by-one delivery to executive</p>
-          </div>
-          <button
-            className="px-4 py-2 rounded-xl bg-purple text-white text-xs font-bold hover:opacity-90 transition-all shadow-lg shadow-purple/20"
-            onClick={() => navigate('/dashboard?page=leads')}
-          >
-            Manage Mapping
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          {recentLeads.length === 0 ? (
-            <div className="px-8 py-10 text-center text-text-muted text-[16px]">No leads to display.</div>
-          ) : (
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="bg-surface2/60 border-b border-border">
-                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">Name</th>
-                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">Assigned To</th>
-                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">District</th>
-                  <th className="text-left px-6 py-3 text-[12px] font-bold uppercase tracking-wider text-text-muted">Status</th>
-                  <th className="px-6 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentLeads.slice(0, 8).map((lead, idx) => (
-                  <tr
-                    key={lead._id || idx}
-                    className="border-b border-border/40 hover:bg-surface2/30 transition-colors cursor-pointer group"
-                    onClick={() => lead._id && navigate(`/leads/${lead._id}`)}
-                  >
-                    <td className="px-6 py-3 font-semibold text-text-primary group-hover:text-purple transition-colors">
-                      {lead.name || lead.company || '—'}
-                    </td>
-                    <td className="px-6 py-3">
-                      {lead.owner && lead.owner !== 'Unassigned' ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="w-6 h-6 rounded-full bg-purple/10 text-purple text-[9px] font-bold flex items-center justify-center">
-                            {lead.owner.charAt(0)}
-                          </span>
-                          <span className="text-text-secondary text-[14px]">{lead.owner}</span>
-                        </span>
-                      ) : (
-                        <span className="text-text-muted text-[14px] italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3 text-text-secondary">{lead.district || '—'}</td>
-                    <td className="px-6 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[12px] font-bold uppercase tracking-tight
-                        ${lead.status === 'converted' ? 'bg-green/10 text-green' :
-                          lead.status === 'hot' ? 'bg-red/10 text-red' :
-                          lead.status === 'rnr' ? 'bg-surface2 text-text-muted' :
-                          'bg-amber-light text-amber'}`}>
-                        {lead.status || 'fresh'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className="text-[11px] font-bold text-purple hover:underline"
-                        onClick={() => { setReassignModal(lead); setReassignExecId(''); }}
-                      >
-                        Reassign
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {recentLeads.length > 8 && (
-            <div className="px-8 py-4 border-t border-border/40">
-              <button
-                className="text-xs font-bold text-purple hover:underline"
-                onClick={() => navigate('/dashboard?page=leads')}
-              >
-                View all {recentLeads.length} leads →
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
       {/* Summary Card Drill-down Modal */}
       {summaryModal && (() => {
         const drilldown = summaryDrilldowns || {};
@@ -940,77 +840,6 @@ const Overview = () => {
           </Modal>
         );
       })()}
-
-      {/* Lead Reassign Modal */}
-      {reassignModal && (
-        <Modal
-          isOpen
-          title="Reassign Lead"
-          subtitle="Assign to an executive in your team"
-          onClose={() => { setReassignModal(null); setReassignExecId(''); }}
-          className="max-w-sm"
-        >
-          {/* Lead info */}
-          <div className="p-3 bg-surface2/60 rounded-xl border border-border/40 mb-5">
-            <div className="text-sm font-bold text-text-primary">{reassignModal.company || reassignModal.name}</div>
-            <div className="flex items-center gap-3 mt-1.5">
-              <span className="text-[13px] text-text-muted">{reassignModal.district || '—'}</span>
-              {reassignModal.owner && reassignModal.owner !== 'Unassigned' && (
-                <>
-                  <span className="text-text-muted opacity-30">·</span>
-                  <span className="text-[13px] text-text-muted">Currently: <span className="font-bold text-text-primary">{reassignModal.owner}</span></span>
-                </>
-              )}
-              <span className={`ml-auto px-2 py-0.5 rounded text-[9px] font-bold uppercase
-                ${reassignModal.status === 'CONVERTED' ? 'bg-green/10 text-green' :
-                  reassignModal.priority === 'hot' ? 'bg-red/10 text-red' :
-                  'bg-amber-light text-amber'}`}>
-                {reassignModal.status?.toLowerCase() || 'fresh'}
-              </span>
-            </div>
-          </div>
-
-          {/* District Manager dropdown — only this IM's team */}
-          <div className="space-y-2 mb-6">
-            <label className="block text-[14px] font-bold text-text-secondary">
-              Assign To <span className="text-red">*</span>
-            </label>
-            <select
-              className="select w-full"
-              value={reassignExecId}
-              onChange={e => setReassignExecId(e.target.value)}
-            >
-              <option value="">
-                — Choose from your district managers —
-              </option>
-              {team.map(ex => (
-                <option key={ex._id} value={ex._id}>
-                  {ex.name}{ex.district ? ` · ${ex.district}` : ''}
-                </option>
-              ))}
-            </select>
-            {team.length === 0 && (
-              <p className="text-[11px] text-amber font-medium">No district managers are assigned under this industry manager.</p>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
-            <button
-              className="px-4 py-2 rounded-xl text-[14px] font-bold border border-border text-text-secondary hover:bg-surface2 transition-all"
-              onClick={() => { setReassignModal(null); setReassignExecId(''); }}
-            >
-              Cancel
-            </button>
-            <button
-              className="px-5 py-2 rounded-xl text-xs font-bold bg-purple text-white hover:opacity-90 transition-all disabled:opacity-40"
-              disabled={!reassignExecId || reassignMutation.isPending}
-              onClick={() => reassignMutation.mutate({ leadId: reassignModal._id, execId: reassignExecId })}
-            >
-              {reassignMutation.isPending ? 'Reassigning…' : 'Reassign Lead'}
-            </button>
-          </div>
-        </Modal>
-      )}
 
       {/* Event Detail Modal */}
       {eventModal && (

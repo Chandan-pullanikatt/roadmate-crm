@@ -10,7 +10,6 @@ import {
   DashboardSkeleton
 } from '../../../components/ui';
 import { leadsApi } from '../../../api/leadsApi';
-import { LEAD_STATUS_GROUPS, isInGroup } from '../../../constants/leadStatusGroups';
 import { attendanceApi } from '../../../api/attendanceApi';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { tasksApi } from '../../../api/tasksApi';
@@ -47,8 +46,6 @@ const MyWork = () => {
 
   const [activeLeadId, setActiveLeadId] = useState(null);
   const [queueComplete, setQueueComplete] = useState(false);
-  const [tableFilter, setTableFilter] = useState('All');
-  const [showAllLeads, setShowAllLeads] = useState(false);
   const [taskFilter, setTaskFilter] = useState('All');
   const [summaryModal, setSummaryModal] = useState(null);
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
@@ -195,12 +192,6 @@ const MyWork = () => {
     }
   });
 
-  const openModal = (type, data = null) => {
-    window.dispatchEvent(new CustomEvent('open-modal', {
-      detail: typeof type === 'string' ? { type, ...data } : type
-    }));
-  };
-
   const goToLead = (leadId) => {
     if (!leadId) return;
     navigate(`/leads/${leadId}`);
@@ -223,19 +214,6 @@ const MyWork = () => {
   const pctColor = completionPct >= 70 ? 'text-accent' : completionPct >= 30 ? 'text-amber' : 'text-red';
   const barColor = completionPct >= 70 ? 'bg-accent' : completionPct >= 30 ? 'bg-amber' : 'bg-red';
   const isQueueEmpty = workQueue.length === 0;
-
-  const filteredLeads = useMemo(() => {
-    const leads = allLeadsData?.leads || [];
-    if (tableFilter === 'All') return leads;
-    if (tableFilter === 'Hot')      return leads.filter(l => l.priority === 'hot');
-    if (tableFilter === 'Warm')     return leads.filter(l => l.priority === 'warm');
-    if (tableFilter === 'Cold')     return leads.filter(l => l.priority === 'cold');
-    if (tableFilter === 'Blocking') return leads.filter(l => l.status === 'blocking_amount_received');
-    // Status buckets must match the dashboard's — e.g. Follow-up covers both
-    // 'called' and 'followup', otherwise the tab counts undershoot the KPIs.
-    if (LEAD_STATUS_GROUPS[tableFilter]) return leads.filter(l => isInGroup(l.status, tableFilter));
-    return leads.filter(l => l.status === tableFilter.toLowerCase());
-  }, [allLeadsData, tableFilter]);
 
   const filteredTasks = useMemo(() => {
     const tasks = tasksData?.tasks || [];
@@ -531,7 +509,7 @@ const MyWork = () => {
           </div>
         </div>
 
-        {/* RIGHT: Queue + Lead Sources stacked */}
+        {/* RIGHT: Queue */}
         <div className="flex flex-col gap-5">
           {/* Today's Queue */}
           <div className="card overflow-hidden flex-1">
@@ -574,31 +552,6 @@ const MyWork = () => {
               </span>
             </div>
           </div>
-
-          {/* My Lead Sources */}
-          {dashData?.leadSources?.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="px-5 py-4 border-b border-border/50">
-                <div className="font-bold text-sm text-text-primary">My Lead Sources</div>
-                <div className="text-[13px] text-text-muted mt-0.5">Leads from District Partners · Mapped to me</div>
-              </div>
-              <div className="p-4 space-y-2">
-                {dashData.leadSources.map((source, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-surface2 rounded-xl border border-border/40 hover:border-purple/30 transition-colors cursor-pointer group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">{source.icon}</div>
-                      <div>
-                        <div className="text-xs font-bold text-text-primary">{source.label}</div>
-                        <div className="text-[12px] text-text-muted">District Partner Leads</div>
-                      </div>
-                    </div>
-                    <div className="text-sm font-bold text-purple">{source.count} leads</div>
-                  </div>
-                ))}
-                <Tag variant="purple" label="District Partner Leads" className="w-full justify-center py-2 mt-1" />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -734,202 +687,43 @@ const MyWork = () => {
         </div>
       </div>
 
-      {/* ── FULL WIDTH: All Leads Table ── */}
-      <div className="card overflow-hidden">
-        <div className="px-6 py-5 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="font-bold text-sm text-text-primary">
-              My All Leads · {dashData?.user?.industry} · {dashData?.user?.state}
-            </div>
-            <div className="text-[13px] text-text-muted mt-0.5">Leads assigned to me from district partners across all districts</div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-surface2 p-1 rounded-lg border border-border/40">
-              {['All', 'Hot', 'Warm', 'Cold', 'Follow-up', 'Meeting', 'Blocking', 'RNR', 'Converted'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => { setTableFilter(tab); setShowAllLeads(false); }}
-                  className={`px-3.5 py-1.5 text-[12px] font-bold rounded-md transition-all ${tableFilter === tab ? 'bg-white shadow-sm text-purple' : 'text-text-muted hover:text-text-primary'}`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-            <Button
-              size="sm"
-              className="bg-purple text-white border-none rounded-xl px-5 h-9 font-bold"
-              onClick={() => openModal('add-lead')}
-            >
-              + Add Lead
-            </Button>
-          </div>
+      {/* Strategy Log */}
+      <div className="card overflow-hidden flex flex-col">
+        <div className="px-6 py-5 border-b border-border/50">
+          <div className="font-bold text-sm text-text-primary">My Strategy Log</div>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-surface2/50 border-b border-border/50">
-              <tr>
-                {['#', 'Partner / Business', 'District', 'Source', 'Status', 'RNR', 'Revenue', ''].map(h => (
-                  <th key={h} className="px-5 py-3.5 text-[12px] font-black text-text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30">
-              {(showAllLeads ? filteredLeads : filteredLeads.slice(0, 5)).map((lead, idx) => (
-                <tr
-                  key={lead._id}
-                  className="hover:bg-surface2/30 transition-colors group cursor-pointer"
-                  onClick={() => goToLead(lead._id)}
-                >
-                  <td className="px-5 py-3.5 text-[12px] font-bold text-text-muted">MN-{String(idx + 1).padStart(2, '0')}</td>
-                  <td className="px-5 py-3.5">
-                    <div className="text-sm font-bold text-text-primary group-hover:text-purple transition-colors">{lead.company || lead.name}</div>
-                    <div className="text-[13px] text-text-muted mt-0.5">{lead.name} · {lead.phone}</div>
-                  </td>
-                  <td className="px-5 py-3.5 text-[16px] text-text-secondary">{lead.district || '—'}</td>
-                  <td className="px-5 py-3.5">
-                    <span className="px-2 py-1 rounded-lg bg-surface2 text-[12px] font-bold text-text-secondary border border-border/40">
-                      {lead.source || 'District Partner'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`px-2.5 py-1 rounded-lg text-[12px] font-bold uppercase tracking-tight
-                      ${lead.status === 'converted' ? 'bg-green/10 text-green' :
-                        lead.priority === 'hot' ? 'bg-red/10 text-red' :
-                        lead.status === 'rnr' ? 'bg-surface2 text-text-muted' :
-                        'bg-amber-light text-amber'}`}>
-                      {lead.status?.replace(/_/g, ' ')}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`text-[13px] font-bold ${lead.rnrCount > 0 ? 'text-amber' : 'text-text-muted opacity-40'}`}>
-                      {lead.rnrCount > 0 ? `${lead.rnrCount}× RNR` : '—'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 font-mono text-xs font-bold text-text-primary">
-                    {lead.expectedRevenue ? formatCurrency(lead.expectedRevenue) : '—'}
-                  </td>
-                  <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => openModal('update-lead', { leadData: lead })}
-                        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg hover:bg-surface2 transition-colors"
-                      >
-                        Update
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openModal('allocate-lead', { leadData: lead })}
-                        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-purple/20 text-purple rounded-lg hover:bg-purple/5 transition-colors"
-                      >
-                        Allocate
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredLeads.length === 0 && (
-            <div className="p-14 text-center text-text-muted italic text-[16px]">No leads found with this filter</div>
-          )}
-          {filteredLeads.length > 5 && (
-            <div className="px-5 py-3.5 border-t border-border/40 bg-surface2/30 text-center">
-              <button
-                onClick={() => setShowAllLeads(v => !v)}
-                className="text-[11px] font-bold text-purple hover:underline transition-colors"
+        <div className="flex-1 p-5 space-y-4">
+          <p className="text-[12px] text-text-muted uppercase font-bold tracking-widest">What strategy worked for recent conversions?</p>
+          <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1">
+            {dashData?.strategyLogs?.map((log, idx) => (
+              <div key={idx} className="p-3 bg-green/5 border border-green/10 rounded-xl">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="text-xs font-bold text-text-primary">{log.leadName}</div>
+                  <Tag variant="green" label="Converted" className="text-[8px] py-0 px-1.5" />
+                </div>
+                <div className="text-[13px] text-text-muted italic leading-relaxed">Strategy: {log.strategy}</div>
+              </div>
+            ))}
+            {(!dashData?.strategyLogs || dashData.strategyLogs.length === 0) && (
+              <div className="p-4 text-center text-text-muted text-[13px] italic">No recent conversions logged</div>
+            )}
+          </div>
+          <div className="space-y-2.5 pt-1">
+            <textarea
+              className="w-full bg-surface2 border border-border/50 rounded-xl p-3 text-xs focus:ring-2 focus:ring-purple/20 transition-all outline-none resize-none"
+              placeholder="Log today's winning strategy…"
+              rows={2}
+              value={strategyNote}
+              onChange={(e) => setStrategyNote(e.target.value)}
+            />
+            <div className="flex justify-end">
+              <Button
+                className="bg-purple text-white border-none rounded-lg px-4 py-2 h-auto text-[10px] font-bold uppercase tracking-wider"
+                onClick={() => saveStrategyMutation.mutate(strategyNote)}
+                disabled={!strategyNote || saveStrategyMutation.isPending}
               >
-                {showAllLeads
-                  ? `Show less ↑`
-                  : `View All ${filteredLeads.length} leads ↓`}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── BOTTOM: Performance + Strategy Log (50/50) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* My Performance */}
-        <div className="card overflow-hidden">
-          <div className="px-6 py-5 border-b border-border/50">
-            <div className="font-bold text-sm text-text-primary">My Performance · This Month</div>
-          </div>
-          <div className="p-6 space-y-5">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: 'Total Calls',   value: monthlyStats.totalCalls || 0,    color: 'text-blue' },
-                { label: 'Meetings',      value: monthlyStats.totalMeetings || 0, color: 'text-teal' },
-                { label: 'Conversions',   value: monthlyStats.converted || 0,     color: 'text-green' },
-                { label: 'Blocking Amt',  value: (allLeadsData?.leads || []).filter(l => l.status === 'blocking_amount_received').length, color: 'text-amber' },
-                { label: 'Revenue',       value: formatCurrency(monthlyStats.revenue || 0), color: 'text-purple' },
-              ].map(stat => (
-                <div key={stat.label} className="p-4 bg-surface2 rounded-2xl text-center border border-border/40">
-                  <div className={`text-2xl font-black ${stat.color}`}>{stat.value}</div>
-                  <div className="text-[12px] text-text-muted uppercase font-bold tracking-widest mt-1">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div>
-                  <span className="text-[12px] font-bold text-text-muted uppercase tracking-widest">Monthly Lead Review</span>
-                  <div className="text-[12px] text-text-muted mt-0.5">
-                    {monthlyStats.reviewedLeads || 0} of {monthlyStats.totalAllLeads || 0} leads reviewed
-                  </div>
-                </div>
-                <span className="text-sm font-black text-purple">{Math.min(monthlyStats.completionPct || 0, 100)}%</span>
-              </div>
-              <div className="h-2 bg-surface2 rounded-full overflow-hidden border border-border/40">
-                <div
-                  className="h-full bg-gradient-to-r from-purple to-purple-dark transition-all duration-1000"
-                  style={{ width: `${Math.min(monthlyStats.completionPct || 0, 100)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Strategy Log */}
-        <div className="card overflow-hidden flex flex-col">
-          <div className="px-6 py-5 border-b border-border/50">
-            <div className="font-bold text-sm text-text-primary">My Strategy Log</div>
-          </div>
-          <div className="flex-1 p-5 space-y-4">
-            <p className="text-[12px] text-text-muted uppercase font-bold tracking-widest">What strategy worked for recent conversions?</p>
-            <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1">
-              {dashData?.strategyLogs?.map((log, idx) => (
-                <div key={idx} className="p-3 bg-green/5 border border-green/10 rounded-xl">
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="text-xs font-bold text-text-primary">{log.leadName}</div>
-                    <Tag variant="green" label="Converted" className="text-[8px] py-0 px-1.5" />
-                  </div>
-                  <div className="text-[13px] text-text-muted italic leading-relaxed">Strategy: {log.strategy}</div>
-                </div>
-              ))}
-              {(!dashData?.strategyLogs || dashData.strategyLogs.length === 0) && (
-                <div className="p-4 text-center text-text-muted text-[13px] italic">No recent conversions logged</div>
-              )}
-            </div>
-            <div className="space-y-2.5 pt-1">
-              <textarea
-                className="w-full bg-surface2 border border-border/50 rounded-xl p-3 text-xs focus:ring-2 focus:ring-purple/20 transition-all outline-none resize-none"
-                placeholder="Log today's winning strategy…"
-                rows={2}
-                value={strategyNote}
-                onChange={(e) => setStrategyNote(e.target.value)}
-              />
-              <div className="flex justify-end">
-                <Button
-                  className="bg-purple text-white border-none rounded-lg px-4 py-2 h-auto text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => saveStrategyMutation.mutate(strategyNote)}
-                  disabled={!strategyNote || saveStrategyMutation.isPending}
-                >
-                  Save Strategy
-                </Button>
-              </div>
+                Save Strategy
+              </Button>
             </div>
           </div>
         </div>

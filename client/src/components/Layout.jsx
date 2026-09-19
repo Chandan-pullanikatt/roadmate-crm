@@ -171,9 +171,9 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Overview',         path: '/dashboard?page=team',           icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'green' },
             { label: 'Lead Management',  path: '/dashboard?page=leads',          icon: 'leads', badge: getBadge(stats.totalLeads) },
-            { label: 'Staff Performance', path: '/dashboard?page=performance',   icon: 'performance' },
+            { label: 'Team Performance', path: '/dashboard?page=performance',   icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=attendance',     icon: 'attendance' },
-            { label: 'Staff Documents',  path: '/dashboard?page=staff-docs',     icon: 'reports' },
+            { label: 'Team Documents',   path: '/dashboard?page=staff-docs',     icon: 'reports' },
             { label: 'Documents',        path: '/dashboard?page=team-sop',       icon: 'reports' },
           ]
         },
@@ -218,8 +218,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'RESOURCES',
           items: [
-            { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' },
-            { label: 'Hierarchy Status', path: '/dashboard?page=hierarchy', icon: 'hierarchy' }
+            { label: 'Documents', path: '/dashboard?page=documents', icon: 'reports' }
           ]
         }
       ]
@@ -243,8 +242,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     page === 'meetings' ? 'My Meetings' :
     page === 'leads' ? 'My Leads' :
     page === 'leave-calendar' ? 'Leave Calendar' :
-    page === 'reports-v2' ? 'Summary & Reports' :
-    page === 'hierarchy' ? 'Hierarchy Status' : 'Dashboard'
+    page === 'reports-v2' ? 'Summary & Reports' : 'Dashboard'
   ) : (pageTitle || (user?.role?.replace('_', ' ')?.toUpperCase() + ' Dashboard'));
 
   const dynamicSubtitle = isExecutive ? '' : (pageSubtitle || `${getDisplayPage(page)} · ${user?.state || 'Kerala'} · Management Portal`);

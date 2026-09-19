@@ -3,8 +3,108 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import Papa from 'papaparse';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
+import { uploadApi } from '../../../api/uploadApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+
+const POLICY_FILE_TYPES = {
+  'application/pdf':    'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'text/plain':         'txt',
+};
+
+/** The founder uploads the leave policy file everyone sees behind "Leave Policy". */
+const LeavePolicyCard = () => {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
+  const fileRef = useRef(null);
+  const [uploadPct, setUploadPct] = useState(null);
+
+  const { data: policyDoc, isLoading } = useQuery({
+    queryKey: ['leave-policy-document'],
+    queryFn: () => leaveApi.getPolicyDocument().then(res => res.data),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fileType = POLICY_FILE_TYPES[file.type];
+    if (!fileType) {
+      addToast('Use a PDF, Word or text file for the leave policy.', 'error');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
+    setUploadPct(0);
+    try {
+      const { data: presign } = await uploadApi.getPresignedUpload({
+        folder: 'leave-policy',
+        fileName: file.name,
+        contentType: file.type,
+      });
+      await uploadApi.uploadFileDirect(presign.uploadUrl, file, setUploadPct);
+      await leaveApi.savePolicyDocument({ fileKey: presign.fileKey, fileName: file.name, fileType });
+      addToast('Leave policy uploaded.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['leave-policy-document'] });
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Leave policy upload failed', 'error');
+    } finally {
+      setUploadPct(null);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const uploading = uploadPct !== null;
+
+  return (
+    <div className="card">
+      <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center px-6 py-4">
+        <div>
+          <h3 className="text-sm font-bold">Leave Policy</h3>
+          <div className="text-[12px] text-text-muted mt-0.5">Shown to managers behind the "Leave Policy" button on their leave calendar</div>
+        </div>
+        <div className="flex items-center gap-2">
+          {policyDoc?.viewUrl && (
+            <a
+              href={policyDoc.viewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12px] font-bold text-purple hover:underline mr-2"
+            >
+              View ↗
+            </a>
+          )}
+          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleFileChange} />
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? `Uploading… ${uploadPct}%` : policyDoc ? '📜 Replace Policy' : '📜 Upload Policy'}
+          </Button>
+        </div>
+      </div>
+      <div className="px-6 py-4 text-[13px]">
+        {isLoading ? (
+          <span className="text-text-muted">Loading…</span>
+        ) : policyDoc ? (
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 shrink-0 rounded-xl bg-surface2 border border-border/40 flex items-center justify-center text-[11px] font-black uppercase text-text-muted">
+              {policyDoc.fileType}
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-text-primary truncate">{policyDoc.fileName}</div>
+              <div className="text-[12px] text-text-muted">
+                Uploaded {new Date(policyDoc.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {policyDoc.uploadedBy && ` · by ${policyDoc.uploadedBy}`}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-text-muted italic">No leave policy uploaded yet. Upload a PDF, Word or text file.</span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const LeaveCalendar = () => {
   const queryClient = useQueryClient();
@@ -105,6 +205,8 @@ const LeaveCalendar = () => {
           <span className="text-[12px] text-text-muted">CSV: Name, Date, Type</span>
         </div>
       </div>
+
+      <LeavePolicyCard />
 
       {/* SECTION 1: PENDING APPROVALS */}
       <div className="card">

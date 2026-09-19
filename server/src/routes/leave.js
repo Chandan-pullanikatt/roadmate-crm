@@ -4,7 +4,9 @@ const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const Config = require('../models/Config');
 const { verifyToken } = require('../middleware/auth');
+const { generatePresignedDownload } = require('../config/r2');
 const notificationService = require('../services/notificationService');
 const mongoose = require('mongoose');
 
@@ -414,6 +416,56 @@ router.get('/balance/:userId', verifyToken, async (req, res, next) => {
       pendingRequests,
       approvedThisMonth
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// The leave policy document is one company-wide file the founder uploads; it
+// is what the "Leave Policy" button on the leave calendars shows.
+const POLICY_DOC_KEY = 'leave-policy-document';
+const POLICY_DOC_TYPES = ['pdf', 'docx', 'doc', 'txt'];
+
+// GET /policy-document — current policy file with a short-lived view URL, or null
+router.get('/policy-document', verifyToken, async (req, res, next) => {
+  try {
+    const config = await Config.findOne({ key: POLICY_DOC_KEY });
+    if (!config?.value?.fileKey) return res.json(null);
+    res.json({
+      ...config.value,
+      viewUrl: await generatePresignedDownload(config.value.fileKey, 3600, 'inline'),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /policy-document — founder replaces the policy file (already uploaded to R2)
+router.put('/policy-document', verifyToken, async (req, res, next) => {
+  try {
+    if (req.user.role !== 'founder') return res.status(403).json({ message: 'Only the founder can upload the leave policy' });
+
+    const { fileKey, fileName, fileType } = req.body;
+    if (!fileKey || !fileName || !fileType) {
+      return res.status(400).json({ message: 'fileKey, fileName and fileType are required' });
+    }
+    if (!POLICY_DOC_TYPES.includes(String(fileType).toLowerCase())) {
+      return res.status(400).json({ message: 'fileType must be pdf, docx, doc or txt' });
+    }
+
+    const value = {
+      fileKey,
+      fileName,
+      fileType: String(fileType).toLowerCase(),
+      uploadedBy: req.user.name,
+      uploadedAt: new Date(),
+    };
+    await Config.findOneAndUpdate(
+      { key: POLICY_DOC_KEY },
+      { key: POLICY_DOC_KEY, value, description: 'Leave policy document uploaded by the founder' },
+      { upsert: true, new: true }
+    );
+    res.json(value);
   } catch (err) {
     next(err);
   }

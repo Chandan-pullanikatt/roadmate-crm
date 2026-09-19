@@ -8,7 +8,6 @@ import LeadList from './components/LeadList';
 import Attendance from './components/Attendance';
 import LeaveManagement from './components/LeaveManagement';
 import Performance from './components/Performance';
-import HierarchyStatus from './components/HierarchyStatus';
 import SopViewer from '../industry-manager/components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
 
@@ -28,7 +27,6 @@ const ExecutiveDashboard = () => {
       case 'leave': return <LeaveManagement />;
       case 'reports-v2': return <Performance />;
       case 'performance': return <Performance />;
-      case 'hierarchy': return <HierarchyStatus />;
       case 'documents': return <SopViewer role="executive" />;
       default: return <MyWorkToday />;
     }

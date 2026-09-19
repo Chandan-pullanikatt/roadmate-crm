@@ -28,7 +28,7 @@ const formatDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
 /** Renders whichever document is currently selected. */
-const DocumentBody = ({ doc }) => {
+export const DocumentBody = ({ doc }) => {
   const [textContent, setTextContent] = useState(null);
   const [textLoading, setTextLoading] = useState(false);
 
