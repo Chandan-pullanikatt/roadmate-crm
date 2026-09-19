@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { revenueReportRows } from '../../../utils/revenueReportRows';
 import { Button, Modal } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 
@@ -71,11 +72,7 @@ const Reports = () => {
           }));
           break;
         case 'revenue':
-          formatted = rawData.map(r => ({
-            Date: r._id,
-            Revenue: r.totalRevenue,
-            Transactions: r.count
-          }));
+          formatted = revenueReportRows(rawData);
           break;
         case 'attendance':
           formatted = rawData.map(a => ({

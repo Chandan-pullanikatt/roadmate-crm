@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Modal } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+import { revenueReportRows } from '../../../utils/revenueReportRows';
+
+const ROLE_LABELS = { state_manager: 'State Manager', industry_manager: 'Industry Manager', executive: 'District Manager' };
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '');
 
@@ -16,11 +19,11 @@ const formatRows = (type, data) => {
       }));
     case 'performance':
       return data.map(p => ({
-        Name: p.user?.name, Industry: p.user?.industry, State: p.user?.state,
+        Name: p.user?.name, Role: ROLE_LABELS[p.user?.role] || p.user?.role, Industry: p.user?.industry, State: p.user?.state,
         Calls: p.calls || 0, Meetings: p.meetings || 0, Conversions: p.conversions || 0, Revenue: p.revenue || 0
       }));
     case 'revenue':
-      return data.map(r => ({ Date: r._id, Revenue: r.totalRevenue || 0, Conversions: r.count }));
+      return revenueReportRows(data);
     case 'attendance':
       return data.map(a => ({
         Staff: a.user?.name, Role: a.user?.role, Date: fmtDate(a.date), Status: a.status,

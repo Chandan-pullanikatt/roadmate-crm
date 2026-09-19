@@ -7,6 +7,7 @@ import {
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Tag } from '../../../components/ui';
+import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 
 const SortIcon = ({ active, dir }) => (
   <span className="ml-1 inline-flex flex-col gap-px opacity-40" style={{ opacity: active ? 1 : 0.35 }}>
@@ -15,32 +16,30 @@ const SortIcon = ({ active, dir }) => (
   </span>
 );
 
-const PERIOD_API_MAP = { daily: 'today', weekly: 'weekly', monthly: 'monthly', quarterly: 'quarter' };
-
-const SECONDARY_OPTIONS = {
-  weekly: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
-  monthly: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-  quarterly: ['Q1', 'Q2', 'Q3', 'Q4'],
-};
+const PERIOD_LABEL = { today: 'Today', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 
 const Performance = () => {
   const navigate = useNavigate();
-  const [viewType, setViewType] = useState('monthly');
-  const [subValue, setSubValue] = useState('');
+  const picker = usePeriod('month');
+  const { period, value: periodValue } = picker;
   const [sortKey, setSortKey] = useState('completionPct');
   const [sortDir, setSortDir] = useState('desc');
 
-  const apiPeriod = PERIOD_API_MAP[viewType] || 'monthly';
-
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'founder', viewType, subValue],
-    queryFn: () => dashboardApi.getFounderDashboard({ period: apiPeriod, value: subValue || undefined }).then(res => res.data),
+    queryKey: ['dashboard', 'founder', period, periodValue],
+    queryFn: () => dashboardApi.getFounderDashboard({ period, value: periodValue || undefined }).then(res => res.data),
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData
   });
 
   const stats = dashData?.stats || {};
-  const managers = dashData?.stateManagers || [];
+  // The API's field names differ from the ones this table and chart sort on.
+  const managers = useMemo(() => (dashData?.stateManagersPerformance || []).map(m => ({
+    ...m,
+    completionPct: m.workPct || 0,
+    leadsCount: m.periodLeads || 0,
+    conversionsTotal: m.converted || 0,
+  })), [dashData]);
 
   const sortedManagers = useMemo(() => {
     return [...managers].sort((a, b) => {
@@ -77,31 +76,7 @@ const Performance = () => {
           <div className="section-title">Performance Analytics</div>
           <div className="section-sub">Enterprise-wide conversion tracking &amp; regional office metrics</div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-            {['daily', 'weekly', 'monthly', 'quarterly'].map(type => (
-              <button
-                key={type}
-                onClick={() => { setViewType(type); setSubValue(''); }}
-                className={`px-6 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${viewType === type ? 'bg-surface text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-          {SECONDARY_OPTIONS[viewType] && (
-            <select
-              className="bg-white border border-border rounded-lg px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-purple transition-colors"
-              value={subValue}
-              onChange={e => setSubValue(e.target.value)}
-            >
-              <option value="">All {viewType === 'weekly' ? 'Weeks' : viewType === 'monthly' ? 'Months' : 'Quarters'}</option>
-              {SECONDARY_OPTIONS[viewType].map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          )}
-        </div>
+        <PeriodPicker {...picker} />
       </div>
 
       <div className="stat-grid mb-6">
@@ -131,7 +106,7 @@ const Performance = () => {
       {sortedManagers.length > 0 && (
         <div className="card">
           <div className="card-header border-b border-border bg-surface2/10">
-            <div className="section-title text-sm">Performance Comparison — {viewType.charAt(0).toUpperCase() + viewType.slice(1)}</div>
+            <div className="section-title text-sm">Performance Comparison — {PERIOD_LABEL[period]}{periodValue ? ` · ${periodValue}` : ''}</div>
           </div>
           <div className="p-6">
             <ResponsiveContainer width="100%" height={280}>

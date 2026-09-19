@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button, Avatar, DashboardSkeleton } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
+import { revenueReportRows } from '../../../utils/revenueReportRows';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -85,11 +86,7 @@ const formatData = (type, data) => {
     }));
   }
   if (type === 'revenue') {
-    return data.map(r => ({
-      Date:          r._id || '',
-      Conversions:   r.count ?? 0,
-      Total_Revenue: r.totalRevenue ?? 0,
-    }));
+    return revenueReportRows(data);
   }
   return [];
 };
@@ -132,8 +129,8 @@ const Reports = () => {
 
   const fetchData = async (type) => {
     const res = type === 'rnr'
-      ? await dashboardApi.getReport('leads', { status: 'rnr' })
-      : await dashboardApi.getReport(type);
+      ? await dashboardApi.getReport('leads', { status: 'rnr', limit: 5000 })
+      : await dashboardApi.getReport(type, { limit: 5000 });
     const rows = res.data?.data || [];
     return formatData(type, rows);
   };

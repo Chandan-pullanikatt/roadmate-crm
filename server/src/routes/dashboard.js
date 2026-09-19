@@ -2203,6 +2203,20 @@ router.get('/founder', async (req, res) => {
         const executivesPerformance = getPerformanceData('executive');
         const stateManagersPerformance = getPerformanceData('state_manager');
 
+        // Founder Performance cards: average work % of everyone who logged attendance
+        // in the period, and the share of the period's leads that reached a meeting.
+        stats.attendancePct = perfAttendance.length
+            ? Math.round(perfAttendance.reduce((sum, a) => sum + (a.avgWorkPct || 0), 0) / perfAttendance.length)
+            : 0;
+        const meetingLeadIds = await LeadActivity.distinct('lead', {
+            action: { $in: ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'] },
+            createdAt: { $gte: periodStart, $lte: periodEnd }
+        });
+        const periodMeetingLeads = meetingLeadIds.length
+            ? await Lead.countDocuments({ _id: { $in: meetingLeadIds }, createdAt: { $gte: periodStart, $lte: periodEnd } })
+            : 0;
+        stats.meetingRate = totalLeads > 0 ? Math.round((periodMeetingLeads / totalLeads) * 1000) / 10 : 0;
+
         const expectedOnboardingListLeads = await Lead.find(onboardingFilter)
         .sort({ updatedAt: -1 })
         .limit(10)
@@ -2327,7 +2341,20 @@ router.get('/reports/performance', async (req, res) => {
         if (industry) query.industry = industry;
         applyScope(req, query);
 
-        const users = await User.find({ ...query, role: 'executive' });
+        // Everyone below the viewer, not just executives — and listed even with no
+        // activity yet, so the report shows the whole team rather than only the busy ones.
+        const REPORT_ROLES = {
+            founder: ['state_manager', 'industry_manager', 'executive'],
+            state_manager: ['industry_manager', 'executive'],
+            industry_manager: ['executive'],
+            executive: ['executive']
+        };
+        const userQuery = { isActive: { $ne: false }, role: { $in: REPORT_ROLES[req.user.role] || ['executive'] } };
+        if (query.state) userQuery.state = query.state;
+        if (query.industry) userQuery.industry = query.industry;
+        if (query.owner) userQuery._id = query.owner;
+
+        const users = await User.find(userQuery).select('name role industry state');
         const userIds = users.map(u => u._id);
 
         const dateFilter = {};
@@ -2345,13 +2372,24 @@ router.get('/reports/performance', async (req, res) => {
                 meetings: { $sum: { $cond: [{ $regexMatch: { input: '$action', regex: /meeting/i } }, 1, 0] } },
                 conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
                 revenue: { $sum: REVENUE_EXPR }
-            }},
-            { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
-            { $unwind: '$user' },
-            { $sort: { conversions: -1 } }
+            }}
         ];
 
-        const allResults = await LeadActivity.aggregate(pipeline);
+        const activityByUser = new Map((await LeadActivity.aggregate(pipeline)).map(a => [String(a._id), a]));
+        const ROLE_ORDER = { state_manager: 0, industry_manager: 1, executive: 2 };
+        const allResults = users
+            .map(u => {
+                const a = activityByUser.get(String(u._id)) || {};
+                return {
+                    _id: u._id,
+                    user: u,
+                    calls: a.calls || 0,
+                    meetings: a.meetings || 0,
+                    conversions: a.conversions || 0,
+                    revenue: a.revenue || 0
+                };
+            })
+            .sort((x, y) => (ROLE_ORDER[x.user.role] - ROLE_ORDER[y.user.role]) || (y.conversions - x.conversions) || x.user.name.localeCompare(y.user.name));
         const total = allResults.length;
         const data = allResults.slice((page - 1) * limit, page * limit);
 
@@ -2518,33 +2556,57 @@ router.get('/reports/revenue', async (req, res) => {
         if (industry) matchLeads.industry = industry;
         applyScope(req, matchLeads);
 
+        const leadMatch = {};
+        if (matchLeads.state) leadMatch['lead_info.state'] = matchLeads.state;
+        if (matchLeads.industry) leadMatch['lead_info.industry'] = matchLeads.industry;
+        if (matchLeads.owner) leadMatch['lead_info.owner'] = matchLeads.owner;
+
+        // One row per payment: which lead paid, whether it was the blocking amount or
+        // the full amount, who logged it, and whose lead it is (owner + their manager).
         const pipeline = [
             { $match: query },
             { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead_info' } },
             { $unwind: '$lead_info' },
-            { $match: {
-                'lead_info.state': matchLeads.state || { $exists: true },
-                'lead_info.industry': matchLeads.industry || { $exists: true },
-                ...(matchLeads.owner ? { 'lead_info.owner': matchLeads.owner } : {})
-            }},
-            { $group: {
-                _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-                totalRevenue: { $sum: '$metadata.revenue' },
-                count: { $sum: 1 }
-            }},
-            { $sort: { _id: -1 } }
+            ...(Object.keys(leadMatch).length ? [{ $match: leadMatch }] : []),
+            { $lookup: { from: 'users', localField: 'performedBy', foreignField: '_id', as: 'collector', pipeline: [{ $project: { name: 1 } }] } },
+            { $lookup: { from: 'users', localField: 'lead_info.owner', foreignField: '_id', as: 'owner', pipeline: [{ $project: { name: 1, role: 1, reportingTo: 1 } }] } },
+            { $lookup: { from: 'users', localField: 'owner.reportingTo', foreignField: '_id', as: 'ownerManager', pipeline: [{ $project: { name: 1, role: 1 } }] } },
+            { $sort: { createdAt: -1 } },
+            { $project: {
+                _id: 1,
+                createdAt: 1,
+                action: 1,
+                amount: '$metadata.revenue',
+                lead: {
+                    _id: '$lead_info._id',
+                    leadId: '$lead_info.leadId',
+                    name: '$lead_info.name',
+                    company: '$lead_info.company',
+                    status: '$lead_info.status',
+                    state: '$lead_info.state',
+                    district: '$lead_info.district',
+                    industry: '$lead_info.industry'
+                },
+                collectedBy: { $arrayElemAt: ['$collector', 0] },
+                owner: { $arrayElemAt: ['$owner', 0] },
+                ownerManager: { $arrayElemAt: ['$ownerManager', 0] }
+            }}
         ];
 
         const allResults = await LeadActivity.aggregate(pipeline);
         const total = allResults.length;
         const data = allResults.slice((page - 1) * limit, page * limit);
+        const sumFor = (action) => allResults.filter(r => r.action === action).reduce((sum, r) => sum + (r.amount || 0), 0);
 
         res.json({
             data,
             pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
             summary: {
-                totalRevenue: allResults.reduce((sum, r) => sum + r.totalRevenue, 0),
-                totalConversions: allResults.reduce((sum, r) => sum + r.count, 0)
+                totalRevenue: allResults.reduce((sum, r) => sum + (r.amount || 0), 0),
+                blockingRevenue: sumFor('blocking_amount_received'),
+                fullAmountRevenue: sumFor('full_amount_received'),
+                payments: total,
+                leads: new Set(allResults.map(r => String(r.lead._id))).size
             }
         });
     } catch (err) {
