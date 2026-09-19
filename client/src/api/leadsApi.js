@@ -6,6 +6,7 @@ export const leadsApi = {
   createLead: (data) => api.post('/leads', data),
   bulkUpload: (leadsArray) => api.post('/leads/bulk', leadsArray),
   updateLead: (id, data) => api.put(`/leads/${id}`, data),
+  updateLeadDetails: (id, data) => api.patch(`/leads/${id}/details`, data),
   deleteLead: (id) => api.delete(`/leads/${id}`),
   transitionLead: (id, action, data) => api.post(`/leads/${id}/transition`, { action, ...data }),
   getLeadQueue: (userId) => api.get('/leads/queue', userId ? { params: { userId } } : {}),

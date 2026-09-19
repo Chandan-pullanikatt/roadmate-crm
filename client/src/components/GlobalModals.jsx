@@ -19,6 +19,7 @@ import AllocateLeadModal from './modals/AllocateLeadModal';
 import LeadHistoryModal from './modals/LeadHistoryModal';
 import SendNotificationModal from './modals/SendNotificationModal';
 import ViewLeadModal from './modals/ViewLeadModal';
+import EditLeadDetailsModal from './modals/EditLeadDetailsModal';
 import LeavePolicyModal from './modals/LeavePolicyModal';
 import { PHONE_CODES, dialCodeFor } from '../data/phoneCodes';
 
@@ -1669,6 +1670,15 @@ const GlobalModals = () => {
           setSelectedLead(lead);
           setActiveModal('update-lead');
         }}
+        onEditDetails={isExecutive ? undefined : (lead) => {
+          setSelectedLead(lead);
+          setActiveModal('edit-lead-details');
+        }}
+      />
+      <EditLeadDetailsModal
+        isOpen={activeModal === 'edit-lead-details'}
+        onClose={handleCloseModal}
+        lead={selectedLead}
       />
       <LeaveHistoryModal 
         isOpen={activeModal === 'leave-history'} 

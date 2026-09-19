@@ -100,4 +100,16 @@ function applyLeadScope(query, scopeIds, userId, ownerParam) {
   return query;
 }
 
-module.exports = { getScopeOwnerIds, applyLeadScope, toObjectId };
+/**
+ * Whether `user` may act on one lead — the single-lead form of applyLeadScope:
+ * the founder always; everyone else when the owner is in their subtree, or the
+ * lead is unassigned and they imported it.
+ */
+async function canAccessLead(user, lead) {
+  const scopeIds = await getScopeOwnerIds(user);
+  if (scopeIds === null) return true;
+  if (!lead.owner) return String(lead.allocatedBy || '') === String(user._id);
+  return scopeIds.some(id => String(id) === String(lead.owner));
+}
+
+module.exports = { getScopeOwnerIds, applyLeadScope, canAccessLead, toObjectId };

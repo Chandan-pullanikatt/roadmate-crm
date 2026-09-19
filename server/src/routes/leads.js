@@ -7,7 +7,7 @@ const notificationService = require('../services/notificationService');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
-const { getScopeOwnerIds, applyLeadScope } = require('../utils/hierarchy');
+const { getScopeOwnerIds, applyLeadScope, canAccessLead } = require('../utils/hierarchy');
 const { statusesForParam } = require('../constants/leadStatusGroups');
 const { resolveStatus } = require('../constants/leadStatusRank');
 const { createdAtRange } = require('../utils/dateRange');
@@ -383,6 +383,96 @@ const bulkCreateLeads = async (req, res) => {
 
 const PAYMENT_STAGES = ['blocking_amount_received', 'full_amount_received'];
 
+// Lead fields that make up its contact details — see PATCH /:id/details.
+const CONTACT_FIELDS = ['name', 'company', 'phone', 'email', 'country', 'state', 'district', 'regionType', 'region'];
+const CONTACT_LABELS = {
+  name: 'Name', company: 'Company', phone: 'Phone', email: 'Email',
+  country: 'Country', state: 'State', district: 'District', regionType: 'Region type', region: 'Region'
+};
+const DETAIL_EDITOR_ROLES = ['founder', 'state_manager', 'industry_manager'];
+
+/**
+ * PATCH /api/leads/:id/details - Edit a lead's contact details.
+ * Managers and the founder only, and only for leads in their own team. A phone
+ * that matches another lead is warned about (409) until confirmDuplicate is sent,
+ * the same as when adding a lead. Every change is written to the lead's history.
+ */
+const updateLeadDetails = async (req, res) => {
+  try {
+    if (!DETAIL_EDITOR_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Only managers can edit lead details.' });
+    }
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    if (!(await canAccessLead(req.user, lead))) {
+      return res.status(403).json({ message: 'You can only edit leads in your own team.' });
+    }
+
+    const updates = {};
+    for (const field of CONTACT_FIELDS) {
+      if (req.body[field] === undefined) continue;
+      const value = String(req.body[field] ?? '').trim();
+      if (value === String(lead[field] ?? '')) continue;
+      // Older leads store a bare "9876543210"; the form sends "+919876543210".
+      // Same number, so it is not an edit.
+      if (field === 'phone' && !String(lead.phone || '').startsWith('+')
+        && toComparablePhone(value) === toComparablePhone(lead.phone)) continue;
+      updates[field] = value;
+    }
+
+    if (updates.phone !== undefined) {
+      if (!isValidMobile(updates.phone)) {
+        return res.status(400).json({ message: 'Enter a valid 10-digit mobile number.', field: 'phone' });
+      }
+      if (!req.body.confirmDuplicate) {
+        const existing = await Lead.findOne({
+          _id: { $ne: lead._id },
+          phone: { $regex: `${toComparablePhone(updates.phone)}$` }
+        }).populate('owner', 'name').lean();
+        if (existing) {
+          return res.status(409).json({
+            duplicate: true,
+            message: 'Another lead already has this mobile number.',
+            existing: {
+              _id: existing._id,
+              name: existing.name,
+              company: existing.company,
+              phone: existing.phone,
+              status: existing.status,
+              owner: existing.owner?.name || 'Unassigned',
+              createdAt: existing.createdAt
+            }
+          });
+        }
+      }
+    }
+    // Name is required on the model — fall back to the phone, as when adding a lead.
+    if (updates.name === '') updates.name = updates.phone || lead.phone;
+    if (updates.regionType !== undefined && !['Panchayat', 'Municipality', 'Corporation', ''].includes(updates.regionType)) {
+      return res.status(400).json({ message: 'Invalid region type.', field: 'regionType' });
+    }
+
+    const fields = Object.keys(updates);
+    if (!fields.length) return res.json(lead);
+
+    const changes = fields.map(f => ({ field: f, from: lead[f] || '', to: updates[f] }));
+    Object.assign(lead, updates);
+    await lead.save();
+
+    await LeadActivity.create({
+      lead: lead._id,
+      performedBy: req.user._id,
+      action: 'updated',
+      note: `Details edited: ${changes.map(c => `${CONTACT_LABELS[c.field]} "${c.from || '—'}" → "${c.to || '—'}"`).join(', ')}`,
+      metadata: { detailsEdited: changes }
+    });
+
+    res.json(lead);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
 const updateLead = async (req, res) => {
   try {
     const payload = normalizeLeadPayload(req.body);
@@ -395,12 +485,17 @@ const updateLead = async (req, res) => {
     delete payload.peakStatus;
     delete payload.rnrTransferredAt;
     delete payload.rnrTransferredFrom;
+    // Contact details are edited only through PATCH /:id/details (managers only).
+    CONTACT_FIELDS.forEach(f => delete payload[f]);
 
     // Moving a lead to a payment stage records a payment: route it through the
     // same transition the call-feedback screens use, so the amount is captured
     // and counted as revenue, and Converted is reached by the same rule.
-    const existing = await Lead.findById(req.params.id).select('status');
+    const existing = await Lead.findById(req.params.id).select('status owner allocatedBy');
     if (!existing) return res.status(404).json({ message: 'Lead not found' });
+    if (!(await canAccessLead(req.user, existing))) {
+      return res.status(403).json({ message: 'You can only update leads in your own team.' });
+    }
     const paymentStage = PAYMENT_STAGES.includes(payload.status) && payload.status !== existing.status
       ? payload.status
       : null;
@@ -877,6 +972,8 @@ router.put('/:id', updateLead);
  * PATCH /api/leads/:id - Update lead fields alias
  */
 router.patch('/:id', updateLead);
+
+router.patch('/:id/details', updateLeadDetails);
 
 /**
  * PUT /api/leads/:id/allocate - Explicitly re-allocate lead

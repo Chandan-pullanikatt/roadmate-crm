@@ -54,7 +54,7 @@ const PRIORITY_STYLES = {
   cold: 'bg-blue/5 text-blue border-blue/20',
 };
 
-const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
+const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit, onEditDetails }) => {
   const [tab, setTab] = useState('details');
 
   const { data: lead, isLoading, isError } = useQuery({
@@ -279,6 +279,15 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit }) => {
 
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="outline" className="bg-white" onClick={handleClose}>Close</Button>
+            {onEditDetails && (
+              <Button
+                variant="outline"
+                className="bg-white"
+                onClick={() => { handleClose(); onEditDetails(lead); }}
+              >
+                Edit Details
+              </Button>
+            )}
             {onEdit && (
               <Button
                 className="bg-[#0f766e] text-white border-none"
