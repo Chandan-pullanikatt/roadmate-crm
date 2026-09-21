@@ -11,6 +11,7 @@ const LeadManagement = lazy(() => import('./sub-pages/LeadManagement'));
 const Attendance = lazy(() => import('./sub-pages/Attendance'));
 const LeaveCalendar = lazy(() => import('./sub-pages/LeaveCalendar'));
 const Performance = lazy(() => import('./sub-pages/Performance'));
+const MyPerformance = lazy(() => import('./sub-pages/MyPerformance'));
 const Reports = lazy(() => import('./sub-pages/Reports'));
 const Tasks = lazy(() => import('../founder/sections/Tasks'));
 const Targets = lazy(() => import('../founder/sections/Targets'));
@@ -25,6 +26,7 @@ const StateDashboard = () => {
     switch (currentPage) {
       case 'overview': return <Overview />;
       case 'my-work': return <MyWork />;
+      case 'my-performance': return <MyPerformance />;
       case 'industry-managers': return <IndustryManagers />;
       case 'executives': return <Executives />;
       case 'leads': return <LeadManagement />;

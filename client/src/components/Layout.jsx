@@ -118,6 +118,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
             { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work' },
+            { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'green' },
             { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' },
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) }
