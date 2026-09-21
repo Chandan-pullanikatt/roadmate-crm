@@ -40,7 +40,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState(TIME_SLOTS[0]);
-  const [isFixedDate, setIsFixedDate] = useState(false);
+  const [isFixedDate, setIsFixedDate] = useState(true);
   const [meetingType, setMeetingType] = useState('direct');
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
@@ -83,7 +83,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     setNotes('');
     setStrategyNote('');
     setFollowUpDate('');
-    setIsFixedDate(false);
+    setIsFixedDate(true);
     setMeetingDate('');
     setMeetingTime('');
     setMeetingLink('');

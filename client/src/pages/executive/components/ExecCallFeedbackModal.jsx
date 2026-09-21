@@ -46,7 +46,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const [followUpDate, setFollowUpDate]       = useState('');
   const [followUpTime, setFollowUpTime]       = useState(TIME_SLOTS[0]);
   const [isCustomDate, setIsCustomDate]       = useState(false);
-  const [isFixedDate, setIsFixedDate]         = useState(false);
+  const [isFixedDate, setIsFixedDate]         = useState(true);
   const [customDate, setCustomDate]           = useState('');
   const [customReason, setCustomReason]       = useState('');
   const [meetingDate, setMeetingDate]         = useState('');
@@ -84,7 +84,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
   const reset = () => {
     setNotes(''); setStrategyNote(''); setFollowUpDate(''); setCustomDate('');
-    setCustomReason(''); setIsCustomDate(false); setIsFixedDate(false); setMeetingDate(''); setMeetingTime('');
+    setCustomReason(''); setIsCustomDate(false); setIsFixedDate(true); setMeetingDate(''); setMeetingTime('');
     setMeetingLink(''); setInviteeId(''); setEscalateTo(''); setEscalateReason('');
     setAmount('');
   };
