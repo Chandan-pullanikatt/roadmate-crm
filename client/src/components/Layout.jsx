@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { dashboardApi } from '../api/dashboardApi';
-import { leadsApi } from '../api/leadsApi';
 import { leaveApi } from '../api/leaveApi';
 import DashboardLayout from './layout/DashboardLayout';
 
@@ -31,14 +30,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     queryFn: () => leaveApi.getPendingLeaves().then(res => res.data),
     staleTime: 2 * 60 * 1000,
     enabled: !!user && user.role !== 'executive'
-  });
-
-  const { data: unallocatedCount = 0 } = useQuery({
-    queryKey: ['leads', 'unallocated-count'],
-    queryFn: () => leadsApi.getLeads({ owner: 'unassigned', limit: 1 }).then(r => r.data.total || 0),
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    enabled: !!user && user.role === 'founder',
   });
 
   const pendingCount = pendingData?.length || 0;
@@ -78,7 +69,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'All Leads', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads), badgeColor: 'green' },
             { label: 'Add Lead', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' })), icon: 'add-lead' },
             { label: 'Bulk Upload', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' })), icon: 'bulk-upload' },
-            { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: unallocatedCount > 0 ? unallocatedCount : getBadge(stats.expectedOnboarding), badgeColor: unallocatedCount > 0 ? 'red' : 'red' },
+            { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: null },
             { label: 'Targets', path: '/dashboard?page=targets', icon: 'performance', badge: null },
             { label: 'Tasks', path: '/dashboard?page=tasks', icon: 'work', badge: null }
           ]
