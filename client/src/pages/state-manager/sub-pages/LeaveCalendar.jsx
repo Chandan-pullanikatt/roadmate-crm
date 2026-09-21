@@ -226,22 +226,22 @@ const LeaveCalendar = () => {
             </div>
             <div className="card-body p-4 space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar">
               {pendingLeaves?.map((l) => (
-                <div key={l._id} className="flex items-center gap-4 p-4 bg-surface2/30 rounded-2xl border border-border/40 group hover:border-blue/30 transition-all">
+                <div key={l._id} className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4 bg-surface2/30 rounded-2xl border border-border/40 group hover:border-blue/30 transition-all">
                   <Avatar name={l.user?.name} size="md" className="av-state" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13.5px] font-black leading-tight">{l.user?.name}</div>
+                  <div className="flex-1 min-w-[140px]">
+                    <div className="text-[13.5px] font-black leading-tight break-words">{l.user?.name}</div>
                     <div className="text-[13px] text-text-muted mt-1 font-medium">{l.type?.replace('_', ' ')} · {l.days}d · {new Date(l.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-{new Date(l.toDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="xs" 
-                      className="bg-green text-white font-black text-[10px] px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all"
+                  <div className="flex gap-2 shrink-0 ml-auto">
+                    <Button
+                      size="2xs"
+                      className="bg-green text-white font-black rounded-lg shadow-sm hover:shadow-md transition-all whitespace-nowrap"
                       onClick={() => approvalMutation.mutate({ id: l._id, status: 'approved' })}
                     >Approve</Button>
-                    <Button 
-                      size="xs" 
-                      variant="outline" 
-                      className="text-red border-red/30 font-black text-[10px] px-3 py-1.5 rounded-lg hover:bg-red-light/10 transition-all"
+                    <Button
+                      size="2xs"
+                      variant="outline"
+                      className="text-red border-red/30 font-black rounded-lg hover:bg-red-light/10 transition-all whitespace-nowrap"
                       onClick={() => approvalMutation.mutate({ id: l._id, status: 'rejected' })}
                     >Reject</Button>
                   </div>

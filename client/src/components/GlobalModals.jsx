@@ -298,7 +298,7 @@ const GlobalModals = () => {
         setLeaveHistoryUser(data.user);
       } else if (targetType === 'lead-history') {
         setLeadHistoryData({ leadId: data.leadId, leadName: data.leadName || '' });
-      } else if (targetType === 'update-lead') {
+      } else if (targetType === 'update-lead' || targetType === 'edit-lead-details') {
         setSelectedLead(data.leadData);
       } else if (targetType === 'allocate-lead') {
         if (data.leadData) {

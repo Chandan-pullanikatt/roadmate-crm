@@ -6,6 +6,7 @@ import { leadsApi } from '../../api/leadsApi';
 import { dashboardApi } from '../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { LEAD_STATUS_GROUPS, GROUP_ORDER, groupParam } from '../../constants/leadStatusGroups';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -48,6 +49,9 @@ const LeadManagementPage = ({
 } = {}) => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const { user: currentUser } = useAuth();
+  // Contact details are a manager-only edit, the same rule the server enforces.
+  const canEditDetails = currentUser?.role && currentUser.role !== 'executive';
   const location = useLocation();
   // Fix: Lead Pipeline Clickable Numbers — read status from URL param to set initial tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -465,6 +469,9 @@ const LeadManagementPage = ({
                       {/* Fix: Lead Pipeline — View Details button opens lead history */}
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-muted font-bold px-3" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>View</Button>
                       <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('update-lead', { leadData: l })}>Update</Button>
+                      {canEditDetails && (
+                        <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('edit-lead-details', { leadData: l })}>Edit</Button>
+                      )}
                       <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
                       {extraRowActions?.(l, openModal)}
                     </div>
