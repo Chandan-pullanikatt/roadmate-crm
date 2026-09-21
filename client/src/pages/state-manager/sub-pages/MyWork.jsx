@@ -12,7 +12,11 @@ import CallFeedbackModal from '../../industry-manager/components/CallFeedbackMod
 const MyWork = () => {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
-  const [currentLeadIdx, setCurrentLeadIdx] = useState(0);
+  // The active lead is tracked by id, not by position. The queue keeps every
+  // open lead -- working one does not remove it -- so a numeric cursor that was
+  // bumped after each call walked off the end of the list and left the page
+  // claiming the day was done while most of the queue was still untouched.
+  const [selectedLeadId, setSelectedLeadId] = useState(null);
   // The full list runs to hundreds of rows, so it is paged 15 at a time.
   const LEADS_PER_PAGE = 15;
   const [leadsPage, setLeadsPage] = useState(1);
@@ -74,14 +78,32 @@ const MyWork = () => {
   const allMyLeads = allLeadsData?.leads || [];
   const allMyLeadsTotal = allLeadsData?.total || 0;
   const allMyLeadsPages = allLeadsData?.totalPages || 1;
-  const currentLead = myLeads[currentLeadIdx];
-  const isLastLead = currentLeadIdx >= myLeads.length;
+
+  // Leads still to be worked today; the rest are already done and stay in the
+  // list only so the numbering and the day's tally hold.
+  const pendingLeads = myLeads.filter(l => !l.workedToday);
+  const completedToday = queueData?.completedToday ?? 0;
+  const currentLead =
+    pendingLeads.find(l => l._id === selectedLeadId) || pendingLeads[0] || null;
+
+  // Next lead to work after `fromId`: the following pending one in queue order,
+  // wrapping back to the top so finishing the last row returns to the leads
+  // above it instead of ending the day. null when nothing is left.
+  const nextPendingAfter = (fromId) => {
+    const start = myLeads.findIndex(l => l._id === fromId);
+    for (let step = 1; step <= myLeads.length; step++) {
+      const candidate = myLeads[(start + step) % myLeads.length];
+      if (candidate && candidate._id !== fromId && !candidate.workedToday) return candidate._id;
+    }
+    return null;
+  };
+  const advance = (fromId) => setSelectedLeadId(nextPendingAfter(fromId));
   
   // The line under "My Leads Today" has to describe the queue whose size sits above
   // it. It used to read todayStats, which counts activities already performed today
   // -- a different measure that can never add up to the queue length -- and
   // todayStats.new is not a field the API returns at all, so that third figure was
-  // hard-wired to 0. Bucket the queue itself, using the order getQueue() sorts by.
+  // hard-wired to 0. Bucket the still-pending queue, in the order getQueue() sorts by.
   const queueBreakdown = (() => {
     const dayStart = new Date();
     dayStart.setHours(0, 0, 0, 0);
@@ -94,7 +116,7 @@ const MyWork = () => {
       return at >= dayStart && at <= dayEnd;
     };
 
-    return myLeads.reduce((acc, l) => {
+    return pendingLeads.reduce((acc, l) => {
       if (isMeetingToday(l)) acc.meetings += 1;
       else if (l.status === 'new') acc.fresh += 1;
       else if (l.nextActionAt && new Date(l.nextActionAt) <= dayEnd) {
@@ -140,16 +162,16 @@ const MyWork = () => {
       <div className="stat-grid mb-8">
         <div className="stat-card border-l-4 border-blue">
           <div className="stat-label">My Leads Today</div>
-          <div className="stat-value text-blue">{myLeads.length}</div>
+          <div className="stat-value text-blue">{pendingLeads.length}</div>
           <div className="stat-delta text-[11px] font-medium opacity-70">
              {"\u2192"} {queueBreakdown.meetings} meetings, {queueBreakdown.fresh} new, {queueBreakdown.followups} follow-ups, {queueBreakdown.rnr} RNR{queueBreakdown.other > 0 ? `, ${queueBreakdown.other} other` : ''}
           </div>
         </div>
         <div className="stat-card border-l-4 border-green">
           <div className="stat-label">Completed Today</div>
-          <div className="stat-value text-green">{todayStats.completedLeads || 0}</div>
+          <div className="stat-value text-green">{completedToday}</div>
           <div className="stat-delta text-[11px] font-medium opacity-70">
-             of {myLeads.length + (todayStats.completedLeads || 0)} total tasks
+             of {pendingLeads.length + completedToday} total tasks
           </div>
         </div>
         <div className="stat-card border-l-4 border-purple">
@@ -229,7 +251,7 @@ const MyWork = () => {
                    <div className="flex gap-4">
                       <Button className="flex-1 bg-green text-white py-3" onClick={() => openFeedback('connected')}>✓ Call Completed</Button>
                       <Button className="flex-1 border-amber text-amber border py-3" variant="outline" onClick={() => openFeedback('rnr')}>📵 Mark RNR</Button>
-                      <Button className="px-6 border-border text-text-muted border" variant="outline" onClick={() => setCurrentLeadIdx(prev => prev + 1)}>Skip</Button>
+                      <Button className="px-6 border-border text-text-muted border" variant="outline" onClick={() => advance(currentLead._id)}>Skip</Button>
                    </div>
                 </div>
              )}
@@ -244,34 +266,40 @@ const MyWork = () => {
               </div>
               {/* Scrolls inside a fixed height so a 30-lead queue cannot set the row height */}
               <div className="divide-y divide-border overflow-y-auto max-h-[560px]">
-                 {myLeads.map((l, i) => (
+                 {myLeads.map((l, i) => {
+                    const isActive = currentLead && l._id === currentLead._id;
+                    const done = !!l.workedToday;
+                    return (
                     <div
                       key={l._id}
                       role="button"
                       tabIndex={0}
-                      aria-current={i === currentLeadIdx ? 'true' : undefined}
-                      onClick={() => setCurrentLeadIdx(i)}
+                      aria-current={isActive ? 'true' : undefined}
+                      aria-disabled={done ? 'true' : undefined}
+                      onClick={() => { if (!done) setSelectedLeadId(l._id); }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentLeadIdx(i); }
+                        if (done) return;
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedLeadId(l._id); }
                       }}
-                      title={`Work ${l.company || l.business || l.name} next`}
-                      className={`group flex items-center gap-4 p-4 hover:bg-surface2 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/50 ${i === currentLeadIdx ? 'bg-blue-light/5 border-l-4 border-blue' : ''}`}
+                      title={done ? `${l.company || l.business || l.name} is done for today` : `Work ${l.company || l.business || l.name} next`}
+                      className={`group flex items-center gap-4 p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue/50 ${done ? 'opacity-50 cursor-default' : 'hover:bg-surface2 cursor-pointer'} ${isActive ? 'bg-blue-light/5 border-l-4 border-blue' : ''}`}
                     >
-                       <div className="w-5 h-5 rounded-full border border-border flex items-center justify-center text-[12px] font-bold text-text-muted">{i + 1}</div>
+                       <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-[12px] font-bold ${done ? 'border-green/40 text-green' : 'border-border text-text-muted'}`}>{done ? '✓' : i + 1}</div>
                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-bold truncate group-hover:text-blue">{l.company || l.business}</div>
+                          <div className={`text-[13px] font-bold truncate ${done ? 'line-through' : 'group-hover:text-blue'}`}>{l.company || l.business}</div>
                           <div className="text-[13px] text-text-muted">{l.district} · {l.name}</div>
                        </div>
                        <div className="text-right">
                           <div className="text-[10px] font-bold mono">10:00 AM</div>
-                          <div className="text-[11px] text-text-muted uppercase font-bold mt-0.5">{l.status === 'meeting_scheduled' ? '🤝 meeting' : '📞 followup'}</div>
+                          <div className={`text-[11px] uppercase font-bold mt-0.5 ${done ? 'text-green' : 'text-text-muted'}`}>{done ? '✓ done' : l.status === 'meeting_scheduled' ? '🤝 meeting' : '📞 followup'}</div>
                        </div>
                     </div>
-                 ))}
+                    );
+                 })}
                  {myLeads.length === 0 && <div className="p-12 text-center text-text-muted text-[14px] italic">No leads in queue today</div>}
               </div>
               <div className="card-footer bg-surface2/5 border-t border-border p-3 text-center">
-                 <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest">{todayStats.completedLeads || 0}/{myLeads.length + (todayStats.completedLeads || 0)} completed today {"·"} {myLeads.length} in queue</div>
+                 <div className="text-[12px] font-bold text-text-muted uppercase tracking-widest">{completedToday}/{pendingLeads.length + completedToday} completed today {"·"} {pendingLeads.length} in queue</div>
               </div>
            </div>
 
@@ -439,7 +467,9 @@ const MyWork = () => {
             queryClient.invalidateQueries({ queryKey: ['leads', 'sm-my-all'], exact: false });
             queryClient.invalidateQueries({ queryKey: ['dashboard', 'personal'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard', 'state-manager'] });
-            setCurrentLeadIdx(prev => prev + 1);
+            // Move on to the next lead still pending; the one just worked drops
+            // out of the pending set when the queue refetches.
+            advance(currentLead._id);
           }}
         />
       )}

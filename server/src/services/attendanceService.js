@@ -7,15 +7,9 @@ const User = require('../models/User');
 const scheduleService = require('./scheduleService');
 const { isWeeklyOff, loadCalendar, startOfDay } = require('../utils/workingDays');
 const { resolveAttendanceRules } = require('../constants/attendanceRules');
+const { WORK_ACTIONS } = require('../constants/workActions');
 
 const ATTENDANCE_LABELS = { present: 'Present', half_day: 'Half Day', leave: 'Leave', holiday: 'Holiday' };
-
-// Actions that count as having worked a lead that day.
-const WORK_ACTIONS = [
-  'called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'meeting_confirmed',
-  'converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed',
-  'lost', 'not_interested', 'escalated',
-];
 
 const attendanceService = {
   /**

@@ -5,6 +5,7 @@ const { loadCalendar, startOfDay, addDays } = require('../utils/workingDays');
 const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
 const { applyStatus } = require('../constants/leadStatusRank');
+const { WORK_ACTIONS } = require('../constants/workActions');
 
 /**
  * The next N days the user can work: working days (Sundays and the 2nd/4th
@@ -482,12 +483,30 @@ const leadService = {
     todayEnd.setHours(23, 59, 59, 999);
 
     const fullQueue = await this.getQueue(userId);
-    
-    // 1. Current Lead
-    const currentLead = fullQueue[0] || null;
+
+    // getQueue() lists every open lead, and a lead stays open after it has been
+    // called -- so the queue does not shrink as the day is worked. Tag the ones
+    // already worked today, otherwise the work page counts them as still
+    // pending and (once its cursor runs past the last row) declares the day
+    // done with dozens of leads untouched.
+    const workedTodayIds = await LeadActivity.distinct('lead', {
+      performedBy: userId,
+      createdAt: { $gte: todayStart, $lte: todayEnd },
+      action: { $in: WORK_ACTIONS }
+    });
+    const workedToday = new Set(workedTodayIds.map(String));
+
+    const queue = fullQueue.map(l => ({
+      ...(typeof l.toObject === 'function' ? l.toObject() : l),
+      workedToday: workedToday.has(String(l._id))
+    }));
+    const pendingQueue = queue.filter(l => !l.workedToday);
+
+    // 1. Current Lead -- the first one still to be worked today
+    const currentLead = pendingQueue[0] || null;
 
     // 2. Task Sequence (Next 5)
-    const taskSequence = fullQueue.slice(0, 8).map((l, i) => ({
+    const taskSequence = pendingQueue.slice(0, 8).map((l, i) => ({
       id: l._id,
       index: i + 1,
       name: l.company || l.name,
@@ -526,12 +545,16 @@ const leadService = {
     }));
 
     return {
-      queue: fullQueue,
+      queue,
       currentLead,
       taskSequence,
       todayMeetings: meetingsFormatted,
       activityFeed: feedFormatted,
-      queueLength: fullQueue.length
+      // queueLength stays the whole open book; pendingCount is the day's
+      // remaining work and completedToday the leads already worked.
+      queueLength: queue.length,
+      pendingCount: pendingQueue.length,
+      completedToday: workedToday.size
     };
   }
 };
