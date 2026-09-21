@@ -8,6 +8,7 @@ import { usersApi } from '../api/usersApi';
 import { leaveApi } from '../api/leaveApi';
 import { targetsApi } from '../api/targetsApi';
 import { LEAD_SOURCES } from '../constants/leadSources';
+import { useIndustries, industryOptions } from '../hooks/useIndustries';
 import { TARGET_METRICS, currentPeriodKey, periodLabel } from '../utils/targetPeriod';
 import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
@@ -40,6 +41,8 @@ const GlobalModals = () => {
   const isExecutive = currentUser?.role === 'executive';
   const isStateManager = currentUser?.role === 'state_manager';
   const isIndustryManager = currentUser?.role === 'industry_manager';
+  const isFounder = currentUser?.role === 'founder';
+  const { industries } = useIndustries();
   const [activeModal, setActiveModal] = useState(null);
   const [leadHistoryData, setLeadHistoryData] = useState({ leadId: null, leadName: '' });
   const [managers, setManagers] = useState([]);
@@ -51,6 +54,11 @@ const GlobalModals = () => {
   const [selectedLead, setSelectedLead] = useState(null);
   const [viewLeadId, setViewLeadId] = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null); // existing lead when a duplicate is detected
+  // Manage Industries lives outside activeModal so the founder can open it from
+  // inside the create-account form without losing what they have typed.
+  const [industryModalOpen, setIndustryModalOpen] = useState(false);
+  const [industryDraft, setIndustryDraft] = useState([]);
+  const [newIndustry, setNewIndustry] = useState('');
   
   const getLeadFormDefaults = () => ({
     name: '', phoneCountry: 'IN', phone: '', email: '',
@@ -246,6 +254,16 @@ const GlobalModals = () => {
     }
   };
 
+  const openIndustryManager = useCallback(() => {
+    if (currentUser?.role !== 'founder') {
+      addToast('Only the founder can edit the industry list.', 'warning');
+      return;
+    }
+    setIndustryDraft(industries);
+    setNewIndustry('');
+    setIndustryModalOpen(true);
+  }, [addToast, currentUser?.role, industries]);
+
   const handleOpenModal = useCallback((e) => {
     console.log('Open modal event received:', e.detail);
     
@@ -336,6 +354,11 @@ const GlobalModals = () => {
       setExecFormData(prev => ({ ...prev, role: 'executive' }));
     }
 
+    if (targetType === 'manage-industries') {
+      openIndustryManager();
+      return;
+    }
+
     if (targetType) {
       if (targetType === 'work-time' && currentUser?.role !== 'founder') {
         addToast('Only the founder can edit working hours.', 'warning');
@@ -354,7 +377,7 @@ const GlobalModals = () => {
         fetchUnassignedLeads();
       }
     }
-  }, [addToast, currentUser?.role, fetchUsers, fetchPendingLeaves, fetchUnassignedLeads, fetchWorkingHours, fetchMyLeads]);
+  }, [addToast, currentUser?.role, fetchUsers, fetchPendingLeaves, fetchUnassignedLeads, fetchWorkingHours, fetchMyLeads, openIndustryManager]);
 
   useEffect(() => {
     window.addEventListener('open-modal', handleOpenModal);
@@ -559,6 +582,44 @@ const GlobalModals = () => {
     }
   };
 
+  const handleAddIndustry = () => {
+    const name = newIndustry.trim();
+    if (!name) return;
+    if (industryDraft.some(i => i.toLowerCase() === name.toLowerCase())) {
+      addToast(`"${name}" is already on the list.`, 'warning');
+      return;
+    }
+    // "Others" stays last so it always reads as the catch-all.
+    const others = industryDraft.filter(i => i.toLowerCase() === 'others' || i.toLowerCase() === 'other');
+    const rest = industryDraft.filter(i => !others.includes(i));
+    setIndustryDraft([...rest, name, ...others]);
+    setNewIndustry('');
+  };
+
+  const handleRemoveIndustry = (name) => {
+    setIndustryDraft(prev => prev.filter(i => i !== name));
+  };
+
+  const handleIndustriesSubmit = async (e) => {
+    e.preventDefault();
+    if (!industryDraft.length) {
+      addToast('Keep at least one industry on the list.', 'warning');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { configApi } = await import('../api/configApi');
+      await configApi.saveConfig({ key: 'industries', value: industryDraft });
+      await queryClient.invalidateQueries({ queryKey: ['config', 'industries'] });
+      addToast('Industry list updated successfully!', 'success');
+      setIndustryModalOpen(false);
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Error saving industry list', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEscalateSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -726,11 +787,9 @@ const GlobalModals = () => {
                 <label className="form-label">Industry</label>
                 <select className="select" value={leadFormData.industry} onChange={(e)=>setLeadFormData({...leadFormData, industry: e.target.value})}>
                   <option value="">Select Industry</option>
-                  <option>Automobile</option>
-                  <option>Electronics</option>
-                  <option>Real Estate</option>
-                  <option>Technology</option>
-                  <option>Finance</option>
+                  {industryOptions(industries, leadFormData.industry).map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -1232,13 +1291,19 @@ const GlobalModals = () => {
               <label className="form-label">Industry</label>
               <select className="select" value={execFormData.industry} onChange={(e) => setExecFormData({...execFormData, industry: e.target.value})}>
                 <option value="">Select Industry</option>
-                <option>Automobile</option>
-                <option>Electronics</option>
-                <option>Real Estate</option>
-                <option>Technology</option>
-                <option>Finance</option>
-                <option>Other</option>
+                {industryOptions(industries, execFormData.industry).map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
               </select>
+              {isFounder && (
+                <button
+                  type="button"
+                  className="text-[11px] font-bold text-[#0f766e] hover:underline"
+                  onClick={openIndustryManager}
+                >
+                  + Add an industry
+                </button>
+              )}
             </div>
 
             {/* Date of Joining */}
@@ -1428,6 +1493,58 @@ const GlobalModals = () => {
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
             <Button variant="primary" type="submit" loading={loading} className="bg-[#0f766e]">Save Changes</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MANAGE INDUSTRIES MODAL — founder only */}
+      <Modal
+        isOpen={industryModalOpen}
+        title="Manage Industries"
+        subtitle="These options fill the Industry dropdowns when creating accounts and leads"
+        onClose={() => setIndustryModalOpen(false)}
+        className="modal-lg"
+      >
+        <form onSubmit={handleIndustriesSubmit} className="space-y-8 py-2">
+          <div className="space-y-3">
+            {industryDraft.map(name => (
+              <div key={name} className="flex items-center justify-between border border-border rounded-xl px-4 py-3">
+                <span className="text-[14px] font-semibold text-text-primary">{name}</span>
+                <button
+                  type="button"
+                  className="text-[11px] font-bold text-red hover:underline"
+                  onClick={() => handleRemoveIndustry(name)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {!industryDraft.length && (
+              <div className="text-[13px] text-text-muted">No industries yet — add one below.</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="form-label">Add Industry</label>
+            <div className="flex gap-3">
+              <input
+                className="input"
+                type="text"
+                placeholder="e.g. Pharmacy"
+                value={newIndustry}
+                onChange={(e) => setNewIndustry(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIndustry(); } }}
+              />
+              <Button variant="outline" type="button" className="px-8 whitespace-nowrap" onClick={handleAddIndustry}>Add</Button>
+            </div>
+            <p className="text-[12px] text-text-muted">
+              Removing an industry only takes it off the dropdown — accounts and leads already saved with it keep their value.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-4 pt-6 border-t border-border">
+            <Button variant="outline" className="px-10" onClick={() => setIndustryModalOpen(false)}>Cancel</Button>
+            <Button type="submit" className="px-10 bg-[#0f766e] border-[#0f766e]" loading={loading}>Save Changes</Button>
           </div>
         </form>
       </Modal>

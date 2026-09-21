@@ -225,7 +225,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       '',                        // Last Contact Date
       'Interested in partnership', // Remarks
       'Gold',                    // Partnership Category
-      'Technology',              // Industry
+      'Grocery',                 // Industry
       '15/06/2026',              // Next Follow-Up Date
       'Call back after Monday',  // Follow-Up Notes
       '0',                       // No. of Followups

@@ -94,6 +94,12 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Manage Documents', path: '/dashboard?page=sop', icon: 'reports' }
           ]
+        },
+        {
+          label: 'Settings',
+          items: [
+            { label: 'Manage Industries', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manage-industries' })), icon: 'industry' }
+          ]
         }
       ]
     },

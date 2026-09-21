@@ -432,6 +432,7 @@ const LeadManagementPage = ({
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
                 <th className="p-4">Lead Details</th>
+                <th className="p-4">Contact</th>
                 {showStateColumn && <th className="p-4 text-center">State</th>}
                 <th className="p-4">Assigned To</th>
                 <th className="p-4 text-center">Status</th>
@@ -446,6 +447,7 @@ const LeadManagementPage = ({
                     <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
                     <div className="text-[12px] text-text-muted mt-0.5">{l.leadId}</div>
                   </td>
+                  <td className="p-4 text-[13px] font-mono text-text-secondary whitespace-nowrap">{l.phone || 'N/A'}</td>
                   {showStateColumn && (
                     <td className="p-4 text-center">
                       <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{l.state || 'N/A'}</span>
@@ -479,7 +481,7 @@ const LeadManagementPage = ({
                 </tr>
               ))}
               {leads.length === 0 && !isLoading && (
-                 <tr><td colSpan={showStateColumn ? 6 : 5} className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
+                 <tr><td colSpan={showStateColumn ? 7 : 6} className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
               )}
             </tbody>
           </table>

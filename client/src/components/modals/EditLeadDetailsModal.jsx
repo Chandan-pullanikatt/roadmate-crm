@@ -7,7 +7,7 @@ import LocationSelector from '../common/LocationSelector';
 import { PHONE_CODES, dialCodeFor } from '../../data/phoneCodes';
 
 /**
- * Edits a lead's contact details (name, company, phone, email, location).
+ * Edits a lead's contact details (name, phone, email, location).
  * Managers and the founder only — the server enforces that and the team scope.
  * Status, follow-ups and payments stay on the Update Lead modal.
  */
@@ -30,7 +30,6 @@ const splitPhone = (phone) => {
 
 const toForm = (lead) => ({
   name: lead?.name || '',
-  company: lead?.company || '',
   ...splitPhone(lead?.phone),
   email: lead?.email || '',
   // Imported leads often carry a state but no country; the picker needs both.
@@ -99,24 +98,22 @@ const EditLeadDetailsModal = ({ isOpen, onClose, lead }) => {
     <Modal isOpen={isOpen} onClose={onClose} title={`Edit Lead Details: ${lead.leadId || lead.name}`}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
+          <div className="space-y-1 md:col-span-2">
             <label className="form-label">Full Name</label>
             <input className="input" type="text" value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Lead name" />
-          </div>
-          <div className="space-y-1">
-            <label className="form-label">Company</label>
-            <input className="input" type="text" value={form.company} onChange={(e) => set({ company: e.target.value })} placeholder="Company name" />
           </div>
           <div className="space-y-1 md:col-span-2">
             <label className="form-label">Phone Number <span className="text-red">*</span></label>
             <div className="flex gap-3">
-              <select className="select w-44 shrink-0" value={form.phoneCountry} onChange={(e) => set({ phoneCountry: e.target.value })}>
-                {PHONE_CODES.map(c => (
-                  <option key={c.iso} value={c.iso}>{c.name} ({c.dialCode})</option>
-                ))}
-              </select>
+              <div className="relative w-40 shrink-0">
+                <select className="select" value={form.phoneCountry} onChange={(e) => set({ phoneCountry: e.target.value })}>
+                  {PHONE_CODES.map(c => (
+                    <option key={c.iso} value={c.iso}>{c.name} ({c.dialCode})</option>
+                  ))}
+                </select>
+              </div>
               <input
-                className="input flex-1"
+                className="input flex-1 min-w-0"
                 type="tel"
                 inputMode="numeric"
                 maxLength={isIndian ? 10 : 15}

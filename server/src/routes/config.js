@@ -3,6 +3,7 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const Config = require('../models/Config');
 const { DEFAULT_WORKING_HOURS, resolveAttendanceRules } = require('../constants/attendanceRules');
+const { DEFAULT_INDUSTRIES, normalizeIndustries } = require('../constants/industries');
 
 // Protect all routes - Founder only for writing
 router.use(verifyToken);
@@ -23,6 +24,13 @@ router.get('/:key', async (req, res) => {
       config.value = { ...config.value, rules: resolveAttendanceRules(config.value?.rules) };
     }
 
+    if (req.params.key === 'industries') {
+      // Every role reads this list (it fills the Industry dropdowns), only the
+      // founder can change it. Fall back to the defaults until they do.
+      const saved = config ? normalizeIndustries(config.value) : null;
+      return res.json({ key: 'industries', value: saved || DEFAULT_INDUSTRIES });
+    }
+
     res.json(config);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -38,7 +46,16 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: Founder only' });
     }
 
-    const { key, value } = req.body;
+    let { key, value } = req.body;
+
+    if (key === 'industries') {
+      const cleaned = normalizeIndustries(value);
+      if (!cleaned) {
+        return res.status(400).json({ message: 'Provide at least one industry name' });
+      }
+      value = cleaned;
+    }
+
     const config = await Config.findOneAndUpdate(
       { key },
       { key, value },
