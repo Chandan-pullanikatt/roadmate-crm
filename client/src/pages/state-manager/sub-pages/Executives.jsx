@@ -3,9 +3,10 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
-import { Avatar, Button, Tag } from '../../../components/ui';
+import { Button, Tag } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { ActiveFilter, matchesActiveFilter } from '../../../components/ActiveStatusControls';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
 const Executives = () => {
   const queryClient = useQueryClient();
@@ -74,7 +75,7 @@ const Executives = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
-          <div className="text-[14px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct & Virtual Meetings, Blockings and Revenue for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
@@ -102,85 +103,37 @@ const Executives = () => {
         </div>
       </div>
 
-      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[13px] uppercase tracking-wider font-bold text-text-muted">
-            <thead>
-              <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4">Manager</th>
-                <th className="p-4 text-center">State</th>
-                <th className="p-4">Industry</th>
-                <th className="p-4 text-center">Work %</th>
-                <th className="p-4 text-center">Calls</th>
-                <th className="p-4 text-center">Meetings</th>
-                <th className="p-4 text-center">Follow-ups</th>
-                <th className="p-4 text-center">Revenue</th>
-                <th className="p-4 text-center">Leaves</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
-              {filteredExecs.map((e) => {
-                const workPct = e.workPct ?? e.completionPct ?? 0;
-                const revenue = e.revenue || 0;
-                const pending = pendingLeaveMap[String(e._id)] || 0;
-                return (
-                  <tr key={e._id} className="hover:bg-surface2/30 transition-colors group">
-                    <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">
-                      {e.name}
-                      {e.district && <span className="block text-[12px] font-medium text-text-muted normal-case mt-0.5">{e.district}</span>}
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{e.state || user.state}</span>
-                    </td>
-                    <td className="p-4 text-[14px] text-text-secondary">{e.industry || '—'}</td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2 justify-center">
-                        <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                          <div className={`h-full ${workPct >= 80 ? 'bg-[#0f766e]' : workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${workPct}%` }}></div>
-                        </div>
-                        <span className="font-bold text-[12px]">{workPct}%</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center text-[12px] font-mono">{e.calls || 0}</td>
-                    <td className="p-4 text-center text-[12px] font-mono">{e.meetings || 0}</td>
-                    <td className="p-4 text-center text-[12px] font-mono">{e.followups || 0}</td>
-                    <td className="p-4 text-center text-[12px] font-mono font-bold text-blue">
-                      {"₹"}{revenue >= 100000 ? (revenue / 100000).toFixed(1) + 'L' : revenue.toLocaleString()}
-                    </td>
-                    <td className="p-4 text-center text-[12px] font-mono">{e.leaves || 0}</td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {pending > 0 && (
-                          <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20 normal-case">
-                            {pending} leave pending
-                          </span>
-                        )}
-                        <Tag
-                          variant={e.status === 'Active' ? 'green' : 'amber'}
-                          label={(e.status || '').toUpperCase()}
-                          className="font-black text-[9px] tracking-widest"
-                        />
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="bg-white border-border shadow-sm text-text-primary px-3 font-bold"
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: e.user || e } }))}
-                        >
-                          View Details
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredExecs.length === 0 && (
-                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No district managers match the current filters.</td></tr>
+      <ManagerPerformanceTable
+        rows={filteredExecs}
+        fallbackState={user.state}
+        showDistrict
+        emptyMessage="No district managers match the current filters."
+        renderActions={(e) => {
+          const pending = pendingLeaveMap[String(e._id)] || 0;
+          return (
+            <>
+              {pending > 0 && (
+                <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20 normal-case">
+                  {pending} leave pending
+                </span>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              <Tag
+                variant={e.status === 'Active' ? 'green' : 'amber'}
+                label={(e.status || '').toUpperCase()}
+                className="font-black text-[9px] tracking-widest"
+              />
+              <Button
+                size="2xs"
+                variant="outline"
+                className="bg-white border-border shadow-sm text-text-primary px-3 font-bold"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: e.user || e } }))}
+              >
+                View Details
+              </Button>
+            </>
+          );
+        }}
+      />
     </div>
   );
 };

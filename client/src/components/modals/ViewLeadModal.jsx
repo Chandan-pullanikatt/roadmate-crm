@@ -124,7 +124,10 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit, onEditDetails }) => {
         <Field label="Last Call" value={formatDate(lead.lastCallAt, true)} />
         <Field label="Next Action Due" value={formatDate(lead.nextActionAt, true)} />
         <Field label="Follow-up" value={formatDate(lead.followUpDate)} />
-        <Field label="Meeting" value={formatDate(lead.meetingAt, true)} />
+        <Field
+          label={lead.status === 'meeting_virtual' ? 'Virtual Meeting' : lead.status === 'meeting_direct' ? 'Direct Meeting' : 'Meeting'}
+          value={formatDate(lead.meetingAt, true)}
+        />
         <Field label="Converted" value={formatDate(lead.convertedAt)} />
         <Field label="Blocking Amount" value={formatDate(lead.blockingDate)} />
         <Field label="Full Amount" value={formatDate(lead.fullAmountReceivedDate)} />

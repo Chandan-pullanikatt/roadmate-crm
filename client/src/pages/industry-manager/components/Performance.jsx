@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tag, DashboardSkeleton } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
 const Performance = () => {
   const { data: dashData, isLoading } = useQuery({
@@ -41,8 +42,6 @@ const Performance = () => {
     return `₹${val}`;
   };
 
-  const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
-
   if (isLoading && !dashData) return <DashboardSkeleton />;
 
   return (
@@ -58,7 +57,7 @@ const Performance = () => {
       {/* Sub Header */}
       <div className="bg-surface1 border border-border/40 rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-bold">Staff Performance - {userInfo.industry} - {userInfo.state}</h2>
-        <p className="text-[14px] text-text-muted">Calls · Meetings · Revenue · Leaves · Real-time metrics</p>
+        <p className="text-[14px] text-text-muted">Work % · Leads · Direct &amp; Virtual Meetings · Blockings · Revenue</p>
       </div>
 
       {/* Top 4 Performance Cards */}
@@ -102,88 +101,24 @@ const Performance = () => {
         </div>
       </div>
 
-      {/* Detail Table Card */}
-      <div className="card shadow-lg shadow-purple/5 border-border/40 overflow-hidden">
-        <div className="card-header border-none px-8 pt-8 pb-4">
-           <h3 className="text-[16px] font-black uppercase tracking-widest text-text-muted">Staff-by-Staff Detail Report</h3>
-        </div>
-        
-        <div className="p-0 overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
-            <thead>
-              <tr className="bg-surface2/30 text-[11px] font-black text-text-muted uppercase tracking-widest border-y border-border/40">
-                <th className="px-8 py-4">District Manager</th>
-                <th className="px-6 py-4">District</th>
-                <th className="px-6 py-4 text-center">Calls</th>
-                <th className="px-6 py-4 text-center">Meetings</th>
-                <th className="px-6 py-4 text-center">Follow-ups</th>
-                <th className="px-6 py-4 text-center">Converted</th>
-                <th className="px-6 py-4">Revenue</th>
-                <th className="px-6 py-4 text-center">Leaves</th>
-                <th className="px-6 py-4">Work %</th>
-                <th className="px-6 py-4 text-right pr-8">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {executives.map((exec, idx) => (
-                <tr key={exec._id || idx} className="hover:bg-purple-light/10 transition-colors group">
-                  <td className="px-8 py-4">
-                    <div className="flex items-center gap-3">
-                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white av-${idx % 5} shadow-sm`}>
-                          {getInitials(exec.name)}
-                       </div>
-                       <span className="text-xs font-black text-text-primary group-hover:text-purple transition-colors">{exec.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[12px] font-bold text-text-secondary uppercase tracking-tight">{exec.district}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-[11px] font-black text-blue">{exec.calls}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-[11px] font-black text-teal">{exec.meetings}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-[11px] font-bold text-purple">{exec.followupsCount}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-[11px] font-black text-accent">{exec.converted}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[11px] font-black text-text-primary">{formatCurrency(exec.revenue)}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-[13px] font-bold text-text-muted">{exec.leaves ?? 0}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-16 h-1.5 bg-surface2 rounded-full overflow-hidden border border-border/40">
-                            <div 
-                                className={`h-full rounded-full transition-all duration-1000 ${exec.completionPct >= 70 ? 'bg-green' : exec.completionPct >= 30 ? 'bg-amber' : 'bg-red'}`} 
-                                style={{ width: `${exec.completionPct}%` }} 
-                            />
-                        </div>
-                        <span className="text-[10px] font-black text-text-primary">{exec.completionPct}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right pr-8">
-                    <Tag 
-                        variant={exec.isWorking ? 'green' : 'amber'} 
-                        label={exec.isWorking ? 'Active' : 'On Leave'} 
-                        className="text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-tighter"
-                    />
-                  </td>
-                </tr>
-              ))}
-              {executives.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="px-8 py-16 text-center text-text-muted italic">No executives found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Detail Table */}
+      <div>
+        <div className="text-[15px] font-bold text-text-primary mb-1">Staff-by-Staff Detail Report</div>
+        <div className="text-[14px] text-text-muted mb-4">Click a column header to sort</div>
+        <ManagerPerformanceTable
+          rows={executives}
+          fallbackState={userInfo.state}
+          showDistrict
+          sortable
+          emptyMessage="No executives found"
+          renderActions={(exec) => (
+            <Tag
+              variant={exec.isWorking ? 'green' : 'amber'}
+              label={exec.isWorking ? 'Active' : 'On Leave'}
+              className="text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-tighter"
+            />
+          )}
+        />
       </div>
     </div>
   );

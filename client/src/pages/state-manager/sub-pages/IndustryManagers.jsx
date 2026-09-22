@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { ActiveFilter, matchesActiveFilter } from '../../../components/ActiveStatusControls';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 import { toast } from 'react-hot-toast';
 
 const IndustryManagers = () => {
@@ -65,8 +66,12 @@ const IndustryManagers = () => {
       efficiency: performance.efficiency ?? manager.efficiency ?? 0,
       // Own attendance for the Work % column; `efficiency` is the team average.
       workPct: performance.workPct ?? manager.workPct ?? 0,
+      periodLeads: performance.periodLeads ?? manager.periodLeads ?? 0,
       calls: performance.calls ?? manager.calls ?? 0,
       meetings: performance.meetings ?? manager.meetings ?? 0,
+      directMeetings: performance.directMeetings ?? manager.directMeetings ?? 0,
+      virtualMeetings: performance.virtualMeetings ?? manager.virtualMeetings ?? 0,
+      blocking: performance.blocking ?? manager.blocking ?? 0,
       followups: performance.followups ?? manager.followups ?? 0,
       conversions: performance.conversions ?? manager.conversions ?? 0,
       revenue: performance.revenue ?? manager.revenue ?? 0,
@@ -98,7 +103,7 @@ const IndustryManagers = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
-          <div className="text-[14px] text-text-muted mt-0.5">Work %, Calls, Meetings, Follow-ups, Revenue and approved leave days for the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct & Virtual Meetings, Blockings and Revenue for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
@@ -126,79 +131,31 @@ const IndustryManagers = () => {
         </div>
       </div>
 
-      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[13px] uppercase tracking-wider font-bold text-text-muted">
-            <thead>
-              <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4">Manager</th>
-                <th className="p-4 text-center">State</th>
-                <th className="p-4">Industry</th>
-                <th className="p-4 text-center">Work %</th>
-                <th className="p-4 text-center">Calls</th>
-                <th className="p-4 text-center">Meetings</th>
-                <th className="p-4 text-center">Follow-ups</th>
-                <th className="p-4 text-center">Revenue</th>
-                <th className="p-4 text-center">Leaves</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
-              {filteredManagers.map((m) => {
-                const workPct = m.workPct || 0;
-                const revenue = m.revenue || 0;
-                return (
-                  <tr key={m._id} className="hover:bg-surface2/30 transition-colors group">
-                    <td className="p-4 font-bold text-[13px] group-hover:text-blue transition-colors">{m.name}</td>
-                    <td className="p-4 text-center">
-                      <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state || user.state}</span>
-                    </td>
-                    <td className="p-4 text-[14px] text-text-secondary">{m.industry || '—'}</td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2 justify-center">
-                        <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                          <div className={`h-full ${workPct >= 80 ? 'bg-[#0f766e]' : workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${workPct}%` }}></div>
-                        </div>
-                        <span className="font-bold text-[12px]">{workPct}%</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center text-[12px] font-mono">{m.calls || 0}</td>
-                    <td className="p-4 text-center text-[12px] font-mono">{m.meetings || 0}</td>
-                    <td className="p-4 text-center text-[12px] font-mono">{m.followups || 0}</td>
-                    <td className="p-4 text-center text-[12px] font-mono font-bold text-blue">
-                      {"₹"}{revenue >= 100000 ? (revenue / 100000).toFixed(1) + 'L' : revenue.toLocaleString()}
-                    </td>
-                    <td className="p-4 text-center text-[12px] font-mono">{m.leaves || 0}</td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="bg-white border-border shadow-sm text-text-primary px-3 font-bold"
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m.user || m } }))}
-                        >
-                          View Details
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold"
-                          onClick={() => escalateMutation.mutate(m._id)}
-                        >
-                          Escalate
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredManagers.length === 0 && (
-                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">No industry managers assigned to {user.state} portfolio.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ManagerPerformanceTable
+        rows={filteredManagers}
+        fallbackState={user.state}
+        emptyMessage={`No industry managers assigned to ${user.state} portfolio.`}
+        renderActions={(m) => (
+          <>
+            <Button
+              size="2xs"
+              variant="outline"
+              className="bg-white border-border shadow-sm text-text-primary px-3 font-bold"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', editData: m.user || m } }))}
+            >
+              View Details
+            </Button>
+            <Button
+              size="2xs"
+              variant="outline"
+              className="bg-amber/5 border-amber/20 text-amber shadow-sm hover:bg-amber/10 px-3 font-bold"
+              onClick={() => escalateMutation.mutate(m._id)}
+            >
+              Escalate
+            </Button>
+          </>
+        )}
+      />
 
     </div>
   );

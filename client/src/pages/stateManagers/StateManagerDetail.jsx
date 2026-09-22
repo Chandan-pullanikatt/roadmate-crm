@@ -9,12 +9,16 @@ import {
   DashboardSkeleton 
 } from '../../components/ui';
 import { format } from 'date-fns';
-import LeadPipelinePanel, { LeadMetricsBreakdown } from '../../components/LeadPipelinePanel';
+import LeadPipelinePanel, { LeadMetricsBreakdown, usePeriod, PeriodPicker } from '../../components/LeadPipelinePanel';
+import ManagerPerformanceTable from '../../components/ManagerPerformanceTable';
+import { dashboardApi } from '../../api/dashboardApi';
 
 const StateManagerDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('performance');
+  const picker = usePeriod('month');
+  const { period, value: periodValue } = picker;
 
   const { data: detailData, isLoading, error } = useQuery({
     queryKey: ['state-manager', 'detail', id],
@@ -39,6 +43,17 @@ const StateManagerDetail = () => {
     }
   });
 
+  // Same performance rows the dashboards use, for this manager's direct reports.
+  const { data: imPerformance = [] } = useQuery({
+    queryKey: ['team-performance', id, 'industry_manager', period, periodValue],
+    queryFn: () => dashboardApi.getTeamPerformance({
+      reportingTo: id,
+      role: 'industry_manager',
+      period,
+      value: periodValue || undefined
+    }).then(res => res.data)
+  });
+
   if (isLoading) return <DashboardSkeleton />;
   if (error) return (
     <div className="p-8 text-center">
@@ -54,6 +69,17 @@ const StateManagerDetail = () => {
     districtManagers = [],
     leaves = [] 
   } = detailData || {};
+
+  // The roster decides who is listed; the period filter only changes the numbers.
+  const perfById = new Map(imPerformance.map(p => [String(p._id), p]));
+  const perfRows = industryManagers.map(m => ({
+    ...perfById.get(String(m._id)),
+    _id: m._id,
+    name: m.name,
+    state: m.state,
+    industry: m.industry,
+    user: m
+  }));
 
   const handleBack = () => {
     navigate('/dashboard?page=state-managers');
@@ -169,46 +195,23 @@ const StateManagerDetail = () => {
       )}
 
       {activeTab === 'industry-managers' && (
-        <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-surface2/50 border-b border-border">
-                <th className="p-4 pl-6 text-[13px] font-black uppercase text-text-muted tracking-widest">Manager</th>
-                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Industry</th>
-                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Status</th>
-                <th className="p-4 text-[13px] font-black uppercase text-text-muted tracking-widest">Joined</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {industryManagers.map(mgr => (
-                <tr key={mgr._id} className="hover:bg-surface2/30 transition-all cursor-pointer" onClick={() => navigate(`/dashboard/executives/${mgr._id}`)}>
-                  <td className="p-4 pl-6">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={mgr.name} size="sm" />
-                      <div>
-                        <div className="font-bold text-[14px]">{mgr.name}</div>
-                        <div className="text-[14px] text-text-muted">{mgr.phone}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    {mgr.industry ? <Tag variant="blue" label={mgr.industry.toUpperCase()} /> : <span className="text-text-muted">—</span>}
-                  </td>
-                  <td className="p-4">
-                    <span className="bg-green/10 text-green px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-green/20">Active</span>
-                  </td>
-                  <td className="p-4 text-[15px] font-medium text-text-muted">
-                    {mgr.dateOfJoining ? format(new Date(mgr.dateOfJoining), 'PP') : '—'}
-                  </td>
-                </tr>
-              ))}
-              {industryManagers.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="p-12 text-center text-text-muted italic">No Industry Managers report to this State Manager.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="animate-in slide-in-from-bottom-2 duration-300">
+          <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+            <div>
+              <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
+              <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct & Virtual Meetings, Blockings and Revenue for the selected period</div>
+            </div>
+            <PeriodPicker {...picker} />
+          </div>
+          <ManagerPerformanceTable
+            rows={perfRows}
+            fallbackState={user.state}
+            onRowClick={(m) => navigate(`/dashboard/executives/${m._id}`)}
+            emptyMessage="No Industry Managers report to this State Manager."
+            renderActions={(m) => (
+              <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => navigate(`/dashboard/executives/${m._id}`)}>View</Button>
+            )}
+          />
         </div>
       )}
 

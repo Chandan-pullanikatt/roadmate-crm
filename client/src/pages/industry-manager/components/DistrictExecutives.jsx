@@ -5,9 +5,9 @@ import {
   Button,
   Avatar,
   Tag,
-  MemberRow,
   DashboardSkeleton
 } from '../../../components/ui';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { useAuth } from '../../../context/AuthContext';
@@ -84,14 +84,6 @@ const DistrictExecutives = () => {
     }
     return result;
   }, [executives, activeDistrict, searchTerm]);
-
-  const formatCurrency = (val) => {
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}K`;
-    return `₹${val}`;
-  };
-
-
 
   if (isLoading && !dashData) return <DashboardSkeleton />;
 
@@ -173,41 +165,25 @@ const DistrictExecutives = () => {
           </div>
         </div>
         
-        <div className="p-0 overflow-x-auto mt-4">
-          <div className="divide-y divide-border/30 min-w-[900px]">
-            {filteredExecs.map((exec, idx) => (
-              <MemberRow 
-                key={exec._id}
-                name={exec.name}
-                meta={`${exec.district} · ${exec.leadsCount} leads · ${exec.followupsCount} follow-ups`}
-                avatarClass={`av-${idx % 5}`}
-                workPct={exec.completionPct || 0}
-                status={exec.status}
-                metrics={[
-                  { label: 'Calls', value: exec.calls || 0, colorClass: 'text-blue' },
-                  { label: 'Meetings', value: exec.meetings || 0, colorClass: 'text-teal' },
-                  { label: 'Conv.', value: exec.converted || 0, colorClass: 'text-accent' },
-                  { label: 'Revenue', value: formatCurrency(exec.revenue || 0), colorClass: 'text-purple' },
-                  { label: 'RNR', value: exec.rnrCount || 0, colorClass: 'text-amber' }
-                ]}
-                actions={
-                  <div className="flex items-center gap-2">
-                      {(pendingLeaveMap[String(exec._id)] || 0) > 0 && (
-                        <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20">
-                          {pendingLeaveMap[String(exec._id)]} leave pending
-                        </span>
-                      )}
-                      <Tag variant={exec.isWorking ? 'green' : 'surface2'} label={exec.status} />
-                      <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'assign-target', executive: exec } }))}>Set Target</Button>
-                      <Button size="xs" variant="outline" className="rounded-lg h-8 px-4 font-bold border-border/60 hover:border-purple/40" onClick={() => openCreateExec(exec)}>Details</Button>
-                  </div>
-                }
-              />
-            ))}
-            {filteredExecs.length === 0 && (
-                <div className="p-16 text-center text-text-muted italic">No executives found in this district</div>
+        <div className="mt-4">
+          <ManagerPerformanceTable
+            rows={filteredExecs}
+            fallbackState={dashData?.user?.state}
+            showDistrict
+            emptyMessage="No executives found in this district"
+            renderActions={(exec) => (
+              <>
+                {(pendingLeaveMap[String(exec._id)] || 0) > 0 && (
+                  <span className="px-2 py-0.5 bg-red/10 text-red rounded-full text-[10px] font-bold border border-red/20 normal-case">
+                    {pendingLeaveMap[String(exec._id)]} leave pending
+                  </span>
+                )}
+                <Tag variant={exec.isWorking ? 'green' : 'surface2'} label={exec.status} />
+                <Button size="2xs" variant="outline" className="rounded-lg px-3 font-bold border-border/60 hover:border-purple/40" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'assign-target', executive: exec } }))}>Set Target</Button>
+                <Button size="2xs" variant="outline" className="rounded-lg px-3 font-bold border-border/60 hover:border-purple/40" onClick={() => openCreateExec(exec)}>Details</Button>
+              </>
             )}
-          </div>
+          />
         </div>
       </div>
     </div>

@@ -44,6 +44,7 @@ const DocumentCard = ({ config, documents, onChanged }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, pct: 0 });
   const [deletingId, setDeletingId] = useState(null);
+  const [viewingId, setViewingId] = useState(null);
 
   // Multiple files can be selected at once; they upload one after another so a
   // single failure doesn't abandon the files that already went up.
@@ -122,6 +123,24 @@ const DocumentCard = ({ config, documents, onChanged }) => {
     }
   };
 
+  // Opens the file in a new tab through a short-lived presigned URL — the same
+  // inline view the role's own Documents tab gets.
+  const handleView = async (doc) => {
+    if (!doc.fileKey) {
+      addToast('This document is missing its storage key.', 'error');
+      return;
+    }
+    setViewingId(doc._id);
+    try {
+      const res = await uploadApi.getPresignedDownload(doc.fileKey, 'inline');
+      window.open(res.data.downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      addToast(err?.response?.data?.message || 'Could not open the document.', 'error');
+    } finally {
+      setViewingId(null);
+    }
+  };
+
   return (
     <div className={`card p-0 overflow-hidden border-2 ${config.accentClass} shadow-sm hover:shadow-md transition-shadow`}>
       <div className="px-8 pt-7 pb-5 border-b border-border/40 flex items-center justify-between">
@@ -145,26 +164,41 @@ const DocumentCard = ({ config, documents, onChanged }) => {
         ) : (
           <div className="space-y-2">
             {documents.map(doc => (
-              <div key={doc._id} className="flex items-center justify-between p-4 rounded-xl bg-surface2 border border-border/40">
-                <div className="flex items-center gap-3 min-w-0">
+              <div key={doc._id} className="p-4 rounded-xl bg-surface2 border border-border/40">
+                <div className="flex items-start gap-3">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-surface3 border border-border/40 flex items-center justify-center text-[13px] font-black uppercase text-text-muted">
                     {doc.fileType}
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-black text-text-primary truncate">{doc.title || doc.fileName}</div>
+                  <div className="min-w-0 flex-1">
+                    {/* Wraps instead of truncating — the whole file name has to be readable */}
+                    <div
+                      className="text-sm font-black text-text-primary break-words leading-snug"
+                      title={doc.fileName || doc.title}
+                    >
+                      {doc.title || doc.fileName}
+                    </div>
                     <div className="text-[12px] font-bold text-text-muted mt-0.5">
                       Added {formatDate(doc.createdAt)}
                       {doc.uploadedBy?.name && ` · by ${doc.uploadedBy.name}`}
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDelete(doc)}
-                  disabled={deletingId === doc._id}
-                  className="shrink-0 ml-3 px-3 py-1.5 rounded-lg border border-red/20 text-red text-[10px] font-black uppercase tracking-wider hover:bg-red-light transition-colors disabled:opacity-50"
-                >
-                  {deletingId === doc._id ? 'Removing…' : 'Remove'}
-                </button>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={() => handleView(doc)}
+                    disabled={viewingId === doc._id}
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-blue/20 bg-blue/5 text-blue text-[10px] font-black uppercase tracking-wider hover:bg-blue hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    {viewingId === doc._id ? 'Opening…' : 'View'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(doc)}
+                    disabled={deletingId === doc._id}
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-red/20 text-red text-[10px] font-black uppercase tracking-wider hover:bg-red-light transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === doc._id ? 'Removing…' : 'Remove'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -4,11 +4,12 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { ActiveFilter, ActiveToggleButton, matchesActiveFilter } from '../../../components/ActiveStatusControls';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
-const EMPTY_PERF = { workPct: 0, calls: 0, directMeetings: 0, virtualMeetings: 0, followups: 0, revenue: 0 };
+const EMPTY_PERF = { workPct: 0, leads: 0, periodLeads: 0, directMeetings: 0, virtualMeetings: 0, blocking: 0, revenue: 0 };
 
 const IndustryManagers = () => {
   const queryClient = useQueryClient();
@@ -74,60 +75,6 @@ const IndustryManagers = () => {
     .filter(u => matchesActiveFilter(u, showInactive))
     .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
 
-  const columns = [
-    {
-      header: 'Manager',
-      accessor: 'name',
-      render: (val, row) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={val} size="sm" />
-          <span className="font-bold text-[14px]">{val}</span>
-        </div>
-      )
-    },
-    {
-      header: 'State / Industry',
-      accessor: 'state',
-      render: (val, row) => (
-        <div className="flex items-center gap-2">
-          <Tag variant="blue" label={val} />
-          <span className="text-[13px] text-text-muted font-medium">{row.industry}</span>
-        </div>
-      )
-    },
-    {
-      header: 'Work %',
-      accessor: 'completionPct',
-      render: (val) => (
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 w-16 bg-surface2 rounded-full overflow-hidden border border-border">
-            <div className={`h-full transition-all ${val >= 80 ? 'bg-accent' : val >= 50 ? 'bg-amber' : 'bg-red'}`} style={{ width: `${val || 0}%` }}></div>
-          </div>
-          <span className="text-[11px] mono font-bold">{val || 0}%</span>
-        </div>
-      )
-    },
-    { header: 'Calls', accessor: 'callsToday', render: (val) => <span className="mono text-[11px] font-bold text-blue">{val || 0}</span>, align: 'right' },
-    { header: 'Meetings', accessor: 'meetingsTotal', render: (val) => <span className="mono text-[11px] font-bold text-teal">{val || 0}</span>, align: 'right' },
-    { 
-      header: 'Revenue', 
-      accessor: 'revenue', 
-      render: (val) => <span className="mono text-[11px] font-bold text-accent">₹{val?.toLocaleString() || '0'}</span>, 
-      align: 'right' 
-    },
-    {
-      header: 'Actions',
-      accessor: '_id',
-      render: (id) => (
-        <div className="flex gap-2">
-          <Button size="xs" variant="outline" onClick={() => openModal('create-exec')}>View</Button>
-          <Button size="xs" variant="outline" className="text-amber border-amber/20" onClick={() => openModal('leave-approval')}>Leave</Button>
-        </div>
-      ),
-      align: 'right'
-    }
-  ];
-
   return (
     <div className="animate-in fade-in duration-500">
       <div className="flex items-center gap-2 mb-4 text-[13px] font-bold uppercase tracking-widest text-text-muted">
@@ -149,7 +96,7 @@ const IndustryManagers = () => {
       <div className="flex justify-between items-end mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
-          <div className="text-[14px] text-text-muted mt-0.5">Work %, Calls, Direct & Virtual Meetings, Follow-ups and Revenue for the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct & Virtual Meetings, Blockings and Revenue for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
@@ -157,69 +104,21 @@ const IndustryManagers = () => {
         </div>
       </div>
 
-      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[12px] uppercase tracking-wider font-bold text-text-muted">
-            <thead>
-              <tr className="bg-surface2/50 border-b border-border">
-                <th className="px-3 py-3">Manager</th>
-                <th className="px-3 py-3 text-center">State</th>
-                <th className="px-3 py-3">Industry</th>
-                <th className="px-3 py-3 text-center">Work %</th>
-                <th className="px-3 py-3 text-center">Calls</th>
-                <th className="px-3 py-3 text-center">Direct<br />Meetings</th>
-                <th className="px-3 py-3 text-center">Virtual<br />Meetings</th>
-                <th className="px-3 py-3 text-center">Follow-ups</th>
-                <th className="px-3 py-3 text-center">Revenue</th>
-                <th className="px-3 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
-              {performanceRows.map((m, idx) => (
-                <tr
-                  key={m._id}
-                  className="hover:bg-surface2/30 transition-colors cursor-pointer group"
-                  onClick={() => navigate(`/dashboard/executives/${m._id}`)}
-                >
-                  <td className="px-3 py-3 font-bold text-[13px] group-hover:text-blue transition-colors">{m.name}</td>
-                  <td className="px-3 py-3 text-center">
-                    <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state}</span>
-                  </td>
-                  <td className="px-3 py-3 text-[14px] text-text-secondary">{m.industry}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2 justify-center">
-                       <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                         <div className={`h-full ${m.workPct >= 80 ? 'bg-[#0f766e]' : m.workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${m.workPct}%` }}></div>
-                       </div>
-                       <span className="font-bold text-[12px]">{m.workPct}%</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-center text-[12px] font-mono">{m.calls}</td>
-                  <td className="px-3 py-3 text-center text-[12px] font-mono">{m.directMeetings}</td>
-                  <td className="px-3 py-3 text-center text-[12px] font-mono">{m.virtualMeetings}</td>
-                  <td className="px-3 py-3 text-center text-[12px] font-mono">{m.followups}</td>
-                  <td className="px-3 py-3 text-center text-[12px] font-mono font-bold text-blue">
-                     ₹{m.revenue >= 100000 ? (m.revenue / 100000).toFixed(1) + 'L' : m.revenue.toLocaleString()}
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => {
-                        const userObj = filteredManagers?.find(u => u._id === m._id);
-                        if (userObj) openModal('create-exec', { editData: userObj });
-                      }}>Edit</Button>
-                      <ActiveToggleButton user={m.user} compact />
-                      <Button size="2xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 font-bold" onClick={() => handleDelete(m)}>Delete</Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {performanceRows.length === 0 && (
-                 <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">{showInactive ? 'No inactive industry managers.' : 'No industry manager performance data available.'}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ManagerPerformanceTable
+        rows={performanceRows}
+        onRowClick={(m) => navigate(`/dashboard/executives/${m._id}`)}
+        emptyMessage={showInactive ? 'No inactive industry managers.' : 'No industry manager performance data available.'}
+        renderActions={(m) => (
+          <>
+            <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => {
+              const userObj = filteredManagers?.find(u => u._id === m._id);
+              if (userObj) openModal('create-exec', { editData: userObj });
+            }}>Edit</Button>
+            <ActiveToggleButton user={m.user} compact />
+            <Button size="2xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 font-bold" onClick={() => handleDelete(m)}>Delete</Button>
+          </>
+        )}
+      />
 
       <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm mb-8">
         <div className="card-header border-b border-border bg-white flex justify-between items-center px-5 py-4">

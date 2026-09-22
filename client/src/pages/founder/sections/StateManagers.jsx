@@ -8,8 +8,9 @@ import { Button } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { exportToCSV } from '../../../utils/exportUtils';
 import { ActiveFilter, ActiveToggleButton, matchesActiveFilter } from '../../../components/ActiveStatusControls';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
-const EMPTY_PERF = { workPct: 0, calls: 0, directMeetings: 0, virtualMeetings: 0, followups: 0, revenue: 0 };
+const EMPTY_PERF = { workPct: 0, leads: 0, periodLeads: 0, directMeetings: 0, virtualMeetings: 0, blocking: 0, revenue: 0 };
 
 const StateManagers = () => {
   const queryClient = useQueryClient();
@@ -77,10 +78,10 @@ const StateManagers = () => {
       'Industry': m.industry || '',
       'Period': periodText,
       'Work %': `${m.workPct}%`,
-      'Calls': m.calls,
+      'Leads': m.periodLeads,
       'Direct Meetings': m.directMeetings,
       'Virtual Meetings': m.virtualMeetings,
-      'Follow-ups': m.followups,
+      'Blockings': m.blocking,
       'Revenue': m.revenue
     })), 'State_Managers_Report');
   };
@@ -106,7 +107,7 @@ const StateManagers = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Staff-by-Staff Performance</div>
-          <div className="text-[14px] text-text-muted mt-0.5">Work %, Calls, Direct & Virtual Meetings, Follow-ups and Revenue for the selected period</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct & Virtual Meetings, Blockings and Revenue for the selected period</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ActiveFilter showInactive={showInactive} onChange={setShowInactive} />
@@ -123,69 +124,18 @@ const StateManagers = () => {
         </div>
       </div>
 
-      <div className="card overflow-hidden mb-8 border border-border bg-white rounded-xl shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[12px] uppercase tracking-wider font-bold text-text-muted">
-            <thead>
-              <tr className="bg-surface2/50 border-b border-border">
-                <th className="px-3 py-3">Manager</th>
-                <th className="px-3 py-3 text-center">State</th>
-                <th className="px-3 py-3">Industry</th>
-                <th className="px-3 py-3 text-center">Work %</th>
-                <th className="px-3 py-3 text-center">Calls</th>
-                <th className="px-3 py-3 text-center">Direct<br />Meetings</th>
-                <th className="px-3 py-3 text-center">Virtual<br />Meetings</th>
-                <th className="px-3 py-3 text-center">Follow-ups</th>
-                <th className="px-3 py-3 text-center">Revenue</th>
-                <th className="px-3 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
-              {rows.map(m => {
-                const { user } = m;
-                return (
-                  <tr
-                    key={m._id}
-                    className="hover:bg-surface2/30 transition-colors cursor-pointer group"
-                    onClick={() => navigate(`/dashboard/state-managers/${m._id}`)}
-                  >
-                    <td className="px-3 py-3 font-bold text-[13px] group-hover:text-blue transition-colors">{m.name}</td>
-                    <td className="px-3 py-3 text-center">
-                      {m.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold">{m.state}</span>}
-                    </td>
-                    <td className="px-3 py-3 text-[14px] text-text-secondary">{m.industry || '—'}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2 justify-center">
-                        <div className="w-8 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                          <div className={`h-full ${m.workPct >= 80 ? 'bg-[#0f766e]' : m.workPct >= 60 ? 'bg-[#ea580c]' : 'bg-[#dc2626]'}`} style={{ width: `${m.workPct}%` }}></div>
-                        </div>
-                        <span className="font-bold text-[12px]">{m.workPct}%</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-center text-[12px] font-mono">{m.calls}</td>
-                    <td className="px-3 py-3 text-center text-[12px] font-mono">{m.directMeetings}</td>
-                    <td className="px-3 py-3 text-center text-[12px] font-mono">{m.virtualMeetings}</td>
-                    <td className="px-3 py-3 text-center text-[12px] font-mono">{m.followups}</td>
-                    <td className="px-3 py-3 text-center text-[12px] font-mono font-bold text-blue">
-                      ₹{m.revenue >= 100000 ? (m.revenue / 100000).toFixed(1) + 'L' : m.revenue.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => openModal('create-state-manager', { editData: user })}>Edit</Button>
-                        <ActiveToggleButton user={user} compact />
-                        <Button size="2xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 font-bold" onClick={() => handleDelete(m._id, m.name)}>Delete</Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr><td colSpan="10" className="p-12 text-center text-text-muted italic normal-case">{showInactive ? 'No inactive state managers.' : 'No state managers found.'}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ManagerPerformanceTable
+        rows={rows}
+        onRowClick={(m) => navigate(`/dashboard/state-managers/${m._id}`)}
+        emptyMessage={showInactive ? 'No inactive state managers.' : 'No state managers found.'}
+        renderActions={(m) => (
+          <>
+            <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => openModal('create-state-manager', { editData: m.user })}>Edit</Button>
+            <ActiveToggleButton user={m.user} compact />
+            <Button size="2xs" variant="outline" className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 font-bold" onClick={() => handleDelete(m._id, m.name)}>Delete</Button>
+          </>
+        )}
+      />
     </div>
   );
 };

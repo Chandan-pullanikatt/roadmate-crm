@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
+import { Button, Tag } from '../../../components/ui';
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
 const Performance = () => {
   const { data: dashData, isLoading } = useQuery({
@@ -22,59 +23,6 @@ const Performance = () => {
   const topCalls = [...managers].sort((a, b) => (b.calls || 0) - (a.calls || 0))[0];
   const topConv = [...managers].sort((a, b) => (b.conversions || 0) - (a.conversions || 0))[0];
   const topEfficiency = [...managers].sort((a, b) => (b.efficiency || 0) - (a.efficiency || 0))[0];
-
-  const columns = [
-    {
-      header: 'Staff Name',
-      accessor: 'name',
-      render: (val, row) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={val} size="sm" />
-          <span className="font-bold text-[14px]">{val}</span>
-        </div>
-      )
-    },
-    {
-      header: 'Industry / State',
-      accessor: 'industry',
-      render: (val, row) => (
-        <div>
-          <div className="text-[13px] font-medium">{val}</div>
-          <div className="text-[13px] text-text-muted">{user.state} State</div>
-        </div>
-      )
-    },
-    {
-      header: 'Work Efficiency',
-      accessor: 'efficiency',
-      render: (val) => (
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 w-20 bg-surface2 rounded-full overflow-hidden border border-border">
-            <div className={`h-full transition-all ${val >= 80 ? 'bg-accent' : val >= 50 ? 'bg-amber' : 'bg-red'}`} style={{ width: `${val || 0}%` }}></div>
-          </div>
-          <span className="text-[11px] mono font-bold">{val || 0}%</span>
-        </div>
-      )
-    },
-    { header: 'Calls', accessor: 'calls', render: (val) => <span className="mono text-[11px] font-bold text-blue">{val || 0}</span> },
-    { header: 'Conv', accessor: 'conversions', render: (val) => <span className="mono text-[11px] font-bold text-accent">{val || 0}</span> },
-    { 
-      header: 'Revenue', 
-      accessor: 'revenue', 
-      render: (val) => <span className="mono text-[11px] font-bold text-teal">{"\u20B9"}{val?.toLocaleString() || '0'}</span> 
-    },
-    {
-      header: 'Status',
-      accessor: 'efficiency',
-      render: (val) => (
-        <Tag 
-          variant={val >= 80 ? 'green' : val >= 50 ? 'amber' : 'red'} 
-          label={val >= 80 ? 'ON TRACK' : val >= 50 ? 'AVERAGE' : 'LOW'} 
-        />
-      ),
-      align: 'right'
-    }
-  ];
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -108,19 +56,26 @@ const Performance = () => {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header border-b border-border bg-surface2/10">
-          <div className="section-title text-sm">Team Performance Leaderboard</div>
-          <Button variant="outline" size="sm">Export Detailed CSV</Button>
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">Team Performance Leaderboard</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct &amp; Virtual Meetings, Blockings and Revenue · click a column header to sort</div>
         </div>
-        
-        <DataTable 
-          columns={columns}
-          data={managers}
-          isLoading={isLoading}
-          emptyMessage="No performance data available"
-        />
+        <Button variant="outline" size="sm">Export Detailed CSV</Button>
       </div>
+
+      <ManagerPerformanceTable
+        rows={managers}
+        fallbackState={user.state}
+        sortable
+        emptyMessage="No performance data available"
+        renderActions={(m) => (
+          <Tag
+            variant={(m.efficiency || 0) >= 80 ? 'green' : (m.efficiency || 0) >= 50 ? 'amber' : 'red'}
+            label={(m.efficiency || 0) >= 80 ? 'ON TRACK' : (m.efficiency || 0) >= 50 ? 'AVERAGE' : 'LOW'}
+          />
+        )}
+      />
     </div>
   );
 };

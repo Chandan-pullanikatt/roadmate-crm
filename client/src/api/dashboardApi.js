@@ -11,6 +11,7 @@ export const dashboardApi = {
   getAttendanceSummary: (params) => api.get('/dashboard/reports/attendance-summary', { params }),
   getMeetings: () => api.get('/dashboard/meetings'),
   getPerformance: (params) => api.get('/dashboard/performance', { params }),
+  getTeamPerformance: (params) => api.get('/dashboard/team-performance', { params }),
   generateSalary: (data) => api.post('/dashboard/salary/generate', data),
   updateSalary: (id, data) => api.put(`/dashboard/salary/${id}`, data),
   saveStrategy: (data) => api.post('/dashboard/strategy', data),

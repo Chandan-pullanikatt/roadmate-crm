@@ -518,7 +518,9 @@ const leadService = {
       id: l._id,
       index: i + 1,
       name: l.company || l.name,
-      type: l.status.includes('meeting') ? 'Meeting' : l.status === 'new' ? 'New Lead' : l.status === 'rnr' ? 'RNR' : 'Follow-up',
+      type: l.status === 'meeting_virtual' ? 'Virtual Meeting'
+        : l.status === 'meeting_direct' ? 'Direct Meeting'
+        : l.status === 'new' ? 'New Lead' : l.status === 'rnr' ? 'RNR' : 'Follow-up',
       time: l.meetingAt || l.nextActionAt,
       priority: l.priority
     }));

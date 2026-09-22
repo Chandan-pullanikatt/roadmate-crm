@@ -8,10 +8,27 @@ const Attendance = require('../models/Attendance');
 const { createdAtRange } = require('../utils/dateRange');
 const { sumRevenue } = require('../services/revenueService');
 
+const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done'];
+
+/**
+ * 'virtual' / 'direct' for a meeting activity, else null. Meetings logged before
+ * meetingType was recorded fall back to the lead's own status, the same way the
+ * targets report resolves them (routes/targets.js) — so the two buckets still
+ * add up to the meeting total.
+ */
+const meetingTypeOf = (a) => {
+  if (!MEETING_ACTIONS.includes(a.action)) return null;
+  if (a.metadata?.meetingType === 'virtual') return 'virtual';
+  if (a.metadata?.meetingType === 'direct') return 'direct';
+  return a.lead?.status === 'meeting_virtual' ? 'virtual' : 'direct';
+};
+
 // Counts of each lead action in a list of LeadActivity records.
 const countActions = (activities) => ({
   calls: activities.filter(a => a.action === 'called').length,
-  meetings: activities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
+  meetings: activities.filter(a => MEETING_ACTIONS.includes(a.action)).length,
+  meetingsVirtual: activities.filter(a => meetingTypeOf(a) === 'virtual').length,
+  meetingsDirect: activities.filter(a => meetingTypeOf(a) === 'direct').length,
   followups: activities.filter(a => a.action === 'followup_set').length,
   conversions: activities.filter(a => a.action === 'converted').length,
   rnr: activities.filter(a => a.action === 'rnr').length,
@@ -61,7 +78,7 @@ router.get('/user/:id', async (req, res) => {
     const activities = await LeadActivity.find({
       performedBy: userId,
       createdAt: { $gte: startOfMonth, $lte: endOfMonth }
-    });
+    }).populate('lead', 'status');
 
     const stats = countActions(activities);
 
@@ -127,7 +144,7 @@ router.get('/user/:id/actions', async (req, res) => {
     const activities = await LeadActivity.find({
       performedBy: req.params.id,
       createdAt: createdAtRange(period, value)
-    }).select('action metadata').lean();
+    }).select('action metadata lead').populate('lead', 'status').lean();
     res.json(countActions(activities));
   } catch (err) {
     res.status(500).json({ message: err.message });

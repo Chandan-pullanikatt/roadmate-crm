@@ -9,7 +9,10 @@
 export const LEAD_STATUS_GROUPS = {
   New:                    ['new'],
   'Follow-up':            ['called', 'followup'],
-  Meeting:                ['meeting_virtual', 'meeting_direct'],
+  // Virtual and Direct are separate pipeline stages: they are scheduled,
+  // confirmed and targeted differently, so they never share a card.
+  'Virtual Meeting':      ['meeting_virtual'],
+  'Direct Meeting':       ['meeting_direct'],
   Blocking:               ['blocking_amount_received'],
   'Full Amount Received': ['full_amount_received'],
   // Signing is the last act: it lands the lead in Converted. 'agreement_signed'
@@ -44,6 +47,9 @@ const LEGACY_PARAMS = {
   followup: LEAD_STATUS_GROUPS['Follow-up'],
   'follow-up': LEAD_STATUS_GROUPS['Follow-up'],
   negotiation: LEAD_STATUS_GROUPS['Follow-up'],
+  // 'meeting' was the single bucket holding both meeting types before they
+  // were split into their own cards.
+  meeting: ['meeting_virtual', 'meeting_direct'],
   // 'closing' held paid-but-unsigned and signed-but-unpaid before the stages
   // were split into their own cards.
   closing: ['full_amount_received', 'agreement_signed'],

@@ -109,7 +109,8 @@ const LeadList = () => {
     { id: 'all', label: 'All', count: counts?.total || 0 },
     { id: 'new', label: 'New', count: counts?.new || 0 },
     { id: 'followup', label: 'Follow-up', count: counts?.followup || 0 },
-    { id: 'meeting', label: 'Meeting', count: (counts?.meeting_virtual || 0) + (counts?.meeting_direct || 0) },
+    { id: 'virtual_meeting', label: 'Virtual Meeting', count: counts?.meeting_virtual || 0 },
+    { id: 'direct_meeting', label: 'Direct Meeting', count: counts?.meeting_direct || 0 },
     {
       id: 'converted',
       label: 'Converted',

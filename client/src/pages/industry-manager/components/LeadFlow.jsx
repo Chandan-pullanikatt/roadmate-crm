@@ -9,14 +9,14 @@ import ExecCallFeedbackModal from '../../executive/components/ExecCallFeedbackMo
 
 const statusColor = (type) => {
   if (!type) return 'var(--purple)';
-  if (type === 'Meeting') return 'var(--teal)';
+  if (type === 'Virtual Meeting' || type === 'Direct Meeting') return 'var(--teal)';
   if (type === 'Follow-up') return 'var(--purple)';
   if (type === 'New Lead') return 'var(--amber)';
   return 'var(--red)';
 };
 
 const tagVariant = (type) => {
-  if (type === 'Meeting') return 'tag-teal';
+  if (type === 'Virtual Meeting' || type === 'Direct Meeting') return 'tag-teal';
   if (type === 'Follow-up') return 'tag-purple';
   if (type === 'New Lead') return 'tag-amber';
   return 'tag-red';

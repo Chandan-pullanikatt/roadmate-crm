@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,15 +6,9 @@ import {
 } from 'recharts';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Avatar, Tag } from '../../../components/ui';
+import { Tag } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
-
-const SortIcon = ({ active, dir }) => (
-  <span className="ml-1 inline-flex flex-col gap-px opacity-40" style={{ opacity: active ? 1 : 0.35 }}>
-    <span style={{ borderLeft: '3px solid transparent', borderRight: '3px solid transparent', borderBottom: active && dir === 'asc' ? '4px solid currentColor' : '4px solid transparent', display: 'block' }} />
-    <span style={{ borderLeft: '3px solid transparent', borderRight: '3px solid transparent', borderTop: active && dir === 'desc' ? '4px solid currentColor' : '4px solid transparent', display: 'block' }} />
-  </span>
-);
+import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
 const PERIOD_LABEL = { today: 'Today', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 
@@ -22,9 +16,6 @@ const Performance = () => {
   const navigate = useNavigate();
   const picker = usePeriod('month');
   const { period, value: periodValue } = picker;
-  const [sortKey, setSortKey] = useState('completionPct');
-  const [sortDir, setSortDir] = useState('desc');
-
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', period, periodValue],
     queryFn: () => dashboardApi.getFounderDashboard({ period, value: periodValue || undefined }).then(res => res.data),
@@ -33,7 +24,8 @@ const Performance = () => {
   });
 
   const stats = dashData?.stats || {};
-  // The API's field names differ from the ones this table and chart sort on.
+  // The comparison chart sorts on its own aliases; the table below reads the
+  // shared performance fields straight off the API rows.
   const managers = useMemo(() => (dashData?.stateManagersPerformance || []).map(m => ({
     ...m,
     completionPct: m.workPct || 0,
@@ -41,30 +33,9 @@ const Performance = () => {
     conversionsTotal: m.converted || 0,
   })), [dashData]);
 
-  const sortedManagers = useMemo(() => {
-    return [...managers].sort((a, b) => {
-      const av = a[sortKey] ?? 0;
-      const bv = b[sortKey] ?? 0;
-      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-      return sortDir === 'asc' ? av - bv : bv - av;
-    });
-  }, [managers, sortKey, sortDir]);
-
-  const toggleSort = (key) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('desc'); }
-  };
-
-  const th = (label, key) => (
-    <th
-      className="p-4 text-left text-[12px] font-black uppercase tracking-widest text-text-muted cursor-pointer select-none hover:text-text-primary transition-colors"
-      onClick={() => toggleSort(key)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        <SortIcon active={sortKey === key} dir={sortDir} />
-      </span>
-    </th>
+  const chartManagers = useMemo(
+    () => [...managers].sort((a, b) => b.completionPct - a.completionPct),
+    [managers]
   );
 
   if (isLoading) return <DashboardSkeleton />;
@@ -103,14 +74,14 @@ const Performance = () => {
       </div>
 
       {/* Monthly comparison chart — conversions per state manager */}
-      {sortedManagers.length > 0 && (
+      {chartManagers.length > 0 && (
         <div className="card">
           <div className="card-header border-b border-border bg-surface2/10">
             <div className="section-title text-sm">Performance Comparison — {PERIOD_LABEL[period]}{periodValue ? ` · ${periodValue}` : ''}</div>
           </div>
           <div className="p-6">
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={sortedManagers} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+              <BarChart data={chartManagers} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -128,72 +99,33 @@ const Performance = () => {
         </div>
       )}
 
-      <div className="card">
-        <div className="card-header border-b border-border bg-surface2/10 flex justify-between items-center">
-          <div className="section-title text-sm">State Office Leaderboard</div>
-          <span className="text-[13px] text-text-muted font-medium">Click column headers to sort</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface2/40 border-b border-border">
-                {th('Manager / Region', 'name')}
-                {th('Efficiency', 'completionPct')}
-                {th('Leads', 'leadsCount')}
-                {th('Converted', 'conversionsTotal')}
-                {th('Revenue', 'revenue')}
-                <th className="p-4 text-[12px] font-black uppercase tracking-widest text-text-muted text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sortedManagers.length === 0 ? (
-                <tr><td colSpan="6" className="p-12 text-center text-text-muted italic">No performance data available</td></tr>
-              ) : sortedManagers.map((m, idx) => (
-                <tr key={m._id || idx} className="hover:bg-surface2/30 transition-colors group">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={m.name} size="sm" className="av-state" />
-                      <div>
-                        <div className="font-bold text-[13px]">{m.name}</div>
-                        <div className="text-[12px] text-text-muted uppercase">📍 {m.state} Head</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-1.5 w-20 bg-surface2 rounded-full overflow-hidden border border-border">
-                        <div
-                          className={`h-full transition-all ${(m.completionPct || 0) >= 80 ? 'bg-accent' : (m.completionPct || 0) >= 50 ? 'bg-amber' : 'bg-red'}`}
-                          style={{ width: `${m.completionPct || 0}%` }}
-                        />
-                      </div>
-                      <span className="text-[11px] font-bold font-mono">{m.completionPct || 0}%</span>
-                    </div>
-                  </td>
-                  <td className="p-4"><span className="font-mono text-[11px] font-bold text-blue">{m.leadsCount || 0}</span></td>
-                  <td className="p-4"><span className="font-mono text-[11px] font-bold text-accent">{m.conversionsTotal || 0}</span></td>
-                  <td className="p-4"><span className="font-mono text-[11px] font-bold text-teal">₹{(m.revenue || 0).toLocaleString()}</span></td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2 justify-end">
-                      <Tag
-                        variant={(m.completionPct || 0) >= 80 ? 'green' : (m.completionPct || 0) >= 50 ? 'amber' : 'red'}
-                        label={(m.completionPct || 0) >= 80 ? 'OPTIMAL' : (m.completionPct || 0) >= 50 ? 'STABLE' : 'CRITICAL'}
-                      />
-                      <button
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[11px] font-bold text-blue underline underline-offset-2"
-                        onClick={() => navigate(`/dashboard/state-managers/${m._id}`)}
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+          <div className="text-[15px] font-bold text-text-primary">State Office Leaderboard</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct &amp; Virtual Meetings, Blockings and Revenue · click a column header to sort</div>
         </div>
       </div>
+
+      <ManagerPerformanceTable
+        rows={managers}
+        sortable
+        onRowClick={(m) => navigate(`/dashboard/state-managers/${m._id}`)}
+        emptyMessage="No performance data available"
+        renderActions={(m) => (
+          <>
+            <Tag
+              variant={(m.workPct || 0) >= 80 ? 'green' : (m.workPct || 0) >= 50 ? 'amber' : 'red'}
+              label={(m.workPct || 0) >= 80 ? 'OPTIMAL' : (m.workPct || 0) >= 50 ? 'STABLE' : 'CRITICAL'}
+            />
+            <button
+              className="text-[11px] font-bold text-blue underline underline-offset-2"
+              onClick={() => navigate(`/dashboard/state-managers/${m._id}`)}
+            >
+              View Details
+            </button>
+          </>
+        )}
+      />
     </div>
   );
 };
