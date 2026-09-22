@@ -66,6 +66,7 @@ const leadSchema = new mongoose.Schema({
   meetingLink: { type: String },
   meetingAt: { type: Date },
   meetingInvitees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  meetingDoneAt: { type: Date }, // last time a meeting was recorded as conducted
   escalatedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   escalationNote: { type: String },
   expectedRevenue: { type: Number, default: 0 },

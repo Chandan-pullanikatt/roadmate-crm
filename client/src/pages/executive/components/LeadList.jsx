@@ -4,6 +4,7 @@ import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-quer
 import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
 import { Button, Tag } from '../../../components/ui';
+import DeleteLeadButton from '../../../components/DeleteLeadButton';
 
 const LeadList = () => {
   const queryClient = useQueryClient();
@@ -246,6 +247,8 @@ const LeadList = () => {
                   <div className="flex justify-end gap-2">
                     <Button size="xs" variant="outline" className="font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
                     <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
+                    {/* Renders only for leads this user is allowed to delete. */}
+                    <DeleteLeadButton lead={lead} />
                   </div>
                 </td>
               </tr>

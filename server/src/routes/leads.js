@@ -1050,15 +1050,36 @@ router.post('/:id/documents', async (req, res) => {
 });
 
 /**
- * DELETE /api/leads/:id - Founder only
+ * DELETE /api/leads/:id - the founder, or the lead's own owner
  */
 router.delete('/:id', async (req, res) => {
   try {
-    if (req.user.role !== 'founder') {
-      return res.status(403).json({ message: 'Forbidden: Founder only' });
-    }
-    const lead = await Lead.findByIdAndDelete(req.params.id);
+    const lead = await Lead.findById(req.params.id);
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
+
+    if (req.user.role !== 'founder') {
+      // "Your own lead" is the same pair applyLeadScope uses for the lists: one
+      // you own, or one you imported that is still sitting unallocated.
+      const isOwner = String(lead.owner || '') === String(req.user._id);
+      const isOwnImport = !lead.owner && String(lead.allocatedBy || '') === String(req.user._id);
+      if (!isOwner && !isOwnImport) {
+        return res.status(403).json({ message: 'You can only delete your own leads.' });
+      }
+      // Money booked against a lead is what every revenue figure adds up, so the
+      // person who booked it cannot erase it — that stays a founder decision.
+      if (lead.blockingAmount > 0 || lead.fullAmount > 0 || lead.status === 'converted') {
+        return res.status(403).json({
+          message: 'This lead has payments recorded against it. Ask the founder to delete it.'
+        });
+      }
+    }
+
+    // Activities outlive the lead otherwise, and the dashboards count them by
+    // action without checking the lead still exists — so the day's call, meeting
+    // and revenue tallies would keep counting a lead that is gone.
+    await LeadActivity.deleteMany({ lead: lead._id });
+    await lead.deleteOne();
+
     res.json({ message: 'Lead deleted' });
   } catch (err) {
     res.status(500).json({ message: err.message });

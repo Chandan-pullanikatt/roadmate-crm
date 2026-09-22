@@ -363,12 +363,20 @@ const leadService = {
         activityData.action = 'followup_set';
         break;
 
-      case 'meeting_done':
-        lead.strategyNote = data.strategyNote;
+      case 'meeting_done': {
+        // A meeting actually took place. The status is left to whatever outcome
+        // the caller records straight after (follow-up, payment, not interested
+        // ...) — this only logs that the meeting happened and which kind it was.
+        const conductedType = data.meetingType === 'virtual' ? 'virtual' : 'direct';
+        if (data.strategyNote) lead.strategyNote = data.strategyNote;
+        if (data.priority) lead.priority = data.priority;
+        lead.hasBeenEngaged = true;
+        lead.meetingDoneAt = new Date();
+        lead.subStatus = null; // the pre-meeting confirmation task is over
         activityData.action = 'meeting_done';
-        // For now stays converted or stays meeting (based on prompt)
-        // prompt says "status = 'converted' or stays 'meeting_direct'/'meeting_virtual' (just log for now)"
+        activityData.metadata = { meetingType: conductedType };
         break;
+      }
 
       case 'escalate':
         lead.status = 'escalated';

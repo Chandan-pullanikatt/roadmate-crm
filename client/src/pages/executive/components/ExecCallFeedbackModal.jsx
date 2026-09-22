@@ -22,6 +22,12 @@ const OUTCOMES = [
   { id: 'escalate',                icon: '⬆️', label: 'Escalate',              color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
 ];
 
+// Meeting Done flow: which kind of meeting actually took place.
+const MEETING_KINDS = [
+  { id: 'virtual', icon: '🎥', label: 'Virtual Meeting Conducted', color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
+  { id: 'direct',  icon: '🤝', label: 'Direct Meeting Conducted',  color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
+];
+
 const PAYMENT_IDS = new Set(['blocking_amount_received', 'full_amount_received', 'agreement_signed']);
 
 const TIME_SLOTS = ['Morning (9–11 AM)', 'Afternoon (1–3 PM)', 'Evening (4–6 PM)'];
@@ -39,7 +45,11 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const queryClient = useQueryClient();
   const { addToast } = useToast();
 
-  const [selectedOutcome, setSelectedOutcome] = useState(initialOutcome);
+  // 'meeting_done' is a mode, not an outcome — the outcome is picked inside it.
+  const isMeetingDone = initialOutcome === 'meeting_done';
+
+  const [selectedOutcome, setSelectedOutcome] = useState(isMeetingDone ? null : initialOutcome);
+  const [conductedType, setConductedType]     = useState(null);
   const [priority, setPriority]               = useState(lead?.priority || 'warm');
   const [notes, setNotes]                     = useState('');
   const [strategyNote, setStrategyNote]       = useState('');
@@ -58,9 +68,10 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const [amount, setAmount]                   = useState('');
 
   useEffect(() => {
-    setSelectedOutcome(initialOutcome);
+    setSelectedOutcome(isMeetingDone ? null : initialOutcome);
     setPriority(lead?.priority || 'warm');
-  }, [initialOutcome, isOpen, lead?.priority]);
+    setConductedType(null);
+  }, [initialOutcome, isMeetingDone, isOpen, lead?.priority]);
 
   const { data: suggestedDates } = useQuery({
     queryKey: ['suggested-dates'],
@@ -86,18 +97,31 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     setNotes(''); setStrategyNote(''); setFollowUpDate(''); setCustomDate('');
     setCustomReason(''); setIsCustomDate(false); setIsFixedDate(true); setMeetingDate(''); setMeetingTime('');
     setMeetingLink(''); setInviteeId(''); setEscalateTo(''); setEscalateReason('');
-    setAmount('');
+    setAmount(''); setConductedType(null);
   };
 
   const handleClose = () => { reset(); onClose(); };
 
   const handleSubmit = async () => {
+    if (isMeetingDone && !conductedType) {
+      addToast('Please select whether the meeting was virtual or direct.', 'warning'); return;
+    }
     if (!selectedOutcome) { addToast('Please select a call outcome first', 'warning'); return; }
     if (AMOUNT_STAGES.has(selectedOutcome) && !parseAmount(amount)) {
       addToast('Please enter the amount received.', 'warning'); return;
     }
 
     try {
+      // Log that the meeting happened first; the outcome below sets the status.
+      if (isMeetingDone) {
+        await transitionMutation.mutateAsync({
+          action: 'meeting_done',
+          meetingType: conductedType,
+          note: notes,
+          priority,
+        });
+      }
+
       if (selectedOutcome === 'connected') {
         await transitionMutation.mutateAsync({ action: 'mark_called', priority });
         addToast('Call logged as connected.', 'success');
@@ -204,6 +228,15 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     ...(hierarchy?.stateManagers?.map(u => ({ id: u._id, label: `${u.name} (State Manager)` })) || []),
   ];
 
+  // After a meeting, scheduling one is not an outcome of it — and neither the
+  // call chips (connected / RNR) apply. Everything else stays as it is.
+  const availableOutcomes = isMeetingDone
+    ? OUTCOMES.filter(o => !['connected', 'rnr', 'schedule_virtual', 'direct_meeting'].includes(o.id))
+    : OUTCOMES;
+
+  // In Meeting Done mode nothing else is asked until the kind is chosen.
+  const showOutcomeSection = !isMeetingDone || !!conductedType;
+
   const isMeetingType = selectedOutcome === 'schedule_virtual' || selectedOutcome === 'direct_meeting';
   const needsStrategy = selectedOutcome === 'converted' || selectedOutcome === 'not_interested';
   const inp = 'w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:border-orange focus:ring-2 focus:ring-orange/10 outline-none transition-all bg-white';
@@ -213,8 +246,8 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Call Feedback"
-      subtitle="Log outcome · Set next action"
+      title={isMeetingDone ? 'Meeting Done' : 'Call Feedback'}
+      subtitle={isMeetingDone ? 'Log meeting · Set next action' : 'Log outcome · Set next action'}
       className="max-w-lg"
     >
       <div className="space-y-5">
@@ -226,11 +259,36 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           {lead?.rnrCount > 0 && <span className="ml-2 text-[10px] font-bold text-amber bg-amber-light px-2 py-0.5 rounded-full">RNR ×{lead.rnrCount}</span>}
         </div>
 
+        {/* Which meeting took place — Meeting Done mode only */}
+        {isMeetingDone && (
+          <div>
+            <label className={lbl}>Meeting Conducted</label>
+            <div className="flex gap-2">
+              {MEETING_KINDS.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setConductedType(m.id)}
+                  style={{
+                    background: conductedType === m.id ? m.bg : 'var(--surface)',
+                    color: conductedType === m.id ? m.color : 'var(--text-secondary)',
+                    border: `1.5px solid ${conductedType === m.id ? m.border : 'var(--border)'}`,
+                    fontWeight: conductedType === m.id ? 700 : 500,
+                  }}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs cursor-pointer transition-all hover:opacity-90"
+                >
+                  {m.icon} {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Outcome chips */}
+        {showOutcomeSection && (
         <div>
           <label className={lbl}>Call Outcome</label>
           <div className="flex flex-wrap gap-2">
-            {OUTCOMES.map(o => (
+            {availableOutcomes.map(o => (
               <button
                 key={o.id}
                 onClick={() => setSelectedOutcome(o.id)}
@@ -247,8 +305,10 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
             ))}
           </div>
         </div>
+        )}
 
         {/* Lead Priority */}
+        {showOutcomeSection && (
         <div>
           <label className={lbl}>Lead Priority</label>
           <div className="flex gap-2">
@@ -276,7 +336,10 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
           </div>
         </div>
 
+        )}
+
         {/* Notes — always shown */}
+        {showOutcomeSection && (
         <div>
           <label className={lbl}>Feedback / Important Notes</label>
           <textarea
@@ -287,6 +350,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
             placeholder="What happened in this call? Key points from conversation…"
           />
         </div>
+        )}
 
         {/* Follow-up section */}
         {selectedOutcome === 'followup' && (

@@ -8,6 +8,7 @@ import { Avatar, Button, Tag, DataTable } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import CallFeedbackModal from '../../industry-manager/components/CallFeedbackModal';
+import DeleteLeadButton from '../../../components/DeleteLeadButton';
 
 const MyWork = () => {
   const queryClient = useQueryClient();
@@ -251,6 +252,7 @@ const MyWork = () => {
                    <div className="flex gap-4">
                       <Button className="flex-1 bg-green text-white py-3" onClick={() => openFeedback('connected')}>✓ Call Completed</Button>
                       <Button className="flex-1 border-amber text-amber border py-3" variant="outline" onClick={() => openFeedback('rnr')}>📵 Mark RNR</Button>
+                      <Button className="flex-1 border-blue text-blue border py-3" variant="outline" onClick={() => openFeedback('meeting_done')}>🤝 Meeting Done</Button>
                       <Button className="px-6 border-border text-text-muted border" variant="outline" onClick={() => advance(currentLead._id)}>Skip</Button>
                    </div>
                 </div>
@@ -348,6 +350,8 @@ const MyWork = () => {
                   >
                     Allocate
                   </button>
+                  {/* Renders only for leads this user is allowed to delete. */}
+                  <DeleteLeadButton lead={row} />
                 </div>
               ),
               align: 'right'

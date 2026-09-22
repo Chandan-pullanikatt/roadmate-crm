@@ -318,7 +318,7 @@ const MyWorkToday = () => {
                     </div>
                   )}
 
-                  {/* 2×2 Action buttons */}
+                  {/* Action buttons */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
                     {/* Top-left: Join Meeting (virtual) or Call Done */}
                     {isVirtualLead && lead.meetingLink ? (
@@ -366,10 +366,21 @@ const MyWorkToday = () => {
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Retry Logic #{(lead.rnrCount || 0) + 1}</span>
                     </button>
 
-                    {/* Bottom-right: Escalate */}
+                    {/* Bottom-right: Meeting Done */}
+                    <button
+                      onClick={() => openFeedback('meeting_done')}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                      className="btn-action-exec"
+                    >
+                      <span style={{ fontSize: 22 }}>🤝</span>
+                      <strong style={{ fontSize: 12 }}>Meeting Done</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Virtual or direct</span>
+                    </button>
+
+                    {/* Full width: Escalate */}
                     <button
                       onClick={() => openFeedback('escalate')}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
+                      style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 10px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer' }}
                       className="btn-action-exec"
                     >
                       <span style={{ fontSize: 22 }}>⚠️</span>

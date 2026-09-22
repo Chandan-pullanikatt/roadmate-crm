@@ -8,6 +8,7 @@ import { Avatar, Button, Tag } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { LEAD_STATUS_GROUPS, GROUP_ORDER, groupParam } from '../../constants/leadStatusGroups';
+import DeleteLeadButton from '../../components/DeleteLeadButton';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -476,6 +477,8 @@ const LeadManagementPage = ({
                       )}
                       <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
                       {extraRowActions?.(l, openModal)}
+                      {/* Renders only for leads this user is allowed to delete. */}
+                      <DeleteLeadButton lead={l} />
                     </div>
                   </td>
                 </tr>

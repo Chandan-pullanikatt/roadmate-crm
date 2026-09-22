@@ -19,6 +19,12 @@ const OUTCOMES = [
   { id: 'not_interested',          icon: '✗',  label: 'Not Interested',     color: '#9B1C1C', bg: '#FEF2F2', border: '#FECACA' },
 ];
 
+// Meeting Done flow: which kind of meeting actually took place.
+const MEETING_KINDS = [
+  { id: 'virtual', icon: '🎥', label: 'Virtual Meeting Conducted', color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
+  { id: 'direct',  icon: '🤝', label: 'Direct Meeting Conducted',  color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
+];
+
 const TIME_SLOTS = [
   'Morning (9–11 AM)',
   'Afternoon (1–3 PM)',
@@ -35,7 +41,11 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const queryClient = useQueryClient();
   const { addToast } = useToast();
 
-  const [selectedOutcome, setSelectedOutcome] = useState(initialOutcome);
+  // 'meeting_done' is a mode, not an outcome — the outcome is picked inside it.
+  const isMeetingDone = initialOutcome === 'meeting_done';
+
+  const [selectedOutcome, setSelectedOutcome] = useState(isMeetingDone ? null : initialOutcome);
+  const [conductedType, setConductedType] = useState(null);
   const [priority, setPriority] = useState(null);
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -52,9 +62,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
 
   // Sync outcome and priority when lead/modal opens
   useEffect(() => {
-    setSelectedOutcome(initialOutcome);
+    setSelectedOutcome(isMeetingDone ? null : initialOutcome);
     setPriority(lead?.priority || null);
-  }, [initialOutcome, isOpen, lead]);
+    setConductedType(null);
+  }, [initialOutcome, isMeetingDone, isOpen, lead]);
 
   const { data: suggestedDates } = useQuery({
     queryKey: ['suggested-dates'],
@@ -80,6 +91,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   });
 
   const handleClose = () => {
+    setConductedType(null);
     setNotes('');
     setStrategyNote('');
     setFollowUpDate('');
@@ -93,6 +105,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   };
 
   const handleSubmit = async () => {
+    if (isMeetingDone && !conductedType) {
+      addToast('Please select whether the meeting was virtual or direct.', 'warning');
+      return;
+    }
     if (!selectedOutcome) {
       addToast('Please select a call outcome first.', 'warning');
       return;
@@ -118,6 +134,16 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     }
 
     try {
+      // Log that the meeting happened first; the outcome below sets the status.
+      if (isMeetingDone) {
+        await transitionMutation.mutateAsync({
+          action: 'meeting_done',
+          meetingType: conductedType,
+          note: notes,
+          priority,
+        });
+      }
+
       if (selectedOutcome === 'connected') {
         await transitionMutation.mutateAsync({ action: 'mark_called', note: notes, priority });
         addToast('Call logged as connected.', 'success');
@@ -197,6 +223,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
 
   // Filter outcomes based on initial action
   const getAvailableOutcomes = () => {
+    if (isMeetingDone) {
+      // The meeting just happened — scheduling one is not an outcome of it.
+      return OUTCOMES.filter(o => !['connected', 'rnr', 'meeting'].includes(o.id));
+    }
     if (initialOutcome === 'connected') {
       // Call Done: exclude 'connected' and 'rnr', show only post-call outcomes
       return OUTCOMES.filter(o => !['connected', 'rnr'].includes(o.id));
@@ -205,6 +235,9 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   };
 
   const availableOutcomes = getAvailableOutcomes();
+
+  // In Meeting Done mode nothing else is asked until the kind is chosen.
+  const showOutcomeSection = !isMeetingDone || !!conductedType;
 
   // RNR confirmation modal: minimal UI
   if (initialOutcome === 'rnr' && isOpen) {
@@ -267,8 +300,8 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Call Feedback"
-      subtitle="Log outcome · Set next action"
+      title={isMeetingDone ? 'Meeting Done' : 'Call Feedback'}
+      subtitle={isMeetingDone ? 'Log meeting · Set next action' : 'Log outcome · Set next action'}
       className="max-w-lg"
     >
       <div className="space-y-5">
@@ -278,7 +311,32 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
           <span className="text-text-muted"> · {lead?.name}{lead?.district ? ` · ${lead.district}` : ''}</span>
         </div>
 
+        {/* Which meeting took place — Meeting Done mode only */}
+        {isMeetingDone && (
+          <div>
+            <label className={lbl}>Meeting Conducted</label>
+            <div className="flex gap-2 mt-1">
+              {MEETING_KINDS.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setConductedType(m.id)}
+                  style={{
+                    background: conductedType === m.id ? m.bg : 'var(--surface)',
+                    color: conductedType === m.id ? m.color : 'var(--text-secondary)',
+                    border: `1.5px solid ${conductedType === m.id ? m.border : 'var(--border)'}`,
+                    fontWeight: conductedType === m.id ? 700 : 500,
+                  }}
+                  className="flex-1 px-3 py-2.5 rounded-lg text-xs cursor-pointer transition-all hover:opacity-90"
+                >
+                  {m.icon} {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Outcome chips */}
+        {showOutcomeSection && (
         <div>
           <label className={lbl}>Call Outcome</label>
           <div className="flex flex-wrap gap-2 mt-1">
@@ -299,9 +357,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
             ))}
           </div>
         </div>
+        )}
 
         {/* Priority selector — hidden for RNR */}
-        {selectedOutcome !== 'rnr' && (
+        {showOutcomeSection && selectedOutcome !== 'rnr' && (
         <div>
           <label className={lbl}>Lead Priority</label>
           <div className="flex gap-2">
@@ -339,7 +398,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         )}
 
         {/* Notes — hidden for RNR */}
-        {selectedOutcome !== 'rnr' && (
+        {showOutcomeSection && selectedOutcome !== 'rnr' && (
         <div>
           <label className={lbl}>Feedback / Important Notes</label>
           <textarea

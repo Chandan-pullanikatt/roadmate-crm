@@ -69,7 +69,11 @@ const GlobalModals = () => {
     regionType: '',
     region: '',
     industry: isIndustryManager ? (currentUser?.industry || '') : '',
-    leadSource: 'Direct', priority: 'Hot 🔥', managerId: '', industryManagerId: '', ownerId: '', notes: '',
+    leadSource: 'Direct', priority: 'Hot 🔥',
+    // A state manager's own page allocates to their own name by default, so a
+    // lead they add is theirs unless they hand it down to an IM or DM below.
+    managerId: isStateManager ? (currentUser?._id || '') : '',
+    industryManagerId: '', ownerId: '', notes: '',
     revenueCategory: 'other',
     meetingAt: '',
     meetingType: 'direct',
@@ -78,6 +82,14 @@ const GlobalModals = () => {
   });
 
   const [leadFormData, setLeadFormData] = useState(getLeadFormDefaults);
+
+  // currentUser can arrive after the first render, and the defaults above are
+  // only read once — so fill the state manager's own name in here too, without
+  // overwriting a choice already made.
+  useEffect(() => {
+    if (!isStateManager || !currentUser?._id) return;
+    setLeadFormData(prev => (prev.managerId ? prev : { ...prev, managerId: currentUser._id }));
+  }, [isStateManager, currentUser?._id]);
 
   const [managerFormData, setManagerFormData] = useState({
     name: '', email: '', phone: '', state: '', employmentType: 'Full Time',

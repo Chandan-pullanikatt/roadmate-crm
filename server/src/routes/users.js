@@ -96,6 +96,10 @@ router.get('/', async (req, res) => {
     } else if (req.user.role === 'state_manager') {
       query.$or = [
         { reportingTo: req.user._id },
+        // Themselves: a state manager allocates leads to their own name, so they
+        // have to appear in their own lists. Without this the "Assign to State
+        // Manager" dropdown is empty and an SM can never own a lead at all.
+        { _id: req.user._id },
         { role: 'founder' }
       ];
     }
