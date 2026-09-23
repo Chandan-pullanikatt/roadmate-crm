@@ -677,20 +677,12 @@ const GlobalModals = () => {
     }
   };
 
-  // The server upserts, so saving can silently replace a target already set
-  // for this period. Confirm first, showing what is about to change.
+  // One target per person per period. The server refuses a second one, and the
+  // refusal is surfaced as-is: it tells the manager to ask the founder to
+  // delete the old target first.
   const handleTargetSubmit = (e) => {
     e.preventDefault();
-    const periodKey = currentPeriodKey(targetState.period);
-    // Populated whenever the Targets page has been opened this session; the
-    // modal falls back to a plain "will be replaced" note when it has not.
-    const cached = queryClient.getQueryData(['targets', 'team', targetState.period, periodKey]);
-    setTargetConfirm({
-      periodKey,
-      existing: Array.isArray(cached)
-        ? cached.find(t => String(t.user?._id) === String(targetState.userId))
-        : undefined,
-    });
+    setTargetConfirm({ periodKey: currentPeriodKey(targetState.period) });
   };
 
   const confirmTargetSubmit = async () => {
@@ -2038,7 +2030,6 @@ const GlobalModals = () => {
         period={targetState.period}
         periodKey={targetConfirm?.periodKey}
         values={targetState}
-        existing={targetConfirm?.existing}
         loading={loading}
         onConfirm={confirmTargetSubmit}
         onCancel={() => setTargetConfirm(null)}

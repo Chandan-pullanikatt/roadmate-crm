@@ -68,19 +68,18 @@ const Targets = () => {
     ? u.role !== 'founder'
     : String(u.reportingTo?._id || u.reportingTo) === String(user?._id));
 
-  // The server upserts, so saving can silently replace a target already set
-  // for this period. Confirm first, showing what is about to change.
+  // One target per person per period. A slot that is already taken cannot be
+  // written over — the founder deletes the old target and it can then be set
+  // again — so the form is blocked here as well as on the server.
+  const takenBy = teamTargets.find(t => String(t.user?._id) === String(assignForm.userId));
+
   const handleAssign = (e) => {
     e.preventDefault();
-    if (!assignForm.userId) return;
+    if (!assignForm.userId || takenBy) return;
     const selected = String(assignForm.userId) === String(user?._id)
       ? user
       : staff.find(u => String(u._id) === String(assignForm.userId));
-    setConfirming({
-      values: assignForm,
-      staffName: selected?.name,
-      existing: teamTargets.find(t => String(t.user?._id) === String(assignForm.userId)),
-    });
+    setConfirming({ values: assignForm, staffName: selected?.name });
   };
 
   const confirmAssign = async () => {
@@ -196,7 +195,14 @@ Their recorded meetings, blockings and conversions are not affected.`
                 </div>
               ))}
             </div>
-            <button type="submit" className="btn btn-primary bg-[#0f766e] border-[#0f766e] px-8" disabled={saving || !assignForm.userId}>
+            {takenBy && (
+              <div className="mb-4 rounded-xl border border-orange/30 bg-orange/5 p-3 text-[13px] text-text-secondary">
+                <span className="font-bold">{takenBy.user?.name}</span> already has a {periodWord.toLowerCase()} target
+                for {label}{takenBy.assignedBy?.name ? `, set by ${takenBy.assignedBy.name}` : ''}. A target cannot be
+                replaced — {isFounder ? 'delete it in the table below' : 'ask the founder to delete it'}, then set the new one.
+              </div>
+            )}
+            <button type="submit" className="btn btn-primary bg-[#0f766e] border-[#0f766e] px-8" disabled={saving || !assignForm.userId || !!takenBy}>
               {saving ? 'Saving...' : 'Assign Target'}
             </button>
           </form>
@@ -286,7 +292,6 @@ Their recorded meetings, blockings and conversions are not affected.`
         period={period}
         periodKey={periodKey}
         values={confirming?.values || {}}
-        existing={confirming?.existing}
         loading={saving}
         onConfirm={confirmAssign}
         onCancel={() => setConfirming(null)}

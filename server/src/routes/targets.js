@@ -10,6 +10,7 @@ const { getScopeOwnerIds } = require('../utils/hierarchy');
 router.use(verifyToken);
 
 const METRICS = ['directMeetings', 'blocking', 'conversions'];
+const TAKEN_MESSAGE = 'A target is already set for this person for this period. It cannot be replaced — ask the founder to delete it, then set the new one.';
 const EMPTY = { directMeetings: 0, blocking: 0, conversions: 0 };
 
 /**
@@ -120,7 +121,11 @@ router.get('/team', async (req, res) => {
 });
 
 /**
- * POST /api/targets/assign - Assign or update a monthly or weekly target
+ * POST /api/targets/assign - Set a monthly or weekly target
+ *
+ * One target per person per period, and it is final once set: assigning over
+ * an existing one is refused rather than silently replacing it. To change a
+ * target the founder deletes it first, and it can then be set again.
  */
 router.post('/assign', async (req, res) => {
   try {
@@ -137,17 +142,14 @@ router.post('/assign', async (req, res) => {
     const values = {};
     for (const key of METRICS) values[key] = Math.max(0, parseInt(req.body[key], 10) || 0);
 
-    const target = await Target.findOneAndUpdate(
-      { user: userId, ...period },
-      { ...values, assignedBy: req.user._id },
-      { upsert: true, returnDocument: 'after' }
-    );
+    const existing = await Target.findOne({ user: userId, ...period }).lean();
+    if (existing) return res.status(409).json({ message: TAKEN_MESSAGE });
+
+    const target = await Target.create({ user: userId, ...period, ...values, assignedBy: req.user._id });
     res.json(target);
   } catch (err) {
-    // A stale unique index on the collection surfaces here as a raw driver error
-    if (err.code === 11000) {
-      return res.status(409).json({ message: 'A target for this person and period already exists. Reload the page and try again.' });
-    }
+    // Two saves racing for the same slot land here, on the unique index
+    if (err.code === 11000) return res.status(409).json({ message: TAKEN_MESSAGE });
     res.status(400).json({ message: err.message });
   }
 });
@@ -155,22 +157,19 @@ router.post('/assign', async (req, res) => {
 /**
  * DELETE /api/targets/:id - Remove a target for a period
  *
- * Scoped like GET /team: a founder can clear anyone's target, a manager only
- * one belonging to their own reporting subtree. Nothing else is deleted — the
- * achievement figures are read from lead activity, so removing a target only
- * takes the goal away.
+ * The founder's alone: since a target cannot be edited once set, deleting it is
+ * the only way to change one, and that call belongs with the founder rather
+ * than with the manager who set it. Nothing else is deleted — achievement is
+ * read from lead activity, so this only takes the goal away.
  */
 router.delete('/:id', async (req, res) => {
   try {
-    if (req.user.role === 'executive') return res.status(403).json({ message: 'Forbidden' });
+    if (req.user.role !== 'founder') {
+      return res.status(403).json({ message: 'Only the founder can delete a target.' });
+    }
 
     const target = await Target.findById(req.params.id);
     if (!target) return res.status(404).json({ message: 'That target no longer exists.' });
-
-    const scopeIds = await getScopeOwnerIds(req.user); // null = founder, no restriction
-    if (scopeIds && !scopeIds.some(id => String(id) === String(target.user))) {
-      return res.status(403).json({ message: 'That target belongs to someone outside your team.' });
-    }
 
     await target.deleteOne();
     res.json({ message: 'Target removed.' });

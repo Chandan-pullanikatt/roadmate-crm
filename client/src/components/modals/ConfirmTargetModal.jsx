@@ -3,12 +3,11 @@ import { Modal, Button } from '../ui';
 import { TARGET_METRICS, periodLabel } from '../../utils/targetPeriod';
 
 /**
- * Review-and-confirm step for assigning a target.
+ * Review-and-confirm step for setting a target.
  *
- * /api/targets/assign upserts, so saving over a period that already has a
- * target replaces it silently. `existing` is that target when the caller knows
- * it (the Targets page has the team list in hand); left undefined the modal
- * only warns that a replacement is possible.
+ * A target is final once saved: /api/targets/assign refuses a second one for
+ * the same person and period, and only the founder can delete it. So this is
+ * the last chance to change the numbers, and it says so.
  */
 const ConfirmTargetModal = ({
   isOpen,
@@ -16,7 +15,6 @@ const ConfirmTargetModal = ({
   period = 'monthly',
   periodKey,
   values = {},
-  existing,
   loading = false,
   onConfirm,
   onCancel,
@@ -41,43 +39,25 @@ const ConfirmTargetModal = ({
           <thead>
             <tr className="bg-surface2/30 border-b border-border text-[12px] font-black uppercase tracking-widest text-text-muted">
               <th className="p-3">Metric</th>
-              {existing && <th className="p-3 text-center">Current</th>}
-              <th className="p-3 text-center">New</th>
+              <th className="p-3 text-center">Target</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {TARGET_METRICS.map(m => {
-              const next = num(values[m.key]);
-              const prev = existing ? num(existing[m.key]) : null;
-              const changed = existing && prev !== next;
-              return (
-                <tr key={m.key}>
-                  <td className="p-3 text-[13px] font-bold">{m.label}</td>
-                  {existing && (
-                    <td className="p-3 text-center text-[13px] font-mono text-text-muted">{prev}</td>
-                  )}
-                  <td
-                    className="p-3 text-center text-[15px] font-black font-mono"
-                    style={{ color: changed ? m.color : '#374151' }}
-                  >
-                    {next}
-                  </td>
-                </tr>
-              );
-            })}
+            {TARGET_METRICS.map(m => (
+              <tr key={m.key}>
+                <td className="p-3 text-[13px] font-bold">{m.label}</td>
+                <td className="p-3 text-center text-[15px] font-black font-mono" style={{ color: m.color }}>
+                  {num(values[m.key])}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
-        {existing ? (
-          <div className="rounded-xl border border-orange/30 bg-orange/5 p-3 text-[13px] text-text-secondary">
-            This replaces the target already set for {label}
-            {existing.assignedBy?.name ? ` by ${existing.assignedBy.name}` : ''}.
-          </div>
-        ) : (
-          <div className="rounded-xl border border-border bg-surface2/20 p-3 text-[13px] text-text-muted">
-            Any target already set for {label} will be replaced.
-          </div>
-        )}
+        <div className="rounded-xl border border-orange/30 bg-orange/5 p-3 text-[13px] text-text-secondary">
+          <span className="font-bold">This cannot be edited afterwards.</span> Only one target may be set
+          for {label}. To change it later, the founder has to delete it first.
+        </div>
 
         {allZero && (
           <div className="rounded-xl border border-red/30 bg-red/5 p-3 text-[13px] font-semibold text-red">

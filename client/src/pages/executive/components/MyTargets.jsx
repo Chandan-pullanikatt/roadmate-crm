@@ -29,8 +29,8 @@ const MyTargets = () => {
   const label = periodLabel(period, periodKey);
   const periodWord = period === 'weekly' ? 'Weekly' : 'Monthly';
 
-  // The target already in place for this period, so the confirm step can show
-  // what is being replaced — including when a manager set it.
+  // The target already in place for this period. One per period is the rule, so
+  // this decides whether the form is offered at all.
   const { data: existing } = useQuery({
     queryKey: ['targets', 'my', period, periodKey],
     queryFn: () => targetsApi.getMyTargets({ period, periodKey }).then(res => res.data),
@@ -67,25 +67,36 @@ const MyTargets = () => {
       </div>
 
       <div className="card">
-        <div className="card-header border-b border-border bg-surface2/10">
+        {/* The period picker sits outside the form on purpose: with this month
+            already targeted, this is how you reach the week that is not. */}
+        <div className="card-header border-b border-border bg-surface2/10 flex-wrap gap-3">
           <div className="section-title text-sm">Set My {periodWord} Target — {label}</div>
+          <select
+            className="select w-auto min-w-[150px]"
+            value={period}
+            onChange={e => { setPeriod(e.target.value); setForm(EMPTY_FORM); }}
+          >
+            <option value="monthly">This month</option>
+            <option value="weekly">This week</option>
+          </select>
         </div>
+        {existing?._id ? (
+          <div className="p-6 text-[14px] text-text-secondary">
+            Your {periodWord.toLowerCase()} target for {label} is already set
+            {existing.assignedBy?.name ? ` by ${existing.assignedBy.name}` : ''}. A target cannot be replaced
+            once it is in place — ask the founder to delete it if it has to change, and you can set a new one
+            straight after.
+          </div>
+        ) : (
         <div className="p-6">
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
-              <div className="space-y-1">
-                <label className="form-label">Period</label>
-                <select className="select" value={period} onChange={e => { setPeriod(e.target.value); setForm(EMPTY_FORM); }}>
-                  <option value="monthly">This month</option>
-                  <option value="weekly">This week</option>
-                </select>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               {TARGET_METRICS.map(({ key, label: metricLabel }) => (
                 <div key={key} className="space-y-1">
                   <label className="form-label">{metricLabel}</label>
                   <input
                     type="text" inputMode="numeric" pattern="[0-9]*" className="input"
-                    placeholder={existing?._id ? String(existing[key] ?? 0) : '0'}
+                    placeholder="0"
                     value={form[key]}
                     onChange={e => setForm(f => ({ ...f, [key]: digitsOnly(e.target.value) }))}
                   />
@@ -93,10 +104,11 @@ const MyTargets = () => {
               ))}
             </div>
             <button type="submit" className="btn btn-primary bg-[#0f766e] border-[#0f766e] px-8" disabled={saving}>
-              {saving ? 'Saving...' : existing?._id ? 'Update My Target' : 'Set My Target'}
+              {saving ? 'Saving...' : 'Set My Target'}
             </button>
           </form>
         </div>
+        )}
       </div>
 
       <TargetSection filterable />
@@ -107,7 +119,6 @@ const MyTargets = () => {
         period={period}
         periodKey={periodKey}
         values={form}
-        existing={existing?._id ? existing : undefined}
         loading={saving}
         onConfirm={confirmSave}
         onCancel={() => setConfirming(false)}
