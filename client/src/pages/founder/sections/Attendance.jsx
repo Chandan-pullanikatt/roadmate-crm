@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { roleLabel } from '../../../utils/roleLabel';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -60,7 +61,7 @@ const Attendance = () => {
     if (!attendanceSummary) return;
     const exportData = attendanceSummary.map(item => ({
       Staff: item.user?.name,
-      Role: item.user?.role?.replace('_', ' '),
+      Role: roleLabel(item.user?.role),
       Present: item.present,
       Absent: item.absent || 0,
       'Half Day': item.halfDay || 0,
@@ -75,7 +76,7 @@ const Attendance = () => {
     if (!salaryData?.data) return;
     const exportData = salaryData.data.map(item => ({
       Staff: item.user?.name,
-      Role: item.user?.role?.replace('_', ' '),
+      Role: roleLabel(item.user?.role),
       'Base Salary': item.baseSalary,
       'Working Days': item.workingDays,
       'Leaves': item.leaveDays || 0,

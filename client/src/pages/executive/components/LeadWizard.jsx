@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { roleLabel } from '../../../utils/roleLabel';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
 import { usersApi } from '../../../api/usersApi';
@@ -578,7 +579,7 @@ const StepMeeting = ({ type, meetingDate, setMeetingDate, meetingTime, setMeetin
       <div className="wizard-field-label">Invite Manager (Optional)</div>
       <select className="select" value={inviteeId} onChange={e => setInviteeId(e.target.value)}>
         <option value="">No Manager Invited</option>
-        {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({m.role?.replace('_', ' ')})</option>)}
+        {managers.map(m => <option key={m._id} value={m._id}>{m.name} ({roleLabel(m.role)})</option>)}
       </select>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
         Manager will receive a real-time notification.
@@ -601,7 +602,7 @@ const StepEscalate = ({ managers, selectedId, setSelectedId, reason, setReason }
           <div className="date-icon">{selectedId === m._id ? '✓' : '👤'}</div>
           <div>
             <div className="date-text">{m.name}</div>
-            <div className="date-sub">{m.role?.replace('_', ' ').toUpperCase()} · {m.industry}</div>
+            <div className="date-sub">{roleLabel(m.role).toUpperCase()} · {m.industry}</div>
           </div>
         </button>
       )) : (

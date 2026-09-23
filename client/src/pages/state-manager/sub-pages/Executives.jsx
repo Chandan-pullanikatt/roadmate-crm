@@ -66,7 +66,7 @@ const Executives = () => {
       <div className="section-header mb-6">
         <div>
           <div className="section-title">District Managers · {user.state}</div>
-          <div className="section-sub text-[13px]">All executives across industries - Performance overview</div>
+          <div className="section-sub text-[13px]">All district managers across industries - Performance overview</div>
         </div>
         <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}>+ Add District Manager</Button>
       </div>

@@ -73,7 +73,7 @@ const MeetingsDetail = () => {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search lead, executive, notes..."
+              placeholder="Search lead, district manager, notes..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-10 pr-4 py-2 bg-surface2 border border-border rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-purple/20 transition-all outline-none min-w-[280px]"
@@ -88,7 +88,7 @@ const MeetingsDetail = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Meeting Feedback · {userInfo.industry} District Managers</h2>
-          <p className="text-[14px] text-text-muted">Virtual & direct meetings — what happened, executive notes, lead outcome</p>
+          <p className="text-[14px] text-text-muted">Virtual & direct meetings — what happened, district manager notes, lead outcome</p>
         </div>
         <Tag variant="teal" label={`${pagination.total || 0} Total Meetings`} className="font-black px-5" />
       </div>

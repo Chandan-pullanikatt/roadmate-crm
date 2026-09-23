@@ -79,7 +79,7 @@ const Meetings = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Meetings Management</h1>
-          <p className="text-sm text-muted">All scheduled, confirmed, and past meetings for this executive</p>
+          <p className="text-sm text-muted">All scheduled, confirmed, and past meetings for this district manager</p>
         </div>
         <button className="btn btn-orange btn-sm font-bold shadow-md shadow-orange/10" onClick={() => openModal('schedule-meeting')}>
           + Schedule Meeting

@@ -449,7 +449,7 @@ router.delete('/:id', async (req, res) => {
       }
 
       if (req.user.role === 'state_manager' && targetUser.state !== req.user.state) {
-        return res.status(403).json({ message: 'Forbidden: You can only delete executives in your state' });
+        return res.status(403).json({ message: 'Forbidden: You can only delete district managers in your state' });
       }
     }
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { roleLabel } from '../../../utils/roleLabel';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { attendanceApi } from '../../../api/attendanceApi';
@@ -58,7 +59,7 @@ const Attendance = () => {
       <div className="section-header mb-6">
         <div>
           <div className="section-title">Attendance · {user.state} Team</div>
-          <div className="section-sub text-[13px]">All industry managers & executives</div>
+          <div className="section-sub text-[13px]">All industry managers & district managers</div>
         </div>
         <Button variant="outline" size="sm" className="bg-white shadow-sm border-border text-text font-bold px-5" onClick={handleExport}>Export Report</Button>
       </div>
@@ -126,7 +127,7 @@ const Attendance = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[13px] text-text-muted font-bold tracking-tight uppercase">{r.user?.industry || r.user?.role?.replace('_', ' ')}</span>
+                    <span className="text-[13px] text-text-muted font-bold tracking-tight uppercase">{r.user?.industry || roleLabel(r.user?.role)}</span>
                   </td>
                   <td className="px-6 py-4">
                     <Tag 

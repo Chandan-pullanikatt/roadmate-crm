@@ -172,7 +172,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
               disabled={loadingExecs}
             >
               <option value="">
-                {loadingExecs ? 'Loading executives…' : '— Allocate to Industry Manager —'}
+                {loadingExecs ? 'Loading district managers…' : '— Allocate to Industry Manager —'}
               </option>
               {executives.map(ex => (
                 <option key={ex._id} value={ex._id}>{ex.name}</option>
@@ -180,7 +180,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
             </select>
             {!loadingExecs && executives.length === 0 && (
               <p className="text-[13px] text-text-muted font-medium mt-1">
-                No executives found under this Industry Manager
+                No district managers found under this Industry Manager
               </p>
             )}
           </div>

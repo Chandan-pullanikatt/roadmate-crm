@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { roleLabel } from '../../../utils/roleLabel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { targetsApi } from '../../../api/targetsApi';
 import { usersApi } from '../../../api/usersApi';
@@ -179,7 +180,7 @@ Their recorded meetings, blockings and conversions are not affected.`
                   <option value="">Select Staff</option>
                   {user?._id && <option value={user._id}>Myself ({user.name})</option>}
                   {staff.map(u => (
-                    <option key={u._id} value={u._id}>{u.name} ({u.role?.replace(/_/g, ' ')})</option>
+                    <option key={u._id} value={u._id}>{u.name} ({roleLabel(u.role)})</option>
                   ))}
                 </select>
               </div>
@@ -241,13 +242,13 @@ Their recorded meetings, blockings and conversions are not affected.`
                     <tr key={t._id || idx} className="hover:bg-surface2/20 transition-colors">
                       <td className="p-4">
                         <div className="font-bold text-[13px]">{t.user?.name || 'Unknown'}{t.user?._id === user?._id && ' (You)'}</div>
-                        <div className="text-[12px] text-text-muted capitalize">{t.user?.role?.replace(/_/g, ' ') || ''}</div>
+                        <div className="text-[12px] text-text-muted">{roleLabel(t.user?.role)}</div>
                       </td>
                       <td className="p-4">
                         <div className="text-[13px] font-semibold">
                           {t.assignedBy?._id === user?._id ? 'You' : (t.assignedBy?.name || '—')}
                         </div>
-                        <div className="text-[12px] text-text-muted capitalize">{t.assignedBy?.role?.replace(/_/g, ' ') || ''}</div>
+                        <div className="text-[12px] text-text-muted">{roleLabel(t.assignedBy?.role)}</div>
                       </td>
                       {TARGET_METRICS.map((m, i) => (
                         <td key={m.key} className="p-4 min-w-[160px]">

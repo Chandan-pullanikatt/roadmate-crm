@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { roleLabel } from '../../../utils/roleLabel';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import Papa from 'papaparse';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
@@ -237,7 +238,7 @@ const LeaveCalendar = () => {
                         <Avatar name={leave.user?.name} size="xs" />
                         <div>
                           <div className="text-xs font-bold">{leave.user?.name}</div>
-                          <div className="text-[12px] text-text-muted capitalize">{leave.user?.role?.replace('_', ' ')}</div>
+                          <div className="text-[12px] text-text-muted">{roleLabel(leave.user?.role)}</div>
                         </div>
                       </div>
                     </td>

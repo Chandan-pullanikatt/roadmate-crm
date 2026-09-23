@@ -153,7 +153,7 @@ const LeadFlow = () => {
         <div>
           <h2 className="text-lg font-bold">Lead Task Flow · {userInfo.industry}</h2>
           <p className="text-[14px] text-text-muted">
-            {selectedExec ? `Shadowing ${selectedExec.name} · ${selectedExec.district}` : 'Select an executive to begin monitoring'}
+            {selectedExec ? `Shadowing ${selectedExec.name} · ${selectedExec.district}` : 'Select a district manager to begin monitoring'}
           </p>
         </div>
         {selectedExec && (
@@ -288,7 +288,7 @@ const LeadFlow = () => {
                 <div>📵 <strong>1st RNR (New Lead):</strong> Lead re-queued for afternoon same day</div>
                 <div>📵 <strong>2nd RNR (Afternoon):</strong> Comes as lead for next working day</div>
                 <div>📵 <strong>3rd RNR (Next Day):</strong> Comes after 2 days at different time</div>
-                <div>🔀 <strong>3–5 RNRs:</strong> Lead auto-allocated to another executive</div>
+                <div>🔀 <strong>3–5 RNRs:</strong> Lead auto-allocated to another district manager</div>
                 <div>❌ <strong>Continued RNR:</strong> Lead placed as Lost Lead automatically</div>
               </div>
             </div>

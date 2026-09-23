@@ -918,7 +918,7 @@ const MyWork = () => {
         <Modal
           isOpen
           title="Allocate Lead"
-          subtitle="Assign to an executive in your team"
+          subtitle="Assign to a district manager in your team"
           onClose={() => { setAllocateOpen(false); setAllocateExecId(''); }}
           className="max-w-sm"
         >
@@ -942,7 +942,7 @@ const MyWork = () => {
               ))}
             </select>
             {teamExecsData?.length === 0 && (
-              <p className="text-[11px] text-amber font-medium mt-1">No executives found in your team.</p>
+              <p className="text-[11px] text-amber font-medium mt-1">No district managers found in your team.</p>
             )}
           </div>
 

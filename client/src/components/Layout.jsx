@@ -233,7 +233,18 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
 
   const page = new URLSearchParams(window.location.search).get('page') || (user?.role === 'executive' ? 'work' : 'overview');
   
-  const getDisplayPage = (p) => p.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  // Slugs whose title-cased form reads wrong. 'executives' is the stored role
+  // showing through — the URL keeps it, the breadcrumb must not.
+  const PAGE_LABELS = {
+    executives: 'District Managers',
+    'reports-v2': 'Reports',
+    sop: 'SOP',
+    'my-sop': 'My SOP',
+    'team-sop': 'Team SOP',
+  };
+
+  const getDisplayPage = (p) => PAGE_LABELS[p]
+    || p.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
   const dynamicTitle = isExecutive ? (
     page === 'overview' ? 'Overview' :

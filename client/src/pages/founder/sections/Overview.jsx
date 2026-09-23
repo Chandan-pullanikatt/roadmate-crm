@@ -371,7 +371,7 @@ const Overview = () => {
           </div>
           <div className="flex-1">
             <div className="text-sm font-bold text-red">Unallocated Leads</div>
-            <div className="text-[14px] text-text-muted mt-0.5">{unallocatedCount} lead{unallocatedCount !== 1 ? 's' : ''} have no executive assigned — click to allocate</div>
+            <div className="text-[14px] text-text-muted mt-0.5">{unallocatedCount} lead{unallocatedCount !== 1 ? 's' : ''} have no district manager assigned — click to allocate</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { roleLabel } from '../../utils/roleLabel';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../../api/dashboardApi';
 import { usersApi } from '../../api/usersApi';
@@ -359,7 +360,7 @@ const DashboardLayout = ({
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="user-name" style={{ fontWeight: 700, fontSize: '14px' }}>{userName}</div>
-                <div className="user-role" style={{ fontSize: '11px', fontWeight: 500 }}>{userRole?.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} · {stateName}</div>
+                <div className="user-role" style={{ fontSize: '11px', fontWeight: 500 }}>{roleLabel(userRole)} · {stateName}</div>
               </div>
               <svg className={`chevron ${isUserDropdownOpen ? 'open' : ''}`} width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto' }}>
                 <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -474,7 +475,7 @@ const DashboardLayout = ({
                                   </div>
                                   <div>
                                     <div className="text-[13px] font-bold">{member.name}</div>
-                                    <div className="text-[13px] text-text-muted font-medium capitalize">{member.role.replace('_', ' ')}</div>
+                                    <div className="text-[13px] text-text-muted font-medium">{roleLabel(member.role)}</div>
                                   </div>
                                 </div>
                               ))}

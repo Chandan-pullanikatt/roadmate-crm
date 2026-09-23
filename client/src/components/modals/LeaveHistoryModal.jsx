@@ -1,4 +1,5 @@
 import React from 'react';
+import { roleLabel } from '../../utils/roleLabel';
 import { useQuery } from '@tanstack/react-query';
 import { Modal, Tag, Avatar, DashboardSkeleton } from '../ui';
 import { leaveApi } from '../../api/leaveApi';
@@ -34,7 +35,7 @@ const LeaveHistoryModal = ({ isOpen, onClose, user }) => {
           <div className="flex-1">
             <div className="text-[16px] font-bold text-text-primary">{user.name}</div>
             <div className="text-[14px] text-text-muted uppercase tracking-wider font-bold">
-              {user.role?.replace('_', ' ')} · {user.state}
+              {roleLabel(user.role)} · {user.state}
             </div>
           </div>
           <div className="flex gap-6 pr-4 border-l border-border pl-8">

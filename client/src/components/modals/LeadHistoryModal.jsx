@@ -1,4 +1,5 @@
 import React from 'react';
+import { roleLabel } from '../../utils/roleLabel';
 import { useQuery } from '@tanstack/react-query';
 import { Modal } from '../ui';
 import { leadsApi } from '../../api/leadsApi';
@@ -74,7 +75,7 @@ const LeadHistoryModal = ({ isOpen, onClose, leadId, leadName }) => {
                     {a.performedBy?.name && (
                       <div className="text-[12px] text-text-muted mt-1.5 font-medium">
                         By {a.performedBy.name}
-                        {a.performedBy.role && ` · ${a.performedBy.role.replace(/_/g, ' ')}`}
+                        {a.performedBy.role && ` · ${roleLabel(a.performedBy.role)}`}
                       </div>
                     )}
                   </div>

@@ -46,7 +46,7 @@ const ExecutiveDetail = () => {
   if (isLoading) return <DashboardSkeleton />;
   if (error) return (
     <div className="p-8 text-center">
-      <h2 className="text-xl font-bold text-red-500">Error loading executive details</h2>
+      <h2 className="text-xl font-bold text-red-500">Error loading district manager details</h2>
       <p className="text-text-muted mt-2 text-[16px]">{error?.message || 'Please try again later.'}</p>
       <Button className="mt-4" onClick={() => navigate('/dashboard?page=executives')}>Back to List</Button>
     </div>
@@ -228,7 +228,7 @@ const ExecutiveDetail = () => {
               ))}
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="p-12 text-center text-text-muted italic">No leads assigned to this executive.</td>
+                  <td colSpan="4" className="p-12 text-center text-text-muted italic">No leads assigned to this district manager.</td>
                 </tr>
               )}
             </tbody>
@@ -354,7 +354,7 @@ const ExecutiveDetail = () => {
           ))}
           {(!user.documents || user.documents.length === 0) && (
             <div className="col-span-full p-12 text-center text-text-muted italic bg-white rounded-2xl border border-border border-dashed">
-              No documents uploaded for this executive.
+              No documents uploaded for this district manager.
             </div>
           )}
         </div>

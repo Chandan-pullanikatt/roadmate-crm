@@ -106,7 +106,7 @@ const StaffDocs = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">Staff Documents · {userInfo.industry} District Managers</h2>
-          <p className="text-[14px] text-text-muted">Upload, view & manage executive documents</p>
+          <p className="text-[14px] text-text-muted">Upload, view & manage district manager documents</p>
         </div>
         <Tag variant="purple" label={`${filteredExecutives.length} Staff`} className="font-black px-5" />
       </div>
@@ -195,7 +195,7 @@ const StaffDocs = () => {
           ))}
 
           {filteredExecutives.length === 0 && (
-            <div className="text-center text-[16px] text-text-muted py-10">No executives match this search.</div>
+            <div className="text-center text-[16px] text-text-muted py-10">No district managers match this search.</div>
           )}
         </div>
       </div>

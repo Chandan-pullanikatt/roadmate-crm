@@ -24,6 +24,7 @@ import EditLeadDetailsModal from './modals/EditLeadDetailsModal';
 import LeavePolicyModal from './modals/LeavePolicyModal';
 import ConfirmTargetModal from './modals/ConfirmTargetModal';
 import { PHONE_CODES, dialCodeFor } from '../data/phoneCodes';
+import { roleLabel } from '../utils/roleLabel';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 const toDateInputValue = (date = new Date()) => {
@@ -1445,7 +1446,7 @@ const GlobalModals = () => {
                   <div className="flex-1">
                     <div className="text-sm font-bold text-text-primary">{leave.user?.name}</div>
                     <div className="text-[12px] text-text-muted">
-                      {[leave.user?.role?.replace(/_/g, ' '), leave.user?.state, leave.user?.industry].filter(Boolean).join(' · ')}
+                      {[leave.user?.role && roleLabel(leave.user.role), leave.user?.state, leave.user?.industry].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   <Tag variant="amber">Pending</Tag>

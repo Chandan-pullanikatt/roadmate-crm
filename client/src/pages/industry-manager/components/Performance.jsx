@@ -50,7 +50,7 @@ const Performance = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Staff Performance</h1>
-          <p className="text-[16px] text-text-muted">Industry Manager · {userInfo.industry} · All executives</p>
+          <p className="text-[16px] text-text-muted">Industry Manager · {userInfo.industry} · All district managers</p>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ const Performance = () => {
           fallbackState={userInfo.state}
           showDistrict
           sortable
-          emptyMessage="No executives found"
+          emptyMessage="No district managers found"
           renderActions={(exec) => (
             <Tag
               variant={exec.isWorking ? 'green' : 'amber'}

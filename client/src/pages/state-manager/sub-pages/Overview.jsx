@@ -163,7 +163,7 @@ const Overview = () => {
         <div>
           <h1 className="text-[22px] font-bold text-text-primary">State Manager Dashboard</h1>
           <p className="text-[15px] text-text-muted mt-0.5">
-            {user.state} · Full state overview · Industry managers & executives
+            {user.state} · Full state overview · Industry managers & district managers
           </p>
         </div>
         <div className="flex items-center gap-3">

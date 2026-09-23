@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 const reportCards = [
   { type: 'leads',       title: 'Lead Report',          sub: 'All leads · Status · Conversion',     icon: '📊' },
   { type: 'performance', title: 'Staff Performance',     sub: 'Daily · Weekly · Monthly',            icon: '📈' },
-  { type: 'revenue',     title: 'Revenue Report',        sub: 'By executive · By district',          icon: '💰' },
+  { type: 'revenue',     title: 'Revenue Report',        sub: 'By district manager · By district',          icon: '💰' },
   { type: 'attendance',  title: 'Attendance Report',     sub: 'Work % · Half days · Leaves',         icon: '📅' },
   { type: 'salary',      title: 'Salary Report',         sub: 'Basic · Incentives · Leaves',         icon: '💼' },
   { type: 'rnr',         title: 'RNR & Reallocation',   sub: 'Auto-reallocation history',           icon: '🔀' },

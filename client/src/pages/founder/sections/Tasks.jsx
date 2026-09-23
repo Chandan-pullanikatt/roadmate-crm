@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { roleLabel } from '../../../utils/roleLabel';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '../../../api/tasksApi';
 import { usersApi } from '../../../api/usersApi';
@@ -134,7 +135,7 @@ const Tasks = () => {
                   <select className="select" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} required>
                     <option value={selfId}>Myself</option>
                     {allUsers.filter(u => u._id !== selfId && u.isActive !== false && (ROLE_RANK[u.role] || 0) < (ROLE_RANK[user?.role] || 0)).map(u => (
-                      <option key={u._id} value={u._id}>{u.name} — {u.role?.replace(/_/g, ' ')}</option>
+                      <option key={u._id} value={u._id}>{u.name} — {roleLabel(u.role)}</option>
                     ))}
                   </select>
                   )}
@@ -220,7 +221,7 @@ const Tasks = () => {
                   </div>
                   {task.description && <p className="text-[14px] text-text-muted mb-2 line-clamp-2">{task.description}</p>}
                   <div className="flex items-center gap-4 text-[13px] text-text-muted flex-wrap">
-                    <span>👤 <strong className="text-text-secondary">{task.assignedTo?.name}</strong> ({task.assignedTo?.role?.replace(/_/g, ' ')})</span>
+                    <span>👤 <strong className="text-text-secondary">{task.assignedTo?.name}</strong> ({roleLabel(task.assignedTo?.role)})</span>
                     <span>📅 {fmt(task.startDate)} → {fmt(task.endDate)}</span>
                     <span>⏱ {task.startTime} – {task.endTime}</span>
                     <span>By: {task.assignedBy?.name}</span>

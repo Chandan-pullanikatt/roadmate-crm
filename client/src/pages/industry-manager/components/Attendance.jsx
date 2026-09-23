@@ -75,7 +75,7 @@ const Attendance = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Attendance</h1>
-          <p className="text-[16px] text-text-muted">Work %, leaves, salary - All executives</p>
+          <p className="text-[16px] text-text-muted">Work %, leaves, salary - All district managers</p>
         </div>
         <div className="flex items-center gap-3">
             <div className="relative">
@@ -239,7 +239,7 @@ const Attendance = () => {
               ))}
               {executives.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-8 py-16 text-center text-text-muted italic">No executives found</td>
+                  <td colSpan={10} className="px-8 py-16 text-center text-text-muted italic">No district managers found</td>
                 </tr>
               )}
             </tbody>
