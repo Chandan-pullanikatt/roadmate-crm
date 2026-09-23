@@ -172,7 +172,7 @@ const Targets = () => {
 
         {teamTargets.length === 0 ? (
           <div className="p-16 text-center text-text-muted italic">
-            No {period} targets set for {label}. Use the form above to assign.
+            No {period} targets set for {label}{isFounder ? ' by anyone' : ' in your team'}. Use the form above to assign.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -180,6 +180,7 @@ const Targets = () => {
               <thead>
                 <tr className="bg-surface2/30 border-b border-border text-[12px] font-black uppercase tracking-widest text-text-muted">
                   <th className="p-4">Staff</th>
+                  <th className="p-4">Set By</th>
                   {TARGET_METRICS.map(m => <th key={m.key} className="p-4">{m.label}</th>)}
                   <th className="p-4 text-center">Overall</th>
                 </tr>
@@ -194,6 +195,12 @@ const Targets = () => {
                       <td className="p-4">
                         <div className="font-bold text-[13px]">{t.user?.name || 'Unknown'}{t.user?._id === user?._id && ' (You)'}</div>
                         <div className="text-[12px] text-text-muted capitalize">{t.user?.role?.replace(/_/g, ' ') || ''}</div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-[13px] font-semibold">
+                          {t.assignedBy?._id === user?._id ? 'You' : (t.assignedBy?.name || '—')}
+                        </div>
+                        <div className="text-[12px] text-text-muted capitalize">{t.assignedBy?.role?.replace(/_/g, ' ') || ''}</div>
                       </td>
                       {TARGET_METRICS.map((m, i) => (
                         <td key={m.key} className="p-4 min-w-[160px]">

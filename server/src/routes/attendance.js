@@ -128,6 +128,47 @@ router.get('/summary/:userId', async (req, res) => {
  * GET /api/attendance/team - Get team attendance (State Manager view)
  * Accepts: date (single day), fromDate+toDate (range), or period (today/week/month/year)
  */
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+/** 'YYYY-MM-DD' in local time, so a day is counted once however it is recorded. */
+const dayKey = (d) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${x.getMonth() + 1}-${x.getDate()}`;
+};
+
+/**
+ * The days a person was on leave inside [start, end], as a set of day keys.
+ *
+ * Two sources, unioned, because either can exist without the other: a day is
+ * marked leave on the attendance register itself (which is what drives the
+ * STATUS column, and how salaryService counts leave), and an approved Leave
+ * request covers a date span that may have no register row at all. Counting
+ * only the requests produced rows reading "ON LEAVE" beside "Leaves: 0".
+ *
+ * Clipped to the range: the register is period-filtered, so a leave running
+ * 28 Sep - 3 Oct is 3 days in September, not 6. Leave.days holds the length of
+ * the whole request, which is right for a quota check (routes/leave.js) but not
+ * for a column headed by a period.
+ */
+const leaveDayKeys = (attendances, leaveRequests, start, end) => {
+  const atMidnight = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const keys = new Set();
+
+  attendances
+    .filter(a => a.status === 'leave')
+    .forEach(a => keys.add(dayKey(a.date)));
+
+  leaveRequests.forEach(l => {
+    const from = atMidnight(l.fromDate > start ? l.fromDate : start);
+    const to   = atMidnight(l.toDate   < end   ? l.toDate   : end);
+    for (let d = from; d <= to; d = new Date(d.getTime() + DAY_MS)) {
+      keys.add(dayKey(d));
+    }
+  });
+
+  return keys;
+};
+
 router.get('/team', async (req, res) => {
   try {
     const { date, fromDate, toDate, period } = req.query;
@@ -179,7 +220,9 @@ router.get('/team', async (req, res) => {
     const results = users.map(u => {
       const uid = u._id.toString();
       const userAtts = attendance.filter(a => a.user?._id.toString() === uid);
-      const userLeave = leaves.find(l => l.user?._id.toString() === uid);
+      const userLeaves = leaves.filter(l => l.user?._id.toString() === uid);
+      const userLeave = userLeaves[0];
+      const leaveDays = leaveDayKeys(userAtts, userLeaves, rangeStart, rangeEnd).size;
       const latest = userAtts.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
       const avgWorkPct = userAtts.length
@@ -196,6 +239,7 @@ router.get('/team', async (req, res) => {
         startTime: latest?.workStartedAt ? new Date(latest.workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
         workPercentage: avgWorkPct,
         completionPct: avgCompletionPct,
+        leaveDays,
         note: latest?.note || (userLeave ? `On Leave: ${userLeave.reason}` : null)
       };
     });

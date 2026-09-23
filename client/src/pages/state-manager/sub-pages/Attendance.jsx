@@ -38,9 +38,9 @@ const Attendance = () => {
 
   const handleExport = () => {
     if (!attendanceRecords || attendanceRecords.length === 0) return;
-    const headers = "Name,Role,Status,InTime,WorkPct,AttendancePct\n";
+    const headers = "Name,Role,Status,InTime,WorkPct,Leaves,AttendancePct\n";
     const rows = attendanceRecords.map(a => 
-      `${a.user?.name},${a.user?.role},${a.status},${a.startTime || 'N/A'},${a.workPercentage}%,${a.completionPct}%`
+      `${a.user?.name},${a.user?.role},${a.status},${a.startTime || 'N/A'},${a.workPercentage}%,${a.leaveDays || 0},${a.completionPct}%`
     ).join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -147,7 +147,7 @@ const Attendance = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="mono text-[14px] font-black text-text-secondary">2</span>
+                    <span className="mono text-[14px] font-black text-text-secondary">{r.leaveDays || 0}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className="mono text-[15px] font-black text-text-secondary">{r.completionPct || 0}%</span>

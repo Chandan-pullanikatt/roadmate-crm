@@ -4,6 +4,7 @@ const Target = require('../models/Target');
 const LeadActivity = require('../models/LeadActivity');
 const { verifyToken } = require('../middleware/auth');
 const { currentKey, normalizeKey, rangeFor } = require('../utils/targetPeriod');
+const { getScopeOwnerIds } = require('../utils/hierarchy');
 
 // Protect all routes
 router.use(verifyToken);
@@ -79,8 +80,14 @@ router.get('/my-targets', async (req, res) => {
   }
 });
 
+const ROLE_ORDER = { founder: 0, state_manager: 1, industry_manager: 2, executive: 3 };
+
 /**
- * GET /api/targets/team - Targets this user assigned for a period, with progress
+ * GET /api/targets/team - Targets for everyone in this user's reporting tree
+ *
+ * Scoped by the hierarchy (getScopeOwnerIds), NOT by who assigned the target, so
+ * a founder sees the targets their state and industry managers set for their own
+ * teams, and a manager still sees a target a founder set for one of their staff.
  */
 router.get('/team', async (req, res) => {
   try {
@@ -88,9 +95,23 @@ router.get('/team', async (req, res) => {
     const period = readPeriod(req.query);
     if (!period) return res.status(400).json({ message: 'Invalid target period.' });
 
-    const targets = await Target.find({ assignedBy: req.user._id, ...period }).populate('user', 'name role').lean();
-    const achieved = await achievedFor(targets.map(t => t.user?._id).filter(Boolean), period);
-    res.json(targets.map(t => ({ ...t, achieved: achieved.get(String(t.user?._id)) || EMPTY })));
+    const scopeIds = await getScopeOwnerIds(req.user); // null = founder, no restriction
+    const query = { ...period };
+    if (scopeIds) query.user = { $in: scopeIds };
+
+    const targets = await Target.find(query)
+      .populate('user', 'name role')
+      .populate('assignedBy', 'name role')
+      .lean();
+
+    // A target whose staff member has since been deleted has nothing to show
+    const visible = targets.filter(t => t.user);
+    visible.sort((a, b) =>
+      (ROLE_ORDER[a.user.role] ?? 9) - (ROLE_ORDER[b.user.role] ?? 9) ||
+      String(a.user.name || '').localeCompare(String(b.user.name || '')));
+
+    const achieved = await achievedFor(visible.map(t => t.user._id), period);
+    res.json(visible.map(t => ({ ...t, achieved: achieved.get(String(t.user._id)) || EMPTY })));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -117,6 +138,10 @@ router.post('/assign', async (req, res) => {
     );
     res.json(target);
   } catch (err) {
+    // A stale unique index on the collection surfaces here as a raw driver error
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'A target for this person and period already exists. Reload the page and try again.' });
+    }
     res.status(400).json({ message: err.message });
   }
 });
