@@ -22,6 +22,7 @@ import SendNotificationModal from './modals/SendNotificationModal';
 import ViewLeadModal from './modals/ViewLeadModal';
 import EditLeadDetailsModal from './modals/EditLeadDetailsModal';
 import LeavePolicyModal from './modals/LeavePolicyModal';
+import ConfirmTargetModal from './modals/ConfirmTargetModal';
 import { PHONE_CODES, dialCodeFor } from '../data/phoneCodes';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
@@ -140,6 +141,7 @@ const GlobalModals = () => {
     conversions: 0
   });
   const [targetState, setTargetState] = useState(emptyTargetState);
+  const [targetConfirm, setTargetConfirm] = useState(null);
   const [myLeads, setMyLeads] = useState([]);
   const [scheduleFormData, setScheduleFormData] = useState({
     leadId: '',
@@ -675,12 +677,28 @@ const GlobalModals = () => {
     }
   };
 
-  const handleTargetSubmit = async (e) => {
+  // The server upserts, so saving can silently replace a target already set
+  // for this period. Confirm first, showing what is about to change.
+  const handleTargetSubmit = (e) => {
     e.preventDefault();
+    const periodKey = currentPeriodKey(targetState.period);
+    // Populated whenever the Targets page has been opened this session; the
+    // modal falls back to a plain "will be replaced" note when it has not.
+    const cached = queryClient.getQueryData(['targets', 'team', targetState.period, periodKey]);
+    setTargetConfirm({
+      periodKey,
+      existing: Array.isArray(cached)
+        ? cached.find(t => String(t.user?._id) === String(targetState.userId))
+        : undefined,
+    });
+  };
+
+  const confirmTargetSubmit = async () => {
     setLoading(true);
     try {
-      await targetsApi.assignTarget({ ...targetState, periodKey: currentPeriodKey(targetState.period) });
+      await targetsApi.assignTarget({ ...targetState, periodKey: targetConfirm.periodKey });
       addToast('Target assigned successfully!', 'success');
+      setTargetConfirm(null);
       setActiveModal(null);
       queryClient.invalidateQueries({ queryKey: ['targets'] });
     } catch (err) {
@@ -2013,6 +2031,17 @@ const GlobalModals = () => {
         setTargetState={setTargetState}
         onSubmit={handleTargetSubmit}
         loading={loading}
+      />
+      <ConfirmTargetModal
+        isOpen={!!targetConfirm}
+        staffName={targetState.name}
+        period={targetState.period}
+        periodKey={targetConfirm?.periodKey}
+        values={targetState}
+        existing={targetConfirm?.existing}
+        loading={loading}
+        onConfirm={confirmTargetSubmit}
+        onCancel={() => setTargetConfirm(null)}
       />
       <ScheduleMeetingModal
         isOpen={activeModal === 'schedule-meeting'}

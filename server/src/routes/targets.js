@@ -146,4 +146,31 @@ router.post('/assign', async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/targets/:id - Remove a target for a period
+ *
+ * Scoped like GET /team: a founder can clear anyone's target, a manager only
+ * one belonging to their own reporting subtree. Nothing else is deleted — the
+ * achievement figures are read from lead activity, so removing a target only
+ * takes the goal away.
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    if (req.user.role === 'executive') return res.status(403).json({ message: 'Forbidden' });
+
+    const target = await Target.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'That target no longer exists.' });
+
+    const scopeIds = await getScopeOwnerIds(req.user); // null = founder, no restriction
+    if (scopeIds && !scopeIds.some(id => String(id) === String(target.user))) {
+      return res.status(403).json({ message: 'That target belongs to someone outside your team.' });
+    }
+
+    await target.deleteOne();
+    res.json({ message: 'Target removed.' });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 module.exports = router;

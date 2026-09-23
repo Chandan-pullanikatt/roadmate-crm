@@ -65,7 +65,8 @@ const Attendance = () => {
       Absent: item.absent || 0,
       'Half Day': item.halfDay || 0,
       Leave: item.leave || 0,
-      'Work %': (item.avgWorkPct || 0) + '%',
+      'Work %': item.completedDays > 0 ? (item.avgWorkPct || 0) + '%' : 'Not scored',
+      Status: item.onLeave ? 'On Leave' : 'Working',
     }));
     exportToCSV(exportData, `Attendance_${getMonthName(month)}_${year}`);
   };
@@ -208,19 +209,23 @@ const Attendance = () => {
                         : <span className="text-[13px] text-text-muted">—</span>}
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-surface2 rounded-full overflow-hidden max-w-[80px]">
-                          <div 
-                            className={`h-full rounded-full ${row.avgWorkPct > 80 ? 'bg-[#0f766e]' : row.avgWorkPct > 50 ? 'bg-orange' : 'bg-red'}`} 
-                            style={{ width: `${row.avgWorkPct}%` }}
-                          ></div>
+                      {row.completedDays > 0 ? (
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-1.5 bg-surface2 rounded-full overflow-hidden max-w-[80px]">
+                            <div
+                              className={`h-full rounded-full ${row.avgWorkPct > 80 ? 'bg-[#0f766e]' : row.avgWorkPct > 50 ? 'bg-orange' : 'bg-red'}`}
+                              style={{ width: `${row.avgWorkPct}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-[12px] font-bold">{Math.round(row.avgWorkPct)}%</span>
                         </div>
-                        <span className="text-[12px] font-bold">{Math.round(row.avgWorkPct)}%</span>
-                      </div>
+                      ) : (
+                        <span className="text-[13px] text-text-muted" title="Scored once a day's work is marked complete">—</span>
+                      )}
                     </td>
                     <td className="p-4">
-                      <Tag variant={row.avgWorkPct > 80 ? 'success' : row.avgWorkPct > 50 ? 'warning' : 'danger'} size="sm">
-                        {row.avgWorkPct > 80 ? 'Active' : row.avgWorkPct > 50 ? 'Half Day' : 'Inactive'}
+                      <Tag variant={row.onLeave ? 'amber' : 'green'}>
+                        {row.onLeave ? 'On Leave' : 'Working'}
                       </Tag>
                     </td>
                   </tr>

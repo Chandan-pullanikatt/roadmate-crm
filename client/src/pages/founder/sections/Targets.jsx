@@ -5,6 +5,8 @@ import { usersApi } from '../../../api/usersApi';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 import { TARGET_METRICS, monthKey, currentPeriodKey, shiftWeek, periodLabel } from '../../../utils/targetPeriod';
+import ConfirmTargetModal from '../../../components/modals/ConfirmTargetModal';
+import { Button } from '../../../components/ui';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 
@@ -41,6 +43,8 @@ const Targets = () => {
   const [weekKey, setWeekKey] = useState(currentPeriodKey('weekly'));
   const [assignForm, setAssignForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const periodKey = period === 'weekly' ? weekKey : monthKey(year, month);
   const label = periodLabel(period, periodKey);
@@ -64,19 +68,55 @@ const Targets = () => {
     ? u.role !== 'founder'
     : String(u.reportingTo?._id || u.reportingTo) === String(user?._id));
 
-  const handleAssign = async (e) => {
+  // The server upserts, so saving can silently replace a target already set
+  // for this period. Confirm first, showing what is about to change.
+  const handleAssign = (e) => {
     e.preventDefault();
     if (!assignForm.userId) return;
+    const selected = String(assignForm.userId) === String(user?._id)
+      ? user
+      : staff.find(u => String(u._id) === String(assignForm.userId));
+    setConfirming({
+      values: assignForm,
+      staffName: selected?.name,
+      existing: teamTargets.find(t => String(t.user?._id) === String(assignForm.userId)),
+    });
+  };
+
+  const confirmAssign = async () => {
     setSaving(true);
     try {
-      await targetsApi.assignTarget({ ...assignForm, period, periodKey });
+      await targetsApi.assignTarget({ ...confirming.values, period, periodKey });
       addToast(`${periodWord} target saved for ${label}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['targets'] });
       setAssignForm(EMPTY_FORM);
+      setConfirming(null);
     } catch (err) {
       addToast(err.response?.data?.message || 'Could not save the target', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Clearing a target removes the goal only — achievement is counted from lead
+  // activity, so the figures in the table are untouched.
+  const handleDelete = async (target) => {
+    const name = target.user?.name || 'this staff member';
+    const ok = window.confirm(
+      `Remove the ${periodWord.toLowerCase()} target for ${name} (${label})?
+
+Their recorded meetings, blockings and conversions are not affected.`
+    );
+    if (!ok) return;
+    setDeletingId(target._id);
+    try {
+      await targetsApi.deleteTarget(target._id);
+      addToast(`Target removed for ${name}`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['targets'] });
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Could not remove the target', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -183,6 +223,7 @@ const Targets = () => {
                   <th className="p-4">Set By</th>
                   {TARGET_METRICS.map(m => <th key={m.key} className="p-4">{m.label}</th>)}
                   <th className="p-4 text-center">Overall</th>
+                  {isFounder && <th className="p-4 text-center">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -218,6 +259,19 @@ const Targets = () => {
                           </div>
                         </div>
                       </td>
+                      {isFounder && (
+                        <td className="p-4 text-center">
+                          <Button
+                            size="2xs"
+                            variant="outline"
+                            className="bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 font-bold"
+                            loading={deletingId === t._id}
+                            onClick={() => handleDelete(t)}
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -226,6 +280,17 @@ const Targets = () => {
           </div>
         )}
       </div>
+      <ConfirmTargetModal
+        isOpen={!!confirming}
+        staffName={confirming?.staffName}
+        period={period}
+        periodKey={periodKey}
+        values={confirming?.values || {}}
+        existing={confirming?.existing}
+        loading={saving}
+        onConfirm={confirmAssign}
+        onCancel={() => setConfirming(null)}
+      />
     </div>
   );
 };

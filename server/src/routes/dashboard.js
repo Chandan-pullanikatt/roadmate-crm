@@ -2358,17 +2358,34 @@ router.get('/reports/attendance-summary', async (req, res) => {
                 absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
                 halfDay: { $sum: { $cond: [{ $eq: ['$status', 'half_day'] }, 1, 0] } },
                 leave: { $sum: { $cond: [{ $eq: ['$status', 'leave'] }, 1, 0] } },
-                avgWorkPct: { $avg: '$completionPct' },
+                // Work % is only meaningful once the day has been completed —
+                // a day that was started and never completed sits at 0 and
+                // would otherwise drag the average down. $avg skips nulls.
+                avgWorkPct: { $avg: { $cond: [{ $ifNull: ['$workCompletedAt', false] }, '$completionPct', null] } },
+                completedDays: { $sum: { $cond: [{ $ifNull: ['$workCompletedAt', false] }, 1, 0] } },
                 wfhDays: { $sum: { $cond: ['$isWFH', 1, 0] } },
                 avgLateMinutes: { $avg: '$lateLoginMinutes' },
                 avgEarlyExitMinutes: { $avg: '$earlyExitMinutes' }
             }}
         ]);
 
+        // Who is on leave right now. Read from approved leave requests, not from
+        // the attendance register: a register row reads 'leave' when the day's
+        // work came in under the threshold, which is not the same as being away.
+        const today = new Date();
+        const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(today); todayEnd.setHours(23, 59, 59, 999);
+        const onLeaveIds = new Set((await Leave.find({
+            user: { $in: userIds },
+            status: 'approved',
+            fromDate: { $lte: todayEnd },
+            toDate: { $gte: todayStart }
+        }).select('user').lean()).map(l => String(l.user)));
+
         const data = users.map(u => {
             const stats = summary.find(s => s._id.toString() === u._id.toString()) || {
                 present: 0, absent: 0, halfDay: 0, leave: 0, avgWorkPct: 0,
-                wfhDays: 0, avgLateMinutes: 0, avgEarlyExitMinutes: 0
+                wfhDays: 0, avgLateMinutes: 0, avgEarlyExitMinutes: 0, completedDays: 0
             };
             return {
                 user: u,
@@ -2377,6 +2394,10 @@ router.get('/reports/attendance-summary', async (req, res) => {
                 halfDay: stats.halfDay,
                 leave: stats.leave,
                 avgWorkPct: Math.round(stats.avgWorkPct || 0),
+                // Days the work was actually completed, so the client can tell
+                // "0%" apart from "no completed day to score yet".
+                completedDays: stats.completedDays || 0,
+                onLeave: onLeaveIds.has(String(u._id)),
                 wfhDays: stats.wfhDays || 0,
                 avgLateMinutes: Math.round(stats.avgLateMinutes || 0),
                 avgEarlyExitMinutes: Math.round(stats.avgEarlyExitMinutes || 0)
