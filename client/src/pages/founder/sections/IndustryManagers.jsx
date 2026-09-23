@@ -14,7 +14,7 @@ const EMPTY_PERF = { workPct: 0, leads: 0, periodLeads: 0, directMeetings: 0, vi
 const IndustryManagers = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const picker = usePeriod('today');
+  const picker = usePeriod('month');
   const { period, value: periodValue } = picker;
   const [filterState, setFilterState] = useState('All');
   const [showInactive, setShowInactive] = useState(false);

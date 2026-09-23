@@ -126,7 +126,7 @@ router.get('/summary/:userId', async (req, res) => {
  */
 /**
  * GET /api/attendance/team - Get team attendance (State Manager view)
- * Accepts: date (single day), fromDate+toDate (range), or period (today/week/month)
+ * Accepts: date (single day), fromDate+toDate (range), or period (today/week/month/year)
  */
 router.get('/team', async (req, res) => {
   try {
@@ -152,6 +152,9 @@ router.get('/team', async (req, res) => {
     } else if (period === 'month') {
       rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
       rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (period === 'year') {
+      rangeStart = new Date(now.getFullYear(), 0, 1);
+      rangeEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
     } else {
       // Single day (default: today or provided date)
       const targetDate = date ? new Date(date) : new Date();
@@ -182,6 +185,9 @@ router.get('/team', async (req, res) => {
       const avgWorkPct = userAtts.length
         ? Math.round(userAtts.reduce((sum, a) => sum + (a.workPercentage || 0), 0) / userAtts.length)
         : 0;
+      const avgCompletionPct = userAtts.length
+        ? Math.round(userAtts.reduce((sum, a) => sum + (a.completionPct || 0), 0) / userAtts.length)
+        : 0;
 
       return {
         _id: latest?._id || `temp-${u._id}`,
@@ -189,7 +195,7 @@ router.get('/team', async (req, res) => {
         status: userLeave ? 'leave' : (latest ? latest.status : 'absent'),
         startTime: latest?.workStartedAt ? new Date(latest.workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
         workPercentage: avgWorkPct,
-        completionPct: latest?.completionPct || 0,
+        completionPct: avgCompletionPct,
         note: latest?.note || (userLeave ? `On Leave: ${userLeave.reason}` : null)
       };
     });

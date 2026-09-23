@@ -15,7 +15,15 @@ const Attendance = () => {
     placeholderData: keepPreviousData
   });
 
-  const periodParam = period === 'This Week' ? { period: 'week' } : period === 'This Month' ? { period: 'month' } : { date: new Date().toISOString().split('T')[0] };
+  // Tab label -> what the /attendance/team endpoint expects. Anything not a
+  // named period falls back to a single day.
+  const PERIOD_TABS = ['Today', 'This Week', 'This Month', 'This Year'];
+  const PERIOD_PARAMS = {
+    'This Week': { period: 'week' },
+    'This Month': { period: 'month' },
+    'This Year': { period: 'year' },
+  };
+  const periodParam = PERIOD_PARAMS[period] || { date: new Date().toISOString().split('T')[0] };
 
   const { data: attendanceRecords, isLoading } = useQuery({
     queryKey: ['attendance', 'state-team', period],
@@ -84,7 +92,7 @@ const Attendance = () => {
         <div className="card-header border-b border-border bg-surface2/5 flex justify-between items-center px-6 py-4">
           <div className="section-title text-[15px]">Attendance Register</div>
           <div className="flex bg-surface2 p-1 rounded-lg border border-border">
-             {['Today', 'This Week', 'This Month'].map(t => (
+             {PERIOD_TABS.map(t => (
                <button 
                  key={t} 
                  className={`px-4 py-1 text-[13px] font-bold uppercase rounded-md transition-all ${period === t ? 'bg-white shadow-sm text-blue' : 'text-text-muted hover:text-text'}`}

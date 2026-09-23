@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../../../api/dashboardApi';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
@@ -43,6 +44,7 @@ const optionsFor = (period) => {
 const PREVIOUS_LABEL = { today: 'yesterday', week: 'previous week', month: 'previous month', quarter: 'previous quarter', year: 'previous year' };
 
 const RevenueDashboard = () => {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState('month');
   const [periodValue, setPeriodValue] = useState(() => currentValueFor('month'));
 
@@ -292,7 +294,13 @@ const RevenueDashboard = () => {
                        {new Date(rev.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-8 py-5 text-right">
-                       <button className="text-[11px] font-bold text-blue hover:underline">View Lead {"\u2192"}</button>
+                       <button
+                         className="text-[11px] font-bold text-blue hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-default"
+                         disabled={!rev.lead}
+                         onClick={() => rev.lead && navigate(`/leads/${rev.lead}`)}
+                       >
+                         View Lead {"\u2192"}
+                       </button>
                     </td>
                   </tr>
                 ))}

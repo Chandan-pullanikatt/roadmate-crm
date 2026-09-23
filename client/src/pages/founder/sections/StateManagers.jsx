@@ -17,7 +17,7 @@ const StateManagers = () => {
   const navigate = useNavigate();
   const [filterState, setFilterState] = useState('All');
   const [showInactive, setShowInactive] = useState(false);
-  const picker = usePeriod('today');
+  const picker = usePeriod('month');
   const { period, value: periodValue } = picker;
 
   const { data: dashData } = useQuery({

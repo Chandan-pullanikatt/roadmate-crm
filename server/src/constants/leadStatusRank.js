@@ -11,6 +11,10 @@
  * Converted sits above Agreement Signed: it is only reached once both the full
  * amount and the signature are in.
  *
+ * Direct and Virtual are ranked against each other only so a meeting that is
+ * upgraded to in-person reads as progress. They are still one stage, so moving
+ * between the two is always allowed — see SAME_STAGE below.
+ *
  * Not Interested (rank 0) is the exception: it can be chosen at any time and
  * left at any time. Lost is a closing outcome and behaves the same way. Leaving
  * either returns the lead to its peak if the new choice ranks lower.
@@ -34,6 +38,21 @@ const STATUS_RANK = {
 /** Statuses that ignore the lock in both directions. */
 const LOCK_EXEMPT = new Set(['not_interested', 'lost']);
 
+/**
+ * Groups of statuses that are the same step in different forms. Virtual and
+ * Direct are a *kind* of meeting, not a step forward: a meeting gets moved
+ * online or in person all the time, so re-scheduling one as the other is a
+ * sideways move the lock must allow in both directions.
+ *
+ * Without this the ranks alone decided it, and since Direct (5) outranks
+ * Virtual (7) the lock silently kept a Direct lead on Direct — the update
+ * saved and reported success, but the lead never left the Direct Meeting card.
+ */
+const SAME_STAGE = [new Set(['meeting_virtual', 'meeting_direct'])];
+
+/** True if `a` and `b` are two forms of the same pipeline stage. */
+const isSameStage = (a, b) => !!a && !!b && SAME_STAGE.some(g => g.has(a) && g.has(b));
+
 const rankOf = (status) => STATUS_RANK[status] ?? Infinity;
 
 /** The best-ranked status this lead has ever reached, or null. */
@@ -50,6 +69,9 @@ const peakOf = (lead) => {
 const resolveStatus = (lead, next) => {
   const peak = peakOf(lead);
   if (LOCK_EXEMPT.has(next)) return { status: next, peakStatus: peak };
+  // Swapping between two forms of the same stage is never a step back, so it
+  // moves the peak with it — otherwise the lock would refuse the way back.
+  if (isSameStage(peak, next)) return { status: next, peakStatus: next };
   if (peak && rankOf(peak) <= rankOf(next)) return { status: peak, peakStatus: peak };
   return { status: next, peakStatus: next in STATUS_RANK ? next : peak };
 };
@@ -62,4 +84,4 @@ const applyStatus = (lead, next) => {
   return lead;
 };
 
-module.exports = { STATUS_RANK, LOCK_EXEMPT, rankOf, peakOf, resolveStatus, applyStatus };
+module.exports = { STATUS_RANK, LOCK_EXEMPT, SAME_STAGE, isSameStage, rankOf, peakOf, resolveStatus, applyStatus };

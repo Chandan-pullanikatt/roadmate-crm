@@ -5,6 +5,23 @@ import { leadsApi } from '../../api/leadsApi';
 import { useQueryClient } from '@tanstack/react-query';
 import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../PaymentAmountField';
 
+const STATUS_OPTIONS = [
+  { value: 'new', label: 'New' },
+  { value: 'followup', label: 'Follow-up' },
+  { value: 'meeting_virtual', label: 'Virtual Meeting' },
+  { value: 'meeting_direct', label: 'Direct Meeting' },
+  { value: 'rnr', label: 'RNR' },
+  { value: 'converted', label: 'Converted' },
+  { value: 'blocking_amount_received', label: 'Blocking Amount Received' },
+  { value: 'full_amount_received', label: 'Full Amount Received' },
+  { value: 'agreement_signed', label: 'Agreement Signed' },
+  { value: 'not_interested', label: 'Not Interested' },
+  { value: 'lost', label: 'Lost' },
+];
+
+const statusLabel = (value) =>
+  STATUS_OPTIONS.find(o => o.value === value)?.label || value;
+
 const PRIORITIES = [
   { id: 'hot',  icon: '🔥', label: 'Hot',  color: '#B45309', bg: '#FEF3C7', border: '#FCD34D', def: 'Interested, budget available, meeting done' },
   { id: 'warm', icon: '☀️', label: 'Warm', color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE', def: 'Interested but undecided' },
@@ -67,8 +84,15 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
         documents: formData.documents
       };
       
-      await leadsApi.updateLead(lead._id, payload);
-      addToast('Lead updated successfully', 'success');
+      const { data: saved } = await leadsApi.updateLead(lead._id, payload);
+      if (saved?.status && saved.status !== formData.status) {
+        addToast(
+          `Saved, but the status stayed ${statusLabel(saved.status)}: a lead cannot move back to ${statusLabel(formData.status)} from a later stage.`,
+          'warning'
+        );
+      } else {
+        addToast('Lead updated successfully', 'success');
+      }
       
       // Invalidate both leads and counts
       queryClient.invalidateQueries({ queryKey: ['leads'] });
@@ -95,17 +119,9 @@ const UpdateLeadModal = ({ isOpen, onClose, lead }) => {
             value={formData.status}
             onChange={(e) => setFormData({...formData, status: e.target.value})}
           >
-            <option value="new">New</option>
-            <option value="followup">Follow-up</option>
-            <option value="meeting_virtual">Virtual Meeting</option>
-            <option value="meeting_direct">Direct Meeting</option>
-            <option value="rnr">RNR</option>
-            <option value="converted">Converted</option>
-            <option value="blocking_amount_received">Blocking Amount Received</option>
-            <option value="full_amount_received">Full Amount Received</option>
-            <option value="agreement_signed">Agreement Signed</option>
-            <option value="not_interested">Not Interested</option>
-            <option value="lost">Lost</option>
+            {STATUS_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
 
