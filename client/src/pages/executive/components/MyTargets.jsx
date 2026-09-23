@@ -72,7 +72,7 @@ const MyTargets = () => {
         <div className="card-header border-b border-border bg-surface2/10 flex-wrap gap-3">
           <div className="section-title text-sm">Set My {periodWord} Target — {label}</div>
           <select
-            className="select w-auto min-w-[150px]"
+            className="select select-inline min-w-[150px]"
             value={period}
             onChange={e => { setPeriod(e.target.value); setForm(EMPTY_FORM); }}
           >

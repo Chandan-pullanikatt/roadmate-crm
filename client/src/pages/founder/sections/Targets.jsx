@@ -121,7 +121,7 @@ Their recorded meetings, blockings and conversions are not affected.`
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
-      <div className="section-header flex-wrap gap-3">
+      <div className="section-header flex-wrap gap-x-6 gap-y-3">
         <div>
           <div className="section-title">Targets &amp; Achievement</div>
           <div className="section-sub">Set monthly or weekly targets for yourself{isFounder ? ' and any staff member' : ' and your team'}, and track live progress</div>
@@ -143,10 +143,10 @@ Their recorded meetings, blockings and conversions are not affected.`
 
           {period === 'monthly' ? (
             <>
-              <select className="select min-w-[110px]" value={month} onChange={e => setMonth(Number(e.target.value))}>
+              <select className="select select-inline min-w-[110px]" value={month} onChange={e => setMonth(Number(e.target.value))}>
                 {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
               </select>
-              <select className="select w-24" value={year} onChange={e => setYear(Number(e.target.value))}>
+              <select className="select select-inline min-w-[92px]" value={year} onChange={e => setYear(Number(e.target.value))}>
                 {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}

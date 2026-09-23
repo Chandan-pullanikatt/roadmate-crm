@@ -839,6 +839,12 @@ body {
   box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.1);
 }
 
+/* A select in a toolbar sizes to its content. The 100% above is meant for form
+   fields in a grid; on a header row it stretched each control onto a line of
+   its own. Tailwind's w-* utilities cannot do this here -- they load before
+   this file, so .select wins on source order. */
+.select.select-inline { width: auto; }
+
 .textarea {
   width: 100%;
   padding: 12px 16px;
