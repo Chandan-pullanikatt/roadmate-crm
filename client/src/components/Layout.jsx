@@ -210,6 +210,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'INSIGHTS',
           items: [
+            { label: 'My Targets', path: '/dashboard?page=targets', icon: 'performance' },
             { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' }
           ]
         },
@@ -240,6 +241,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     page === 'meetings' ? 'My Meetings' :
     page === 'leads' ? 'My Leads' :
     page === 'leave-calendar' ? 'Leave Calendar' :
+    page === 'targets' ? 'My Targets' :
     page === 'reports-v2' ? 'Summary & Reports' : 'Dashboard'
   ) : (pageTitle || (user?.role?.replace('_', ' ')?.toUpperCase() + ' Dashboard'));
 

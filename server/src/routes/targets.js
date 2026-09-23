@@ -71,7 +71,9 @@ router.get('/my-targets', async (req, res) => {
     const period = readPeriod(req.query);
     if (!period) return res.status(400).json({ message: 'Invalid target period.' });
 
-    const target = await Target.findOne({ user: req.user._id, ...period }).lean();
+    const target = await Target.findOne({ user: req.user._id, ...period })
+      .populate('assignedBy', 'name role')
+      .lean();
     if (!target) return res.json({});
     const achieved = await achievedFor([req.user._id], period);
     res.json({ ...target, achieved: achieved.get(String(req.user._id)) || EMPTY });
@@ -122,9 +124,13 @@ router.get('/team', async (req, res) => {
  */
 router.post('/assign', async (req, res) => {
   try {
-    if (req.user.role === 'executive') return res.status(403).json({ message: 'Forbidden' });
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ message: 'Select a staff member.' });
+    // District Managers set their own target and nobody else's; every other
+    // role assigns within its team.
+    if (req.user.role === 'executive' && String(userId) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'You can only set your own target.' });
+    }
     const period = readPeriod(req.body);
     if (!period) return res.status(400).json({ message: 'Invalid target period.' });
 

@@ -16,6 +16,9 @@
   /* RoadMate Brand Yellow */
   --brand: #C8B400;
   --brand-light: #FEFCE8;
+  /* Tint for the selected nav item: --brand-light is so pale it reads as
+     nothing against the white sidebar. */
+  --brand-wash: #FAF3CD;
   --brand-mid: #D4C200;
   --brand-gradient: linear-gradient(135deg, #C8B400 0%, #D4C200 100%);
 
@@ -199,6 +202,8 @@ body {
 .nav-item.active { 
   background: var(--blue-light); 
   color: var(--blue); 
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 0 var(--blue);
 }
 
 .nav-item .icon {
@@ -222,8 +227,10 @@ body {
 .role-state_manager .nav-item.active,
 .role-industry_manager .nav-item.active,
 .role-executive .nav-item.active {
-  background: var(--brand-light);
-  color: #6B5900;
+  background: var(--brand-wash);
+  color: #5C4D00;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 0 var(--brand);
 }
 .role-founder .nav-item.active .icon,
 .role-state_manager .nav-item.active .icon,

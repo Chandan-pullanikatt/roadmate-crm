@@ -261,7 +261,10 @@ const DashboardLayout = ({
   // Handle case where sections aren't provided but navItems are
   const effectiveSections = sections.length > 0 ? sections : [{ label: 'Main', items: navItems }];
 
-  const activePage = new URLSearchParams(location.search).get('page') || 'overview';
+  // The landing page when the URL carries no ?page= — District Managers open
+  // on their work queue, everyone else on the overview (see Layout.jsx).
+  const activePage = new URLSearchParams(location.search).get('page')
+    || (userRole === 'executive' ? 'work' : 'overview');
   const shouldShowGlobalHeader = userRole === 'industry_manager'
     ? activePage === 'overview'
     : !(userRole === 'state_manager' && activePage === 'performance');
@@ -294,7 +297,15 @@ const DashboardLayout = ({
             <div key={sidx} className="sidebar-section">
               <div className="sidebar-label">{section.label}</div>
               {section.items.map((item, iidx) => {
-                const isActive = location.pathname + location.search === item.path;
+                // Match on ?page=, not the whole URL: the landing page carries
+                // no query string at all, and a page that adds filters of its
+                // own (?page=leads&status=hot) would otherwise lose the
+                // highlight the moment you touched a filter.
+                const [itemPath, itemQuery = ''] = item.path.split('?');
+                const itemPage = new URLSearchParams(itemQuery).get('page');
+                const isActive = itemPage
+                  ? itemPath === location.pathname && itemPage === activePage
+                  : location.pathname + location.search === item.path;
                 const itemContent = (
                   <>
                     <div className="nav-icon-wrapper">
@@ -313,7 +324,12 @@ const DashboardLayout = ({
                   <NavLink
                     key={iidx}
                     to={item.path}
-                    className={`nav-item ${isActive ? 'active' : ''} ${item.special ? 'special-item' : ''}`}
+                    // A function, deliberately: given a string className,
+                    // NavLink appends its own "active" class, and it matches on
+                    // pathname alone. Every item here points at /dashboard, so
+                    // all of them came out active at once. The function form
+                    // turns that off and leaves the decision to isActive.
+                    className={() => `nav-item ${isActive ? 'active' : ''} ${item.special ? 'special-item' : ''}`}
                     onMouseEnter={() => handlePrefetch(item)}
                     onClick={(e) => {
                       if (item.onClick) {

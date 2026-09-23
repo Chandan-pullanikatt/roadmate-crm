@@ -49,6 +49,9 @@
   --teal: #0891B2; --teal-light: #ECFEFF;
   --orange: #C2410C; --orange-light: #FFF7ED;
   --brand: #C8B400; --brand-light: #FEFCE8; --brand-mid: #D4C200;
+  /* Tint for the selected nav item: --brand-light is so pale it reads as
+     nothing against the white sidebar. */
+  --brand-wash: #FAF3CD;
   --radius: 10px; --radius-sm: 6px; --radius-lg: 14px;
   --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md: 0 4px 14px rgba(0,0,0,.09), 0 2px 4px rgba(0,0,0,.04);
