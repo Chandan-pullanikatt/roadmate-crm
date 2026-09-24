@@ -52,9 +52,9 @@ const DeleteLeadButton = ({ lead, className = '', onDeleted }) => {
   return (
     <>
       <Button
-        size="xs"
+        size="2xs"
         variant="outline"
-        className={`bg-white border-red/20 text-red shadow-sm font-bold px-3 ${className}`}
+        className={`bg-red/5 border-red/20 text-red shadow-sm hover:bg-red/10 font-bold ${className}`}
         onClick={() => setConfirming(true)}
       >
         Delete

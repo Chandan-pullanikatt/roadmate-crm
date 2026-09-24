@@ -178,8 +178,15 @@ const bulkCreateLeads = async (req, res) => {
         // reassigned on a plain re-upload (that bug let a Founder/admin re-upload steal
         // every matched lead away from the Industry Manager who actually works it).
         let explicitOwner = normalized.owner != null;
-        // Default owner to the uploader so new leads appear in their My Leads immediately
-        if (!normalized.owner) normalized.owner = req.user._id;
+        // Default owner to the uploader ONLY for roles that actually work leads, so a new
+        // lead shows up in their My Leads immediately. A founder or state manager uploading
+        // with "Keep unallocated" must leave owner null, or the rows get stamped with their
+        // id and vanish: they no longer match the Unallocated filter (owner: null) and their
+        // owner appears in no staff table, so there is nowhere to drill down and find them.
+        // Same rule as the single-lead POST below.
+        if (!normalized.owner && ['executive', 'industry_manager'].includes(req.user.role)) {
+          normalized.owner = req.user._id;
+        }
 
         // Enforce role-based scoping on bulk imports too
         if (req.user.role === 'state_manager') normalized.state = req.user.state;

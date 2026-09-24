@@ -246,8 +246,8 @@ const LeadList = () => {
                 <td className="p-4 text-center text-[14px] text-text-muted font-bold">{formatLastContact(lead.updatedAt)}</td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2">
-                    <Button size="xs" variant="outline" className="font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
-                    <Button size="xs" variant="outline" className="text-purple border-purple/10 font-bold" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
+                    <Button size="2xs" variant="outline" className="font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
+                    <Button size="2xs" variant="outline" className="text-purple border-purple/10 font-bold" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
                     {/* Renders only for leads this user is allowed to delete. */}
                     <DeleteLeadButton lead={lead} />
                   </div>

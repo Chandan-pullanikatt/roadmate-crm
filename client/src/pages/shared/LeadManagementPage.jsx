@@ -470,12 +470,12 @@ const LeadManagementPage = ({
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       {/* Fix: Lead Pipeline — View Details button opens lead history */}
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-muted font-bold px-3" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>View</Button>
-                      <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('update-lead', { leadData: l })}>Update</Button>
+                      <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-muted font-bold" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>View</Button>
+                      <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => openModal('update-lead', { leadData: l })}>Update</Button>
                       {canEditDetails && (
-                        <Button size="xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold px-3" onClick={() => openModal('edit-lead-details', { leadData: l })}>Edit</Button>
+                        <Button size="2xs" variant="outline" className="bg-white border-border shadow-sm text-text-primary font-bold" onClick={() => openModal('edit-lead-details', { leadData: l })}>Edit</Button>
                       )}
-                      <Button size="xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold px-3" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
+                      <Button size="2xs" variant="outline" className="bg-white border-blue/10 text-blue border-blue/20 shadow-sm font-bold" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</Button>
                       {extraRowActions?.(l, openModal)}
                       {/* Renders only for leads this user is allowed to delete. */}
                       <DeleteLeadButton lead={l} />

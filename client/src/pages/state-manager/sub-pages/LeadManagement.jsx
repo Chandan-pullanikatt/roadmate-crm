@@ -22,9 +22,9 @@ const LeadManagement = () => {
       // use for, so it is added here rather than living in the shared component.
       extraRowActions={(lead, openModal) => (
         <Button
-          size="xs"
+          size="2xs"
           variant="outline"
-          className="bg-white border-amber/20 text-amber shadow-sm font-bold px-3"
+          className="bg-white border-amber/20 text-amber shadow-sm font-bold"
           onClick={() => openModal('escalate-lead', { leadData: lead })}
         >
           Escalate
