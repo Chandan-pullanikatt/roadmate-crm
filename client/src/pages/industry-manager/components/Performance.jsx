@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Tag, DashboardSkeleton } from '../../../components/ui';
 import { dashboardApi } from '../../../api/dashboardApi';
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
 const Performance = () => {
+  const navigate = useNavigate();
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager'],
     queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
@@ -104,12 +106,13 @@ const Performance = () => {
       {/* Detail Table */}
       <div>
         <div className="text-[15px] font-bold text-text-primary mb-1">Staff-by-Staff Detail Report</div>
-        <div className="text-[14px] text-text-muted mb-4">Click a column header to sort</div>
+        <div className="text-[14px] text-text-muted mb-4">Click a column header to sort, a row to open that manager's profile</div>
         <ManagerPerformanceTable
           rows={executives}
           fallbackState={userInfo.state}
           showDistrict
           sortable
+          onRowClick={(exec) => navigate(`/dashboard/executives/${exec._id}`)}
           emptyMessage="No district managers found"
           renderActions={(exec) => (
             <Tag

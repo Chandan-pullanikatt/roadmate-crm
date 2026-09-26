@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { usersApi } from '../../../api/usersApi';
@@ -11,6 +12,7 @@ import { toast } from 'react-hot-toast';
 
 const IndustryManagers = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
 
   const picker = usePeriod('week');
@@ -94,7 +96,7 @@ const IndustryManagers = () => {
       <div className="section-header mb-6">
         <div>
           <div className="section-title">Industry State Managers · {user.state}</div>
-          <div className="section-sub text-[13px]">All {stats.industryManagersCount || 0} industries - Full drill-in view</div>
+          <div className="section-sub text-[13px]">All {stats.industryManagersCount || 0} industries · Click a row to open that manager's profile</div>
         </div>
         <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'industry-manager' } }))}>+ Create Industry Manager</Button>
       </div>
@@ -134,6 +136,7 @@ const IndustryManagers = () => {
       <ManagerPerformanceTable
         rows={filteredManagers}
         fallbackState={user.state}
+        onRowClick={(m) => navigate(`/dashboard/executives/${m._id}`)}
         emptyMessage={`No industry managers assigned to ${user.state} portfolio.`}
         renderActions={(m) => (
           <>

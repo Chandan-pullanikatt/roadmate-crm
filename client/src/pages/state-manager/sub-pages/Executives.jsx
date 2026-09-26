@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -10,6 +11,7 @@ import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable
 
 const Executives = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -66,7 +68,7 @@ const Executives = () => {
       <div className="section-header mb-6">
         <div>
           <div className="section-title">District Managers · {user.state}</div>
-          <div className="section-sub text-[13px]">All district managers across industries - Performance overview</div>
+          <div className="section-sub text-[13px]">All district managers across industries · Click a row to open that manager's profile</div>
         </div>
         <Button className="bg-blue text-white shadow-sm" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { type: 'create-exec', role: 'executive' } }))}>+ Add District Manager</Button>
       </div>
@@ -107,6 +109,7 @@ const Executives = () => {
         rows={filteredExecs}
         fallbackState={user.state}
         showDistrict
+        onRowClick={(e) => navigate(`/dashboard/executives/${e._id}`)}
         emptyMessage="No district managers match the current filters."
         renderActions={(e) => {
           const pending = pendingLeaveMap[String(e._id)] || 0;

@@ -291,13 +291,17 @@ const Overview = () => {
           <div className="p-5 border-b border-border flex justify-between items-center">
             <div>
               <h2 className="text-[15px] font-bold text-text-primary">Industry Managers {"\u00B7"} {user.state}</h2>
-              <p className="text-[14px] text-text-muted mt-0.5">Drill in for full details</p>
+              <p className="text-[14px] text-text-muted mt-0.5">Click a manager for their full profile</p>
             </div>
-            <Button variant="outline" size="sm" className="text-[12px] h-8 px-4 font-bold border-border">View All</Button>
+            <Button variant="outline" size="sm" className="text-[12px] h-8 px-4 font-bold border-border" onClick={() => navigate('/dashboard?page=industry-managers')}>View All</Button>
           </div>
           <div className="divide-y divide-border">
             {managers.map((m, idx) => (
-              <div key={idx} className="p-5 flex items-center gap-4 hover:bg-surface2/30 transition-colors cursor-pointer group">
+              <div
+                key={m._id || idx}
+                className="p-5 flex items-center gap-4 hover:bg-surface2/30 transition-colors cursor-pointer group"
+                onClick={() => m._id && navigate(`/dashboard/executives/${m._id}`)}
+              >
                 <Avatar name={m.name} size="md" className={`av-${idx % 5}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1.5">

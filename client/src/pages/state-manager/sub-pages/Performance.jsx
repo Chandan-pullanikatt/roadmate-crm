@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
@@ -6,6 +7,7 @@ import { Button, Tag } from '../../../components/ui';
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 
 const Performance = () => {
+  const navigate = useNavigate();
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'state-manager'],
     queryFn: () => dashboardApi.getStateManagerDashboard().then(res => res.data),
@@ -59,7 +61,7 @@ const Performance = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">Team Performance Leaderboard</div>
-          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct &amp; Virtual Meetings, Blockings and Revenue · click a column header to sort</div>
+          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct &amp; Virtual Meetings, Blockings and Revenue · click a column header to sort, a row to drill in</div>
         </div>
         <Button variant="outline" size="sm">Export Detailed CSV</Button>
       </div>
@@ -68,6 +70,7 @@ const Performance = () => {
         rows={managers}
         fallbackState={user.state}
         sortable
+        onRowClick={(m) => navigate(`/dashboard/executives/${m._id}`)}
         emptyMessage="No performance data available"
         renderActions={(m) => (
           <Tag

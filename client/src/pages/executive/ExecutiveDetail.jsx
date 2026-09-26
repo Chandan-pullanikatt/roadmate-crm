@@ -10,11 +10,13 @@ import {
 } from '../../components/ui';
 import { format } from 'date-fns';
 import LeadPipelinePanel, { LeadMetricsBreakdown } from '../../components/LeadPipelinePanel';
+import { useAuth } from '../../hooks/useAuth';
 import KeyAchievements from '../../components/KeyAchievements';
 
 const ExecutiveDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: viewer } = useAuth();
   const [activeTab, setActiveTab] = useState('performance');
 
   // Opening another profile from a tab re-uses this page, so start it on Performance.
@@ -56,8 +58,15 @@ const ExecutiveDetail = () => {
   const isIndustryManager = user?.role === 'industry_manager';
   const roleLabel = isIndustryManager ? 'Industry Manager' : 'District Manager';
 
+  // Every role above this person can open the profile, and each dashboard lists
+  // them on a different page — the Industry Manager's District Managers live on
+  // ?page=team, everyone else's on ?page=executives. Go back through history when
+  // there is any (the normal case: a row click), and fall back to the list page of
+  // whoever is looking when the profile URL was opened directly.
   const handleBack = () => {
-    navigate(isIndustryManager ? '/dashboard?page=industry-managers' : '/dashboard?page=executives');
+    if (window.history.state?.idx > 0) return navigate(-1);
+    if (isIndustryManager) return navigate('/dashboard?page=industry-managers');
+    navigate(viewer?.role === 'industry_manager' ? '/dashboard?page=team' : '/dashboard?page=executives');
   };
 
   const safeFormat = (dateStr, fmt) => {

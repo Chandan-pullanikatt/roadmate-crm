@@ -457,7 +457,7 @@ const Overview = () => {
               <div
                 key={exec._id || idx}
                 className="flex items-center justify-between p-4 hover:bg-surface2/30 transition-colors cursor-pointer group"
-                onClick={() => setExecModal({ exec, type: 'calls' })}
+                onClick={() => exec._id && navigate(`/dashboard/executives/${exec._id}`)}
               >
                 <div className="flex items-center gap-4 min-w-[300px]">
                   <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm ${avatarColor}`}>{initials}</div>

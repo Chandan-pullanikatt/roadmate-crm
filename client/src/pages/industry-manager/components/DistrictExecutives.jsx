@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   StatCard,
@@ -15,6 +16,7 @@ import { useAuth } from '../../../context/AuthContext';
 
 const DistrictExecutives = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const [activeDistrict, setActiveDistrict] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,7 +106,7 @@ const DistrictExecutives = () => {
       <div className="bg-surface1 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div>
           <h2 className="text-lg font-bold">District Managers · {dashData?.user?.industry} · {dashData?.user?.state}</h2>
-          <p className="text-[14px] text-text-muted">{stats.totalExecutives} district managers - Performance & lead handling</p>
+          <p className="text-[14px] text-text-muted">{stats.totalExecutives} district managers · Click a row to open that manager's profile</p>
         </div>
         <Button
             className="bg-purple text-white border-none rounded-xl px-6 h-10 font-bold shadow-lg shadow-purple/10"
@@ -170,6 +172,7 @@ const DistrictExecutives = () => {
             rows={filteredExecs}
             fallbackState={dashData?.user?.state}
             showDistrict
+            onRowClick={(exec) => navigate(`/dashboard/executives/${exec._id}`)}
             emptyMessage="No district managers found in this district"
             renderActions={(exec) => (
               <>
