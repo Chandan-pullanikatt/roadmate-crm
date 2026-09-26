@@ -290,7 +290,10 @@ router.get('/executive', async (req, res) => {
         status: attendance?.status || 'absent',
         workStartedAt: attendance?.workStartedAt,
         workCompletedAt: attendance?.workCompletedAt,
-        completionPct: attendance?.completionPct || 0
+        completionPct: attendance?.completionPct || 0,
+        // The work page shows a "Working From Home" badge once the day is
+        // started, so the flag has to travel with the rest of the attendance.
+        isWFH: !!attendance?.isWFH
       },
       upcomingMeetings: meetingsFormatted,
       leadSources: sourcesFormatted,

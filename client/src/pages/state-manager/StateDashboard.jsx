@@ -29,7 +29,10 @@ const StateDashboard = () => {
       case 'my-performance': return <MyPerformance />;
       case 'industry-managers': return <IndustryManagers />;
       case 'executives': return <Executives />;
-      case 'leads': return <LeadManagement />;
+      // Two entries, two scopes: the sidebar's My Work > Lead Management shows this
+      // manager's own book, Team > Lead Management the whole reporting subtree.
+      case 'my-leads': return <LeadManagement ownerScope="self" />;
+      case 'leads': return <LeadManagement ownerScope="team" />;
       case 'attendance': return <Attendance />;
       case 'calendar': return <LeaveCalendar />;
       case 'performance': return <Performance />;

@@ -414,7 +414,7 @@ const Overview = () => {
             <div
               key={i}
               className={`rounded-xl border ${borderClass} ${bgClass} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
-              onClick={() => navigate(`/dashboard?page=leads&status=${statusParam}&${periodQuery()}`)}
+              onClick={() => navigate(`/dashboard?page=leads&owner=all&status=${statusParam}&${periodQuery()}`)}
               title={`View all ${s.label} leads`}
             >
               <div className="text-[28px] font-bold font-mono mb-1" style={{ color: bottomColor }}>
@@ -439,7 +439,7 @@ const Overview = () => {
             <div
               key={p.priority}
               className={`rounded-xl border ${tone.border} ${tone.bg} p-5 pb-0 flex flex-col items-center justify-center relative overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow`}
-              onClick={() => navigate(`/dashboard?page=leads&priority=${p.priority}&${periodQuery()}`)}
+              onClick={() => navigate(`/dashboard?page=leads&owner=all&priority=${p.priority}&${periodQuery()}`)}
               title={`View all ${p.label} leads`}
             >
               <div className={`text-[28px] font-bold font-mono mb-1 ${tone.text}`}>{p.count}</div>

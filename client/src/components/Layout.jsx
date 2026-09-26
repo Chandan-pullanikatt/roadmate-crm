@@ -118,15 +118,19 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Overview', path: '/dashboard?page=overview', icon: 'overview' },
             { label: 'My Work', path: '/dashboard?page=my-work', icon: 'my-work' },
+            // This State Manager's own leads only. The statewide list lives under
+            // Team > Lead Management; the two used to be one entry, which meant
+            // there was nowhere to see just your own book.
+            { label: 'Lead Management', path: '/dashboard?page=my-leads', icon: 'leads' },
             { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'green' },
-            { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' },
-            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) }
+            { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' }
           ]
         },
         {
           label: 'Team',
           items: [
+            { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) },
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
             { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
             { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' }
