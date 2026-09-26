@@ -47,6 +47,10 @@ const LeadManagementPage = ({
   // Hidden when a role has no use for it: every row on a state-scoped page is the
   // same state, so the column and its filter say nothing.
   showStateColumn = true,
+  // The Allocated / Unallocated filter. A fixed owner scope normally makes it
+  // redundant, but a manager who allocates from this page still needs to find the
+  // unallocated rows, so a scoped route can ask for it back.
+  showAllocationFilter = null,
 } = {}) => {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -353,21 +357,23 @@ const LeadManagementPage = ({
       </div>
 
       {/* Allocation filter. Routes with a fixed owner scope (an Industry Manager's
-          "my leads" / "team leads") hide it, since the scope already decides. */}
-      {!defaultOwnerScope && (
+          "my leads" / "team leads") hide it by default, since the scope already
+          decides -- but "All" there means back to that route's own scope, not to
+          every lead in the tree. */}
+      {(showAllocationFilter ?? !defaultOwnerScope) && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="text-[12px] font-bold uppercase tracking-widest text-text-muted mr-1">Allocation</span>
           {[
-            { id: '', label: 'All' },
+            { id: defaultOwnerScope, label: 'All' },
             { id: 'assigned', label: 'Allocated' },
             { id: 'unassigned', label: 'Unallocated' },
           ].map(a => {
-            const selected = a.id === ''
+            const selected = a.id === defaultOwnerScope
               ? !['assigned', 'unassigned'].includes(ownerFilter) && !ownerName
               : ownerFilter === a.id;
             return (
               <button
-                key={a.id || 'all'}
+                key={a.label}
                 onClick={() => { setOwnerFilter(a.id); setOwnerName(''); setPage(1); }}
                 className={`px-4 py-1.5 rounded-lg text-[13px] font-bold uppercase tracking-wider border transition-all ${
                   selected

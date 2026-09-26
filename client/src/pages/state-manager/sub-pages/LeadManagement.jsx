@@ -32,6 +32,9 @@ const LeadManagement = ({ ownerScope = '' }) => {
       footerNoun={ownerScope === 'self' ? 'leads' : 'state leads'}
       exportPrefix={ownerScope === 'self' ? 'my-leads-export' : 'state-leads-export'}
       defaultOwnerScope={ownerScope}
+      // The State Manager allocates from this page, so it keeps the
+      // Allocated / Unallocated filter even though the owner scope is fixed.
+      showAllocationFilter={ownerScope === 'team'}
       // Escalating to the Founder is the one action the Founder's own page has no
       // use for, so it is added here rather than living in the shared component.
       extraRowActions={(lead, openModal) => (
