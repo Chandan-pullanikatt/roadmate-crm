@@ -62,8 +62,8 @@ const MyWorkPage = ({
   // Trailing scope in the page title (an industry, a state, a district).
   scopeLabel,
   subtitle,
-  startPrompt = 'Leads appear one-by-one · Direct meetings first, then follow-ups, then new leads',
-  queueSubtitle = 'Direct meetings → Follow-ups → New leads',
+  startPrompt = 'Leads appear one-by-one · Meetings first, then new leads, then follow-ups',
+  queueSubtitle = 'Direct → Virtual → New → Follow-up → RNR',
   // The role's own Call Feedback dialog: the outcome set differs per role.
   FeedbackModal,
   // Optional wizard for cron-pushed meeting-confirmation tasks (District Manager).

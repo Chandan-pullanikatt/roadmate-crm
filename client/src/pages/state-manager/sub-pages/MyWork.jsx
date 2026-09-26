@@ -17,7 +17,7 @@ const MyWork = () => {
     <MyWorkPage
       scopeLabel={user?.state}
       subtitle="Your personal lead queue · Industry Partner leads at state level · One-by-one execution"
-      startPrompt="Industry Partner leads appear one-by-one · Direct meetings first, then follow-ups, then new leads"
+      startPrompt="Industry Partner leads appear one-by-one · Meetings first, then new leads, then follow-ups"
       FeedbackModal={CallFeedbackModal}
       allocate={{
         role: 'industry_manager',

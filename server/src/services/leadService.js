@@ -428,46 +428,51 @@ const leadService = {
    * Get sorted lead queue for executive
    */
   async getQueue(userId) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
     const CLOSED_STATUSES = ['converted', 'lost', 'not_interested', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
     const leads = await Lead.find({ owner: userId, status: { $nin: CLOSED_STATUSES } });
 
-    // SORT ORDER:
-    // 1. Direct meetings scheduled for today
-    // 2. Virtual meetings scheduled for today
+    // SORT ORDER -- by status, which is the only key every lead actually carries:
+    // 1. Direct meetings
+    // 2. Virtual meetings
     // 3. New leads
-    // 4. Follow-ups due today (hot, then warm, then cold)
-    // 5. RNR retries due today
-    // 6. Everything else
+    // 4. Follow-ups (hot, then warm, then cold)
+    // 5. Called -- worked once, no follow-up booked yet
+    // 6. RNR retries
+    // 7. Everything else (escalated)
+    //
+    // This used to gate buckets 1/2 on meetingAt landing today and buckets 4/5 on
+    // nextActionAt being due, so a lead with neither date -- which is most of them,
+    // since nothing sets meetingAt on a status change -- fell through to the
+    // bottom bucket. Direct meetings, RNRs and follow-ups all ended up jumbled
+    // below the new leads. The dates now only order leads *within* a bucket, which
+    // still floats today's meeting above next week's.
+    const STATUS_RANK = {
+      meeting_direct:  1,
+      meeting_virtual: 2,
+      new:             3,
+      followup:        4,
+      called:          5,
+      rnr:             6,
+    };
     const PRIORITY_RANK = { hot: 0, warm: 1, cold: 2 };
 
-    const getBucket = (lead) => {
-      const isTodayMeeting = lead.meetingAt && lead.meetingAt >= todayStart && lead.meetingAt <= todayEnd;
-      if (isTodayMeeting && lead.status === 'meeting_direct') return 1;
-      if (isTodayMeeting && lead.status === 'meeting_virtual') return 2;
-      if (lead.status === 'new') return 3;
-
-      const isDueToday = lead.nextActionAt && lead.nextActionAt <= todayEnd;
-      if (isDueToday) return lead.status === 'rnr' ? 5 : 4;
-      return 6;
-    };
+    const getBucket = (lead) => STATUS_RANK[lead.status] ?? 7;
 
     return leads.sort((a, b) => {
       const bucketA = getBucket(a);
       const bucketB = getBucket(b);
       if (bucketA !== bucketB) return bucketA - bucketB;
 
-      if (bucketA === 4) {
+      // Within the follow-up bucket, hot leads get called before cold ones.
+      if (bucketA === STATUS_RANK.followup) {
         const rankA = PRIORITY_RANK[a.priority] ?? 3;
         const rankB = PRIORITY_RANK[b.priority] ?? 3;
         if (rankA !== rankB) return rankA - rankB;
       }
 
-      // Secondary sort by date
+      // Secondary sort by date: the soonest due lead first. A lead with no date
+      // of its own falls back to createdAt, so the oldest untouched leads surface
+      // ahead of the ones just imported.
       const dateA = a.meetingAt || a.nextActionAt || a.createdAt;
       const dateB = b.meetingAt || b.nextActionAt || b.createdAt;
       return dateA - dateB;
