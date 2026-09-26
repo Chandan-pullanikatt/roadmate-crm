@@ -9,6 +9,8 @@ import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { LEAD_STATUS_GROUPS, GROUP_ORDER, groupParam } from '../../constants/leadStatusGroups';
 import DeleteLeadButton from '../../components/DeleteLeadButton';
+import LeadSelectionBar, { LeadCheckbox } from '../../components/leads/LeadSelectionBar';
+import { useLeadSelection } from '../../hooks/useLeadSelection';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -57,6 +59,11 @@ const LeadManagementPage = ({
   const { user: currentUser } = useAuth();
   // Contact details are a manager-only edit, the same rule the server enforces.
   const canEditDetails = currentUser?.role && currentUser.role !== 'executive';
+  // Bulk actions follow the same tree rules as the single-row ones: a District
+  // Manager is the leaf and allocates to nobody, the Founder is the root and
+  // escalates to nobody.
+  const canAllocateLeads = currentUser?.role !== 'executive';
+  const canEscalateLeads = !!currentUser?.role && currentUser.role !== 'founder';
   const location = useLocation();
   // Fix: Lead Pipeline Clickable Numbers — read status from URL param to set initial tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -221,11 +228,21 @@ const LeadManagementPage = ({
     }
   };
 
-  if (isLoading) return <DashboardSkeleton />;
-
   const leads = leadData?.leads || [];
   const total = leadData?.total || 0;
   const totalPages = leadData?.totalPages || 1;
+
+  // Ticking rows is scoped to the page on screen, so anything that changes which
+  // rows those are clears the selection.
+  const selection = useLeadSelection(
+    leads,
+    [activeTab, filterState, ownerFilter, priorityFilter, period, periodValue,
+      excludeStatuses, dateField, debouncedSearch, page].join('|')
+  );
+
+  const openSelectionModal = (type) => openModal(type, { leads: selection.selectedLeads });
+
+  if (isLoading) return <DashboardSkeleton />;
 
   // Tabs come from the canonical status groups so every status lands in exactly
   // one tab, the counts add up to All, and each tab matches the pipeline card
@@ -402,6 +419,15 @@ const LeadManagementPage = ({
         ))}
       </div>
 
+      <LeadSelectionBar
+        count={selection.count}
+        canAllocate={canAllocateLeads}
+        canEscalate={canEscalateLeads}
+        onAllocate={() => openSelectionModal('allocate-leads')}
+        onEscalate={() => openSelectionModal('escalate-leads')}
+        onClear={selection.clear}
+      />
+
       <div className="card overflow-hidden border border-border bg-white rounded-xl shadow-sm">
         <div className="card-header border-b border-border bg-white flex justify-between items-center px-5 py-4">
           <div className="text-[15px] font-bold text-text-primary">{listTitle}</div>
@@ -438,6 +464,14 @@ const LeadManagementPage = ({
           <table className="w-full text-left border-collapse text-[13px] uppercase tracking-wider font-bold text-text-muted">
             <thead>
               <tr className="bg-surface2/50 border-b border-border">
+                <th className="p-4 w-10">
+                  <LeadCheckbox
+                    label="Select all leads on this page"
+                    checked={selection.allSelected}
+                    indeterminate={selection.someSelected}
+                    onChange={selection.toggleAll}
+                  />
+                </th>
                 <th className="p-4">Lead Details</th>
                 <th className="p-4">Contact</th>
                 {showStateColumn && <th className="p-4 text-center">State</th>}
@@ -449,7 +483,14 @@ const LeadManagementPage = ({
             </thead>
             <tbody className="divide-y divide-border normal-case font-medium text-text-primary">
               {leads.map((l) => (
-                <tr key={l._id} className="hover:bg-surface2/30 transition-colors group">
+                <tr key={l._id} className={`transition-colors group ${selection.isSelected(l._id) ? 'bg-[#0f766e]/5' : 'hover:bg-surface2/30'}`}>
+                  <td className="p-4">
+                    <LeadCheckbox
+                      label={`Select ${l.name}`}
+                      checked={selection.isSelected(l._id)}
+                      onChange={() => selection.toggle(l._id)}
+                    />
+                  </td>
                   <td className="p-4">
                     <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
                     <div className="text-[12px] text-text-muted mt-0.5">{l.leadId}</div>
@@ -490,7 +531,7 @@ const LeadManagementPage = ({
                 </tr>
               ))}
               {leads.length === 0 && !isLoading && (
-                 <tr><td colSpan={showStateColumn ? 7 : 6} className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
+                 <tr><td colSpan={showStateColumn ? 8 : 7} className="p-12 text-center text-text-muted italic normal-case">No leads matching your criteria.</td></tr>
               )}
             </tbody>
           </table>

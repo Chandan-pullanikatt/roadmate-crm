@@ -5,6 +5,8 @@ import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
 import { Button, Tag } from '../../../components/ui';
 import DeleteLeadButton from '../../../components/DeleteLeadButton';
+import LeadSelectionBar, { LeadCheckbox } from '../../../components/leads/LeadSelectionBar';
+import { useLeadSelection } from '../../../hooks/useLeadSelection';
 
 const LeadList = () => {
   const queryClient = useQueryClient();
@@ -105,6 +107,13 @@ const LeadList = () => {
   const total = leadData?.total || 0;
   const totalPages = leadData?.totalPages || 1;
 
+  // Ticking rows is scoped to the page on screen, so anything that changes which
+  // rows those are clears the selection.
+  const selection = useLeadSelection(
+    leads,
+    [activeTab, debouncedSearch, page, urlPriority, urlPeriod, urlValue].join('|')
+  );
+
   const tabs = [
     { id: 'all', label: 'All', count: counts?.total || 0 },
     { id: 'new', label: 'New', count: counts?.new || 0 },
@@ -204,11 +213,28 @@ const LeadList = () => {
         </div>
       )}
 
+      {/* A District Manager is the bottom of the reporting tree: the only bulk move
+          available is upward, so the bar offers Escalate and no Allocate. */}
+      <LeadSelectionBar
+        count={selection.count}
+        canAllocate={false}
+        onEscalate={() => openModal('escalate-leads', { leads: selection.selectedLeads })}
+        onClear={selection.clear}
+      />
+
       {/* 3. Lead Table */}
       <div className="table-container shadow-sm border border-border rounded-xl overflow-hidden">
         <table className="lead-list-table w-full">
           <thead>
             <tr className="bg-surface2/50 border-b border-border text-[12px] font-black uppercase tracking-widest text-text-muted">
+              <th className="p-4 text-left w-10">
+                <LeadCheckbox
+                  label="Select all leads on this page"
+                  checked={selection.allSelected}
+                  indeterminate={selection.someSelected}
+                  onChange={selection.toggleAll}
+                />
+              </th>
               <th className="p-4 text-left">Company / Name</th>
               <th className="p-4 text-left">Phone</th>
               <th className="p-4 text-center">Status</th>
@@ -218,11 +244,18 @@ const LeadList = () => {
           </thead>
           <tbody className="divide-y divide-border">
             {isLoading ? (
-              <tr><td colSpan="5" className="text-center py-12 text-muted">Fetching leads...</td></tr>
+              <tr><td colSpan="6" className="text-center py-12 text-muted">Fetching leads...</td></tr>
             ) : leads.length === 0 ? (
-              <tr><td colSpan="5" className="text-center py-12 text-muted italic">No leads found matching your criteria</td></tr>
+              <tr><td colSpan="6" className="text-center py-12 text-muted italic">No leads found matching your criteria</td></tr>
             ) : leads.map(lead => (
-              <tr key={lead._id} className="hover:bg-surface transition-colors group">
+              <tr key={lead._id} className={`transition-colors group ${selection.isSelected(lead._id) ? 'bg-amber/5' : 'hover:bg-surface'}`}>
+                <td className="p-4">
+                  <LeadCheckbox
+                    label={`Select ${lead.name}`}
+                    checked={selection.isSelected(lead._id)}
+                    onChange={() => selection.toggle(lead._id)}
+                  />
+                </td>
                 <td className="p-4">
                   <div className="font-bold text-sm text-text-primary group-hover:text-orange transition-colors">{lead.company || lead.name}</div>
                   <div className="text-[12px] text-text-muted">{lead.name}</div>

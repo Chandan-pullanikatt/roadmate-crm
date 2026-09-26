@@ -13,7 +13,11 @@ import { usersApi } from '../../api/usersApi';
 // Now the Founder picks SM → IM → DM, a State Manager picks IM → DM, an Industry
 // Manager picks a DM, and a District Manager gets no allocation at all — the
 // bottom of the tree escalates instead (Escalate action on the lead row).
-const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
+//
+// The same form allocates one lead from a row action and a set ticked in a lead
+// list's selection bar -- the hierarchy steps are identical, so `leads` is simply
+// the plural form of `lead` and the submit switches to the bulk endpoint.
+const AllocateLeadModal = ({ isOpen, onClose, lead, leads = [] }) => {
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -21,6 +25,15 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
   const [selectedStateManagerId, setSelectedStateManagerId] = useState('');
   const [selectedIndustryManagerId, setSelectedIndustryManagerId] = useState('');
   const [selectedExecutiveId, setSelectedExecutiveId] = useState('');
+
+  const selectedLeads = leads.length ? leads : (lead ? [lead] : []);
+  const isBulk = leads.length > 0;
+  // The State Manager step narrows by the lead's state, which is only meaningful
+  // when every selected lead shares one. A mixed selection lists every State
+  // Manager rather than silently filtering to the first lead's state.
+  const sharedState = selectedLeads.length && selectedLeads.every(l => l.state === selectedLeads[0].state)
+    ? selectedLeads[0].state
+    : undefined;
 
   const role = currentUser?.role;
   const isFounder = role === 'founder';
@@ -41,9 +54,9 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
 
   // Step 1 — state managers for the lead's state (Founder only)
   const { data: stateManagers = [], isLoading: loadingSMs } = useQuery({
-    queryKey: ['users', 'alloc-sms', lead?.state],
-    queryFn: () => usersApi.getUsers({ role: 'state_manager', state: lead?.state }).then(r => r.data),
-    enabled: isOpen && !!lead && showSmStep
+    queryKey: ['users', 'alloc-sms', sharedState],
+    queryFn: () => usersApi.getUsers({ role: 'state_manager', state: sharedState }).then(r => r.data),
+    enabled: isOpen && selectedLeads.length > 0 && showSmStep
   });
 
   // Step 2 — industry managers reporting to the State Manager in play
@@ -89,10 +102,28 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
     if (!allocateToId) return addToast(`Please select ${isFounder ? 'at least a' : 'a'} ${firstStepLabel}`, 'warning');
     setLoading(true);
     try {
-      await leadsApi.allocateLead(lead._id, allocateToId);
-      addToast(`Lead allocated to ${allocateName}`, 'success');
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      if (isBulk) {
+        const res = await leadsApi.bulkAllocate({
+          leadIds: selectedLeads.map(l => l._id),
+          assignedTo: allocateToId
+        });
+        const { updated = 0, skipped = 0 } = res.data || {};
+        addToast(
+          skipped
+            ? `${updated} lead(s) allocated to ${allocateName} - ${skipped} skipped`
+            : `${updated} lead(s) allocated to ${allocateName}`,
+          skipped ? 'warning' : 'success'
+        );
+        // Tells the lead lists to drop their ticks -- the rows they were ticked
+        // on have just moved.
+        window.dispatchEvent(new CustomEvent('leads-bulk-action-done'));
+      } else {
+        await leadsApi.allocateLead(lead._id, allocateToId);
+        addToast(`Lead allocated to ${allocateName}`, 'success');
+      }
+      queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+      queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
       handleClose();
     } catch (err) {
       addToast(err.response?.data?.message || 'Error allocating lead', 'error');
@@ -108,7 +139,11 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
     onClose();
   };
 
-  if (!lead) return null;
+  if (!selectedLeads.length) return null;
+
+  const title = isBulk
+    ? `Allocate ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}`
+    : 'Allocate Lead';
 
   const subtitle = isFounder
     ? 'Assign through the hierarchy — Industry Manager and District Manager are optional for direct SM allocation'
@@ -120,30 +155,44 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
 
   const leadInfo = (
     <div className="mb-6">
-      <label className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Target Lead</label>
-      <div className="p-3 bg-surface2/50 rounded-xl border border-border flex items-center justify-between">
-        <div>
-          <span className="font-bold text-text-primary">{lead.company || lead.name}</span>
-          {lead.company && <div className="text-[13px] text-text-muted mt-0.5">{lead.name}</div>}
-        </div>
-        <div className="flex gap-2">
-          {lead.country && <span className="bg-purple/10 text-purple px-2 py-0.5 rounded text-[10px] font-bold uppercase">{lead.country}</span>}
-          {lead.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">{lead.state}</span>}
-        </div>
+      <label className="text-[13px] font-bold text-text-muted uppercase tracking-wider mb-2 block">
+        {isBulk ? `Target Leads (${selectedLeads.length})` : 'Target Lead'}
+      </label>
+      <div className={`rounded-xl border border-border bg-surface2/50 ${isBulk ? 'max-h-40 overflow-y-auto divide-y divide-border' : ''}`}>
+        {selectedLeads.map(l => (
+          <div key={l._id} className="p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="font-bold text-text-primary">{l.company || l.name}</span>
+              {l.company && <div className="text-[13px] text-text-muted mt-0.5 truncate">{l.name}</div>}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {l.country && <span className="bg-purple/10 text-purple px-2 py-0.5 rounded text-[10px] font-bold uppercase">{l.country}</span>}
+              {l.state && <span className="bg-blue/10 text-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">{l.state}</span>}
+            </div>
+          </div>
+        ))}
       </div>
+      {/* A mixed-state selection cannot narrow the State Manager list, so say so
+          rather than leaving the longer list unexplained. */}
+      {isBulk && showSmStep && !sharedState && (
+        <p className="text-[11px] text-text-muted font-medium mt-2">
+          The selected leads span more than one state, so every State Manager is listed.
+        </p>
+      )}
     </div>
   );
 
   // A District Manager has nobody below them, so there is nothing to allocate to.
   if (!canAllocate) {
     return (
-      <Modal isOpen={isOpen} onClose={handleClose} title="Allocate Lead" subtitle={subtitle}>
+      <Modal isOpen={isOpen} onClose={handleClose} title={title} subtitle={subtitle}>
         {leadInfo}
         <div className="p-4 bg-amber-light/30 border border-amber/20 rounded-2xl flex gap-3 items-start">
           <span className="text-amber text-lg">⚠️</span>
           <div className="text-[14px] text-text-secondary leading-relaxed">
-            You are at the bottom of the reporting tree, so this lead cannot be allocated further.
-            Use <span className="font-bold">Escalate</span> to send it up to your Industry Manager.
+            You are at the bottom of the reporting tree, so {isBulk ? 'these leads cannot' : 'this lead cannot'} be
+            allocated further. Use <span className="font-bold">Escalate</span> to send {isBulk ? 'them' : 'it'} up to
+            your Industry Manager.
           </div>
         </div>
         <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
@@ -154,7 +203,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Allocate Lead" subtitle={subtitle}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={title} subtitle={subtitle}>
       {leadInfo}
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -179,7 +228,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
             </select>
             {!loadingSMs && stateManagers.length === 0 && (
               <p className="text-[11px] text-amber font-medium mt-1">
-                No state managers found{lead?.state ? ` for ${lead.state}` : ''}
+                No state managers found{sharedState ? ` for ${sharedState}` : ''}
               </p>
             )}
           </div>
@@ -287,7 +336,7 @@ const AllocateLeadModal = ({ isOpen, onClose, lead }) => {
             disabled={!allocateToId}
             className="bg-[#0f766e]"
           >
-            Allocate Lead
+            {isBulk ? `Allocate ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}` : 'Allocate Lead'}
           </Button>
         </div>
       </form>

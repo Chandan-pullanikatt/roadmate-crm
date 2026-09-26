@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../../hooks/useAuth';
+import { Button } from '../../../components/ui';
 import LeadManagementPage from '../../shared/LeadManagementPage';
 
 // Same page the Founder and State Manager dashboards render -- same filters, tabs,
@@ -28,6 +29,19 @@ const LeadManagement = ({ ownerScope = '' }) => {
       exportPrefix="industry-leads-export"
       defaultOwnerScope={ownerScope}
       showStateColumn={false}
+      // Escalation goes one step up the reporting line, so an Industry Manager
+      // escalates to their State Manager -- the modal picks the target, this only
+      // puts the action on the row.
+      extraRowActions={(lead, openModal) => (
+        <Button
+          size="2xs"
+          variant="outline"
+          className="bg-white border-amber/20 text-amber shadow-sm font-bold"
+          onClick={() => openModal('escalate-lead', { leadData: lead })}
+        >
+          Escalate
+        </Button>
+      )}
     />
   );
 };

@@ -897,6 +897,28 @@ router.post('/bulk', bulkCreateLeads);
 router.post('/bulk-upload', bulkCreateLeads);
 
 /**
+ * Narrows a list of lead ids from the client to the ones the caller may actually
+ * act on. Selecting rows in the UI can only ever offer visible leads, but the ids
+ * still arrive from the browser, so every bulk action re-checks them against the
+ * reporting tree -- the same rule canAccessLead applies to a single lead, resolved
+ * once for the whole batch instead of per id.
+ */
+async function accessibleLeadIds(user, leadIds) {
+  const ids = leadIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+  if (!ids.length) return [];
+  const scopeIds = await getScopeOwnerIds(user);
+  if (scopeIds === null) return ids; // founder
+  const scope = new Set(scopeIds.map(String));
+  const selfId = String(user._id);
+  const leads = await Lead.find({ _id: { $in: ids } }).select('owner allocatedBy').lean();
+  return leads
+    .filter(l => (l.owner
+      ? scope.has(String(l.owner))
+      : String(l.allocatedBy || '') === selfId))
+    .map(l => l._id);
+}
+
+/**
  * PATCH /api/leads/bulk-allocate - Bulk allocate leads to an executive
  */
 router.patch('/bulk-allocate', async (req, res) => {
@@ -910,6 +932,11 @@ router.patch('/bulk-allocate', async (req, res) => {
       return res.status(400).json({ message: 'leadIds array and assignedTo are required' });
     }
 
+    const allowedIds = await accessibleLeadIds(req.user, leadIds);
+    if (!allowedIds.length) {
+      return res.status(403).json({ message: 'None of the selected leads are in your team' });
+    }
+
     // Re-scope to the assignee's industry/state so the leads stay visible to them.
     const assignee = await User.findById(assignedTo).select('industry state').lean();
     const scopeUpdate = {};
@@ -917,7 +944,7 @@ router.patch('/bulk-allocate', async (req, res) => {
     if (assignee?.state) scopeUpdate.state = assignee.state;
 
     const result = await Lead.updateMany(
-      { _id: { $in: leadIds } },
+      { _id: { $in: allowedIds } },
       {
         owner: assignedTo,
         allocatedBy: req.user._id,
@@ -927,7 +954,7 @@ router.patch('/bulk-allocate', async (req, res) => {
     );
 
     // Add activity logs
-    const activities = leadIds.map(id => ({
+    const activities = allowedIds.map(id => ({
       lead: id,
       performedBy: req.user._id,
       action: 'reallocated',
@@ -935,7 +962,57 @@ router.patch('/bulk-allocate', async (req, res) => {
     }));
     await LeadActivity.insertMany(activities);
 
-    res.json({ updated: result.nModified || result.modifiedCount });
+    res.json({
+      updated: result.nModified || result.modifiedCount,
+      skipped: leadIds.length - allowedIds.length
+    });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
+ * PATCH /api/leads/bulk-escalate - Escalate several selected leads at once.
+ *
+ * Every lead goes through leadService.transition('escalate'), the same path the
+ * single-lead Escalate action uses, so the status, escalatedTo, note and activity
+ * log come out identical -- this only saves the client from firing one request per
+ * selected row.
+ */
+router.patch('/bulk-escalate', async (req, res) => {
+  try {
+    // The founder is the top of the tree and has nobody to escalate to.
+    if (req.user.role === 'founder') {
+      return res.status(403).json({ message: 'Forbidden: there is nobody above you to escalate to' });
+    }
+
+    const { leadIds, escalateTo, note } = req.body;
+    if (!leadIds || !Array.isArray(leadIds) || !leadIds.length || !escalateTo) {
+      return res.status(400).json({ message: 'leadIds array and escalateTo are required' });
+    }
+
+    const allowedIds = await accessibleLeadIds(req.user, leadIds);
+    if (!allowedIds.length) {
+      return res.status(403).json({ message: 'None of the selected leads are in your team' });
+    }
+
+    const io = req.app.get('io');
+    const failed = [];
+    let escalated = 0;
+    for (const id of allowedIds) {
+      try {
+        await leadService.transition(id, 'escalate', { escalateTo, note }, req.user, io);
+        escalated += 1;
+      } catch (err) {
+        failed.push({ leadId: String(id), message: err.message });
+      }
+    }
+
+    res.json({
+      escalated,
+      skipped: leadIds.length - allowedIds.length,
+      failed
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

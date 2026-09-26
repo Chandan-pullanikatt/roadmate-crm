@@ -133,6 +133,9 @@ const GlobalModals = () => {
   const [leadAssignments, setLeadAssignments] = useState({});
   const [unassignedLeads, setUnassignedLeads] = useState([]);
   const [escalateData, setEscalateData] = useState({ lead: null, reason: '', managerId: '' });
+  // The rows ticked on a lead list, handed over by the selection bar. Allocate and
+  // Escalate both act on this same set.
+  const [bulkLeads, setBulkLeads] = useState([]);
   const emptyTargetState = (userId = '', name = '') => ({
     userId,
     name,
@@ -201,6 +204,7 @@ const GlobalModals = () => {
 
   const handleCloseModal = useCallback(() => {
     setActiveModal(null);
+    setBulkLeads([]);
   }, []);
 
   const fetchMyLeads = async () => {
@@ -346,7 +350,15 @@ const GlobalModals = () => {
         setSelectedLeadIds([]);
         setLeadAssignments({});
       } else if (targetType === 'escalate-lead') {
-        setEscalateData({ lead: data.leadData, reason: '', managerId: '' });
+        setEscalateData({ lead: data.leadData, leads: [], reason: '', managerId: '' });
+      } else if (targetType === 'allocate-leads' || targetType === 'escalate-leads') {
+        // Selection-bar actions. The whole lead objects come over so the modal can
+        // name what is being moved; the ids sent to the server are read off them.
+        const picked = data.leads || [];
+        setBulkLeads(picked);
+        if (targetType === 'escalate-leads') {
+          setEscalateData({ lead: null, leads: picked, reason: '', managerId: '' });
+        }
       } else if (targetType === 'assign-target') {
         setTargetState(emptyTargetState(data.executive._id, data.executive.name));
       } else if (targetType === 'view-docs') {
@@ -382,7 +394,7 @@ const GlobalModals = () => {
       setActiveModal(targetType);
 
       // Unified Data Fetching
-      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'allocate-single-lead', 'leave-approval', 'apply-leave', 'escalate-lead', 'bulk-allocate'].includes(targetType)) {
+      if (['add-lead', 'create-state-manager', 'create-exec', 'allocate-lead', 'allocate-single-lead', 'leave-approval', 'apply-leave', 'escalate-lead', 'escalate-leads', 'bulk-allocate'].includes(targetType)) {
         fetchUsers();
       }
       if (targetType === 'leave-approval') fetchPendingLeaves();
@@ -400,6 +412,19 @@ const GlobalModals = () => {
   }, [handleOpenModal]);
 
   const [hierarchy, setHierarchy] = useState({ stateManagers: [], industryManagers: [], executives: [] });
+
+  // An Industry Manager escalates one step up, to their own State Manager -- the
+  // hierarchy endpoint returns exactly that person, so there is nothing to pick.
+  const imStateManager = isIndustryManager ? (hierarchy.stateManagers[0] || null) : null;
+
+  // ...which means the modal has to fill the target in itself, or the form would
+  // submit with an empty escalateTo.
+  useEffect(() => {
+    if (!['escalate-lead', 'escalate-leads'].includes(activeModal) || !imStateManager) return;
+    setEscalateData(prev => (
+      prev.managerId === imStateManager._id ? prev : { ...prev, managerId: imStateManager._id }
+    ));
+  }, [activeModal, imStateManager]);
 
   const handleBulkAllocate = async () => {
     const missing = selectedLeadIds.filter(id => !leadAssignments[id]);
@@ -635,20 +660,49 @@ const GlobalModals = () => {
     }
   };
 
+  // The same form serves one lead from a row action and a set ticked in the
+  // selection bar; only the request differs, because escalating twenty leads one
+  // at a time from the browser is twenty round trips and no atomic report back.
+  const escalateLeads = escalateData.leads?.length ? escalateData.leads : [];
+  const isBulkEscalate = escalateLeads.length > 0;
+
   const handleEscalateSubmit = async (e) => {
     e.preventDefault();
+    if (!escalateData.managerId) return addToast('No manager to escalate to', 'warning');
+    if (!isBulkEscalate && !escalateData.lead?._id) return addToast('No lead to escalate', 'warning');
     setLoading(true);
     try {
-      await leadsApi.transitionLead(escalateData.lead._id, 'escalate', {
-        escalateTo: escalateData.managerId,
-        note: escalateData.reason
-      });
-      addToast('Lead escalated successfully!', 'success');
+      if (isBulkEscalate) {
+        const res = await leadsApi.bulkEscalate({
+          leadIds: escalateLeads.map(l => l._id),
+          escalateTo: escalateData.managerId,
+          note: escalateData.reason
+        });
+        const { escalated = 0, skipped = 0, failed = [] } = res.data || {};
+        const left = skipped + failed.length;
+        addToast(
+          left
+            ? `${escalated} lead(s) escalated · ${left} could not be escalated`
+            : `${escalated} lead(s) escalated successfully!`,
+          left ? 'warning' : 'success'
+        );
+      } else {
+        await leadsApi.transitionLead(escalateData.lead._id, 'escalate', {
+          escalateTo: escalateData.managerId,
+          note: escalateData.reason
+        });
+        addToast('Lead escalated successfully!', 'success');
+      }
       setActiveModal(null);
+      setBulkLeads([]);
+      // Tells the lead lists to drop their ticks -- the rows they were ticked on
+      // have just moved.
+      if (isBulkEscalate) window.dispatchEvent(new CustomEvent('leads-bulk-action-done'));
       queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
       queryClient.refetchQueries({ queryKey: ['leads'], exact: false, type: 'active' });
     } catch (err) {
-      addToast('Error escalating lead', 'error');
+      addToast(err.response?.data?.message || 'Error escalating lead', 'error');
     } finally {
       setLoading(false);
     }
@@ -1841,6 +1895,12 @@ const GlobalModals = () => {
         onClose={handleCloseModal}
         lead={selectedLead}
       />
+      {/* Same form, same hierarchy steps, for the rows ticked in a lead list. */}
+      <AllocateLeadModal
+        isOpen={activeModal === 'allocate-leads'}
+        onClose={handleCloseModal}
+        leads={bulkLeads}
+      />
 
       {/* VIEW / ATTACH DOCUMENTS MODAL */}
       <Modal
@@ -1928,77 +1988,98 @@ const GlobalModals = () => {
 
       {/* ESCALATE LEAD MODAL */}
       <Modal
-        isOpen={activeModal === 'escalate-lead'}
-        title="Escalate Lead"
-        subtitle="Forward this lead to a senior manager for review"
+        isOpen={activeModal === 'escalate-lead' || activeModal === 'escalate-leads'}
+        title={isBulkEscalate ? `Escalate ${escalateLeads.length} Lead${escalateLeads.length === 1 ? '' : 's'}` : 'Escalate Lead'}
+        subtitle={
+          isIndustryManager
+            ? `Forward ${isBulkEscalate ? 'these leads' : 'this lead'} to your State Manager for review`
+            : `Forward ${isBulkEscalate ? 'these leads' : 'this lead'} to a senior manager for review`
+        }
         onClose={handleCloseModal}
       >
         <form onSubmit={handleEscalateSubmit} className="space-y-6">
           <div className="space-y-4">
+            {/* What is being moved. One row action already shows its lead in the
+                page behind the modal; a set ticked in the list does not, so it is
+                spelled out here before the escalation is confirmed. */}
+            {isBulkEscalate && (
+              <div className="space-y-1">
+                <label className="form-label">Selected Leads</label>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+                  {escalateLeads.map(l => (
+                    <div key={l._id} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
+                      <span className="font-semibold text-text-primary truncate">{l.company || l.name}</span>
+                      <span className="text-text-muted font-mono text-[11px] shrink-0">{l.leadId || ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-1">
-              <label className="form-label">Manager to Escalate To</label>
-              <select 
-                className="select" 
-                value={escalateData.managerId} 
-                onChange={(e) => setEscalateData({ ...escalateData, managerId: e.target.value })}
-                required
-              >
-                <option value="">Select Manager</option>
-                {isStateManager && founders.length > 0 && (
-                  <optgroup label="Founder">
-                    {founders.map(f => (
-                      <option key={f._id} value={f._id}>{f.name} (Founder)</option>
-                    ))}
-                  </optgroup>
-                )}
-                {isIndustryManager && (
-                  <>
-                    {hierarchy.stateManagers.length > 0 && (
-                      <optgroup label="State Managers">
-                        {hierarchy.stateManagers.map(m => (
-                          <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {founders.length > 0 && (
-                      <optgroup label="Founder">
-                        {founders.map(f => (
-                          <option key={f._id} value={f._id}>{f.name} (Founder)</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </>
-                )}
-                {isExecutive && (
-                  <>
-                    {hierarchy.industryManagers.length > 0 && (
-                      <optgroup label="Industry Managers">
-                        {hierarchy.industryManagers.map(m => (
-                          <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {hierarchy.stateManagers.length > 0 && (
-                      <optgroup label="State Managers">
-                        {hierarchy.stateManagers.map(m => (
-                          <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {founders.length > 0 && (
-                      <optgroup label="Founder">
-                        {founders.map(f => (
-                          <option key={f._id} value={f._id}>{f.name} (Founder)</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </>
-                )}
-                {/* Fallback for Founder/Other roles */}
-                {!isIndustryManager && !isExecutive && !isStateManager && managers.map(m => (
-                  <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
-                ))}
-              </select>
+              {isIndustryManager ? (
+                // An Industry Manager escalates to their State Manager and nowhere
+                // else, so the field names them instead of offering a choice.
+                <>
+                  <label className="form-label">Escalate To</label>
+                  {imStateManager ? (
+                    <div className="input flex items-center bg-surface2/50 text-text-primary font-semibold">
+                      {imStateManager.name} (State Manager{imStateManager.state ? ` · ${imStateManager.state}` : ''})
+                    </div>
+                  ) : (
+                    <div className="text-[13px] text-amber font-semibold">
+                      No State Manager is set as your reporting manager, so this lead cannot be escalated yet.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                <label className="form-label">Manager to Escalate To</label>
+                <select 
+                  className="select" 
+                  value={escalateData.managerId} 
+                  onChange={(e) => setEscalateData({ ...escalateData, managerId: e.target.value })}
+                  required
+                >
+                  <option value="">Select Manager</option>
+                  {isStateManager && founders.length > 0 && (
+                    <optgroup label="Founder">
+                      {founders.map(f => (
+                        <option key={f._id} value={f._id}>{f.name} (Founder)</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {isExecutive && (
+                    <>
+                      {hierarchy.industryManagers.length > 0 && (
+                        <optgroup label="Industry Managers">
+                          {hierarchy.industryManagers.map(m => (
+                            <option key={m._id} value={m._id}>{m.name} ({m.industry})</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {hierarchy.stateManagers.length > 0 && (
+                        <optgroup label="State Managers">
+                          {hierarchy.stateManagers.map(m => (
+                            <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {founders.length > 0 && (
+                        <optgroup label="Founder">
+                          {founders.map(f => (
+                            <option key={f._id} value={f._id}>{f.name} (Founder)</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </>
+                  )}
+                  {/* Fallback for Founder/Other roles */}
+                  {!isIndustryManager && !isExecutive && !isStateManager && managers.map(m => (
+                    <option key={m._id} value={m._id}>{m.name} ({m.state})</option>
+                  ))}
+                </select>
+                </>
+              )}
             </div>
             <div className="space-y-1">
               <label className="form-label">Reason for Escalation</label>
@@ -2013,7 +2094,7 @@ const GlobalModals = () => {
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="outline" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={loading} className="bg-purple border-purple">Escalate Now</Button>
+            <Button variant="primary" type="submit" loading={loading} disabled={!escalateData.managerId} className="bg-purple border-purple">Escalate Now</Button>
           </div>
         </form>
       </Modal>
