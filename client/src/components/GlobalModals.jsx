@@ -682,8 +682,8 @@ const GlobalModals = () => {
         const left = skipped + failed.length;
         addToast(
           left
-            ? `${escalated} lead(s) escalated · ${left} could not be escalated`
-            : `${escalated} lead(s) escalated successfully!`,
+            ? `${escalated} lead(s) sent for approval · ${left} could not be escalated`
+            : `${escalated} lead(s) sent up for approval.`,
           left ? 'warning' : 'success'
         );
       } else {
@@ -691,7 +691,7 @@ const GlobalModals = () => {
           escalateTo: escalateData.managerId,
           note: escalateData.reason
         });
-        addToast('Lead escalated successfully!', 'success');
+        addToast('Lead sent up for approval.', 'success');
       }
       setActiveModal(null);
       setBulkLeads([]);
@@ -1992,8 +1992,8 @@ const GlobalModals = () => {
         title={isBulkEscalate ? `Escalate ${escalateLeads.length} Lead${escalateLeads.length === 1 ? '' : 's'}` : 'Escalate Lead'}
         subtitle={
           isIndustryManager
-            ? `Forward ${isBulkEscalate ? 'these leads' : 'this lead'} to your State Manager for review`
-            : `Forward ${isBulkEscalate ? 'these leads' : 'this lead'} to a senior manager for review`
+            ? `Send ${isBulkEscalate ? 'these leads' : 'this lead'} to your State Manager for approval`
+            : `Send ${isBulkEscalate ? 'these leads' : 'this lead'} to a senior manager for approval`
         }
         onClose={handleCloseModal}
       >
@@ -2090,6 +2090,12 @@ const GlobalModals = () => {
                 onChange={(e) => setEscalateData({ ...escalateData, reason: e.target.value })}
                 required
               ></textarea>
+              {/* The lead does not change hands here: it waits on the manager's
+                  Lead Approvals page. Saying so stops people assuming it is gone. */}
+              <p className="text-[12px] text-text-muted">
+                {isBulkEscalate ? 'These leads stay' : 'This lead stays'} with you until the manager
+                approves the escalation. If they send it back, you keep working it.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">

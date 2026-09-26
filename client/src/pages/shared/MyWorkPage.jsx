@@ -362,7 +362,7 @@ const MyWorkPage = ({
   const personalCallsCount = summaryDrilldowns.calls?.count ?? personalCallRows.length;
   const personalCallGrowth = weeklyStats.callGrowth ?? 0;
 
-  const recentActivity = activityData?.activities || [];
+  const recentActivity = Array.isArray(activityData) ? activityData : [];
 
   const isConfirmTask = !!(ConfirmTaskWizard && activeLead?.subStatus && CONFIRM_SUBSTATUS.includes(activeLead.subStatus));
   const isVirtualMeeting = activeLead?.status === 'meeting_virtual' && !!activeLead?.meetingLink;

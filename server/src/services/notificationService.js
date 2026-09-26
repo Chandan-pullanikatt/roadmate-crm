@@ -9,6 +9,9 @@ const PUSH_TITLES = {
   leave_rejected: 'Leave rejected',
   staff_created: 'New team member',
   document_uploaded: 'New document',
+  lead_escalated: 'Lead needs your approval',
+  escalation_approved: 'Escalation approved',
+  escalation_rejected: 'Escalation returned',
   broadcast: 'Message from your team',
   general: 'RoadMate Team',
 };
@@ -179,6 +182,39 @@ const notificationService = {
       message: `Lead "${leadName}" was auto-assigned to you after ${rnrCount} unanswered calls by a teammate.`,
       type: 'lead_allocated',
       meta: { leadName, rnrCount, autoAssigned: true },
+      io,
+    });
+  },
+
+  /**
+   * Notify a manager that a lead has been escalated up to them and is waiting on
+   * their approval before it lands in their own book.
+   */
+  async onLeadEscalated({ managerId, leadName, escalatedByName, note, count = 1, io }) {
+    // A bulk escalation sends one message for the batch rather than one per lead.
+    const message = count > 1
+      ? `${escalatedByName} escalated ${count} leads to you. Approve them to take them over.`
+      : `${escalatedByName} escalated lead ${leadName ? `"${leadName}"` : ''} to you. Approve it to take it over.`.replace(/\s+/g, ' ');
+    return this.create({
+      userId: managerId,
+      message,
+      type: 'lead_escalated',
+      meta: { leadName, escalatedByName, note, count },
+      io,
+    });
+  },
+
+  /**
+   * Notify the owner who escalated a lead what the manager above decided.
+   */
+  async onEscalationDecision({ userId, decision, leadName, managerName, note, io }) {
+    return this.create({
+      userId,
+      message: decision === 'approved'
+        ? `${managerName} approved your escalation of "${leadName}" and has taken it over.`
+        : `${managerName} returned "${leadName}" to you${note ? `: ${note}` : '.'}`,
+      type: decision === 'approved' ? 'escalation_approved' : 'escalation_rejected',
+      meta: { decision, leadName, managerName, note },
       io,
     });
   },

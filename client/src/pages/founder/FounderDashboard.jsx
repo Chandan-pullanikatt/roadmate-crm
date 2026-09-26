@@ -14,6 +14,7 @@ import Targets from './sections/Targets';
 import Tasks from './sections/Tasks';
 import Documents from './sections/Documents';
 import RevenueDashboard from './sections/RevenueDashboard';
+import EscalationApprovals from '../shared/EscalationApprovals';
 
 import './founder.css';
 
@@ -29,6 +30,8 @@ const FounderDashboard = () => {
       case 'industry-managers': return <IndustryManagers />;
       case 'executives': return <DistrictExecutives />;
       case 'leads': return <LeadManagement />;
+      // Leads State Managers escalated up; they only become the founder's once approved.
+      case 'escalations': return <EscalationApprovals />;
       case 'attendance': return <Attendance />;
       case 'calendar': return <LeaveCalendar />;
       case 'performance': return <Performance />;

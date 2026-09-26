@@ -21,6 +21,7 @@ import MeetingsDetail from './components/MeetingsDetail';
 import SopViewer from './components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
 import Targets from '../founder/sections/Targets';
+import EscalationApprovals from '../shared/EscalationApprovals';
 
 
 const IndDashboard = () => {
@@ -45,6 +46,8 @@ const IndDashboard = () => {
       // ── Team ──────────────────────────────────────────────
       case 'team':            return <DistrictExecutives />;
       case 'leads':           return <LeadManagement ownerScope="team" />;
+      // Leads District Managers escalated up; approving one moves it into this book.
+      case 'escalations':     return <EscalationApprovals />;
       case 'performance':     return <Performance />;
       case 'attendance':      return <Attendance />;
       case 'staff-docs':      return <StaffDocs />;

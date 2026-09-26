@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { dashboardApi } from '../api/dashboardApi';
 import { leaveApi } from '../api/leaveApi';
+import { leadsApi } from '../api/leadsApi';
 import DashboardLayout from './layout/DashboardLayout';
 
 const Layout = ({ children, pageTitle, pageSubtitle }) => {
@@ -32,7 +33,17 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     enabled: !!user && user.role !== 'executive'
   });
 
+  // Escalations waiting on this user's approval. One query for all three manager
+  // roles rather than a field bolted onto each role's dashboard payload.
+  const { data: escalationData } = useQuery({
+    queryKey: ['leads', 'escalations', 'pending-count'],
+    queryFn: () => leadsApi.getPendingEscalationCount().then(res => res.data),
+    staleTime: 2 * 60 * 1000,
+    enabled: !!user && ['founder', 'state_manager', 'industry_manager'].includes(user.role)
+  });
+
   const pendingCount = pendingData?.length || 0;
+  const escalationCount = escalationData?.count || 0;
 
   const getBadge = (value) => {
     if (isLoading || isError) return null;
@@ -67,6 +78,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Leads',
           items: [
             { label: 'All Leads', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads), badgeColor: 'green' },
+            { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'Add Lead', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' })), icon: 'add-lead' },
             { label: 'Bulk Upload', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' })), icon: 'bulk-upload' },
             { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: null },
@@ -131,6 +143,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Team',
           items: [
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) },
+            { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
             { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
             { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' }
@@ -173,6 +186,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Overview',         path: '/dashboard?page=team',           icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'green' },
             { label: 'Lead Management',  path: '/dashboard?page=leads',          icon: 'leads', badge: getBadge(stats.totalLeads) },
+            { label: 'Lead Approvals',   path: '/dashboard?page=escalations',    icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'Team Performance', path: '/dashboard?page=performance',   icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=attendance',     icon: 'attendance' },
             { label: 'Team Documents',   path: '/dashboard?page=staff-docs',     icon: 'reports' },

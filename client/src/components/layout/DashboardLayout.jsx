@@ -42,6 +42,8 @@ const getIcon = (iconName) => {
       return <svg {...props}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
     case 'leads':
       return <svg {...props}><path d="M17.5 19L9 13l8.5-6"/><path d="M12 12h9"/><path d="M2 12h4"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9" strokeOpacity="0.2"/></svg>;
+    case 'escalations':
+      return <svg {...props}><path d="M12 16V4"/><polyline points="7 9 12 4 17 9"/><polyline points="4 20 20 20"/></svg>;
     case 'attendance':
       return <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
     case 'calendar':

@@ -142,6 +142,8 @@ const Overview = () => {
   const pendingLeaves = dashData?.pendingLeaves || [];
   const recentLeads = dashData?.recentLeads || [];
   const upcomingMeetings = dashData?.upcomingMeetings || [];
+  // Leads State Managers escalated up; they are not the founder's until approved.
+  const escalated = dashData?.escalated || [];
   const nextMeeting = upcomingMeetings[0];
 
   const formatMeetingLead = (meeting) => meeting?.company || meeting?.leadName || 'Upcoming Meeting';
@@ -217,6 +219,31 @@ const Overview = () => {
           ) : null}
         </div>
       ) : null}
+
+      {escalated.length > 0 && (
+        <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-2xl p-4 flex items-center gap-4 mb-6 shadow-sm">
+          <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center text-[#D97706] text-lg shrink-0">{"⚠"}</div>
+          <div className="flex-1">
+            <div className="text-[13.5px] font-bold text-[#92400E]">
+              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''}{' '}
+              <span className="font-normal">
+                awaiting your approval, from State Manager{" "}
+                <button onClick={() => navigate(`/leads/${escalated[0]._id}`)} className="font-bold underline underline-offset-2 hover:text-[#B45309]">
+                  {escalated[0].company || escalated[0].name}
+                </button>
+                {escalated[0].state ? ` · ${escalated[0].state}` : ''}
+              </span>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="bg-[#D97706] hover:bg-[#B45309] text-white border-none h-8 px-4 text-[12px] font-bold"
+            onClick={() => navigate('/dashboard?page=escalations')}
+          >
+            Review &amp; Approve
+          </Button>
+        </div>
+      )}
 
       <div className="section-header">
         <div>

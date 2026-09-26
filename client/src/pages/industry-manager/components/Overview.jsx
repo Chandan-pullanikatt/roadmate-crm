@@ -56,7 +56,7 @@ const Overview = () => {
 
   const { data: eventActivity = [], isFetching: eventActivityLoading } = useQuery({
     queryKey: ['lead-activity', eventModal?.leadId],
-    queryFn: () => leadsApi.getLeadActivity(eventModal.leadId).then(r => r.data.activities || []),
+    queryFn: () => leadsApi.getLeadActivity(eventModal.leadId).then(r => r.data),
     enabled: !!eventModal?.leadId,
     staleTime: 0,
   });
@@ -277,21 +277,16 @@ const Overview = () => {
           <span>⚠️</span>
           <span>
             <strong>{escalatedLeads.length} Lead{escalatedLeads.length > 1 ? 's' : ''} Escalated from District Manager</strong>
-            {escalatedLeads[0] && ` — ${escalatedLeads[0].company || escalatedLeads[0].name || ''} · ${escalatedLeads[0].owner?.name || ''} · Needs manager decision`}
+            {escalatedLeads[0] && ` — ${escalatedLeads[0].company || escalatedLeads[0].name || ''} · ${escalatedLeads[0].escalatedFrom?.name || escalatedLeads[0].owner?.name || ''} · Awaiting your approval`}
           </span>
+          {/* Approving is the only way these leads enter this manager's own book,
+              so the banner goes to the approvals page rather than the lead list. */}
           <button
             className="btn btn-xs btn-warn"
             style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', borderRadius: 5, border: '1px solid #FCD34D', background: 'transparent', color: 'var(--amber)', cursor: 'pointer', fontWeight: 600 }}
-            onClick={() => navigate('/dashboard?page=leads')}
+            onClick={() => navigate('/dashboard?page=escalations')}
           >
-            Review Lead
-          </button>
-          <button
-            className="btn btn-xs btn-outline"
-            style={{ fontSize: 13, padding: '3px 10px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}
-            onClick={() => navigate('/dashboard?page=leads')}
-          >
-            Escalate to State Manager
+            Review &amp; Approve
           </button>
         </div>
       )}

@@ -8,7 +8,8 @@ const leadActivitySchema = new mongoose.Schema({
     enum: [
       'created','called','rnr','followup_set','meeting_scheduled',
       'meeting_done','meeting_confirmed','converted','lost','not_interested',
-      'escalated','reallocated','note_added','document_attached','updated',
+      'escalated','escalation_approved','escalation_rejected',
+      'reallocated','note_added','document_attached','updated',
       'blocking_amount_received','full_amount_received','agreement_signed',
       'strategy_logged'
     ],

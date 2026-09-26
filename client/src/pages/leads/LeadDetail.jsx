@@ -28,7 +28,7 @@ const LeadDetail = () => {
     enabled: !!id,
   });
 
-  const activities = activityData?.activities || activityData || [];
+  const activities = Array.isArray(activityData) ? activityData : [];
 
   if (leadLoading) return <DashboardSkeleton />;
 

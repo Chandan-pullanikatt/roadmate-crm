@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
 const { applyStatus } = require('../constants/leadStatusRank');
 const { WORK_ACTIONS } = require('../constants/workActions');
+const { isPendingFor } = require('../utils/escalation');
 
 /**
  * The next N days the user can work: working days (Sundays and the 2nd/4th
@@ -162,6 +163,8 @@ const leadService = {
 
     // Set when a payment stage completes the pair that makes a lead Converted.
     let extraActivity = null;
+    // Set by 'escalate' to the manager who now has an approval waiting on them.
+    let escalationTarget = null;
 
     switch (action) {
       case 'mark_called':
@@ -378,12 +381,31 @@ const leadService = {
         break;
       }
 
-      case 'escalate':
+      case 'escalate': {
+        // Escalating does NOT hand the lead over. It stays with its current owner
+        // and waits for the manager above to approve it (decideEscalation below);
+        // only then does the owner move up a level.
+        //
+        // Re-escalating an already-escalated lead must not lose the stage it was
+        // at, so statusBeforeEscalation is only written from a real status.
+        if (lead.status !== 'escalated') lead.statusBeforeEscalation = lead.status;
         lead.status = 'escalated';
         lead.escalatedTo = data.escalateTo;
         lead.escalationNote = data.note;
+        lead.escalatedFrom = lead.owner || performedBy?._id || null;
+        lead.escalatedAt = new Date();
+        lead.escalationStatus = 'pending';
+        lead.escalationDecisionBy = null;
+        lead.escalationDecisionAt = null;
+        lead.escalationDecisionNote = null;
+        // The approver has to see it in their queue; nothing else sets this, and
+        // anything gated on nextActionAt silently skips a lead without it.
+        lead.nextActionAt = new Date();
         activityData.action = 'escalated';
+        // The bulk route suppresses this and sends one message for the batch.
+        if (!data.suppressNotification) escalationTarget = data.escalateTo;
         break;
+      }
 
       case 'reallocate':
         lead.owner = data.newOwner;
@@ -421,6 +443,92 @@ const leadService = {
     if (extraActivity) {
       await LeadActivity.create(extraActivity);
     }
+    if (escalationTarget) {
+      await notificationService.onLeadEscalated({
+        managerId: escalationTarget,
+        leadName: lead.company || lead.name || 'Lead',
+        escalatedByName: performedBy?.name || 'A team member',
+        note: data.note,
+        io,
+      });
+    }
+    return lead;
+  },
+
+  /**
+   * Approve or reject an escalation waiting on `approver`.
+   *
+   * Approve: the lead becomes the approver's own — that is the whole point of the
+   * approval step, since an escalated lead is invisible in the manager's book
+   * until they own it. Reject: the owner never changes and the lead drops back
+   * into the escalator's queue with the manager's note.
+   *
+   * Either way the lead leaves the 'escalated' status and goes back to the stage
+   * it was at, so it reads as a real pipeline lead again. applyStatus keeps the
+   * rank lock honest: a lead that had already reached a better stage never falls
+   * back to a worse one.
+   *
+   * @param {string} leadId
+   * @param {'approved'|'rejected'} decision
+   * @param {Object} approver - the logged-in manager
+   * @param {Object} [data] - { note }
+   * @param {Object|null} [io]
+   */
+  async decideEscalation(leadId, decision, approver, data = {}, io = null) {
+    if (!['approved', 'rejected'].includes(decision)) {
+      throw new Error('Decision must be approved or rejected');
+    }
+    const lead = await Lead.findById(leadId);
+    if (!lead) throw new Error('Lead not found');
+    if (!isPendingFor(lead, approver._id)) {
+      throw new Error('This lead is not waiting on your approval');
+    }
+
+    const escalatedFrom = lead.escalatedFrom || lead.owner || null;
+
+    applyStatus(lead, lead.statusBeforeEscalation || 'new');
+    lead.escalationStatus = decision;
+    lead.escalationDecisionBy = approver._id;
+    lead.escalationDecisionAt = new Date();
+    lead.escalationDecisionNote = data.note || '';
+    lead.statusBeforeEscalation = null;
+    // Whoever owns it next has to be able to find it in their work queue.
+    lead.nextActionAt = new Date();
+
+    if (decision === 'approved') {
+      lead.owner = approver._id;
+      // Who handed it over, which is what every lead list reads as "allocated by".
+      lead.allocatedBy = escalatedFrom;
+      // rnrCount is per-owner, so the new owner starts clean.
+      lead.rnrCount = 0;
+    } else {
+      // Sent back down: the escalation is closed, so it stops showing as one.
+      lead.escalatedTo = null;
+    }
+
+    await lead.save();
+
+    await LeadActivity.create({
+      lead: lead._id,
+      performedBy: approver._id,
+      action: decision === 'approved' ? 'escalation_approved' : 'escalation_rejected',
+      note: data.note || (decision === 'approved'
+        ? 'Escalation approved; lead taken over.'
+        : 'Escalation rejected; lead returned to its owner.'),
+      metadata: { escalatedFrom, decidedBy: approver._id },
+    });
+
+    if (escalatedFrom && String(escalatedFrom) !== String(approver._id)) {
+      await notificationService.onEscalationDecision({
+        userId: escalatedFrom,
+        decision,
+        leadName: lead.company || lead.name || 'Lead',
+        managerName: approver.name || 'Your manager',
+        note: data.note,
+        io,
+      });
+    }
+
     return lead;
   },
 

@@ -16,6 +16,8 @@ export const ACTION_META = {
   lost:         { icon: '❌', label: 'Marked Lost',          color: '#DC2626' },
   not_interested: { icon: '🚫', label: 'Not Interested',     color: '#DC2626' },
   escalated:    { icon: '⬆️', label: 'Escalated',           color: '#7C3AED' },
+  escalation_approved: { icon: '✔️', label: 'Escalation Approved', color: '#059669' },
+  escalation_rejected: { icon: '↩️', label: 'Escalation Returned', color: '#DC2626' },
   reallocated:  { icon: '🔄', label: 'Reallocated',          color: '#D97706' },
   note_added:   { icon: '📝', label: 'Note Added',           color: '#6B7280' },
   document_attached: { icon: '📎', label: 'Document Attached', color: '#6B7280' },

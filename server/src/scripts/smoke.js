@@ -31,6 +31,8 @@ try {
   expectRoute(leadsRouter, 'GET /queue');
   expectRoute(leadsRouter, 'POST /bulk');
   expectRoute(leadsRouter, 'POST /:id/transition');
+  expectRoute(leadsRouter, 'GET /escalations/pending');
+  expectRoute(leadsRouter, 'POST /:id/escalation/decision');
   expectRoute(attendanceRouter, 'POST /start');
   expectRoute(attendanceRouter, 'POST /complete');
   expectRoute(leaveRouter, 'POST /request');
@@ -42,6 +44,7 @@ try {
 
   assert.strictEqual(typeof leadService.getWorkflowData, 'function', 'leadService.getWorkflowData missing');
   assert.strictEqual(typeof leadService.transition, 'function', 'leadService.transition missing');
+  assert.strictEqual(typeof leadService.decideEscalation, 'function', 'leadService.decideEscalation missing');
   assert.strictEqual(typeof attendanceService.startWork, 'function', 'attendanceService.startWork missing');
   assert.strictEqual(typeof attendanceService.completeWork, 'function', 'attendanceService.completeWork missing');
   assert.strictEqual(typeof salaryService.generateMonthlySalary, 'function', 'salaryService.generateMonthlySalary missing');

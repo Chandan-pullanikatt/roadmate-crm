@@ -10,6 +10,7 @@ const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Salary = require('../models/Salary');
 const { getScopeOwnerIds } = require('../utils/hierarchy');
+const { pendingEscalationFilter } = require('../utils/escalation');
 const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
 const { getDateRange } = require('../utils/dateRange');
 const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
@@ -762,11 +763,12 @@ router.get('/industry-manager', async (req, res) => {
       createdAt: { $gte: prevMonthStart, $lt: prevMonthEnd }
     });
 
-    // 7. Escalated Leads (escalated directly to this manager)
-    const escalatedLeads = await Lead.find({
-      escalatedTo: req.user._id,
-      status: { $nin: ['converted', 'lost'] }
-    }).populate('owner', 'name');
+    // 7. Escalated Leads — only the ones still waiting on this manager's approval.
+    // Once approved the lead becomes theirs and stops being an escalation, so the
+    // banner must not keep counting it (escalatedTo is kept for history).
+    const escalatedLeads = await Lead.find(pendingEscalationFilter(req.user._id))
+      .populate('owner', 'name')
+      .populate('escalatedFrom', 'name role');
 
     // 8. Upcoming Events
     const upcomingLeads = await Lead.find({
@@ -1483,11 +1485,11 @@ router.get('/state-manager', async (req, res) => {
             status: 'pending'
         }).populate('user', 'name role industry');
 
-        // 9. Escalated Leads (escalated directly to this state manager)
-        const escalated = await Lead.find({
-            escalatedTo: req.user._id,
-            status: { $nin: ['converted', 'lost'] }
-        }).populate('owner', 'name');
+        // 9. Escalated Leads — only the ones still waiting on this State Manager's
+        // approval (see the Industry Manager dashboard above).
+        const escalated = await Lead.find(pendingEscalationFilter(req.user._id))
+            .populate('owner', 'name')
+            .populate('escalatedFrom', 'name role');
 
         res.json({
             user: { name: req.user.name, state: req.user.state },
@@ -2163,8 +2165,14 @@ router.get('/founder', async (req, res) => {
             };
         });
 
+        // Escalations from State Managers waiting on the founder's approval.
+        const escalated = await Lead.find(pendingEscalationFilter(req.user._id))
+            .populate('owner', 'name')
+            .populate('escalatedFrom', 'name role');
+
         res.json({
             stats,
+            escalated,
             pipelineStats,
             priorityStats,
             expectedOnboardingList,

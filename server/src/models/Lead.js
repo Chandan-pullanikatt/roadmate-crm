@@ -69,6 +69,25 @@ const leadSchema = new mongoose.Schema({
   meetingDoneAt: { type: Date }, // last time a meeting was recorded as conducted
   escalatedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   escalationNote: { type: String },
+  // Escalation approval (client rule, Sep 2026). Escalating no longer hands the
+  // lead over on its own: it stays with the owner who escalated it until the
+  // manager it was escalated to approves it, and only then does the owner move
+  // up. A rejection sends it back down with a note.
+  //   pending  -> waiting on escalatedTo's decision
+  //   approved -> owner is now escalatedTo
+  //   rejected -> owner never changed; escalatedFrom keeps working it
+  // Leads escalated before this existed carry no value at all, which the
+  // pending-escalation filter reads as pending (see utils/escalation.js).
+  escalationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
+  escalatedFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  escalatedAt: { type: Date },
+  // The stage the lead was at before it was escalated. Restored on either
+  // decision, so an approved or rejected lead goes back to something workable
+  // instead of sitting on 'escalated' forever.
+  statusBeforeEscalation: { type: String, default: null },
+  escalationDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  escalationDecisionAt: { type: Date },
+  escalationDecisionNote: { type: String },
   expectedRevenue: { type: Number, default: 0 },
   subStatus: { type: String },
   remarks: { type: String },
@@ -111,5 +130,7 @@ leadSchema.index({ industry: 1 });
 leadSchema.index({ createdAt: -1 });
 leadSchema.index({ updatedAt: -1 });
 leadSchema.index({ meetingAt: 1 });
+// The approvals page queries every pending escalation aimed at one manager.
+leadSchema.index({ escalatedTo: 1, escalationStatus: 1 });
 
 module.exports = mongoose.model('Lead', leadSchema);

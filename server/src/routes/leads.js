@@ -8,6 +8,7 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const { getScopeOwnerIds, applyLeadScope, canAccessLead } = require('../utils/hierarchy');
+const { ESCALATION_ROLES, pendingEscalationFilter } = require('../utils/escalation');
 const { statusesForParam } = require('../constants/leadStatusGroups');
 const { resolveStatus } = require('../constants/leadStatusRank');
 const { createdAtRange } = require('../utils/dateRange');
@@ -1001,11 +1002,28 @@ router.patch('/bulk-escalate', async (req, res) => {
     let escalated = 0;
     for (const id of allowedIds) {
       try {
-        await leadService.transition(id, 'escalate', { escalateTo, note }, req.user, io);
+        await leadService.transition(
+          id,
+          'escalate',
+          { escalateTo, note, suppressNotification: true },
+          req.user,
+          io
+        );
         escalated += 1;
       } catch (err) {
         failed.push({ leadId: String(id), message: err.message });
       }
+    }
+
+    // One notification for the batch: escalating 30 rows should not fire 30 of them.
+    if (escalated > 0) {
+      await notificationService.onLeadEscalated({
+        managerId: escalateTo,
+        count: escalated,
+        escalatedByName: req.user.name,
+        note,
+        io,
+      });
     }
 
     res.json({
@@ -1013,6 +1031,73 @@ router.patch('/bulk-escalate', async (req, res) => {
       skipped: leadIds.length - allowedIds.length,
       failed
     });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
+ * GET /api/leads/escalations/pending - Leads escalated up to me, awaiting my decision.
+ *
+ * Only the manager a lead was escalated TO ever sees it here: a District Manager's
+ * escalation waits on their Industry Manager, an IM's on the State Manager, an
+ * SM's on the founder. Until it is approved the lead stays in the escalator's
+ * book, so this is the only place it surfaces for the manager above.
+ *
+ * Registered before GET /:id — Express would otherwise match 'escalations' as an id.
+ */
+router.get('/escalations/pending', async (req, res) => {
+  try {
+    if (!ESCALATION_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: no escalations are addressed to your role' });
+    }
+    const leads = await Lead.find(pendingEscalationFilter(req.user._id))
+      .sort({ escalatedAt: -1, updatedAt: -1 })
+      .populate('owner', 'name role industry state district')
+      .populate('escalatedFrom', 'name role industry state district')
+      .lean();
+    res.json(leads);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * GET /api/leads/escalations/pending-count - Badge count for the same list.
+ */
+router.get('/escalations/pending-count', async (req, res) => {
+  try {
+    if (!ESCALATION_ROLES.includes(req.user.role)) return res.json({ count: 0 });
+    const count = await Lead.countDocuments(pendingEscalationFilter(req.user._id));
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * POST /api/leads/:id/escalation/decision - Approve or reject an escalation.
+ * Body: { decision: 'approved' | 'rejected', note }
+ *
+ * The guard lives in leadService.decideEscalation, which refuses any lead that is
+ * not actually waiting on this user — so a manager cannot decide on a peer's
+ * escalation by posting its id.
+ */
+router.post('/:id/escalation/decision', async (req, res) => {
+  try {
+    const { decision, note } = req.body;
+    const io = req.app.get('io');
+    const lead = await leadService.decideEscalation(req.params.id, decision, req.user, { note }, io);
+
+    if (io && lead.owner) {
+      io.to(lead.owner.toString()).emit('lead:updated', {
+        leadId: lead._id,
+        status: lead.status,
+        nextActionAt: lead.nextActionAt
+      });
+    }
+
+    res.json({ message: `Escalation ${decision}`, lead });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -1208,13 +1293,29 @@ router.post('/:id/transition', async (req, res) => {
 
 /**
  * GET /api/leads/:id/activity - Get activity log
+ *
+ * Always answers with { activities: [...] }. It used to return the bare array,
+ * which meant every caller had to guess the shape and the ones reading
+ * `.activities` silently rendered an empty timeline.
  */
 router.get('/:id/activity', async (req, res) => {
   try {
+    // A non-ObjectId id (a stale cache key, a lead removed mid-session) would
+    // otherwise cast-error into a 500 and show up as a broken panel.
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid lead id' });
+    }
+
+    const lead = await Lead.findById(req.params.id).select('owner allocatedBy');
+    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    if (!(await canAccessLead(req.user, lead))) {
+      return res.status(403).json({ message: 'Not authorised to view this lead' });
+    }
+
     const activities = await LeadActivity.find({ lead: req.params.id })
       .populate('performedBy', 'name role')
       .sort({ createdAt: -1 });
-    res.json(activities);
+    res.json({ activities });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

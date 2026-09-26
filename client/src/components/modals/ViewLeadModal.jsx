@@ -140,6 +140,7 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit, onEditDetails }) => {
         <Field label="Follow-up Notes" value={lead.followUpNotes} />
         <Field label="Strategy Note" value={lead.strategyNote} />
         <Field label="Escalation Note" value={lead.escalationNote} />
+        <Field label="Escalation Decision" value={lead.escalationDecisionNote} />
         <Field label="Reason for Loss" value={lead.reasonForLost} />
       </Section>
 

@@ -87,12 +87,6 @@ const Overview = () => {
   // Sub-pages are switched via the ?page= param read by StateDashboard.jsx
   const goToLead = (id) => id && navigate(`/leads/${id}`);
 
-  const openModal = (type, data = null) => {
-    window.dispatchEvent(new CustomEvent('open-modal', { 
-      detail: typeof type === 'string' ? { type, ...data } : type 
-    }));
-  };
-
   if (isLoading) return <DashboardSkeleton />;
 
   const stats = dashData?.stats || {};
@@ -199,16 +193,19 @@ const Overview = () => {
           <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center text-[#D97706] text-lg shrink-0">{"\u26A0"}</div>
           <div className="flex-1">
             <div className="text-[13.5px] font-bold text-[#92400E]">
-              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">from Industry Manager {"\u2014"} <button onClick={() => goToLead(escalated[0]._id)} className="font-bold underline underline-offset-2 hover:text-[#B45309]">{escalated[0].company || escalated[0].name}</button> {"\u00B7"} {escalated[0].district} {"\u00B7"} {escalated[0].priority}</span>
+              {escalated.length} Escalated Lead{escalated.length > 1 ? 's' : ''} <span className="font-normal">awaiting your approval, from Industry Manager {"\u2014"} <button onClick={() => goToLead(escalated[0]._id)} className="font-bold underline underline-offset-2 hover:text-[#B45309]">{escalated[0].company || escalated[0].name}</button> {"\u00B7"} {escalated[0].district} {"\u00B7"} {escalated[0].priority}</span>
             </div>
           </div>
           <div className="flex gap-2">
+            {/* These leads are not this manager's yet — they have to be approved
+                first — so the button goes to the approvals page, not the escalate
+                modal, which would have tried to push on a lead they do not own. */}
             <Button 
               size="sm" 
               className="bg-[#D97706] hover:bg-[#B45309] text-white border-none h-8 px-4 text-[12px] font-bold"
-              onClick={() => openModal('escalate-lead', { leadData: escalated[0] })}
+              onClick={() => navigate('/dashboard?page=escalations')}
             >
-              Escalate to Founder
+              Review &amp; Approve
             </Button>
           </div>
         </div>

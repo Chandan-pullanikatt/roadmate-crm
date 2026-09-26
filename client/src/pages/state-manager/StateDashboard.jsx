@@ -16,6 +16,7 @@ const Reports = lazy(() => import('./sub-pages/Reports'));
 const Tasks = lazy(() => import('../founder/sections/Tasks'));
 const Targets = lazy(() => import('../founder/sections/Targets'));
 const SopViewer = lazy(() => import('../industry-manager/components/SopViewer'));
+const EscalationApprovals = lazy(() => import('../shared/EscalationApprovals'));
 
 
 const StateDashboard = () => {
@@ -33,6 +34,8 @@ const StateDashboard = () => {
       // manager's own book, Team > Lead Management the whole reporting subtree.
       case 'my-leads': return <LeadManagement ownerScope="self" />;
       case 'leads': return <LeadManagement ownerScope="team" />;
+      // Leads Industry Managers escalated up; approving one moves it into this book.
+      case 'escalations': return <EscalationApprovals />;
       case 'attendance': return <Attendance />;
       case 'calendar': return <LeaveCalendar />;
       case 'performance': return <Performance />;
