@@ -1323,15 +1323,22 @@ router.get('/:id/activity', async (req, res) => {
       return res.status(400).json({ message: 'Invalid lead id' });
     }
 
-    const lead = await Lead.findById(req.params.id).select('owner allocatedBy');
+    // The lead and its timeline are independent reads, so they go out together
+    // instead of one after another -- in series the timeline only started once
+    // the lead had come back, stacking two round trips of latency. The access
+    // check still gates the response, so nothing is served before it passes.
+    const [lead, activities] = await Promise.all([
+      Lead.findById(req.params.id).select('owner allocatedBy').lean(),
+      LeadActivity.find({ lead: req.params.id })
+        .populate('performedBy', 'name role')
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
     if (!(await canAccessLead(req.user, lead))) {
       return res.status(403).json({ message: 'Not authorised to view this lead' });
     }
 
-    const activities = await LeadActivity.find({ lead: req.params.id })
-      .populate('performedBy', 'name role')
-      .sort({ createdAt: -1 });
     res.json({ activities });
   } catch (err) {
     res.status(500).json({ message: err.message });

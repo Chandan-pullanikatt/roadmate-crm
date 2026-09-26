@@ -68,6 +68,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Overview',
           items: [
             { label: 'Founder Dashboard', path: '/dashboard?page=overview', icon: 'overview' },
+            { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'State Managers', path: '/dashboard?page=state-managers', icon: 'state-managers' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry-managers' },
             { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' },
@@ -78,7 +79,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Leads',
           items: [
             { label: 'All Leads', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.totalLeads), badgeColor: 'green' },
-            { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'Add Lead', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'add-lead' })), icon: 'add-lead' },
             { label: 'Bulk Upload', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'bulk-upload' })), icon: 'bulk-upload' },
             { label: 'Expected Onboarding', path: '/dashboard?page=leads-onboarding', icon: 'expected', badge: null },
@@ -134,6 +134,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             // Team > Lead Management; the two used to be one entry, which meant
             // there was nowhere to see just your own book.
             { label: 'Lead Management', path: '/dashboard?page=my-leads', icon: 'leads' },
+            { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'green' },
             { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' }
@@ -143,7 +144,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           label: 'Team',
           items: [
             { label: 'Lead Management', path: '/dashboard?page=leads', icon: 'leads', badge: getBadge(stats.activeLeads) },
-            { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'Attendance', path: '/dashboard?page=attendance', icon: 'attendance' },
             { label: 'Leave Calendar', path: '/dashboard?page=calendar', icon: 'calendar', badge: getBadge(pendingCount), badgeColor: 'red' },
             { label: 'Performance', path: '/dashboard?page=performance', icon: 'performance' }
@@ -176,6 +176,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Overview',         path: '/dashboard?page=overview',       icon: 'overview' },
             { label: 'My Work',          path: '/dashboard?page=my-work',        icon: 'my-work' },
             { label: 'Lead Management',  path: '/dashboard?page=my-leads',       icon: 'leads' },
+            { label: 'Lead Approvals',   path: '/dashboard?page=escalations',    icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'My Performance',   path: '/dashboard?page=my-performance', icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=my-attendance',  icon: 'attendance' },
             { label: 'Documents',        path: '/dashboard?page=my-sop',         icon: 'reports' },
@@ -186,7 +187,6 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
           items: [
             { label: 'Overview',         path: '/dashboard?page=team',           icon: 'executives', badge: getBadge(stats.totalExecutives), badgeColor: 'green' },
             { label: 'Lead Management',  path: '/dashboard?page=leads',          icon: 'leads', badge: getBadge(stats.totalLeads) },
-            { label: 'Lead Approvals',   path: '/dashboard?page=escalations',    icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'Team Performance', path: '/dashboard?page=performance',   icon: 'performance' },
             { label: 'Attendance',       path: '/dashboard?page=attendance',     icon: 'attendance' },
             { label: 'Team Documents',   path: '/dashboard?page=staff-docs',     icon: 'reports' },

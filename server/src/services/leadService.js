@@ -8,6 +8,13 @@ const { applyStatus } = require('../constants/leadStatusRank');
 const { WORK_ACTIONS } = require('../constants/workActions');
 const { isPendingFor } = require('../utils/escalation');
 
+// How much of the work queue ships with its timeline already attached. The page
+// only ever shows the active lead's history and the user works down the queue in
+// order, so seeding the head covers every lead they are about to open without
+// dragging the whole book's activity through the response.
+const TIMELINE_SEED_LEADS = 12;
+const TIMELINE_SEED_ACTIVITIES = 5;
+
 /**
  * The next N days the user can work: working days (Sundays and the 2nd/4th
  * Saturday off, state holidays off) that are not on their approved leave.
@@ -605,22 +612,84 @@ const leadService = {
 
     const fullQueue = await this.getQueue(userId);
 
-    // getQueue() lists every open lead, and a lead stays open after it has been
-    // called -- so the queue does not shrink as the day is worked. Tag the ones
-    // already worked today, otherwise the work page counts them as still
-    // pending and (once its cursor runs past the last row) declares the day
-    // done with dozens of leads untouched.
-    const workedTodayIds = await LeadActivity.distinct('lead', {
-      performedBy: userId,
-      createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: WORK_ACTIONS }
-    });
-    const workedToday = new Set(workedTodayIds.map(String));
+    // The work page opens on the head of the queue and its Interaction History
+    // panel used to fetch that lead's timeline only after the queue had painted,
+    // so it flashed "No activity yet for this lead" for as long as that second
+    // request took. Each lead near the front of the queue now carries its last
+    // few activities, in the same shape GET /leads/:id/activity returns, so the
+    // panel renders filled and the full log loads behind it.
+    const seedIds = fullQueue.slice(0, TIMELINE_SEED_LEADS).map(l => l._id);
 
-    const queue = fullQueue.map(l => ({
-      ...(typeof l.toObject === 'function' ? l.toObject() : l),
-      workedToday: workedToday.has(String(l._id))
-    }));
+    // Four independent reads -- in series they added their latencies together.
+    const [workedTodayIds, seedRows, todayMeetings, activityFeed] = await Promise.all([
+      // getQueue() lists every open lead, and a lead stays open after it has been
+      // called -- so the queue does not shrink as the day is worked. Tag the ones
+      // already worked today, otherwise the work page counts them as still
+      // pending and (once its cursor runs past the last row) declares the day
+      // done with dozens of leads untouched.
+      LeadActivity.distinct('lead', {
+        performedBy: userId,
+        createdAt: { $gte: todayStart, $lte: todayEnd },
+        action: { $in: WORK_ACTIONS }
+      }),
+      seedIds.length ? Lead.aggregate([
+        { $match: { _id: { $in: seedIds } } },
+        {
+          $lookup: {
+            from: 'leadactivities',
+            let: { leadId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$lead', '$$leadId'] } } },
+              { $sort: { createdAt: -1 } },
+              { $limit: TIMELINE_SEED_ACTIVITIES },
+              {
+                $lookup: {
+                  from: 'users',
+                  let: { performerId: '$performedBy' },
+                  pipeline: [
+                    { $match: { $expr: { $eq: ['$_id', '$$performerId'] } } },
+                    { $project: { name: 1, role: 1 } }
+                  ],
+                  as: 'performer'
+                }
+              },
+              {
+                $project: {
+                  action: 1,
+                  note: 1,
+                  createdAt: 1,
+                  performedBy: { $arrayElemAt: ['$performer', 0] }
+                }
+              }
+            ],
+            as: 'recentActivity'
+          }
+        },
+        { $project: { recentActivity: 1 } }
+      ]) : [],
+      Lead.find({
+        owner: userId,
+        meetingAt: { $gte: todayStart, $lte: todayEnd }
+      }).sort({ meetingAt: 1 }),
+      LeadActivity.find({ performedBy: userId })
+        .populate('lead', 'name company')
+        .sort({ createdAt: -1 })
+        .limit(10)
+    ]);
+    const workedToday = new Set(workedTodayIds.map(String));
+    const seededActivity = new Map(seedRows.map(r => [String(r._id), r.recentActivity || []]));
+
+    const queue = fullQueue.map(l => {
+      const plain = typeof l.toObject === 'function' ? l.toObject() : l;
+      const seeded = seededActivity.get(String(l._id));
+      return {
+        ...plain,
+        workedToday: workedToday.has(String(l._id)),
+        // Left off entirely past the seeded head of the queue, so the client can
+        // tell "nothing happened yet" from "not loaded".
+        ...(seeded ? { recentActivity: seeded } : {})
+      };
+    });
     const pendingQueue = queue.filter(l => !l.workedToday);
 
     // 1. Current Lead -- the first one still to be worked today
@@ -639,11 +708,6 @@ const leadService = {
     }));
 
     // 3. Today's Meetings
-    const todayMeetings = await Lead.find({
-      owner: userId,
-      meetingAt: { $gte: todayStart, $lte: todayEnd }
-    }).sort({ meetingAt: 1 });
-
     const meetingsFormatted = todayMeetings.map(m => ({
       id: m._id,
       name: m.company || m.name,
@@ -654,11 +718,6 @@ const leadService = {
     }));
 
     // 4. Live Activity Feed
-    const activityFeed = await LeadActivity.find({ performedBy: userId })
-      .populate('lead', 'name company')
-      .sort({ createdAt: -1 })
-      .limit(10);
-
     const feedFormatted = activityFeed.map(a => ({
       id: a._id,
       action: a.action,

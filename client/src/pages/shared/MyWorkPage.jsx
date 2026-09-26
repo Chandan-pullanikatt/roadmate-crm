@@ -228,12 +228,34 @@ const MyWorkPage = ({
     }
   };
 
-  const { data: activityData } = useQuery({
+  // The queue response already carries the last few activities of every lead at
+  // the head of the queue, so the timeline paints from it immediately instead of
+  // waiting on this request. Without that seed the panel had nothing to show for
+  // as long as the round trip took, and rendered its "no activity yet" empty
+  // state in the meantime -- a wrong answer that then flipped to the history.
+  const seededActivity = Array.isArray(activeLead?.recentActivity) ? activeLead.recentActivity : undefined;
+  const { data: activityData, isPending: activityPending } = useQuery({
     queryKey: ['lead-activity', activeLead?._id],
     queryFn: () => leadsApi.getLeadActivity(activeLead._id).then(r => r.data),
     enabled: !!activeLead?._id,
     staleTime: 60 * 1000,
+    // A value placeholder keeps the seed out of the shared ['lead-activity', id]
+    // cache the history modals read, so they still load the full log.
+    placeholderData: seededActivity,
   });
+  // True only when there is genuinely nothing to show yet: no seed, no cache hit.
+  const activityLoading = !!activeLead?._id && activityPending;
+
+  // Leads further down the queue ship without a seed, so warm their timeline on
+  // hover/focus -- by the time the row is clicked the history is already in cache.
+  const prefetchActivity = (leadId) => {
+    if (!leadId) return;
+    queryClient.prefetchQuery({
+      queryKey: ['lead-activity', leadId],
+      queryFn: () => leadsApi.getLeadActivity(leadId).then(r => r.data),
+      staleTime: 60 * 1000,
+    });
+  };
 
   useEffect(() => {
     const handleLeadRefresh = () => refreshLeadCaches();
@@ -700,7 +722,15 @@ const MyWorkPage = ({
                       <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Interaction History</div>
                       <div className="relative pl-4">
                         <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
-                        {recentActivity.length > 0 ? (
+                        {activityLoading ? (
+                          [0, 1, 2].map(i => (
+                            <div key={i} className="relative mb-3.5" aria-hidden="true">
+                              <div className="absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-border2" />
+                              <div className="h-3 w-24 rounded bg-surface2 animate-pulse" />
+                              <div className="h-3 w-40 rounded bg-surface2 animate-pulse mt-1.5" />
+                            </div>
+                          ))
+                        ) : recentActivity.length > 0 ? (
                           recentActivity.slice(0, 5).map((a, i) => (
                             <div key={i} className="relative mb-3.5">
                               <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${i === 0 ? 'bg-blue' : 'bg-border2'}`} />
@@ -746,6 +776,8 @@ const MyWorkPage = ({
                     tabIndex={0}
                     aria-current={isActive ? 'true' : undefined}
                     onClick={() => { setQueueComplete(false); setActiveLeadId(lead._id); }}
+                    onMouseEnter={() => prefetchActivity(lead._id)}
+                    onFocus={() => prefetchActivity(lead._id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -1345,6 +1377,8 @@ const MyWorkPage = ({
                     )}
                   </div>
                 ))
+              ) : activityLoading ? (
+                <div className="py-6 text-center text-[16px] text-text-muted">Loading activity log…</div>
               ) : (
                 <div className="py-6 text-center text-[16px] text-text-muted italic">No activity recorded yet.</div>
               )}

@@ -21,6 +21,10 @@ const leadActivitySchema = new mongoose.Schema({
 
 // Performance Indexes
 leadActivitySchema.index({ lead: 1 });
+// One lead's timeline, newest first -- the shape every activity panel asks for.
+// Without the createdAt leg the sort ran in memory on every open, which is what
+// made the Interaction History panel take a second or two to fill.
+leadActivitySchema.index({ lead: 1, createdAt: -1 });
 leadActivitySchema.index({ performedBy: 1 });
 leadActivitySchema.index({ action: 1 });
 leadActivitySchema.index({ createdAt: -1 });
