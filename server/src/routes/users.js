@@ -94,8 +94,15 @@ router.get('/', async (req, res) => {
         { role: 'founder' }
       ];
     } else if (req.user.role === 'state_manager') {
+      // The whole subtree, not just the direct reports. A state manager allocates
+      // down two levels — Industry Manager, then one of that IM's District
+      // Managers — so the district managers have to be visible here too. With only
+      // { reportingTo: me } the DM dropdown came back empty, because a DM reports
+      // to an IM and never to the state manager.
+      const directReports = await User.find({ reportingTo: req.user._id }).select('_id').lean();
+      const subtreeIds = [req.user._id, ...directReports.map(u => u._id)];
       query.$or = [
-        { reportingTo: req.user._id },
+        { reportingTo: { $in: subtreeIds } },
         // Themselves: a state manager allocates leads to their own name, so they
         // have to appear in their own lists. Without this the "Assign to State
         // Manager" dropdown is empty and an SM can never own a lead at all.

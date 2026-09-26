@@ -247,7 +247,10 @@ const LeadList = () => {
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2">
                     <Button size="2xs" variant="outline" className="font-bold" onClick={() => openModal('update-lead', { leadData: lead })}>Update</Button>
-                    <Button size="2xs" variant="outline" className="text-purple border-purple/10 font-bold" onClick={() => openModal('allocate-lead', { leadData: lead })}>Allocate</Button>
+                    {/* A District Manager is the bottom of the reporting tree —
+                        there is nobody to allocate down to, so the row offers the
+                        upward move instead. */}
+                    <Button size="2xs" variant="outline" className="text-amber border-amber/20 font-bold" onClick={() => openModal('escalate-lead', { leadData: lead })}>Escalate</Button>
                     {/* Renders only for leads this user is allowed to delete. */}
                     <DeleteLeadButton lead={lead} />
                   </div>
