@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Tag } from './ui';
 import { leadsApi } from '../api/leadsApi';
 import { usersApi } from '../api/usersApi';
@@ -30,7 +30,6 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const [selectedStateManagerId, setSelectedStateManagerId] = useState('');
   const [selectedIndustryManagerId, setSelectedIndustryManagerId] = useState('');
   const [selectedExecutiveId, setSelectedExecutiveId] = useState('');
-  const [assignableUsers, setAssignableUsers] = useState([]);
   const fileInputRef = useRef(null);
 
   // Reset state when modal opens/closes
@@ -46,43 +45,50 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    usersApi.getUsers()
-      .then((res) => {
-        const users = res.data || [];
-        setAssignableUsers(users.filter(u => ['state_manager', 'industry_manager', 'executive'].includes(u.role)));
-      })
-      .catch(() => setAssignableUsers([]));
-  }, [isOpen]);
-
-  // GET /users is hierarchy-scoped: a State Manager never gets themselves back (only their
-  // reports), and an Industry Manager gets every SM in their state. So the chain has to be
-  // anchored on the uploader's own position rather than read purely from that list.
+  // Fix: the allocation fields offer only the hierarchy BELOW the uploader, the same
+  // rule the single/bulk Allocate form follows. A State Manager was being asked to
+  // pick a State Manager -- herself, the only possible answer -- before she could
+  // reach her own Industry Managers, and an Industry Manager had to walk two dead
+  // steps to get to a District Manager. Now the Founder picks SM -> IM -> DM, a
+  // State Manager picks IM -> DM, an Industry Manager picks a DM, and a District
+  // Manager gets no allocation at all: they are the bottom of the tree, so the rows
+  // they upload simply stay with them.
   const role = currentUser?.role;
-  const bossId = String(currentUser?.reportingTo?._id || currentUser?.reportingTo || '');
+  const isFounder = role === 'founder';
+  const isStateManager = role === 'state_manager';
+  const isIndustryManager = role === 'industry_manager';
+  const canAllocate = isFounder || isStateManager || isIndustryManager;
 
-  const stateManagers = useMemo(() => {
-    if (role === 'state_manager') return [currentUser];
-    const sms = assignableUsers.filter(u => u.role === 'state_manager');
-    if (role === 'industry_manager') {
-      const boss = sms.filter(u => String(u._id) === bossId);
-      // /auth/me populates reportingTo, so fall back to it if the SM sits outside our state.
-      if (!boss.length && currentUser?.reportingTo?.role === 'state_manager') return [currentUser.reportingTo];
-      return boss;
-    }
-    return sms;
-  }, [assignableUsers, role, currentUser, bossId]);
+  // Which steps this role is actually asked for.
+  const showSmStep = isFounder;
+  const showImStep = isFounder || isStateManager;
+  const showDmStep = canAllocate;
+  const stepCount = [showSmStep, showImStep, showDmStep].filter(Boolean).length;
 
-  const industryManagerOptions = useMemo(() => {
-    if (role === 'industry_manager') return selectedStateManagerId ? [currentUser] : [];
-    return assignableUsers.filter(u => u.role === 'industry_manager' && String(u.reportingTo) === selectedStateManagerId);
-  }, [assignableUsers, selectedStateManagerId, role, currentUser]);
+  // The branch of the tree the next dropdown reads from. For a manager it is
+  // themselves -- their own level is implied, not chosen.
+  const branchSmId = isFounder ? selectedStateManagerId : (isStateManager ? currentUser?._id : '');
+  const branchImId = isIndustryManager ? currentUser?._id : selectedIndustryManagerId;
 
-  const executiveOptions = useMemo(
-    () => assignableUsers.filter(u => u.role === 'executive' && String(u.reportingTo) === selectedIndustryManagerId),
-    [assignableUsers, selectedIndustryManagerId]
-  );
+  // Each level is fetched by role + reportingTo, so the options come from the
+  // reporting tree rather than from a state/industry match on the user record.
+  const { data: stateManagers = [], isLoading: loadingSMs } = useQuery({
+    queryKey: ['users', 'upload-sms'],
+    queryFn: () => usersApi.getUsers({ role: 'state_manager' }).then(r => r.data || []),
+    enabled: isOpen && showSmStep,
+  });
+
+  const { data: industryManagerOptions = [], isLoading: loadingIMs } = useQuery({
+    queryKey: ['users', 'upload-ims', String(branchSmId || '')],
+    queryFn: () => usersApi.getUsers({ role: 'industry_manager', reportingTo: branchSmId }).then(r => r.data || []),
+    enabled: isOpen && showImStep && !!branchSmId,
+  });
+
+  const { data: executiveOptions = [], isLoading: loadingExecs } = useQuery({
+    queryKey: ['users', 'upload-execs', String(branchImId || '')],
+    queryFn: () => usersApi.getUsers({ role: 'executive', reportingTo: branchImId }).then(r => r.data || []),
+    enabled: isOpen && showDmStep && !!branchImId,
+  });
 
   React.useEffect(() => {
     setAssignmentTargetId(selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '');
@@ -464,65 +470,117 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               )}
             </div>
 
-            <div className="p-4 bg-surface2/50 border border-border rounded-xl mt-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
-                  <div className="text-[13px] text-text-muted mt-0.5">Optionally assign every lead in this upload to one manager or district manager.</div>
+            {/* Allocation -- only the levels below the uploader (see the note above). */}
+            {canAllocate ? (
+              <div className="p-4 bg-surface2/50 border border-border rounded-xl mt-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
+                    <div className="text-[13px] text-text-muted mt-0.5">
+                      {isFounder
+                        ? 'Optionally assign every lead in this upload to one State Manager, Industry Manager or District Manager.'
+                        : isStateManager
+                          ? 'Optionally assign every lead in this upload to an Industry Manager in your team, or straight to one of their District Managers.'
+                          : 'Optionally assign every lead in this upload to a District Manager in your team — otherwise they stay with you.'}
+                    </div>
+                  </div>
+                  <Tag
+                    variant={assignmentTargetId ? 'green' : 'gray'}
+                    label={assignmentTargetId ? 'Will assign' : (isIndustryManager ? 'Stays with you' : 'Unallocated')}
+                  />
                 </div>
-                <Tag variant={assignmentTargetId ? 'green' : 'gray'} label={assignmentTargetId ? 'Will assign' : 'Unallocated'} />
+                <div className={`grid grid-cols-1 gap-3 mt-4 ${stepCount === 3 ? 'md:grid-cols-3' : stepCount === 2 ? 'md:grid-cols-2' : ''}`}>
+                  {/* Step 1 -- State Manager (Founder only; a State Manager is their own branch) */}
+                  {showSmStep && (
+                    <div>
+                      <label className="form-label">State Manager</label>
+                      <select
+                        className="select"
+                        value={selectedStateManagerId}
+                        disabled={loadingSMs}
+                        onChange={(e) => {
+                          setSelectedStateManagerId(e.target.value);
+                          setSelectedIndustryManagerId('');
+                          setSelectedExecutiveId('');
+                        }}
+                      >
+                        <option value="">{loadingSMs ? 'Loading state managers…' : 'Keep unallocated'}</option>
+                        {stateManagers.map(u => (
+                          <option key={u._id} value={u._id}>{u.name} ({u.state || 'State Manager'})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Step 2 -- Industry Manager. First step for a State Manager, optional
+                      for the Founder, who may stop at the SM. */}
+                  {showImStep && (
+                    <div>
+                      <label className="form-label">Industry Manager</label>
+                      <select
+                        className="select"
+                        value={selectedIndustryManagerId}
+                        disabled={!branchSmId || loadingIMs}
+                        onChange={(e) => {
+                          setSelectedIndustryManagerId(e.target.value);
+                          setSelectedExecutiveId('');
+                        }}
+                      >
+                        <option value="">
+                          {loadingIMs
+                            ? 'Loading industry managers…'
+                            : isStateManager
+                              ? 'Keep unallocated'
+                              : branchSmId ? 'Assign to State Manager' : 'Select State Manager first'}
+                        </option>
+                        {industryManagerOptions.map(u => (
+                          <option key={u._id} value={u._id}>{u.name} ({[u.industry, u.state].filter(Boolean).join(' · ') || 'Industry Manager'})</option>
+                        ))}
+                      </select>
+                      {isStateManager && !loadingIMs && industryManagerOptions.length === 0 && (
+                        <p className="text-[11px] text-amber font-medium mt-1">No industry managers found in your team</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Step 3 -- District Manager. The Industry Manager's only step. */}
+                  {showDmStep && (
+                    <div>
+                      <label className="form-label">District Manager</label>
+                      <select
+                        className="select"
+                        value={selectedExecutiveId}
+                        disabled={!branchImId || loadingExecs}
+                        onChange={(e) => setSelectedExecutiveId(e.target.value)}
+                      >
+                        <option value="">
+                          {loadingExecs
+                            ? 'Loading district managers…'
+                            : isIndustryManager
+                              ? 'Keep with me'
+                              : branchImId ? 'Assign to Industry Manager' : 'Select Industry Manager first'}
+                        </option>
+                        {executiveOptions.map(u => (
+                          <option key={u._id} value={u._id}>{u.name} ({[u.district, u.state].filter(Boolean).join(' · ') || 'District Manager'})</option>
+                        ))}
+                      </select>
+                      {isIndustryManager && !loadingExecs && executiveOptions.length === 0 && (
+                        <p className="text-[11px] text-amber font-medium mt-1">No district managers found in your team</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-                <div>
-                  <label className="form-label">State Manager</label>
-                  <select
-                    className="select"
-                    value={selectedStateManagerId}
-                    onChange={(e) => {
-                      setSelectedStateManagerId(e.target.value);
-                      setSelectedIndustryManagerId('');
-                      setSelectedExecutiveId('');
-                    }}
-                  >
-                    <option value="">Keep unallocated</option>
-                    {stateManagers.map(u => (
-                      <option key={u._id} value={u._id}>{u.name} ({u.state || 'State Manager'})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Industry Manager</label>
-                  <select
-                    className="select"
-                    value={selectedIndustryManagerId}
-                    disabled={!selectedStateManagerId}
-                    onChange={(e) => {
-                      setSelectedIndustryManagerId(e.target.value);
-                      setSelectedExecutiveId('');
-                    }}
-                  >
-                    <option value="">{selectedStateManagerId ? 'Assign to State Manager' : 'Select State Manager first'}</option>
-                    {industryManagerOptions.map(u => (
-                      <option key={u._id} value={u._id}>{u.name} ({[u.industry, u.state].filter(Boolean).join(' · ') || 'Industry Manager'})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">District Manager</label>
-                  <select
-                    className="select"
-                    value={selectedExecutiveId}
-                    disabled={!selectedIndustryManagerId}
-                    onChange={(e) => setSelectedExecutiveId(e.target.value)}
-                  >
-                    <option value="">{selectedIndustryManagerId ? 'Assign to Industry Manager' : 'Select Industry Manager first'}</option>
-                    {executiveOptions.map(u => (
-                      <option key={u._id} value={u._id}>{u.name} ({[u.district, u.state].filter(Boolean).join(' · ') || 'District Manager'})</option>
-                    ))}
-                  </select>
+            ) : (
+              /* A District Manager has nobody below them, so there is nothing to allocate to. */
+              <div className="p-4 bg-surface2/50 border border-border rounded-xl mt-4 flex gap-3 items-start">
+                <span className="text-blue text-lg">ℹ️</span>
+                <div className="text-[14px] text-text-secondary leading-relaxed">
+                  You are at the bottom of the reporting tree, so there is nobody to allocate to —
+                  every lead in this upload stays in <span className="font-bold text-text-primary">your</span> list.
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

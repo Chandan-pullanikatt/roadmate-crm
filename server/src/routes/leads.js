@@ -155,6 +155,15 @@ const bulkCreateLeads = async (req, res) => {
       'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',
     };
 
+    // The allocation dropdown (ownerId) and the sheet's "Assigned To" column both name
+    // an owner, and both arrive from the browser -- so an owner is only accepted when
+    // they sit in the uploader's own reporting subtree. That is the same rule the
+    // allocation fields now show: you hand leads DOWN your tree, never sideways or up.
+    // Resolved once for the whole batch instead of per row.
+    const uploaderScopeIds = await getScopeOwnerIds(req.user);
+    const allowedOwners = uploaderScopeIds === null ? null : new Set(uploaderScopeIds.map(String));
+    const canOwn = (id) => allowedOwners === null || allowedOwners.has(String(id));
+
     for (let i = 0; i < req.body.length; i++) {
       const item = req.body[i];
       try {
@@ -178,6 +187,10 @@ const bulkCreateLeads = async (req, res) => {
         // owner for brand-new leads — an existing lead's owner must NEVER be silently
         // reassigned on a plain re-upload (that bug let a Founder/admin re-upload steal
         // every matched lead away from the Industry Manager who actually works it).
+        if (normalized.owner && !canOwn(normalized.owner)) {
+          errors.push({ row: i + 1, reason: 'Allocation target is not in your team' });
+          continue;
+        }
         let explicitOwner = normalized.owner != null;
         // Default owner to the uploader ONLY for roles that actually work leads, so a new
         // lead shows up in their My Leads immediately. A founder or state manager uploading
@@ -198,6 +211,10 @@ const bulkCreateLeads = async (req, res) => {
           const assignee = await User.findOne({
             name: { $regex: new RegExp(`^${item.assignedTo.trim()}$`, 'i') }
           }).select('_id');
+          if (assignee && !canOwn(assignee._id)) {
+            errors.push({ row: i + 1, reason: `${item.assignedTo} is not in your team` });
+            continue;
+          }
           if (assignee) {
             normalized.owner = assignee._id;
             explicitOwner = true;
