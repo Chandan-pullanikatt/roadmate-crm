@@ -293,8 +293,10 @@ router.get('/executive', async (req, res) => {
         workCompletedAt: attendance?.workCompletedAt,
         completionPct: attendance?.completionPct || 0,
         // The work page shows a "Working From Home" badge once the day is
-        // started, so the flag has to travel with the rest of the attendance.
-        isWFH: !!attendance?.isWFH
+        // started, so the declaration has to travel with the rest of the
+        // attendance -- the reason included, as the badge's tooltip.
+        isWFH: !!attendance?.isWFH,
+        wfhReason: attendance?.wfhReason || null
       },
       upcomingMeetings: meetingsFormatted,
       leadSources: sourcesFormatted,
@@ -735,7 +737,16 @@ router.get('/industry-manager', async (req, res) => {
         leadsCount: activeLeads.length,
         followupsCount: activeLeads.filter(l => l.status === 'followup').length,
         isWorking: !!att?.workStartedAt && !att?.workCompletedAt,
-        status: att?.workStartedAt && !att?.workCompletedAt ? 'Active' : 'Offline'
+        status: att?.workStartedAt && !att?.workCompletedAt ? 'Active' : 'Offline',
+        // The register's IN TIME / LATE columns. Sent raw so the client renders
+        // the login in the viewer's timezone; null means the day never started,
+        // which the register shows as a dash rather than an invented time.
+        workStartedAt: att?.workStartedAt || null,
+        isLateLogin: !!att?.isLateLogin,
+        lateLoginMinutes: att?.lateLoginMinutes || 0,
+        // The register's WFH column reads these off the day's declaration.
+        isWFH: !!att?.isWFH,
+        wfhReason: att?.wfhReason || null
       };
     });
 

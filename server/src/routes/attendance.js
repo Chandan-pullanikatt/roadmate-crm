@@ -240,6 +240,10 @@ router.get('/team', async (req, res) => {
         workPercentage: avgWorkPct,
         completionPct: avgCompletionPct,
         leaveDays,
+        // The work-from-home declaration made at Start Work, so the register
+        // shows where the day was worked from and why.
+        isWFH: !!latest?.isWFH,
+        wfhReason: latest?.wfhReason || null,
         note: latest?.note || (userLeave ? `On Leave: ${userLeave.reason}` : null)
       };
     });

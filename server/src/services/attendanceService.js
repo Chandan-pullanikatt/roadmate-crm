@@ -13,11 +13,21 @@ const ATTENDANCE_LABELS = { present: 'Present', half_day: 'Half Day', leave: 'Le
 
 const attendanceService = {
   /**
-   * Start work day for an executive
+   * Start work day. Every manager role starts its day here, and each may opt for
+   * work from home on the way in -- which is only recorded with a reason against
+   * it, so the register says why the day was worked remotely.
    */
   async startWork(userId, wfhData = null) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const isWFH = !!wfhData?.isWFH;
+    const wfh = {
+      isWFH,
+      location: isWFH ? (wfhData.location || '').trim() : undefined,
+      reason:   isWFH ? (wfhData.reason   || '').trim() : undefined,
+    };
+    if (isWFH && !wfh.reason) throw new Error('A reason is required to work from home');
 
     const user = await User.findById(userId);
     if (!user) throw new Error('User not found');
@@ -103,10 +113,9 @@ const attendanceService = {
         lateLoginMinutes,
         note,
         status: isHoliday ? 'holiday' : 'absent', // Resolved to final status at completeWork time
-        isWFH: wfhData?.isWFH || false,
-        location: wfhData?.location,
-        wfhReason: wfhData?.reason,
-        wfhDescription: wfhData?.description
+        isWFH: wfh.isWFH,
+        location: wfh.location,
+        wfhReason: wfh.reason
       });
     } else {
       attendance.workStartedAt = now;
@@ -115,12 +124,10 @@ const attendanceService = {
       attendance.isLateLogin = isLateLogin;
       attendance.lateLoginMinutes = lateLoginMinutes;
       if (note) attendance.note = note;
-      if (wfhData) {
-        attendance.isWFH = wfhData.isWFH || false;
-        attendance.location = wfhData.location;
-        attendance.wfhReason = wfhData.reason;
-        attendance.wfhDescription = wfhData.description;
-      }
+      attendance.isWFH = wfh.isWFH;
+      attendance.location = wfh.location;
+      attendance.wfhReason = wfh.reason;
+      attendance.wfhDescription = undefined;
     }
 
     await attendance.save();
@@ -134,6 +141,8 @@ const attendanceService = {
       isLateLogin,
       isLateHalfDay,
       lateLoginMinutes,
+      isWFH: wfh.isWFH,
+      wfhReason: wfh.reason,
     };
   },
 

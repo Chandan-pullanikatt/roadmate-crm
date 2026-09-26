@@ -56,7 +56,8 @@ const DEFAULT_NAV_TARGETS = {
  * queue arithmetic.
  *
  * Only the wording, the allocation target and the feedback dialog differ, and
- * those arrive as props.
+ * those arrive as props. Starting the day is identical for all three: each one
+ * is asked whether they are opting for work from home, and for a reason if so.
  */
 const MyWorkPage = ({
   // Trailing scope in the page title (an industry, a state, a district).
@@ -71,8 +72,6 @@ const MyWorkPage = ({
   // Who this role may hand a lead down to, or null when it has no one below it.
   // { role, fieldLabel, emptyMsg }
   allocate = null,
-  // Capture a work-from-home declaration when starting the day.
-  wfhCapture = false,
   // Where each summary card's "View Full Details" goes, per role's own sidebar.
   navTargets = DEFAULT_NAV_TARGETS,
   // Role dashboard caches to refresh after a lead is actioned.
@@ -94,8 +93,10 @@ const MyWorkPage = ({
   const [strategyNote, setStrategyNote] = useState('');
 
   // Work-from-home declaration, asked once when the day is started.
+  const WFH_BLANK = { isWFH: false, location: '', reason: '' };
   const [wfhOpen, setWfhOpen] = useState(false);
-  const [wfhData, setWfhData] = useState({ isWFH: false, location: '', reason: '', description: '' });
+  const [wfhData, setWfhData] = useState(WFH_BLANK);
+  const [wfhError, setWfhError] = useState('');
 
   // Call feedback modal state
   const [feedbackModal, setFeedbackModal] = useState({ open: false, outcome: null });
@@ -276,6 +277,8 @@ const MyWorkPage = ({
         addToast(`Late login: ${data.lateLoginMinutes} min late — today will be marked Half Day.`, 'warning');
       } else if (data?.isLateLogin) {
         addToast(`Late Coming: ${data.lateLoginMinutes} min late.`, 'warning');
+      } else if (data?.isWFH) {
+        addToast('Work started from home. Recorded as Work From Home.', 'success');
       } else {
         addToast("Work started! Good luck.", "success");
       }
@@ -283,6 +286,12 @@ const MyWorkPage = ({
       queryClient.invalidateQueries({ queryKey: ['attendance'], exact: false });
       refreshLeadCaches();
       setWfhOpen(false);
+      setWfhError('');
+      setWfhData(WFH_BLANK);
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message || 'Could not start work. Please try again.';
+      if (wfhOpen) setWfhError(msg); else addToast(msg, 'error');
     }
   });
 
@@ -375,14 +384,43 @@ const MyWorkPage = ({
     if (activeLead?._id) queryClient.invalidateQueries({ queryKey: ['lead-activity', activeLead._id] });
   };
 
+  const closeWfh = () => {
+    setWfhOpen(false);
+    setWfhError('');
+    setWfhData(WFH_BLANK);
+  };
+
+  // Starting the day always goes through the declaration dialog: the Industry
+  // Manager, the State Manager and the District Manager all get the chance to
+  // opt for work from home, with a reason, before the day is opened.
   const onStartWorkClick = () => {
     if (workStarted) {
       endWorkMutation.mutate(dashData?.attendance?._id);
-    } else if (wfhCapture) {
-      setWfhOpen(true);
-    } else {
-      startWorkMutation.mutate();
+      return;
     }
+    setWfhData(WFH_BLANK);
+    setWfhError('');
+    setWfhOpen(true);
+  };
+
+  // Work from home is only recorded with a reason against it, so the register
+  // says why the day was worked remotely rather than just that it was.
+  const submitStartWork = () => {
+    const reason = wfhData.reason.trim();
+    if (wfhData.isWFH && !reason) {
+      setWfhError('Please give a reason for working from home.');
+      return;
+    }
+    setWfhError('');
+    startWorkMutation.mutate(
+      wfhData.isWFH
+        ? {
+            isWFH: true,
+            reason,
+            location: wfhData.location.trim(),
+          }
+        : { isWFH: false }
+    );
   };
 
   return (
@@ -432,7 +470,10 @@ const MyWorkPage = ({
           )}
 
           {workStarted && dashData?.attendance?.isWFH && (
-            <span className="px-2 py-0.5 bg-orange/10 text-orange rounded-full text-[10px] uppercase font-black">
+            <span
+              className="px-2 py-0.5 bg-orange/10 text-orange rounded-full text-[10px] uppercase font-black"
+              title={dashData.attendance.wfhReason || ''}
+            >
               Working From Home
             </span>
           )}
@@ -1105,21 +1146,31 @@ const MyWorkPage = ({
         <Modal
           isOpen
           title="Start Work"
-          subtitle="Declare where you are working from today"
-          onClose={() => setWfhOpen(false)}
+          subtitle="Working from the office, or opting for work from home today?"
+          onClose={closeWfh}
           className="max-w-sm"
         >
-          <div className="p-3 bg-surface2 rounded-xl border border-border/40 mb-5 flex items-center justify-between gap-3">
-            <div className="text-sm font-bold text-text-primary">Working from home today?</div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={wfhData.isWFH}
-                onChange={(e) => setWfhData({ ...wfhData, isWFH: e.target.checked })}
+          <div className="p-3 bg-surface-2 rounded-xl border border-border mb-5 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-bold text-text-primary">Working from home today?</div>
+              <div className="text-[11px] font-bold text-text-muted mt-0.5 uppercase tracking-wider">
+                {wfhData.isWFH ? 'Home · reason required' : 'Office'}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={wfhData.isWFH}
+              aria-label="Working from home today"
+              onClick={() => { setWfhData({ ...wfhData, isWFH: !wfhData.isWFH }); setWfhError(''); }}
+              className={`relative shrink-0 w-12 h-7 rounded-full border transition-colors cursor-pointer
+                ${wfhData.isWFH ? 'bg-orange border-orange' : 'bg-border-2 border-border-2'}`}
+            >
+              <span
+                className={`absolute top-[3px] h-5 w-5 rounded-full bg-white shadow-md transition-all
+                  ${wfhData.isWFH ? 'left-[25px]' : 'left-[3px]'}`}
               />
-              <div className="w-11 h-6 bg-border2 rounded-full peer peer-checked:bg-orange peer-focus:outline-none after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white" />
-            </label>
+            </button>
           </div>
 
           {wfhData.isWFH && (
@@ -1135,36 +1186,34 @@ const MyWorkPage = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1.5">Reason</label>
+                <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
+                  Reason <span className="text-red">*</span>
+                </label>
                 <input
                   type="text"
                   className="input w-full"
-                  placeholder="e.g. Travel, Health"
+                  placeholder="e.g. Travel, Health, Personal"
                   value={wfhData.reason}
-                  onChange={e => setWfhData({ ...wfhData, reason: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1.5">Work Description</label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  placeholder="What's the plan?"
-                  value={wfhData.description}
-                  onChange={e => setWfhData({ ...wfhData, description: e.target.value })}
+                  onChange={e => { setWfhData({ ...wfhData, reason: e.target.value }); setWfhError(''); }}
                 />
               </div>
             </div>
           )}
 
+          {wfhError && (
+            <div className="mb-3 px-3 py-2 bg-red/10 text-red rounded-lg text-[11px] font-bold">{wfhError}</div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
-            <Button variant="outline" onClick={() => setWfhOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={closeWfh}>Cancel</Button>
             <Button
               className="bg-purple text-white border-none"
               disabled={startWorkMutation.isPending}
-              onClick={() => startWorkMutation.mutate(wfhData)}
+              onClick={submitStartWork}
             >
-              {startWorkMutation.isPending ? 'Starting…' : '▶ Start Work'}
+              {startWorkMutation.isPending
+                ? 'Starting…'
+                : wfhData.isWFH ? '🏠 Start Work From Home' : '▶ Start Work'}
             </Button>
           </div>
         </Modal>

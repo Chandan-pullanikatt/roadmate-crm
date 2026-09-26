@@ -10,9 +10,10 @@ import LeadWizard from './LeadWizard';
  * wizard-styled screen with seven metric tiles, a meetings panel and an activity
  * feed; the client asked for one work page across every role.
  *
- * Two things stay specific to this role: the work-from-home declaration when the
- * day is started, and the meeting-confirmation tasks cron pushes into the queue,
- * which are still answered through LeadWizard.
+ * One thing stays specific to this role: the meeting-confirmation tasks cron
+ * pushes into the queue, which are still answered through LeadWizard. The
+ * work-from-home declaration used to be specific to it too; every manager role
+ * gets it now, so it lives in MyWorkPage.
  */
 const MyWorkToday = () => {
   const { user } = useAuth();
@@ -23,7 +24,6 @@ const MyWorkToday = () => {
       subtitle="Your personal lead queue · Meetings, follow-ups and new leads · One-by-one execution"
       FeedbackModal={ExecCallFeedbackModal}
       ConfirmTaskWizard={LeadWizard}
-      wfhCapture
       navTargets={{
         myLeads:     '/dashboard?page=leads',
         completed:   '/dashboard?page=leads&completedToday=true',

@@ -26,6 +26,8 @@ const attendanceSchema = new mongoose.Schema({
   isWFH: { type: Boolean, default: false },
   location: { type: String },
   wfhReason: { type: String },
+  // Deprecated: the Start Work form no longer asks for a work description. Kept
+  // on the schema so rows written before it was dropped stay readable.
   wfhDescription: { type: String },
 }, { timestamps: true });
 

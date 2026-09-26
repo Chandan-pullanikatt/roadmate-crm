@@ -112,6 +112,7 @@ const Attendance = () => {
                 <th className="px-6 py-4">Role</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">In Time</th>
+                <th className="px-6 py-4">Work From</th>
                 <th className="px-6 py-4">Work %</th>
                 <th className="px-6 py-4">Leaves</th>
                 <th className="px-6 py-4">Attendance %</th>
@@ -138,6 +139,11 @@ const Attendance = () => {
                   </td>
                   <td className="px-6 py-4">
                     <span className="mono text-[13px] font-black text-text-secondary">{r.startTime || '--:--'}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {r.isWFH
+                      ? <span className="px-2 py-0.5 bg-orange/10 text-orange rounded-full text-[9px] font-black uppercase" title={r.wfhReason || ''}>WFH</span>
+                      : <span className="text-[12px] text-text-muted">Office</span>}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3 min-w-[100px]">

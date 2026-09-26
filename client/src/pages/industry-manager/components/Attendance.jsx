@@ -48,6 +48,12 @@ const Attendance = () => {
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
+  // The login stamp comes off the day's attendance row; no row means no login,
+  // which the register shows as a dash rather than an assumed start time.
+  const formatLoginTime = (workStartedAt) => workStartedAt
+    ? new Date(workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+
   const exportRegister = () => {
     if (!executives.length) {
       addToast('No attendance data to export', 'warning');
@@ -58,6 +64,10 @@ const Attendance = () => {
         Name: e.name,
         District: e.district || '',
         Status: e.status || '',
+        'In Time': formatLoginTime(e.workStartedAt) || '',
+        'Late (min)': e.lateLoginMinutes || 0,
+        'Work From': e.isWFH ? 'Home' : 'Office',
+        'WFH Reason': e.isWFH ? (e.wfhReason || '') : '',
         'Work %': e.completionPct ?? 0,
         Calls: e.calls ?? 0,
         Conversions: e.conversions ?? 0,
@@ -196,14 +206,18 @@ const Attendance = () => {
                     />
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="text-[10px] font-black text-text-primary">
-                      {exec.loginTime || '9:30 AM'}
-                      {exec.isLateLogin && <span className="ml-1 text-orange text-[9px]">▲</span>}
-                    </span>
+                    {formatLoginTime(exec.workStartedAt)
+                      ? (
+                        <span className={`text-[10px] font-black ${exec.isLateLogin ? 'text-orange' : 'text-text-primary'}`}>
+                          {formatLoginTime(exec.workStartedAt)}
+                          {exec.isLateLogin && <span className="ml-1 text-[9px]" title={`Late by ${exec.lateLoginMinutes}m`}>▲</span>}
+                        </span>
+                      )
+                      : <span className="text-[12px] text-text-muted">—</span>}
                   </td>
                   <td className="px-6 py-4 text-center">
                     {exec.isWFH
-                      ? <span className="px-2 py-0.5 bg-blue/10 text-blue rounded-full text-[9px] font-bold">WFH</span>
+                      ? <span className="px-2 py-0.5 bg-blue/10 text-blue rounded-full text-[9px] font-bold" title={exec.wfhReason || ''}>WFH</span>
                       : <span className="text-[12px] text-text-muted">Office</span>}
                   </td>
                   <td className="px-6 py-4 text-center">
