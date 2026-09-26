@@ -9,20 +9,13 @@ import { useAuth } from '../context/AuthContext';
  * Whether this user may delete this lead — the same rule routes/leads.js
  * enforces, repeated here only so the button is hidden rather than offered and
  * then refused. The server stays the authority.
+ *
+ * Deleting a lead is the founder's alone: the managers' dashboards allocate and
+ * work leads, they do not erase them.
  */
 export const canDeleteLead = (user, lead) => {
   if (!user || !lead) return false;
-  if (user.role === 'founder') return true;
-
-  const me = String(user._id || '');
-  const ownerId = String(lead.owner?._id || lead.owner || '');
-  const mine = ownerId
-    ? ownerId === me
-    : String(lead.allocatedBy?._id || lead.allocatedBy || '') === me;
-  if (!mine) return false;
-
-  // Money already booked against the lead is a founder decision to erase.
-  return !(lead.blockingAmount > 0 || lead.fullAmount > 0 || lead.status === 'converted');
+  return user.role === 'founder';
 };
 
 const DeleteLeadButton = ({ lead, className = '', onDeleted }) => {
