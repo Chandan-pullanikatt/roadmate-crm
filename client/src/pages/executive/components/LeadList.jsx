@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { leadsApi } from '../../../api/leadsApi';
 import { useToast } from '../../../context/ToastContext';
@@ -257,7 +257,15 @@ const LeadList = () => {
                   />
                 </td>
                 <td className="p-4">
-                  <div className="font-bold text-sm text-text-primary group-hover:text-orange transition-colors">{lead.company || lead.name}</div>
+                  {/* Same as every other lead list: the name opens the lead's own
+                      page with its details and full history. */}
+                  <Link
+                    to={`/dashboard/leads/${lead._id}`}
+                    title={`Open ${lead.name}`}
+                    className="font-bold text-sm text-text-primary hover:text-orange hover:underline group-hover:text-orange transition-colors"
+                  >
+                    {lead.company || lead.name}
+                  </Link>
                   <div className="text-[12px] text-text-muted">{lead.name}</div>
                 </td>
                 <td className="p-4 text-[14px] font-medium text-text-secondary">{lead.phone}</td>

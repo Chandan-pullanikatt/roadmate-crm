@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import DashboardSkeleton from '../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../api/leadsApi';
 import { dashboardApi } from '../../api/dashboardApi';
@@ -492,7 +492,16 @@ const LeadManagementPage = ({
                     />
                   </td>
                   <td className="p-4">
-                    <div className="font-bold text-[13.5px] group-hover:text-blue transition-colors">{l.name}</div>
+                    {/* The name is the way into the lead's own page -- one place
+                        with its details and its full history, instead of the
+                        modal that closes and loses the row you were on. */}
+                    <Link
+                      to={`/dashboard/leads/${l._id}`}
+                      title={`Open ${l.name}`}
+                      className="font-bold text-[13.5px] text-text-primary hover:text-blue hover:underline group-hover:text-blue transition-colors"
+                    >
+                      {l.name}
+                    </Link>
                     <div className="text-[12px] text-text-muted mt-0.5">{l.leadId}</div>
                   </td>
                   <td className="p-4 text-[13px] font-mono text-text-secondary whitespace-nowrap">{l.phone || 'N/A'}</td>
