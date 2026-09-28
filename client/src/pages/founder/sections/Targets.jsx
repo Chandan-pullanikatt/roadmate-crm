@@ -236,7 +236,13 @@ Their recorded meetings, blockings and conversions are not affected.`
               <tbody className="divide-y divide-border">
                 {teamTargets.map((t, idx) => {
                   const percents = TARGET_METRICS.map(m => pct(t.achieved?.[m.key] || 0, t[m.key] || 0));
-                  const overall = Math.round(percents.reduce((a, b) => a + b, 0) / percents.length);
+                  // Only metrics with an actual goal count towards the overall — a metric
+                  // left at 0 is "not targeted", not "0% achieved", so averaging it in
+                  // would drag a fully met target down (1/1 blocking alone showed 33%).
+                  const scored = TARGET_METRICS.map((m, i) => ({ set: (t[m.key] || 0) > 0, value: percents[i] })).filter(p => p.set);
+                  const overall = scored.length
+                    ? Math.round(scored.reduce((a, p) => a + p.value, 0) / scored.length)
+                    : 0;
 
                   return (
                     <tr key={t._id || idx} className="hover:bg-surface2/20 transition-colors">
