@@ -1368,13 +1368,13 @@ router.get('/state-manager', async (req, res) => {
             const execIds = execsByManager.get(String(m._id)) || [];
             const team    = allExecutives.filter(e => String(e.reportingTo) === String(m._id));
 
-            // `efficiency` is the team's average attendance, shown on the Overview.
-            // `workPct` (from the rollup) is the manager's own, which is what the
-            // performance table reports.
-            const attVals = execIds.map(id => smMetrics.get(String(id))?.workPct).filter(v => v != null);
-            const efficiency = attVals.length ? Math.round(attVals.reduce((a, b) => a + b, 0) / attVals.length) : 0;
-
             const rolled = rollupMetrics(smMetrics, m._id, execIds);
+
+            // `efficiency` is the same work % the table's column shows, not a
+            // second figure: it used to be an average of the team's averages,
+            // excluding the manager, so the Overview and the leaderboard
+            // disagreed about the same team. One definition, one number.
+            const efficiency = rolled.workPct;
 
             return {
                 ...rolled,

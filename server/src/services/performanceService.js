@@ -40,6 +40,8 @@ const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done', 'meeting_virtual',
 /** The zero row, so a user with no activity still renders every column. */
 const EMPTY_METRICS = {
   workPct: 0,
+  workSum: 0,
+  workDays: 0,
   leads: 0,
   periodLeads: 0,
   calls: 0,
@@ -173,6 +175,11 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
     const p = fresh.get(key) || {};
     return [key, {
       workPct: Math.round(workPctById.get(key)?.workPct || 0),
+      // The raw figures behind that percentage, so a rollup can average over all
+      // of the team's days instead of averaging their averages -- see
+      // workPercentService.rollupWorkPct.
+      workSum: workPctById.get(key)?.sum || 0,
+      workDays: workPctById.get(key)?.days || 0,
       leads: owned.get(key)?.count || 0,
       periodLeads: p.count || 0,
       calls: a.calls || 0,
@@ -200,8 +207,10 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
  * Roll a set of users' metrics into one row — used where a manager's line is
  * "this manager plus the team reporting to them".
  *
- * Work % stays the manager's own (an average of averages across a team is not
- * a meaningful completion figure); every count and the revenue are summed.
+ * Work % becomes one average over every day the manager and their team worked
+ * (total percentage points / total days worked), never an average of their
+ * averages, which would weigh a person with three recorded days the same as one
+ * with sixty. Every count and the revenue are summed.
  */
 const rollupMetrics = (metricsById, ownId, teamIds = []) => {
   const own = metricsById.get(String(ownId)) || EMPTY_METRICS;
@@ -211,8 +220,17 @@ const rollupMetrics = (metricsById, ownId, teamIds = []) => {
     return total + (rec?.[field] || 0);
   }, 0);
 
+  const workSum = sum('workSum');
+  const workDays = sum('workDays');
+
   return {
     ...own,
+    // One average over every day the manager and their team recorded, which is
+    // not the same as the manager's own percentage and not an average of
+    // averages either -- see workPercentService.
+    workPct: workDays > 0 ? Math.round(workSum / workDays) : 0,
+    workSum,
+    workDays,
     leads: sum('leads'),
     periodLeads: sum('periodLeads'),
     calls: sum('calls'),

@@ -72,27 +72,40 @@ const approvedLeaveDays = async (ids, periodStart, periodEnd) => {
 };
 
 /**
- * One day's work % for one user, scored live off that day's queue:
+ * One day's work % for one user:
  *
- *     leads completed in the day's queue / total leads in the day's queue
+ *     leads completed in today's queue / total leads in today's queue
  *
- * The queue is leadService.getQueue — the same day's book My Work hands out —
- * and "completed" means a lead in that queue that the user logged a work action
- * against on the day. Work on a lead that was never in the queue does not
- * inflate the figure, and a lead in the queue that was left alone drags it down.
+ * THE BOOK (the denominator) is the day's queue as it was handed out, frozen on
+ * the attendance row at Start Work (`plannedLeads`, built by
+ * scheduleService.getDayPlan -> leadService.getQueue). It has to be the frozen
+ * copy, not a live re-read: working a lead takes it OUT of the live queue -- set
+ * a follow-up for tomorrow and the lead is no longer due today -- so scoring
+ * against a live queue drains the numerator as the day is worked and the
+ * percentage falls the more you do.
  *
- * A day with nothing due scores 100% if any work was done and 0% if none was:
- * there was no book to get through, so getting through it is the honest answer.
+ * Leads worked today are added to the book. That covers the lead picked up
+ * outside the day's list, and it repairs the days recorded while getDayPlan was
+ * still reading nextActionAt alone and handing back a book of one.
+ *
+ * COMPLETED (the numerator) is the leads in that book the user logged a work
+ * action against today.
+ *
+ * A day with nothing in the book scores 100% if any work was done and 0% if
+ * none was: there was no book to get through, so getting through it is the
+ * honest answer.
  *
  * @returns {Promise<{workPct, queueCount, completedCount, completedIds: string[]}>}
- *          `completedIds` are the queue leads that were worked, so a caller can
+ *          `completedIds` are the book's leads that were worked, so a caller can
  *          list exactly the leads the percentage counted.
  */
 const getDayWorkPct = async (userId, day = new Date()) => {
   const { start, end } = istDayRange(day);
 
-  const [queue, workedIds] = await Promise.all([
-    leadService.getQueue(userId, day),
+  const [attendance, workedIds] = await Promise.all([
+    Attendance.findOne({ user: userId, date: { $gte: start, $lte: end } })
+      .select('plannedLeads')
+      .lean(),
     LeadActivity.distinct('lead', {
       performedBy: userId,
       createdAt: { $gte: start, $lte: end },
@@ -100,14 +113,23 @@ const getDayWorkPct = async (userId, day = new Date()) => {
     }),
   ]);
 
-  const worked = new Set(workedIds.map(String));
-  const queueCount = queue.length;
-  const completedIds = queue.map(lead => String(lead._id)).filter(id => worked.has(id));
-  const completedCount = completedIds.length;
+  // No attendance row means the day was never started, so there is no frozen
+  // book -- read the queue live to say what the day would hold.
+  const planned = attendance
+    ? (attendance.plannedLeads || []).map(String)
+    : (await leadService.getQueue(userId, day)).map(l => String(l._id));
 
+  const worked = workedIds.map(String);
+  const book = new Set([...planned, ...worked]);
+
+  const workedSet = new Set(worked);
+  const completedIds = [...book].filter(id => workedSet.has(id));
+
+  const queueCount = book.size;
+  const completedCount = completedIds.length;
   const workPct = queueCount > 0
     ? (completedCount / queueCount) * 100
-    : (worked.size > 0 ? 100 : 0);
+    : 0;
 
   return { workPct, queueCount, completedCount, completedIds };
 };
