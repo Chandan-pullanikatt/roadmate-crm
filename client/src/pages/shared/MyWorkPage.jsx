@@ -10,6 +10,7 @@ import { usersApi } from '../../api/usersApi';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
+import { scheduleField, formatWhen } from '../../utils/leadSchedule';
 
 const PRIORITY_DOT = { high: 'bg-red', medium: 'bg-amber', low: 'bg-blue' };
 const PRIORITY_STYLE = {
@@ -1302,6 +1303,15 @@ const MyWorkPage = ({
               { label: 'Source',   value: activeLead.source || activeLead.leadSource || '—' },
               { label: 'Priority', value: activeLead.priority?.toUpperCase() || '—' },
               { label: 'Status',   value: activeLead.status?.replace(/_/g, ' ') || '—' },
+              // Sits beside the status, because it is that status's date: a
+              // follow-up's follow-up date, a meeting's meeting date. Same chain
+              // the queue picked this lead on, so the tile cannot contradict the row.
+              scheduleField(activeLead),
+              // A meeting lead often carries a follow-up date too -- the rank lock
+              // keeps the meeting status while the follow-up work goes on.
+              ...(activeLead.followUpDate && !['followup', 'rnr'].includes(activeLead.status)
+                ? [{ label: 'Follow-Up Date', value: formatWhen(activeLead.followUpDate) }]
+                : []),
               { label: 'Phone',    value: activeLead.phone || '—' },
             ].map(f => (
               <div key={f.label} className="p-3 rounded-xl bg-surface2 border border-border/40">

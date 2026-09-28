@@ -336,8 +336,8 @@ const Overview = () => {
         </div>
 
         {/* Upcoming Events */}
-        <div className="lg:col-span-5 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-border flex justify-between items-center">
+        <div className="lg:col-span-5 bg-surface1 rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col max-h-[560px]">
+          <div className="p-5 border-b border-border flex justify-between items-center shrink-0">
             <div>
               <h2 className="text-[15px] font-bold text-text-primary">Upcoming Events</h2>
               <p className="text-[14px] text-text-muted mt-0.5">Meetings, follow-ups, leave</p>
@@ -350,7 +350,7 @@ const Overview = () => {
                ))}
             </div>
           </div>
-          <div className="p-5 flex flex-col gap-5">
+          <div className="p-5 flex flex-col gap-5 flex-1 min-h-0 overflow-y-auto">
             {events.map((e, i) => (
               <div
                 key={i}
