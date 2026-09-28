@@ -378,22 +378,35 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       const rawStatus = getVal('status', 'current status') || '';
       const statusMap = {
         'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
-        'follow up': 'followup', 'followup require': 'followup', 'followup required': 'followup',
-        'rnr': 'rnr', 'switched off': 'rnr', 'switch off': 'rnr', 'meeting': 'meeting_direct',
-        'meeting virtual': 'meeting_virtual', 'meeting direct': 'meeting_direct',
-        'converted': 'converted', 'blocking amount received': 'blocking_amount_received',
-        'full amount received': 'full_amount_received', 'agreement signed': 'agreement_signed',
-        'lost': 'lost', 'not interested': 'not_interested', 'escalated': 'escalated',
+        'rnr': 'rnr', 'not reached': 'rnr', 'switched off': 'rnr', 'switch off': 'rnr',
+        'not reachable': 'rnr',
+        'virtual meeting': 'meeting_virtual', 'meeting virtual': 'meeting_virtual',
+        'direct meeting': 'meeting_direct', 'meeting direct': 'meeting_direct',
+        'meeting': 'meeting_direct', 'meeting conducted': 'meeting_direct',
+        'meeting scheduled': 'meeting_direct',
+        'converted': 'converted', 'lost': 'lost',
+        'not interested': 'not_interested', 'not intersted': 'not_interested',
+        'escalated': 'escalated',
+        'blocking amount received': 'blocking_amount_received',
+        'blocking_amount_received': 'blocking_amount_received',
+        'full amount received': 'full_amount_received',
+        'full_amount_received': 'full_amount_received',
+        'agreement signed': 'agreement_signed',
+        'agreement_signed': 'agreement_signed',
+        'call back': 'followup', 'callback': 'followup',
+        'followup required': 'followup', 'followup require': 'followup',
+        'interested': 'followup', 'intersted': 'followup',
+        'connected': 'called', 'invalid': 'lost',
         'nri - whatsapp messaged/connected': 'called', 'nri': 'called',
         'disconnected': 'rnr', 'disconnect': 'rnr',
         'decision pending - future': 'followup', 'decision pending': 'followup', 'pending': 'followup',
         'no budget': 'not_interested', 'budget issue': 'not_interested',
         'duplicate': 'lost', 'duplicates': 'lost', 'dup': 'lost',
         'business lead': 'new', 'business': 'new',
-        'not intersted': 'not_interested', 'not intrested': 'not_interested',
+        'not interested': 'not_interested', 'not intersted': 'not_interested', 'not intrested': 'not_interested',
         'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
-        'busy': 'rnr', 'not available': 'rnr', 'unreachable': 'rnr',
-      };
+        'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',
+        };
       // Matched on letters and digits only, for the same reason the headers are:
       // "Not Intersted", "not  intersted" and "NOT-INTERESTED" are one value, and a
       // stray double space or trailing punctuation in a cell must not decide whether
@@ -418,7 +431,10 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       if (!normalizedStatus && statusKey) {
         statusErrors.push(`Row ${rowNo}: unrecognised status "${rawStatus}"`);
       }
-      normalizedStatus = normalizedStatus || undefined;
+      // Send the raw text on when nothing matched. The server keeps the same map
+      // and gets the final say -- dropping the value here made every status the
+      // client happened to be missing fall through to the model default, 'new'.
+      normalizedStatus = normalizedStatus || rawStatus || undefined;
 
       // Normalize priority
       const rawPriority = (getVal('priority level', 'priority') || '').toLowerCase();
