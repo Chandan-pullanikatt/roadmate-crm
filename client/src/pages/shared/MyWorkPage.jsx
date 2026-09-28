@@ -1344,9 +1344,40 @@ const MyWorkPage = ({
             ) : null;
           })()}
 
-          {/* Remarks history */}
+          {/* The lead's own remarks: the sheet's Remarks column on import, and every
+              feedback note logged against it since. The block below this one is the
+              activity log -- it used to be titled "Full Remarks History", which is
+              why the actual remark text looked missing. */}
+          {(activeLead.remarks || activeLead.feedback?.length > 0) && (
+            <div className="mb-5">
+              <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Remarks</div>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 -mr-2">
+                {activeLead.remarks && (
+                  <div className="text-[13px] text-text-primary leading-relaxed bg-amber/5 rounded-lg px-3 py-2 border border-amber/20">
+                    {activeLead.remarks}
+                  </div>
+                )}
+                {[...(activeLead.feedback || [])].reverse().map((f, i) => (
+                  // The import copies the sheet remark into feedback as well, so the
+                  // identical first entry is skipped rather than shown twice.
+                  f.note && f.note !== activeLead.remarks ? (
+                    <div key={f._id || i} className="text-[13px] text-text-secondary leading-relaxed bg-surface2 rounded-lg px-3 py-2 border border-border/40">
+                      {f.note}
+                      {f.createdAt && (
+                        <div className="text-[10px] font-bold text-text-muted mt-1">
+                          {new Date(f.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      )}
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Activity log */}
           <div>
-            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Full Remarks History</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Activity History</div>
             <div className="relative pl-4 max-h-[280px] overflow-y-auto pr-1 -mr-2">
               <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
               {recentActivity.length > 0 ? (

@@ -100,7 +100,40 @@ const LeadDetail = () => {
           </div>
         </div>
 
-        <div className="card lg:col-span-2 border-border/40 shadow-sm">
+        <div className="lg:col-span-2 space-y-6">
+        {/* The lead's own remarks: the sheet's Remarks column on import, and every
+            feedback note logged since. Kept separate from the activity log below,
+            which records what happened rather than what was said. */}
+        {(lead.remarks || lead.feedback?.length > 0) && (
+          <div className="card border-border/40 shadow-sm">
+            <div className="card-header border-border/40">
+              <h2 className="text-sm font-black text-text-primary uppercase">Remarks</h2>
+            </div>
+            <div className="p-5 space-y-3">
+              {lead.remarks && (
+                <div className="p-4 rounded-xl bg-amber/5 border border-amber/20 text-[14px] text-text-primary leading-relaxed">
+                  {lead.remarks}
+                </div>
+              )}
+              {[...(lead.feedback || [])].reverse().map((f, i) => (
+                // The import copies the sheet remark into feedback too, so the
+                // identical first entry is skipped rather than shown twice.
+                f.note && f.note !== lead.remarks ? (
+                  <div key={f._id || i} className="p-4 rounded-xl bg-surface2 border border-border/40">
+                    <div className="text-[14px] text-text-secondary leading-relaxed">{f.note}</div>
+                    {f.createdAt && (
+                      <div className="text-[11px] font-bold text-text-muted mt-1.5">
+                        {new Date(f.createdAt).toLocaleString('en-IN')}
+                      </div>
+                    )}
+                  </div>
+                ) : null
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="card border-border/40 shadow-sm">
           <div className="card-header border-border/40">
             <div>
               <h2 className="text-sm font-black text-text-primary uppercase">Complete History</h2>
@@ -137,6 +170,7 @@ const LeadDetail = () => {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </div>
