@@ -65,10 +65,20 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const showDmStep = canAllocate;
   const stepCount = [showSmStep, showImStep, showDmStep].filter(Boolean).length;
 
+  // A Founder or State Manager working leads personally has no entry in their own
+  // allocation list -- the form only offers the levels below them -- so an upload
+  // they meant to keep could only land unallocated. This sentinel puts "keep with
+  // me" back on the first dropdown. An Industry Manager does not need it: the
+  // server already defaults their uploads to themselves.
+  const SELF = '__self__';
+  const keepSelf = (isFounder ? selectedStateManagerId : selectedIndustryManagerId) === SELF;
+
   // The branch of the tree the next dropdown reads from. For a manager it is
   // themselves -- their own level is implied, not chosen.
-  const branchSmId = isFounder ? selectedStateManagerId : (isStateManager ? currentUser?._id : '');
-  const branchImId = isIndustryManager ? currentUser?._id : selectedIndustryManagerId;
+  const realSm = selectedStateManagerId === SELF ? '' : selectedStateManagerId;
+  const realIm = selectedIndustryManagerId === SELF ? '' : selectedIndustryManagerId;
+  const branchSmId = isFounder ? realSm : (isStateManager ? currentUser?._id : '');
+  const branchImId = isIndustryManager ? currentUser?._id : realIm;
 
   // Each level is fetched by role + reportingTo, so the options come from the
   // reporting tree rather than from a state/industry match on the user record.
@@ -91,8 +101,10 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   });
 
   React.useEffect(() => {
-    setAssignmentTargetId(selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '');
-  }, [selectedStateManagerId, selectedIndustryManagerId, selectedExecutiveId]);
+    setAssignmentTargetId(keepSelf
+      ? currentUser?._id || ''
+      : (selectedExecutiveId || realIm || realSm || ''));
+  }, [selectedStateManagerId, selectedIndustryManagerId, selectedExecutiveId, keepSelf, currentUser?._id]);
 
   // Upload in chunks: large CSVs (300+ rows) overran the request/gateway timeout and showed
   // a bare "Failed" even though most rows were saved. Smaller batches finish quickly, survive
@@ -257,7 +269,9 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     if (!parsedData || parsedData.rows.length === 0) return;
     
     setIsProcessing(true);
-    const allocationTargetId = selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '';
+    const allocationTargetId = keepSelf
+      ? (currentUser?._id || '')
+      : (selectedExecutiveId || realIm || realSm || '');
     
     // Dates that could not be read at all. Collected across every row and shown
     // before the upload goes out, so a column the sheet formatted differently is
@@ -553,15 +567,15 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                     <div className="text-xs font-bold text-text-primary">Allocation Settings</div>
                     <div className="text-[13px] text-text-muted mt-0.5">
                       {isFounder
-                        ? 'Optionally assign every lead in this upload to one State Manager, Industry Manager or District Manager.'
+                        ? 'Assign every lead in this upload to one State Manager, Industry Manager or District Manager, or keep them yourself.'
                         : isStateManager
-                          ? 'Optionally assign every lead in this upload to an Industry Manager in your team, or straight to one of their District Managers.'
+                          ? 'Assign every lead in this upload to an Industry Manager in your team, straight to one of their District Managers, or keep them yourself.'
                           : 'Optionally assign every lead in this upload to a District Manager in your team — otherwise they stay with you.'}
                     </div>
                   </div>
                   <Tag
                     variant={assignmentTargetId ? 'green' : 'gray'}
-                    label={assignmentTargetId ? 'Will assign' : (isIndustryManager ? 'Stays with you' : 'Unallocated')}
+                    label={keepSelf ? 'Stays with you' : assignmentTargetId ? 'Will assign' : (isIndustryManager ? 'Stays with you' : 'Unallocated')}
                   />
                 </div>
                 <div className={`grid grid-cols-1 gap-3 mt-4 ${stepCount === 3 ? 'md:grid-cols-3' : stepCount === 2 ? 'md:grid-cols-2' : ''}`}>
@@ -580,6 +594,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                         }}
                       >
                         <option value="">{loadingSMs ? 'Loading state managers…' : 'Keep unallocated'}</option>
+                        <option value={SELF}>Keep with me ({currentUser?.name})</option>
                         {stateManagers.map(u => (
                           <option key={u._id} value={u._id}>{u.name} ({u.state || 'State Manager'})</option>
                         ))}
@@ -608,6 +623,9 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                               ? 'Keep unallocated'
                               : branchSmId ? 'Assign to State Manager' : 'Select State Manager first'}
                         </option>
+                        {isStateManager && (
+                          <option value={SELF}>Keep with me ({currentUser?.name})</option>
+                        )}
                         {industryManagerOptions.map(u => (
                           <option key={u._id} value={u._id}>{u.name} ({[u.industry, u.state].filter(Boolean).join(' · ') || 'Industry Manager'})</option>
                         ))}
@@ -625,7 +643,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                       <select
                         className="select"
                         value={selectedExecutiveId}
-                        disabled={!branchImId || loadingExecs}
+                        disabled={keepSelf || !branchImId || loadingExecs}
                         onChange={(e) => setSelectedExecutiveId(e.target.value)}
                       >
                         <option value="">
