@@ -12,6 +12,7 @@ const LeadActivity = require('../models/LeadActivity');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const { REVENUE_EXPR } = require('./revenueService');
+const { CALL_ACTIONS } = require('../constants/workActions');
 
 /** Activity actions that count as a meeting, whatever stage they were logged at. */
 const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'];
@@ -80,7 +81,8 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
       { $match: { performedBy: { $in: ids }, createdAt: periodWindow } },
       { $group: {
         _id: '$performedBy',
-        calls:     { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
+        // One call per logged outcome -- see CALL_ACTIONS.
+        calls:     { $sum: { $cond: [{ $in: ['$action', CALL_ACTIONS] }, 1, 0] } },
         meetings:  { $sum: { $cond: [{ $in: ['$action', MEETING_ACTIONS] }, 1, 0] } },
         followups: { $sum: { $cond: [{ $eq: ['$action', 'followup_set'] }, 1, 0] } },
         blocking:  { $sum: { $cond: [{ $eq: ['$action', 'blocking_amount_received'] }, 1, 0] } },

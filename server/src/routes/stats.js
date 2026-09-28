@@ -7,6 +7,7 @@ const LeadActivity = require('../models/LeadActivity');
 const Attendance = require('../models/Attendance');
 const { createdAtRange } = require('../utils/dateRange');
 const { sumRevenue } = require('../services/revenueService');
+const { isCallAction } = require('../constants/workActions');
 
 const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done'];
 
@@ -25,7 +26,8 @@ const meetingTypeOf = (a) => {
 
 // Counts of each lead action in a list of LeadActivity records.
 const countActions = (activities) => ({
-  calls: activities.filter(a => a.action === 'called').length,
+  // Every logged outcome means a call was placed -- see CALL_ACTIONS.
+  calls: activities.filter(a => isCallAction(a.action)).length,
   meetings: activities.filter(a => MEETING_ACTIONS.includes(a.action)).length,
   meetingsVirtual: activities.filter(a => meetingTypeOf(a) === 'virtual').length,
   meetingsDirect: activities.filter(a => meetingTypeOf(a) === 'direct').length,

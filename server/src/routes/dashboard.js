@@ -16,6 +16,7 @@ const { getDateRange } = require('../utils/dateRange');
 const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
 const { countWeekdayWorkingDays } = require('../utils/workingDays');
 const { getPerformanceMetrics, rollupMetrics, EMPTY_METRICS } = require('../services/performanceService');
+const { CALL_ACTIONS, CALL_ACTION_MATCH, isCallAction } = require('../constants/workActions');
 
 // Protect all routes
 router.use(verifyToken);
@@ -111,7 +112,7 @@ router.get('/executive', async (req, res) => {
 
     const weeklyCallActivities = await LeadActivity.find({
       performedBy: req.user._id,
-      action: 'called',
+      action: CALL_ACTION_MATCH,
       createdAt: { $gte: weekStart }
     })
       .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
@@ -131,7 +132,7 @@ router.get('/executive', async (req, res) => {
         status: { $nin: ['converted', 'lost', 'not_interested'] } 
       }),
       completedLeads: completedTodayLeads.length,
-      calls: todayActivities.filter(a => a.action === 'called').length,
+      calls: todayActivities.filter(a => isCallAction(a.action)).length,
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       converted: todayActivities.filter(a => a.action === 'converted').length,
@@ -141,7 +142,7 @@ router.get('/executive', async (req, res) => {
         priority: 'hot',
         status: { $nin: ['converted', 'lost'] }
       }),
-      points: (todayActivities.filter(a => a.action === 'called').length * 10) +
+      points: (todayActivities.filter(a => isCallAction(a.action)).length * 10) +
               (todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length * 50) +
               (todayActivities.filter(a => a.action === 'converted').length * 200),
       completionPct: attendance ? attendance.completionPct : 0
@@ -150,13 +151,13 @@ router.get('/executive', async (req, res) => {
     // 2. Weekly Stats for growth
     const weeklyCalls = await LeadActivity.countDocuments({
       performedBy: req.user._id,
-      action: 'called',
+      action: CALL_ACTION_MATCH,
       createdAt: { $gte: weekStart }
     });
 
     const prevWeeklyCalls = await LeadActivity.countDocuments({
       performedBy: req.user._id,
-      action: 'called',
+      action: CALL_ACTION_MATCH,
       createdAt: { $gte: prevWeekStart, $lt: prevWeekEnd }
     });
 
@@ -172,7 +173,7 @@ router.get('/executive', async (req, res) => {
       totalLeads: await Lead.countDocuments({ owner: req.user._id, createdAt: { $gte: monthStart } }),
       converted: monthlyConversionActivityDocs.length,
       revenue: sumRevenue(monthlyActivities),
-      totalCalls: monthlyActivities.filter(a => a.action === 'called').length,
+      totalCalls: monthlyActivities.filter(a => isCallAction(a.action)).length,
       totalMeetings: monthlyActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
       leaveDays: await Leave.countDocuments({ 
         user: req.user._id, 
@@ -524,7 +525,7 @@ router.get('/industry-manager', async (req, res) => {
     const callStats = await LeadActivity.aggregate([
       { 
         $match: { 
-          action: 'called', 
+          action: CALL_ACTION_MATCH,
           performedBy: { $in: callActorIds },
           createdAt: { $gte: prevWeekStart }
         } 
@@ -650,7 +651,7 @@ router.get('/industry-manager', async (req, res) => {
       expectedOnboardingHot,
       expectedOnboardingWarm,
       hot: periodLeads.filter(l => l.priority === 'hot' && !['converted', 'lost'].includes(l.status)).length,
-      calls: periodActivities.filter(a => a.action === 'called').length,
+      calls: periodActivities.filter(a => isCallAction(a.action)).length,
       meetings: periodMeetingLeads,
       revenue: sumRevenue(periodActivities),
     };
@@ -705,7 +706,7 @@ router.get('/industry-manager', async (req, res) => {
       const userActs = teamActivities.filter(a => (a.performedBy?._id || a.performedBy)?.toString() === u._id.toString());
       const userLeads = teamLeads.filter(l => l.owner.toString() === u._id.toString());
       const activeLeads = userLeads.filter(l => !['converted', 'lost'].includes(l.status));
-      const callRows = userActs.filter(a => a.action === 'called').map(formatActivityRow);
+      const callRows = userActs.filter(a => isCallAction(a.action)).map(formatActivityRow);
       const convertedRows = userActs
         .filter(a => a.action === 'converted' && a.lead)
         .map(a => formatSummaryLead(a.lead));
@@ -882,7 +883,7 @@ router.get('/industry-manager', async (req, res) => {
         createdAt: { $gte: monthStart, $lte: todayEnd }
       }).populate({ path: 'lead', populate: { path: 'owner', select: 'name' } }).sort({ createdAt: -1 }),
       LeadActivity.find({
-        action: 'called',
+        action: CALL_ACTION_MATCH,
         performedBy: { $in: callActorIds },
         createdAt: { $gte: weekStart, $lte: todayEnd }
       })
@@ -1087,7 +1088,7 @@ router.get('/state-manager', async (req, res) => {
         });
 
         const callsThisWeek = await LeadActivity.countDocuments({
-            action: 'called',
+            action: CALL_ACTION_MATCH,
             createdAt: { $gte: weekStart },
             performedBy: { $in: executiveIds }
         });
@@ -1098,7 +1099,7 @@ router.get('/state-manager', async (req, res) => {
             return { start: s, end: e };
         })();
         const prevWeekCalls = await LeadActivity.countDocuments({
-            action: 'called',
+            action: CALL_ACTION_MATCH,
             createdAt: { $gte: prevWeekStart, $lte: prevWeekEnd },
             performedBy: { $in: executiveIds }
         });
@@ -1809,7 +1810,7 @@ router.get('/founder', async (req, res) => {
 
         const totalRevenue = await sumPeriodRevenue({ $gte: periodStart, $lte: periodEnd });
 
-        const totalCalls = await LeadActivity.countDocuments({ action: 'called', createdAt: { $gte: periodStart, $lte: periodEnd } });
+        const totalCalls = await LeadActivity.countDocuments({ action: CALL_ACTION_MATCH, createdAt: { $gte: periodStart, $lte: periodEnd } });
         const reachRate = totalLeads ? (totalCalls / totalLeads) * 100 : 0;
         const conversionRate = totalLeads ? (totalConversions / totalLeads) * 100 : 0;
         
@@ -1931,12 +1932,12 @@ router.get('/founder', async (req, res) => {
                 }}
             ]),
             LeadActivity.aggregate([
-                { $match: { action: { $in: ['called', 'meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct', ...REVENUE_ACTIONS] }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
+                { $match: { action: { $in: [...new Set([...CALL_ACTIONS, 'meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct', ...REVENUE_ACTIONS])] }, createdAt: { $gte: periodStart, $lte: periodEnd } } },
                 { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'lead' } },
                 { $unwind: '$lead' },
                 { $group: {
                     _id: '$lead.state',
-                    calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
+                    calls: { $sum: { $cond: [{ $in: ['$action', CALL_ACTIONS] }, 1, 0] } },
                     meetings: { $sum: { $cond: [{ $in: ['$action', ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct']] }, 1, 0] } },
                     revenue: { $sum: REVENUE_EXPR }
                 }}
@@ -2318,7 +2319,7 @@ router.get('/reports/performance', async (req, res) => {
             }},
             { $group: {
                 _id: '$performedBy',
-                calls: { $sum: { $cond: [{ $eq: ['$action', 'called'] }, 1, 0] } },
+                calls: { $sum: { $cond: [{ $in: ['$action', CALL_ACTIONS] }, 1, 0] } },
                 meetings: { $sum: { $cond: [{ $regexMatch: { input: '$action', regex: /meeting/i } }, 1, 0] } },
                 conversions: { $sum: { $cond: [{ $eq: ['$action', 'converted'] }, 1, 0] } },
                 revenue: { $sum: REVENUE_EXPR }
@@ -2649,7 +2650,7 @@ router.get('/reports/activities', async (req, res) => {
         // Action filter
         let actionMatch;
         if (type === 'calls') {
-            actionMatch = { action: 'called' };
+            actionMatch = { action: CALL_ACTION_MATCH };
         } else {
             actionMatch = { action: { $regex: /meeting/i } };
         }
@@ -2743,7 +2744,7 @@ router.get('/performance', async (req, res) => {
     // 2. Previous Month Aggregates (for comparison)
     const prevActivitiesCount = await LeadActivity.countDocuments({
       performedBy: userId,
-      action: 'called',
+      action: CALL_ACTION_MATCH,
       createdAt: { $gte: prevStart, $lte: prevEnd }
     });
 
@@ -2760,7 +2761,7 @@ router.get('/performance', async (req, res) => {
     const prevRevenue = prevRevenueData[0]?.total || 0;
 
     // 3. Process Metrics
-    const totalCalls = currentActivities.filter(a => a.action === 'called').length;
+    const totalCalls = currentActivities.filter(a => isCallAction(a.action)).length;
     const conversions = currentActivities.filter(a => a.action === 'converted').length;
     const meetings = currentActivities.filter(a => a.action === 'meeting_done' || a.action === 'meeting_scheduled').length;
     

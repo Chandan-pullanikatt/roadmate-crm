@@ -13,6 +13,11 @@ import React, { useMemo, useState } from 'react';
  *
  * Every figure comes from the server's performanceService, so the same person
  * shows the same numbers whichever dashboard is looking at them.
+ *
+ * Calls counts every call outcome logged in the period, not just the ones saved
+ * as "Connected" -- the feedback modal records one outcome per call, so a call
+ * that ended in a follow-up, a meeting or an RNR is still a call. See
+ * CALL_ACTIONS in server/src/constants/workActions.js.
  */
 
 /** Column order, header text and the row field each one reads. */

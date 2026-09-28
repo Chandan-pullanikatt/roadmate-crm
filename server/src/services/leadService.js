@@ -361,7 +361,12 @@ const leadService = {
         if (data.isCustom) {
           lead.notes = data.customReason; // Store in notes if isCustom
         }
-        activityData.action = 'followup_set';
+        // No activity logged here on purpose. Both call modals fire this
+        // immediately after set_feedback/'followup', which has already written
+        // the 'followup_set' record carrying the call's remarks -- logging a
+        // second one counted one follow-up call twice, in the Follow-ups column
+        // and (now that every outcome counts as a call) in Calls as well. The
+        // date itself lives on the lead, so nothing is lost by staying quiet.
         break;
 
       case 'meeting_done': {
