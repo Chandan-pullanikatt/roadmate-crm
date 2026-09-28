@@ -33,11 +33,6 @@ const CLOSED_STATUSES = [
   'blocking_amount_received', 'full_amount_received', 'agreement_signed',
 ];
 
-// A lead parked on one of these sub-statuses is not an ordinary call: it is a
-// meeting-confirmation task pushed by cron, and the role that owns those (the
-// District Manager) answers it through its own wizard.
-const CONFIRM_SUBSTATUS = ['pre_meeting_confirm', 'day_before_confirm', 'day_before_queued', '30m_confirm_queued'];
-
 const DEFAULT_NAV_TARGETS = {
   myLeads:     '/dashboard?page=leads',
   completed:   '/dashboard?page=leads&completedToday=true',
@@ -68,7 +63,6 @@ const MyWorkPage = ({
   // The role's own Call Feedback dialog: the outcome set differs per role.
   FeedbackModal,
   // Optional wizard for cron-pushed meeting-confirmation tasks (District Manager).
-  ConfirmTaskWizard = null,
   // Who this role may hand a lead down to, or null when it has no one below it.
   // { role, fieldLabel, emptyMsg }
   allocate = null,
@@ -263,9 +257,10 @@ const MyWorkPage = ({
     return () => window.removeEventListener('refresh-leads', handleLeadRefresh);
   }, [queryClient]);
 
-  // Cron pushes two kinds of timed work into the queue -- an hourly RNR retry
-  // before a meeting, and a meeting confirmation call. Both arrive over the
-  // socket, so the queue has to refetch rather than wait for the next poll.
+  // The hourly RNR retry before a meeting is pushed by cron over the socket, so
+  // the queue has to refetch rather than wait for the next poll. (The meeting
+  // confirmation task that used to arrive the same way is gone -- booking a
+  // meeting confirms it; the owner gets a reminder instead.)
   useEffect(() => {
     if (!socket) return;
     const handleRetry = ({ leadName, meetingAt }) => {
@@ -273,21 +268,9 @@ const MyWorkPage = ({
       const timeStr = new Date(meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       addToast(`⏰ Retry: "${leadName}" — call again before meeting at ${timeStr}`, 'warning');
     };
-    const handleConfirmTask = ({ leadName, meetingAt, taskType }) => {
-      refreshLeadCaches();
-      const timeStr = new Date(meetingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      addToast(
-        taskType === '30m_vm_confirm'
-          ? `⚡ 30-min check: Call "${leadName}" before virtual meeting at ${timeStr}`
-          : `📅 Confirm tomorrow's meeting: "${leadName}" at ${timeStr}`,
-        'warning'
-      );
-    };
     socket.on('lead:dm_retry', handleRetry);
-    socket.on('lead:confirmation_task', handleConfirmTask);
     return () => {
       socket.off('lead:dm_retry', handleRetry);
-      socket.off('lead:confirmation_task', handleConfirmTask);
     };
   }, [socket, queryClient, addToast]);
 
@@ -349,11 +332,19 @@ const MyWorkPage = ({
 
   const workStarted = !!dashData?.attendance?.workStartedAt && !dashData?.attendance?.workCompletedAt;
   const workCompleted = !!dashData?.attendance?.workCompletedAt;
+  // Every lead this user owns, all time. Only the cards that mean "all time"
+  // read it -- the Blocking Amount count, whose status never enters the queue.
   const myQueue = allLeadsData?.leads || [];
+
+  // The day's book. attendanceService already scores the day against the
+  // date-filtered day plan, so the live percentage has to divide by the same
+  // thing or the screen contradicts the figure attendance records -- which is
+  // the one the 60% cut-off is applied to.
+  const todayLeadCount = workQueue.length;
 
   const completionPct = workCompleted
     ? Math.min(Math.round(dashData?.attendance?.completionPct || 0), 100)
-    : Math.round(((dashData?.todayStats?.completedLeads || 0) / Math.max(myQueue.length, 1)) * 100);
+    : Math.round(((dashData?.todayStats?.completedLeads || 0) / Math.max(todayLeadCount, 1)) * 100);
   const pctColor = completionPct >= 70 ? 'text-accent' : completionPct >= 30 ? 'text-amber' : 'text-red';
   const barColor = completionPct >= 70 ? 'bg-accent' : completionPct >= 30 ? 'bg-amber' : 'bg-red';
   const isQueueEmpty = workQueue.length === 0;
@@ -395,7 +386,6 @@ const MyWorkPage = ({
 
   const recentActivity = Array.isArray(activityData) ? activityData : [];
 
-  const isConfirmTask = !!(ConfirmTaskWizard && activeLead?.subStatus && CONFIRM_SUBSTATUS.includes(activeLead.subStatus));
   const isVirtualMeeting = activeLead?.status === 'meeting_virtual' && !!activeLead?.meetingLink;
 
   const handleLeadActioned = () => {
@@ -514,8 +504,8 @@ const MyWorkPage = ({
       {(() => {
         const blockingCount = myQueue.filter(l => l.status === 'blocking_amount_received').length;
         const cards = [
-          { id: 'my-leads',    label: 'My Leads Today',    value: myQueue.length,                                              delta: `${todayStats.followups || 0} follow-ups pending`, color: '#7C3AED' },
-          { id: 'completed',   label: 'Completed Today',   value: summaryDrilldowns.completed?.count ?? 0,                     delta: `of ${myQueue.length} total leads`,              color: '#059669' },
+          { id: 'my-leads',    label: 'My Leads Today',    value: todayLeadCount,                                              delta: `${todayStats.followups || 0} follow-ups pending`, color: '#7C3AED' },
+          { id: 'completed',   label: 'Completed Today',   value: summaryDrilldowns.completed?.count ?? 0,                     delta: `of ${todayLeadCount} due today`,                color: '#059669' },
           { id: 'calls',       label: 'Calls This Week',   value: personalCallsCount,                                          delta: `${personalCallGrowth >= 0 ? '+' : ''}${personalCallGrowth} vs last week`, color: '#2563EB' },
           { id: 'conversions', label: 'My Conversions',    value: summaryDrilldowns.conversions?.count ?? 0,                   delta: 'This month',                                    color: '#0D9488' },
           { id: 'blocking',    label: 'Blocking Amount',   value: summaryDrilldowns.blocking?.count || blockingCount,          delta: 'Amount received',                               color: '#D97706' },
@@ -625,14 +615,6 @@ const MyWorkPage = ({
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <div className="text-[16px] text-text-muted italic">Loading next lead…</div>
                 </div>
-              ) : isConfirmTask ? (
-                /* Meeting confirmation task — answered through the role's wizard */
-                <ConfirmTaskWizard
-                  lead={activeLead}
-                  onComplete={() => { handleLeadActioned(); advanceToNext(); }}
-                  queueLength={workQueue.length}
-                  currentIndex={activeIndex + 1}
-                />
               ) : (
                 /* Active lead: 2-column layout */
                 <div className="animate-in slide-in-from-bottom-2 duration-300">
@@ -799,10 +781,14 @@ const MyWorkPage = ({
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[12px] font-bold text-text-muted">
-                        {(lead.meetingAt || lead.nextActionAt || lead.followUpDate)
-                          ? new Date(lead.meetingAt || lead.nextActionAt || lead.followUpDate)
-                              .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          : '—'}
+                        {/* dueAt is the date the queue selected on -- meetingAt is
+                            blank on most meeting leads, so it cannot be read alone.
+                            A meeting whose date has passed reads as its status like
+                            any other row; it is in the queue, which is the point. */}
+                        {(() => {
+                          const due = lead.dueAt || lead.meetingAt || lead.nextActionAt || lead.followUpDate;
+                          return due ? new Date(due).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+                        })()}
                       </div>
                       <div className={`text-[9px] font-bold uppercase tracking-tighter mt-0.5 ${done ? 'text-green' : getStatusColor(lead.status)}`}>
                         {done ? 'done' : lead.status?.replace(/_/g, ' ')}
@@ -815,7 +801,7 @@ const MyWorkPage = ({
             </div>
             <div className="px-5 py-3 bg-surface2/50 border-t border-border/40 text-center">
               <span className="text-[12px] font-bold text-text-muted uppercase tracking-widest">
-                {todayStats.completedLeads || 0}/{myQueue.length} completed today · {pendingQueue.length} in queue
+                {todayStats.completedLeads || 0}/{todayLeadCount} completed today · {pendingQueue.length} in queue
               </span>
             </div>
           </div>
@@ -1001,7 +987,7 @@ const MyWorkPage = ({
         if (!summaryModal) return null;
 
         const drilldowns = summaryDrilldowns || {};
-        const myLeads = pickLeads(drilldowns.myLeads?.leads, myQueue);
+        const myLeads = pickLeads(drilldowns.myLeads?.leads, workQueue);
         const completedLeads = pickLeads(drilldowns.completed?.leads, []);
         const callRows = pickCallRows(drilldowns.calls?.rows, []);
         const conversionLeads = pickLeads(drilldowns.conversions?.leads, []);

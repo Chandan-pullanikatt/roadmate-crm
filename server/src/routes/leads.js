@@ -231,7 +231,15 @@ const bulkCreateLeads = async (req, res) => {
 
         if (item.followUpDate) {
           const fDate = new Date(item.followUpDate);
-          if (!isNaN(fDate.getTime())) normalized.followUpDate = fDate;
+          if (!isNaN(fDate.getTime())) {
+            normalized.followUpDate = fDate;
+            // nextActionAt is the field every scheduled-work query reads: the work
+            // queue, the day plan, and the nightly carry-forward (which skips a lead
+            // without one). The import used to write only followUpDate, so an
+            // imported follow-up was never due, never carried forward, and only
+            // appeared because the queue showed every open lead regardless of date.
+            normalized.nextActionAt = fDate;
+          }
         }
 
         if (item.remarks) {

@@ -10,6 +10,7 @@ const PUSH_TITLES = {
   staff_created: 'New team member',
   document_uploaded: 'New document',
   lead_escalated: 'Lead needs your approval',
+  meeting_reminder: 'Meeting reminder',
   escalation_approved: 'Escalation approved',
   escalation_rejected: 'Escalation returned',
   broadcast: 'Message from your team',
@@ -76,7 +77,7 @@ const notificationService = {
    * insertMany writes the batch in one round trip, then each recipient gets
    * their own socket push so anyone online sees it without a refresh.
    */
-  async createMany({ userIds, message, type = 'general', meta = {}, io = null }) {
+  async createMany({ userIds, message, type = 'general', meta = {}, io = null, push = true }) {
     if (!userIds || !userIds.length) return [];
 
     try {
@@ -97,13 +98,33 @@ const notificationService = {
         });
       }
 
-      pushService.sendToUsers(userIds, toPush(message, type, meta));
+      // Callers that send their own, richer push (the meeting reminder cron)
+      // opt out here rather than fire a second, blander one.
+      if (push) pushService.sendToUsers(userIds, toPush(message, type, meta));
 
       return docs;
     } catch (err) {
       console.error('[NotificationService] Failed to create notifications:', err.message);
       return [];
     }
+  },
+
+  /**
+   * A meeting is about to start. The owner and every invited manager get one,
+   * so a reminder that was pushed while nobody was looking still has a record
+   * in the bell -- booking the meeting is the confirmation, there is no
+   * confirmation call to fall back on.
+   */
+  async onMeetingReminder({ userIds, leadName, meetingAt, meetingType, when, io }) {
+    return this.createMany({
+      userIds: userIds.filter(Boolean),
+      message: `${meetingType === 'virtual' ? 'Virtual' : 'In-person'} meeting with ${leadName} ${when}.`,
+      type: 'meeting_reminder',
+      meta: { meetingAt, meetingType },
+      io,
+      // The cron sends its own push with requireInteraction on the 15-minute one.
+      push: false,
+    });
   },
 
   /**

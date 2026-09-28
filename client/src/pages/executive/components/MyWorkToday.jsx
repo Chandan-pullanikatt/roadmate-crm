@@ -2,7 +2,6 @@ import React from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import MyWorkPage from '../../shared/MyWorkPage';
 import ExecCallFeedbackModal from './ExecCallFeedbackModal';
-import LeadWizard from './LeadWizard';
 
 /**
  * The District Manager's work page — the same layout the Industry Manager and the
@@ -10,10 +9,10 @@ import LeadWizard from './LeadWizard';
  * wizard-styled screen with seven metric tiles, a meetings panel and an activity
  * feed; the client asked for one work page across every role.
  *
- * One thing stays specific to this role: the meeting-confirmation tasks cron
- * pushes into the queue, which are still answered through LeadWizard. The
- * work-from-home declaration used to be specific to it too; every manager role
- * gets it now, so it lives in MyWorkPage.
+ * Nothing is specific to this role any more: the meeting-confirmation tasks that
+ * were answered here through LeadWizard are gone (booking a meeting confirms it),
+ * and the work-from-home declaration moved to MyWorkPage once every manager role
+ * got one.
  */
 const MyWorkToday = () => {
   const { user } = useAuth();
@@ -23,7 +22,6 @@ const MyWorkToday = () => {
       scopeLabel={user?.district || user?.state}
       subtitle="Your personal lead queue · Meetings, follow-ups and new leads · One-by-one execution"
       FeedbackModal={ExecCallFeedbackModal}
-      ConfirmTaskWizard={LeadWizard}
       navTargets={{
         myLeads:     '/dashboard?page=leads',
         completed:   '/dashboard?page=leads&completedToday=true',

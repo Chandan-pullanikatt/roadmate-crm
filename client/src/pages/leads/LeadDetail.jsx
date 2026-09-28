@@ -12,6 +12,40 @@ const statusVariant = (status = '') => {
   return 'gray';
 };
 
+// Dates arrive both as a real appointment time and as a bare calendar day (the
+// bulk import stores midnight), so a day-only date is printed without a time
+// rather than reading "00:00".
+const formatWhen = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  const dayOnly = d.getHours() === 0 && d.getMinutes() === 0;
+  return d.toLocaleString('en-IN', dayOnly
+    ? { day: '2-digit', month: 'short', year: 'numeric' }
+    : { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+/**
+ * What this lead is next due for, and what to call it.
+ *
+ * Which field holds the date depends on how the lead was created: meetingAt is
+ * only ever written by the scheduling wizard, an imported lead carries
+ * followUpDate, and a meeting worked as an ordinary follow-up keeps its meeting
+ * status (the rank lock) while its date goes to nextActionAt. So every label
+ * reads the same fallback chain the work queue selects on, not a single field.
+ */
+const scheduleFor = (lead) => {
+  const chain = lead.meetingAt || lead.nextActionAt || lead.followUpDate;
+  switch (lead.status) {
+    case 'meeting_direct':  return ['Direct Meeting', chain];
+    case 'meeting_virtual': return ['Virtual Meeting', chain];
+    case 'followup':        return ['Follow-Up Date', lead.followUpDate || lead.nextActionAt];
+    case 'rnr':             return ['Next Retry', lead.nextActionAt];
+    case 'escalated':       return ['Awaiting Approval Since', lead.nextActionAt];
+    default:                return ['Next Action', lead.nextActionAt || lead.followUpDate];
+  }
+};
+
 const LeadDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -44,6 +78,7 @@ const LeadDetail = () => {
   }
 
   const displayName = lead.name || lead.company;
+  const [scheduleLabel, scheduleDate] = scheduleFor(lead);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
@@ -79,6 +114,14 @@ const LeadDetail = () => {
               ['Owner', lead.owner?.name || 'Unassigned'],
               ['Lead ID', lead.leadId || '—'],
               ['Source', lead.leadSource || '—'],
+              [scheduleLabel, formatWhen(scheduleDate) || 'Not set'],
+              // A meeting lead often carries a follow-up date too -- the rank lock
+              // keeps the meeting status while the follow-up work goes on -- so it
+              // is shown alongside rather than hidden behind the status.
+              ...(lead.followUpDate && !['followup', 'rnr'].includes(lead.status)
+                ? [['Follow-Up Date', formatWhen(lead.followUpDate)]]
+                : []),
+              ...(lead.lastCallAt ? [['Last Call', formatWhen(lead.lastCallAt)]] : []),
               ['Expected Revenue', lead.expectedRevenue ? `₹${lead.expectedRevenue}` : '—'],
               ['Created', lead.createdAt ? new Date(lead.createdAt).toLocaleString('en-IN') : '—'],
             ].map(([label, value]) => (

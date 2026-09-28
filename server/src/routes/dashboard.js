@@ -1325,6 +1325,12 @@ router.get('/state-manager', async (req, res) => {
                 conversions: rolled.converted,
                 efficiency,
                 districts: [...new Set(team.map(e => e.district))].length,
+                // The manager's own figures, unrolled. The Performance page's
+                // Teams view reports `rolled` (manager + the district managers
+                // under them); its Personal view reports this. Sending both
+                // keeps the two views from needing separate requests.
+                own: smMetrics.get(String(m._id)) || EMPTY_METRICS,
+                teamSize: execIds.length,
                 user: m
             };
         });

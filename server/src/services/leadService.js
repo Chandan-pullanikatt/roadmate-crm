@@ -1,12 +1,14 @@
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
-const { loadCalendar, startOfDay, addDays } = require('../utils/workingDays');
+const { loadCalendar, startOfDay, addDays, istDayRange } = require('../utils/workingDays');
 const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
 const { applyStatus } = require('../constants/leadStatusRank');
 const { WORK_ACTIONS } = require('../constants/workActions');
 const { isPendingFor } = require('../utils/escalation');
+
+const MEETING_STATUSES = ['meeting_virtual', 'meeting_direct'];
 
 // How much of the work queue ships with its timeline already attached. The page
 // only ever shows the active lead's history and the user works down the queue in
@@ -217,11 +219,12 @@ const leadService = {
           activityData.action = 'meeting_scheduled';
           activityData.metadata = { meetingType: 'virtual' };
 
-          // Schedule initial confirmation task: 2 hours before the meeting
-          // (or immediately if the meeting is within 2 hours)
-          const vmConfirmAt = new Date(lead.meetingAt.getTime() - 2 * 60 * 60 * 1000);
-          lead.nextActionAt = vmConfirmAt > new Date() ? vmConfirmAt : new Date();
-          lead.subStatus = 'pre_meeting_confirm';
+          // Client rule: booking a meeting *is* the confirmation. There is no
+          // second confirmation call on another day, so the lead is due on the
+          // meeting date and nowhere else -- the owner and the invited managers
+          // are reminded by the meeting-reminder cron instead.
+          lead.nextActionAt = null;
+          lead.subStatus = null;
 
         } else if (nextAction === 'direct_meeting') {
           applyStatus(lead, 'meeting_direct');
@@ -230,23 +233,11 @@ const leadService = {
           activityData.action = 'meeting_scheduled';
           activityData.metadata = { meetingType: 'direct' }; // counted by direct-meeting targets
 
-          // Schedule confirmation task based on how far away the meeting is
-          const tomorrowEnd = new Date();
-          tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-          tomorrowEnd.setHours(23, 59, 59, 999);
-
-          if (lead.meetingAt > tomorrowEnd) {
-            // Meeting is day-after-tomorrow or later → confirm the day before at 10 AM
-            const dayBeforeAt10 = new Date(lead.meetingAt);
-            dayBeforeAt10.setDate(dayBeforeAt10.getDate() - 1);
-            dayBeforeAt10.setHours(10, 0, 0, 0);
-            lead.nextActionAt = dayBeforeAt10;
-            lead.subStatus = 'day_before_confirm';
-          } else {
-            // Meeting is today or tomorrow → confirm immediately
-            lead.nextActionAt = new Date();
-            lead.subStatus = 'pre_meeting_confirm';
-          }
+          // As above: no day-before confirmation task. This used to set
+          // nextActionAt to the day before at 10 AM -- or to *now* for a meeting
+          // booked for tomorrow, which put tomorrow's meeting into today's queue.
+          lead.nextActionAt = null;
+          lead.subStatus = null;
         } else if (nextAction === 'blocking_amount_received') {
           // "Blocking" is the advance. It is a stage on the way, never a close.
           // Each stage keeps the date it first happened, and the status rank
@@ -419,25 +410,6 @@ const leadService = {
         activityData.action = 'reallocated';
         break;
 
-      case 'confirm_meeting': {
-        // Executive called and confirmed the meeting is happening.
-        // Clear the confirmation task subStatus.
-        lead.subStatus = null;
-        activityData.action = 'meeting_confirmed';
-        activityData.note = data.note || 'Meeting confirmed by executive';
-
-        // For virtual meetings: if the meeting is still > 30 min away,
-        // push nextActionAt to 30 min before so the 30-min cron can
-        // detect it and create the final confirmation task.
-        if (lead.status === 'meeting_virtual' && lead.meetingAt) {
-          const thirtyMinBefore = new Date(lead.meetingAt.getTime() - 30 * 60 * 1000);
-          if (thirtyMinBefore > new Date()) {
-            lead.nextActionAt = thirtyMinBefore;
-          }
-        }
-        break;
-      }
-
       default:
         throw new Error('Invalid transition action');
     }
@@ -542,9 +514,52 @@ const leadService = {
   /**
    * Get sorted lead queue for executive
    */
-  async getQueue(userId) {
+  async getQueue(userId, day = new Date()) {
     const CLOSED_STATUSES = ['converted', 'lost', 'not_interested', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
-    const leads = await Lead.find({ owner: userId, status: { $nin: CLOSED_STATUSES } });
+    const { start: dayStart, end: dayEnd } = istDayRange(day);
+
+    // The day's book, not the whole open book. Every status carries its due date
+    // in a different field, so each bucket is selected on its own terms:
+    //
+    //   new, rnr        no due date exists. 'new' is work the moment it lands;
+    //                   an RNR is chased until it resolves (the 5+5 rule ends it),
+    //                   so a retry date would only hide active chasing.
+    //   called          the calls made today, which read as done in the queue.
+    //                   Also any call left without an outcome -- scheduleService's
+    //                   nightly backstop dates those so they come back.
+    //   meetings        due today or earlier. Past ones are missed meetings: they
+    //                   are never carried forward (isFixed) and the rank lock
+    //                   forbids demoting them to a follow-up, so this is the only
+    //                   thing that keeps them visible.
+    //   followup        due today or earlier. The 00:30 carry-forward normally
+    //                   moves a missed one, so '<=' is the safety net for fixed
+    //                   follow-ups, which never move.
+    //   escalated       by nextActionAt, set to now on escalation.
+    //
+    // "Due" is a fallback chain, not one field. meetingAt is only ever written by
+    // the scheduling wizard: a CSV import maps a sheet's "Direct Meeting" straight
+    // onto the status and fills followUpDate instead, and a meeting lead worked as
+    // an ordinary follow-up keeps the meeting status (the rank lock) while its real
+    // date goes to nextActionAt. On the client's data 29 of 30 open direct meetings
+    // have no meetingAt at all, so reading that field alone would hide almost every
+    // meeting they have.
+    const dueBy = (statuses, cutoff) => [
+      { status: { $in: statuses }, meetingAt: { $ne: null, $lte: cutoff } },
+      { status: { $in: statuses }, meetingAt: null, nextActionAt: { $ne: null, $lte: cutoff } },
+      { status: { $in: statuses }, meetingAt: null, nextActionAt: null, followUpDate: { $ne: null, $lte: cutoff } },
+    ];
+
+    const leads = await Lead.find({
+      owner: userId,
+      status: { $nin: CLOSED_STATUSES },
+      $or: [
+        { status: { $in: ['new', 'rnr'] } },
+        { status: 'called', lastCallAt: { $gte: dayStart, $lte: dayEnd } },
+        { status: 'called', nextActionAt: { $ne: null, $lte: dayEnd } },
+        ...dueBy(MEETING_STATUSES, dayEnd),
+        ...dueBy(['followup', 'escalated'], dayEnd),
+      ],
+    });
 
     // SORT ORDER -- by status, which is the only key every lead actually carries:
     // 1. Direct meetings
@@ -555,12 +570,10 @@ const leadService = {
     // 6. RNR retries
     // 7. Everything else (escalated)
     //
-    // This used to gate buckets 1/2 on meetingAt landing today and buckets 4/5 on
-    // nextActionAt being due, so a lead with neither date -- which is most of them,
-    // since nothing sets meetingAt on a status change -- fell through to the
-    // bottom bucket. Direct meetings, RNRs and follow-ups all ended up jumbled
-    // below the new leads. The dates now only order leads *within* a bucket, which
-    // still floats today's meeting above next week's.
+    // Sorting is by status alone. Dates decide *whether* a lead is in the day's
+    // book -- that is the $or above -- and then only order leads within a bucket.
+    // Sorting on a date across buckets is what an earlier version did, and any
+    // lead without one (every 'new' lead, every RNR) sank below the rest.
     const STATUS_RANK = {
       meeting_direct:  1,
       meeting_virtual: 2,
@@ -588,8 +601,8 @@ const leadService = {
       // Secondary sort by date: the soonest due lead first. A lead with no date
       // of its own falls back to createdAt, so the oldest untouched leads surface
       // ahead of the ones just imported.
-      const dateA = a.meetingAt || a.nextActionAt || a.createdAt;
-      const dateB = b.meetingAt || b.nextActionAt || b.createdAt;
+      const dateA = a.meetingAt || a.nextActionAt || a.followUpDate || a.createdAt;
+      const dateB = b.meetingAt || b.nextActionAt || b.followUpDate || b.createdAt;
       return dateA - dateB;
     });
   },
@@ -605,10 +618,7 @@ const leadService = {
    * Comprehensive workflow data for "Start My Work"
    */
   async getWorkflowData(userId) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { start: todayStart, end: todayEnd } = istDayRange();
 
     const fullQueue = await this.getQueue(userId);
 
@@ -682,9 +692,16 @@ const leadService = {
     const queue = fullQueue.map(l => {
       const plain = typeof l.toObject === 'function' ? l.toObject() : l;
       const seeded = seededActivity.get(String(l._id));
+      // The date the queue selected this lead on. A meeting whose date has passed
+      // keeps riding in the day's queue -- nothing carries these forward and the
+      // rank lock will not let them become follow-ups -- and it reads as an
+      // ordinary Direct Meeting row, which is how the client wants it.
+      const dueAt = plain.meetingAt || plain.nextActionAt || plain.followUpDate;
       return {
         ...plain,
         workedToday: workedToday.has(String(l._id)),
+        // The date the queue actually selected on, so the row shows the same one.
+        dueAt: dueAt || null,
         // Left off entirely past the seeded head of the queue, so the client can
         // tell "nothing happened yet" from "not loaded".
         ...(seeded ? { recentActivity: seeded } : {})
@@ -732,8 +749,8 @@ const leadService = {
       taskSequence,
       todayMeetings: meetingsFormatted,
       activityFeed: feedFormatted,
-      // queueLength stays the whole open book; pendingCount is the day's
-      // remaining work and completedToday the leads already worked.
+      // queueLength is the day's book; pendingCount is what is left of it and
+      // completedToday the leads in it already worked.
       queueLength: queue.length,
       pendingCount: pendingQueue.length,
       completedToday: workedToday.size

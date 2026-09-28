@@ -94,6 +94,25 @@ const scheduleService = {
       byOwner.get(key).push(lead);
     }
 
+    // A call logged with no outcome. 'Call Done' writes the status the moment it
+    // is pressed, so an abandoned wizard -- a refresh, a closed tab, an
+    // interruption -- strands the lead in 'called' with no date on it. movableQuery
+    // skips those (it wants nextActionAt set), the day-filtered queue only shows
+    // calls made today, and nothing else surfaces them, so without this they are
+    // invisible from tomorrow on. Dating them puts them back in the queue until
+    // someone records what happened.
+    const stranded = await Lead.find({
+      status: 'called',
+      owner: { $ne: null },
+      nextActionAt: null,
+      lastCallAt: { $lt: today },
+    });
+    for (const lead of stranded) {
+      const key = String(lead.owner);
+      if (!byOwner.has(key)) byOwner.set(key, []);
+      byOwner.get(key).push(lead);
+    }
+
     let moved = 0;
     for (const [ownerId, ownerLeads] of byOwner) {
       const owner = await User.findById(ownerId).select('state');
@@ -101,7 +120,15 @@ const scheduleService = {
       const calendar = await loadCalendar(owner, today);
       const target = calendar.nextAvailable(today);
       for (const lead of ownerLeads) {
-        moveLead(lead, target);
+        // A stranded call has no date to keep the time of day from, so it lands
+        // at the start of the working day rather than through moveLead.
+        if (!lead.nextActionAt) {
+          const at = new Date(target);
+          at.setHours(10, 0, 0, 0);
+          lead.nextActionAt = at;
+        } else {
+          moveLead(lead, target);
+        }
         await lead.save();
         moved++;
       }

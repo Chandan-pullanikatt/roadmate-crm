@@ -70,6 +70,20 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
     enabled: step === 3 && (outcome === 'escalate' || outcome === 'schedule_virtual' || outcome === 'direct_meeting' || outcome === 'reschedule')
   });
 
+  // Recording the outcome is mandatory: 'Call Done' writes the 'called' status
+  // straight away, so a wizard left open past that point strands the lead with a
+  // status and no next date. The steps already refuse to advance without an
+  // outcome; this covers the one escape a browser allows -- closing or reloading
+  // the tab mid-call. (scheduleService's nightly sweep is the server-side net for
+  // a crash, which no dialog can catch.)
+  const outcomePending = step === 1 && !outcome;
+  useEffect(() => {
+    if (!outcomePending) return;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [outcomePending]);
+
   // Reset on new lead
   useEffect(() => {
     setStep(0);
@@ -109,12 +123,6 @@ const LeadWizard = ({ lead, onComplete, queueLength, currentIndex }) => {
         </div>
       </div>
     );
-  }
-
-  // ── Meeting confirmation task: show dedicated UI instead of normal call flow
-  const CONFIRM_SUBSTATUS = ['pre_meeting_confirm', 'day_before_confirm', 'day_before_queued', '30m_confirm_queued'];
-  if (lead.subStatus && CONFIRM_SUBSTATUS.includes(lead.subStatus)) {
-    return <MeetingConfirmCard lead={lead} onComplete={onComplete} />;
   }
 
   const handleCallDone = () => {
@@ -619,157 +627,5 @@ const StepEscalate = ({ managers, selectedId, setSelectedId, reason, setReason }
     </div>
   </div>
 );
-
-/* ─── Meeting Confirmation Card ─────────────────────────────────────────── */
-
-const MeetingConfirmCard = ({ lead, onComplete }) => {
-  const queryClient = useQueryClient();
-  const { addToast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showReschedule, setShowReschedule] = useState(false);
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleTime, setRescheduleTime] = useState('');
-
-  const { mutateAsync } = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(lead._id, data.action, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['leads', 'workflow']);
-      queryClient.invalidateQueries(['dashboard', 'executive']);
-    },
-  });
-
-  const isVM       = lead.status === 'meeting_virtual';
-  const meetingAt  = lead.meetingAt ? new Date(lead.meetingAt) : null;
-  const is30m      = lead.subStatus === '30m_confirm_queued';
-  const isDayBefore = lead.subStatus === 'day_before_confirm' || lead.subStatus === 'day_before_queued';
-
-  const taskLabel = is30m
-    ? '⚡ Final Check — 30 Minutes to Meeting!'
-    : isDayBefore
-    ? "📅 Confirm Tomorrow's Meeting"
-    : 'Confirm Meeting with Lead';
-
-  const submit = async (action, payload = {}) => {
-    setIsSubmitting(true);
-    try {
-      await mutateAsync({ action, ...payload });
-      onComplete();
-    } catch {
-      addToast('Failed to save. Please try again.', 'error');
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleConfirm = () => {
-    submit('confirm_meeting', { note: `Meeting confirmed (${is30m ? '30-min check' : isDayBefore ? 'day-before' : 'initial'})` });
-    addToast('Meeting confirmed ✓', 'success');
-  };
-
-  const handleRNR = () => {
-    submit('mark_rnr');
-    addToast('RNR logged. Lead will retry.', 'warning');
-  };
-
-  const handleReschedule = () => {
-    if (!rescheduleDate) return;
-    submit('set_feedback', {
-      nextAction: 'reschedule',
-      note: 'Rescheduled during confirmation call',
-      meetingAt: `${rescheduleDate}T${rescheduleTime || '10:00'}`,
-    });
-    addToast('Meeting rescheduled!', 'success');
-  };
-
-  return (
-    <div className="wizard-lead-card">
-      {/* Header */}
-      <div className="wizard-lead-header">
-        <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <span className={`tag ${isVM ? 'tag-blue' : 'tag-amber'}`} style={{ fontSize: 10 }}>
-              {isVM ? '🎥 VIRTUAL' : '📍 DIRECT'}
-            </span>
-            {is30m && <span className="tag tag-red" style={{ fontSize: 10 }}>30 MIN!</span>}
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>{lead.company || lead.name}</h2>
-          <div style={{ fontSize: 15, color: 'var(--text-muted)', marginTop: 4 }}>
-            {lead.name} · {lead.phone}
-          </div>
-        </div>
-        {meetingAt && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Meeting</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--accent)', marginTop: 4 }}>
-              {meetingAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-secondary)' }}>
-              {meetingAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Body */}
-      <div className="wizard-lead-body">
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div className="wizard-call-icon" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }}>
-            {isVM ? '🎥' : '📍'}
-          </div>
-          <h3 style={{ fontSize: 17, fontWeight: 800, marginTop: 16, marginBottom: 6 }}>{taskLabel}</h3>
-          <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>
-            Call the lead to confirm this meeting will go ahead as planned.
-          </p>
-        </div>
-
-        {/* VM meeting link */}
-        {isVM && lead.meetingLink && (
-          <div style={{ background: 'var(--blue-light)', border: '1px solid #BFDBFE', borderRadius: 12, padding: '10px 16px', marginBottom: 20 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--blue)', textTransform: 'uppercase', marginBottom: 4 }}>Meeting Link to Share</div>
-            <a href={lead.meetingLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--blue)', wordBreak: 'break-all' }}>
-              {lead.meetingLink}
-            </a>
-          </div>
-        )}
-
-        {/* Inline reschedule form or main action buttons */}
-        {showReschedule ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 800 }}>Pick a New Date & Time</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <div className="wizard-field-label">New Date *</div>
-                <input type="date" className="input" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} />
-              </div>
-              <div>
-                <div className="wizard-field-label">New Time</div>
-                <input type="time" className="input" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-              <button className="wizard-btn wizard-btn-secondary" style={{ flex: 1 }} onClick={() => setShowReschedule(false)} disabled={isSubmitting}>
-                ← Back
-              </button>
-              <button className="wizard-btn wizard-btn-success" style={{ flex: 1 }} onClick={handleReschedule} disabled={!rescheduleDate || isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Confirm Reschedule'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button className="wizard-btn wizard-btn-success" onClick={handleConfirm} disabled={isSubmitting} style={{ height: 46 }}>
-              {isSubmitting ? 'Saving...' : '✅ Meeting Confirmed'}
-            </button>
-            <button className="wizard-btn wizard-btn-secondary" onClick={() => setShowReschedule(true)} disabled={isSubmitting}>
-              🔄 Need to Reschedule
-            </button>
-            <button className="wizard-btn wizard-btn-secondary" style={{ color: '#B91C1C' }} onClick={handleRNR} disabled={isSubmitting}>
-              📵 Lead Not Reachable
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 export default LeadWizard;

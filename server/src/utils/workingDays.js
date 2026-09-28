@@ -80,6 +80,21 @@ const loadCalendar = async (user, from = new Date()) => {
   return { isWorkingDay, isOnLeave, isAvailable, nextAvailable };
 };
 
+/**
+ * The IST calendar day an instant falls in, as [start, end] instants.
+ *
+ * `startOfDay` above uses setHours, which is the *server's* zone -- fine for the
+ * working-day arithmetic it was written for, wrong for deciding which leads are
+ * due "today" when the server is not on IST. targetPeriod.js already pins IST for
+ * the same reason; this is the day-sized version of it.
+ */
+const IST_OFFSET_MS = 330 * 60 * 1000;
+const istDayRange = (date = new Date()) => {
+  const shifted = new Date(date.getTime() + IST_OFFSET_MS);
+  const start = new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - IST_OFFSET_MS);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1) };
+};
+
 /** Same wall-clock time as `original`, on calendar day `day`. */
 const onDay = (original, day) => {
   const d = new Date(day);
@@ -90,6 +105,7 @@ const onDay = (original, day) => {
 
 module.exports = {
   startOfDay,
+  istDayRange,
   addDays,
   isWeeklyOff,
   countWeekdayWorkingDays,

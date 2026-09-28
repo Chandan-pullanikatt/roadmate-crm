@@ -259,39 +259,93 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     setIsProcessing(true);
     const allocationTargetId = selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '';
     
+    // Dates that could not be read at all. Collected across every row and shown
+    // before the upload goes out, so a column the sheet formatted differently is
+    // a visible warning instead of a quietly empty field.
+    const dateErrors = [];
+
     // Map CSV rows to API payload
-    const payload = parsedData.rows.map(row => {
-      // Helper to find key case-insensitively.
-      // Prefer an EXACT header match before falling back to a substring match —
-      // otherwise getVal('status') would wrongly grab "Messaged Status", which
-      // silently dropped every imported lead's real Status (all became "new").
-      const getVal = (keyStr) => {
-        const target = keyStr.toLowerCase();
+    const payload = parsedData.rows.map((row, rowIndex) => {
+      const rowNo = rowIndex + 2; // sheet row 1 is the header
+      // Headers are matched on letters and digits only, so spacing, hyphens and
+      // case cannot decide whether a column is found: "Next Follow-Up Date",
+      // "Next Follow Up Date" and "FOLLOWUP DATE" are the same column. Matching on
+      // the literal string is what silently dropped follow-up dates -- the template
+      // ships the hyphenated spelling and anyone typing the header by hand does not.
+      const squash = (v) => String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const getVal = (...names) => {
         const keys = Object.keys(row);
-        const exact = keys.find(k => k.toLowerCase().trim() === target);
-        const k = exact || keys.find(k => k.toLowerCase().includes(target));
-        return k ? row[k]?.trim() : undefined;
-      };
-
-      // Parse DD/MM/YYYY date strings
-      const parseDate = (str) => {
-        if (!str) return undefined;
-        const parts = str.split('/');
-        if (parts.length === 3) {
-          return new Date(parts[2], parts[1] - 1, parts[0]).toISOString();
+        for (const name of names) {
+          const target = squash(name);
+          // Exact before substring, or getVal('status') grabs "Messaged Status"
+          // and every imported lead's real status is lost.
+          const k = keys.find(key => squash(key) === target)
+            || keys.find(key => squash(key).includes(target));
+          const v = k == null ? undefined : row[k];
+          if (v != null && String(v).trim() !== '') return String(v).trim();
         }
-        const d = new Date(str);
-        return isNaN(d.getTime()) ? undefined : d.toISOString();
+        return undefined;
       };
 
-      const leadId = getVal('lead id') || getVal('id');
+      // Day-first dates (15/06/2026), which is what the template asks for and what
+      // every Indian sheet uses -- but the separator, the year length and the cell
+      // format all vary, and each variant used to be dropped without a word:
+      //   15-06-2026 / 15.06.2026  split('/') found one part -> Invalid Date
+      //   15/06/26                 parsed as the year 26 -> 1926
+      //   46188                    Excel serial, kept as the year 46188
+      // Anything still unreadable is collected into dateErrors and shown, rather
+      // than silently leaving the column empty.
+      const parseDate = (str, label) => {
+        if (str == null || String(str).trim() === '') return undefined;
+        const raw = String(str).trim();
+
+        const atLocalMidnight = (y, m, d) => {
+          const dt = new Date(y, m, d);
+          return isNaN(dt.getTime()) ? undefined : dt.toISOString();
+        };
+
+        // A cell formatted as a number: days since 1899-12-30, Excel's epoch.
+        if (/^\d{4,5}(\.\d+)?$/.test(raw)) {
+          const serial = Number(raw);
+          if (serial > 20000 && serial < 80000) {
+            const utc = new Date(Math.round((serial - 25569) * 86400000));
+            return atLocalMidnight(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
+          }
+        }
+
+        const parts = raw.match(/^(\d{1,4})[/.\-](\d{1,2})[/.\-](\d{1,4})$/);
+        if (parts) {
+          let [, a, b, c] = parts.map(Number);
+          let y, mo, d;
+          if (String(parts[1]).length === 4) {
+            [y, mo, d] = [a, b, c];               // 2026-06-15
+          } else {
+            // Day first unless the first number cannot be a day or the second
+            // cannot be a month, which is the only way to tell 6/15 from 15/6.
+            const dayFirst = a > 12 || b <= 12;
+            [d, mo] = dayFirst ? [a, b] : [b, a];
+            y = c < 100 ? 2000 + c : c;
+          }
+          if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return atLocalMidnight(y, mo - 1, d);
+        }
+
+        const parsed = new Date(raw);              // "15 June 2026", "June 15, 2026"
+        if (!isNaN(parsed.getTime())) {
+          return atLocalMidnight(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+        }
+
+        dateErrors.push(`Row ${rowNo}: could not read ${label} "${raw}"`);
+        return undefined;
+      };
+
+      const leadId = getVal('lead id', 'id');
       // Contact Information column holds the primary phone number
-      const rawPhone = (getVal('contact information') || getVal('phone number') || getVal('phone'))
+      const rawPhone = getVal('contact information', 'phone number', 'phone')
         ?.toString().replace(/\D/g, '');
-      const revenueRaw = getVal('lead value') || getVal('expected revenue') || getVal('revenue');
+      const revenueRaw = getVal('lead value', 'expected revenue', 'revenue');
 
       // District & Place column may be "Ernakulam - Kakkanad" — split on ' - ' or ','
-      const districtPlace = getVal('district & place') || getVal('district') || '';
+      const districtPlace = getVal('district & place', 'district') || '';
       const [districtPart, placePart] = districtPlace.includes(' - ')
         ? districtPlace.split(' - ')
         : districtPlace.includes(',')
@@ -299,7 +353,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
           : [districtPlace, ''];
 
       // Normalize status value
-      const rawStatus = getVal('status') || getVal('current status') || '';
+      const rawStatus = getVal('status', 'current status') || '';
       const statusMap = {
         'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
         'follow up': 'followup', 'rnr': 'rnr', 'meeting': 'meeting_direct',
@@ -321,7 +375,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       const normalizedStatus = statusMap[rawStatus.toLowerCase()] || rawStatus || undefined;
 
       // Normalize priority
-      const rawPriority = (getVal('priority level') || getVal('priority') || '').toLowerCase();
+      const rawPriority = (getVal('priority level', 'priority') || '').toLowerCase();
       const normalizedPriority = rawPriority.includes('hot') ? 'hot'
         : rawPriority.includes('warm') ? 'warm'
         : rawPriority.includes('cold') ? 'cold'
@@ -330,32 +384,46 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       return {
         ...(leadId ? { _id: leadId } : {}),
         ...(allocationTargetId ? { ownerId: allocationTargetId } : {}),
-        name: getVal('name') || getVal('lead name') || getVal('contact information') || 'Unknown',
+        name: getVal('name', 'lead name', 'contact information') || 'Unknown',
         phone: rawPhone || undefined,
         district: districtPart?.trim() || undefined,
         region: placePart?.trim() || undefined,
         state: getVal('state') || undefined,
         industry: getVal('industry') || undefined,
         leadSource: getVal('lead source') || 'Bulk Upload',
-        leadHandling: getVal('lead handing') || getVal('lead handling') || undefined,
+        leadHandling: getVal('lead handing', 'lead handling') || undefined,
         messagedStatus: getVal('messaged status') || undefined,
         status: normalizedStatus,
-        lastContactDate: parseDate(getVal('last contact date')),
-        remarks: getVal('remarks') || undefined,
+        lastContactDate: parseDate(getVal('last contact date', 'last contacted'), 'Last Contact Date'),
+        remarks: getVal('remarks', 'remark', 'comments', 'notes') || undefined,
         partnershipCategory: getVal('partnership category') || undefined,
-        followUpDate: parseDate(getVal('next follow-up date') || getVal('follow-up date')),
-        followUpNotes: getVal('follow-up notes') || getVal('followup notes') || undefined,
-        followUpCount: Number(getVal('no. of followups') || getVal('no of followups') || 0),
+        followUpDate: parseDate(
+          getVal('next follow-up date', 'follow-up date', 'followup date', 'next followup', 'follow up'),
+          'Next Follow-Up Date',
+        ),
+        followUpNotes: getVal('follow-up notes', 'followup notes') || undefined,
+        followUpCount: Number(getVal('no. of followups', 'no of followups', 'followup count') || 0),
         priority: normalizedPriority,
         nextAction: getVal('next action') || undefined,
         expectedRevenue: revenueRaw ? Number(revenueRaw) : 0,
         outcome: getVal('outcome') || undefined,
-        blockingDate: parseDate(getVal('blocking date')),
-        fullAmountReceivedDate: parseDate(getVal('full amount received date')),
-        reasonForLost: getVal('reason for lost leads') || getVal('reason for lost') || undefined,
-        createdDate: parseDate(getVal('created date')),
+        blockingDate: parseDate(getVal('blocking date'), 'Blocking Date'),
+        fullAmountReceivedDate: parseDate(getVal('full amount received date'), 'Full Amount Received Date'),
+        reasonForLost: getVal('reason for lost leads', 'reason for lost') || undefined,
+        createdDate: parseDate(getVal('created date'), 'Created Date'),
       };
     });
+
+    // The upload still goes ahead -- an unreadable date is one empty field, not a
+    // reason to reject the sheet -- but it is named, because "the follow-up dates
+    // did not save" was previously the only symptom.
+    if (dateErrors.length) {
+      setErrors([
+        `${dateErrors.length} date${dateErrors.length === 1 ? '' : 's'} could not be read and were left empty:`,
+        ...dateErrors.slice(0, 8),
+        ...(dateErrors.length > 8 ? [`…and ${dateErrors.length - 8} more`] : []),
+      ]);
+    }
 
     bulkUploadMutation.mutate(payload, {
       onSettled: () => setIsProcessing(false)

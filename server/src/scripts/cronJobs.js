@@ -5,6 +5,7 @@ const attendanceService = require('../services/attendanceService');
 const leadService = require('../services/leadService');
 const scheduleService = require('../services/scheduleService');
 const pushService = require('../services/pushService');
+const notificationService = require('../services/notificationService');
 
 // In-memory dedup: prevents duplicate reminder pushes within the same day.
 // Cleared at midnight each night.
@@ -128,6 +129,19 @@ const initCronJobs = (io = null) => {
 
           // Browser push so the reminder lands even if the CRM isn't open
           const when = key === '1h' ? 'in 1 hour' : 'in 15 minutes';
+
+          // ...and a bell entry, so a push dismissed on the road still leaves a
+          // record. Booking a meeting is its own confirmation now, so this
+          // reminder is the only prompt anyone gets.
+          await notificationService.onMeetingReminder({
+            userIds: [lead.owner, ...(lead.meetingInvitees || [])],
+            leadName: payload.lead,
+            meetingAt: lead.meetingAt,
+            meetingType: payload.type,
+            when,
+            io,
+          });
+
           pushService.sendToUsers([lead.owner, ...(lead.meetingInvitees || [])], {
             title: `Meeting ${when}`,
             body: `${payload.type === 'virtual' ? 'Virtual' : 'In-person'} meeting with ${payload.lead} ${when}.`,
@@ -200,78 +214,12 @@ const initCronJobs = (io = null) => {
     }
   });
 
-  // ─── Every 5 min: Virtual meeting 30-min final confirmation task ─────────
-  // Detects VM leads whose meeting is 28–32 min away and have not yet had
-  // the 30-min confirmation queued. Pushes them to the executive's queue now.
-  cron.schedule('*/5 * * * *', async () => {
-    if (!io) return;
-    try {
-      const now = new Date();
-      const in28 = new Date(now.getTime() + 28 * 60 * 1000);
-      const in32 = new Date(now.getTime() + 32 * 60 * 1000);
-
-      const vmLeads = await Lead.find({
-        status: 'meeting_virtual',
-        meetingAt: { $gte: in28, $lte: in32 },
-        subStatus: { $nin: ['30m_confirm_queued', null, undefined] }, // already confirmed once
-        owner: { $exists: true, $ne: null },
-      }).select('_id company name owner meetingAt meetingLink subStatus');
-
-      for (const lead of vmLeads) {
-        lead.nextActionAt = now;
-        lead.subStatus = '30m_confirm_queued'; // mark as queued so we don't repeat
-        await lead.save();
-
-        io.to(lead.owner.toString()).emit('lead:confirmation_task', {
-          leadId:    lead._id,
-          leadName:  lead.company || lead.name,
-          meetingAt: lead.meetingAt,
-          taskType:  '30m_vm_confirm',
-        });
-      }
-    } catch (err) {
-      console.error('[Cron] VM 30-min confirmation error:', err.message);
-    }
-  });
-
-  // ─── 09:00 AM Mon–Sat: Day-before DM confirmation task ───────────────────
-  // Finds direct-meeting leads scheduled for tomorrow that have not yet had
-  // the day-before confirmation queued. Pushes them into the executive's queue.
-  cron.schedule('0 9 * * 1-6', async () => {
-    if (!io) return;
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStart = new Date(tomorrow); tomorrowStart.setHours(0, 0, 0, 0);
-      const tomorrowEnd   = new Date(tomorrow); tomorrowEnd.setHours(23, 59, 59, 999);
-
-      const dmLeads = await Lead.find({
-        status: 'meeting_direct',
-        meetingAt: { $gte: tomorrowStart, $lte: tomorrowEnd },
-        subStatus: 'day_before_confirm', // only those still waiting for day-before confirm
-        owner: { $exists: true, $ne: null },
-      }).select('_id company name owner meetingAt subStatus');
-
-      for (const lead of dmLeads) {
-        lead.nextActionAt = new Date();
-        lead.subStatus = 'day_before_queued'; // advance state so cron doesn't re-trigger
-        await lead.save();
-
-        io.to(lead.owner.toString()).emit('lead:confirmation_task', {
-          leadId:    lead._id,
-          leadName:  lead.company || lead.name,
-          meetingAt: lead.meetingAt,
-          taskType:  'day_before_dm_confirm',
-        });
-      }
-
-      if (dmLeads.length) {
-        console.log(`[Cron] Day-before DM confirmation queued for ${dmLeads.length} lead(s).`);
-      }
-    } catch (err) {
-      console.error('[Cron] Day-before DM confirmation error:', err.message);
-    }
-  });
+  // The meeting-confirmation crons that used to live here (the 30-minute virtual
+  // check and the 09:00 day-before direct check) are gone. Client rule: booking a
+  // meeting is the confirmation, so there is no second confirmation call on
+  // another day. Both pushed a task into the owner's queue by setting
+  // nextActionAt, which is exactly the work the day-filtered queue must not carry.
+  // The 1h/15m reminder above is what the owner and the invited managers get.
 
   // ─── 09:05 AM Mon–Sat: Auto-sweep overdue RNR leads ─────────────────────
   // Finds leads still in 'rnr' status whose nextActionAt was yesterday or

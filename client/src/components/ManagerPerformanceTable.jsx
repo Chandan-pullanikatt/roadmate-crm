@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
  * the Industry Manager's district list and the drill-in profiles — renders this,
  * so the columns and the formatting never drift apart again:
  *
- *   Manager · State · Industry · Work % · Leads · Direct Meetings ·
+ *   Manager · State · Industry · Work % · Leads · Calls · Direct Meetings ·
  *   Virtual Meetings · Blockings · Revenue · Actions
  *
  * Every figure comes from the server's performanceService, so the same person
@@ -22,6 +22,7 @@ const COLUMNS = [
   { key: 'industry', label: 'Industry', align: 'left' },
   { key: 'workPct', label: 'Work %', align: 'center' },
   { key: 'periodLeads', label: 'Leads', align: 'center' },
+  { key: 'calls', label: 'Calls', align: 'center' },
   { key: 'directMeetings', label: <>Direct<br />Meetings</>, align: 'center' },
   { key: 'virtualMeetings', label: <>Virtual<br />Meetings</>, align: 'center' },
   { key: 'blocking', label: 'Blockings', align: 'center' },
@@ -59,7 +60,9 @@ const SortIcon = ({ active, dir }) => (
  * @param {String}   fallbackState  state to display when a row has none (e.g. the
  *                                  viewing manager's own state)
  * @param {Boolean}  showDistrict   print the row's district under the name — on for
- *                                  district-manager lists, off elsewhere
+ *                                  district-manager lists, off elsewhere. A row may
+ *                                  instead carry its own `subLabel`, which always
+ *                                  prints there (used to mark team vs. personal rows).
  * @param {Boolean}  sortable       make the column headers sort the table
  * @param {String}   defaultSortKey column sorted on first render when `sortable`
  */
@@ -127,8 +130,8 @@ const ManagerPerformanceTable = ({
                 >
                   <td className="px-3 py-3 font-bold text-[13px] group-hover:text-blue transition-colors">
                     {m.name}
-                    {showDistrict && m.district && (
-                      <span className="block text-[12px] font-medium text-text-muted normal-case mt-0.5">{m.district}</span>
+                    {(m.subLabel || (showDistrict && m.district)) && (
+                      <span className="block text-[12px] font-medium text-text-muted normal-case mt-0.5">{m.subLabel || m.district}</span>
                     )}
                   </td>
                   <td className="px-3 py-3 text-center">
@@ -137,6 +140,7 @@ const ManagerPerformanceTable = ({
                   <td className="px-3 py-3 text-[14px] text-text-secondary">{m.industry || '—'}</td>
                   <td className="px-3 py-3"><WorkPctCell value={m.workPct || 0} /></td>
                   <td className="px-3 py-3 text-center text-[12px] font-mono">{m.periodLeads || 0}</td>
+                  <td className="px-3 py-3 text-center text-[12px] font-mono">{m.calls || 0}</td>
                   <td className="px-3 py-3 text-center text-[12px] font-mono">{m.directMeetings || 0}</td>
                   <td className="px-3 py-3 text-center text-[12px] font-mono">{m.virtualMeetings || 0}</td>
                   <td className="px-3 py-3 text-center text-[12px] font-mono">{m.blocking || 0}</td>
