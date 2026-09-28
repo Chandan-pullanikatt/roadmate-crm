@@ -273,14 +273,18 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       // the literal string is what silently dropped follow-up dates -- the template
       // ships the hyphenated spelling and anyone typing the header by hand does not.
       const squash = (v) => String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+      // A name prefixed with '=' matches only an exact header. Needed for a header
+      // as short as "DATE", whose substring would otherwise swallow "Last Contact
+      // Date" and "Next Follow-Up Date" on any sheet that has no DATE column.
       const getVal = (...names) => {
         const keys = Object.keys(row);
         for (const name of names) {
-          const target = squash(name);
+          const exactOnly = name.startsWith('=');
+          const target = squash(exactOnly ? name.slice(1) : name);
           // Exact before substring, or getVal('status') grabs "Messaged Status"
           // and every imported lead's real status is lost.
           const k = keys.find(key => squash(key) === target)
-            || keys.find(key => squash(key).includes(target));
+            || (exactOnly ? undefined : keys.find(key => squash(key).includes(target)));
           const v = k == null ? undefined : row[k];
           if (v != null && String(v).trim() !== '') return String(v).trim();
         }
@@ -356,7 +360,8 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       const rawStatus = getVal('status', 'current status') || '';
       const statusMap = {
         'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
-        'follow up': 'followup', 'rnr': 'rnr', 'meeting': 'meeting_direct',
+        'follow up': 'followup', 'followup require': 'followup', 'followup required': 'followup',
+        'rnr': 'rnr', 'meeting': 'meeting_direct',
         'meeting virtual': 'meeting_virtual', 'meeting direct': 'meeting_direct',
         'converted': 'converted', 'blocking amount received': 'blocking_amount_received',
         'full amount received': 'full_amount_received', 'agreement signed': 'agreement_signed',
@@ -410,7 +415,9 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         blockingDate: parseDate(getVal('blocking date'), 'Blocking Date'),
         fullAmountReceivedDate: parseDate(getVal('full amount received date'), 'Full Amount Received Date'),
         reasonForLost: getVal('reason for lost leads', 'reason for lost') || undefined,
-        createdDate: parseDate(getVal('created date'), 'Created Date'),
+        // The client's sheet heads this column just "DATE"; exact-only so it
+        // cannot latch onto one of the other date columns.
+        createdDate: parseDate(getVal('created date', '=date'), 'Created Date'),
       };
     });
 
