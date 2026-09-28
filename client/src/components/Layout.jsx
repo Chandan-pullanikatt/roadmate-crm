@@ -136,6 +136,9 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
             { label: 'Lead Management', path: '/dashboard?page=my-leads', icon: 'leads' },
             { label: 'Lead Approvals', path: '/dashboard?page=escalations', icon: 'escalations', badge: escalationCount || null, badgeColor: 'red' },
             { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
+            // This manager's own attendance. Team > Attendance is the statewide
+            // register, which lists only the Industry and District Managers.
+            { label: 'My Attendance', path: '/dashboard?page=my-attendance', icon: 'attendance' },
             { label: 'Industry Managers', path: '/dashboard?page=industry-managers', icon: 'industry', badge: getBadge(stats.industryManagersCount), badgeColor: 'green' },
             { label: 'District Managers', path: '/dashboard?page=executives', icon: 'executives' }
           ]

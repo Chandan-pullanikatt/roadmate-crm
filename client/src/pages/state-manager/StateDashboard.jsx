@@ -9,6 +9,7 @@ const IndustryManagers = lazy(() => import('./sub-pages/IndustryManagers'));
 const Executives = lazy(() => import('./sub-pages/Executives'));
 const LeadManagement = lazy(() => import('./sub-pages/LeadManagement'));
 const Attendance = lazy(() => import('./sub-pages/Attendance'));
+const MyAttendancePage = lazy(() => import('../shared/MyAttendancePage'));
 const LeaveCalendar = lazy(() => import('./sub-pages/LeaveCalendar'));
 const Performance = lazy(() => import('./sub-pages/Performance'));
 const MyPerformance = lazy(() => import('./sub-pages/MyPerformance'));
@@ -28,6 +29,9 @@ const StateDashboard = () => {
       case 'overview': return <Overview />;
       case 'my-work': return <MyWork />;
       case 'my-performance': return <MyPerformance />;
+      // This State Manager's own register. Team > Attendance is the statewide
+      // one, which deliberately lists only the ranks below.
+      case 'my-attendance': return <MyAttendancePage />;
       case 'industry-managers': return <IndustryManagers />;
       case 'executives': return <Executives />;
       // Two entries, two scopes: the sidebar's My Work > Lead Management shows this

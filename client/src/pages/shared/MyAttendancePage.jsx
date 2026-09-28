@@ -1,25 +1,22 @@
 /**
- * MyAttendance — shows the Industry Manager's own attendance calendar.
- * Reuses the same attendanceApi.getAttendance() call used by executives;
- * it returns the logged-in user's records regardless of role.
+ * MyAttendancePage — a manager's own attendance calendar, shared by the
+ * Industry Manager and the State Manager portals. attendanceApi.getAttendance()
+ * returns the logged-in user's records regardless of role, so the page is
+ * role-agnostic; it reads the header details off the auth user rather than a
+ * per-role dashboard endpoint, which is what kept it Industry-Manager-only.
  */
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { attendanceApi } from '../../../api/attendanceApi';
-import { dashboardApi } from '../../../api/dashboardApi';
-import { Button } from '../../../components/ui';
+import { attendanceApi } from '../../api/attendanceApi';
+import { useAuth } from '../../context/AuthContext';
+import { Button } from '../../components/ui';
 
-const MyAttendance = () => {
+const MyAttendancePage = () => {
   const [viewDate, setViewDate] = useState(new Date());
   const month = viewDate.getMonth() + 1;
   const year = viewDate.getFullYear();
   const queryClient = useQueryClient();
-
-  const { data: dashData } = useQuery({
-    queryKey: ['dashboard', 'industry-manager'],
-    queryFn: () => dashboardApi.getIndustryManagerDashboard().then(res => res.data),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { user } = useAuth();
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['attendance', 'matrix', month, year],
@@ -65,7 +62,9 @@ const MyAttendance = () => {
     return 'matrix-status-absent';
   };
 
-  const userInfo = dashData?.user || {};
+  // Industry Managers are scoped by industry, State Managers by state.
+  const userInfo = user || {};
+  const scope = userInfo.industry || userInfo.state;
   const presentCount  = events.filter(e => e.type === 'attendance' && e.status === 'present').length;
   const leaveCount    = events.filter(e => e.type === 'leave').length;
   const holidayCount  = events.filter(e => e.type === 'holiday').length;
@@ -82,7 +81,7 @@ const MyAttendance = () => {
           </div>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">My Attendance</h1>
           <p className="text-[16px] text-text-muted mt-1 font-medium">
-            {userInfo.name} · {userInfo.industry} · Personal attendance record
+            {userInfo.name}{scope ? ` · ${scope}` : ''} · Personal attendance record
           </p>
         </div>
         <div className="flex items-center gap-2 bg-surface p-1 rounded-lg border border-border">
@@ -186,4 +185,4 @@ const MyAttendance = () => {
   );
 };
 
-export default MyAttendance;
+export default MyAttendancePage;

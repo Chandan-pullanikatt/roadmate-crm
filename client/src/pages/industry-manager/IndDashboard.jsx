@@ -8,7 +8,6 @@ import DistrictExecutives from './components/DistrictExecutives';
 import LeadManagement from './components/LeadManagement';
 import LeadFlow from './components/LeadFlow';
 import Attendance from './components/Attendance';
-import MyAttendance from './components/MyAttendance';
 import LeaveApprovals from './components/LeaveApprovals';
 import LeaveCalendar from './components/LeaveCalendar';
 import StaffDocs from './components/StaffDocs';
@@ -22,6 +21,7 @@ import SopViewer from './components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
 import Targets from '../founder/sections/Targets';
 import EscalationApprovals from '../shared/EscalationApprovals';
+import MyAttendancePage from '../shared/MyAttendancePage';
 
 
 const IndDashboard = () => {
@@ -40,7 +40,7 @@ const IndDashboard = () => {
       case 'my-work':         return <MyWork />;
       case 'my-leads':        return <LeadManagement ownerScope="self" />;
       case 'my-performance':  return <MyPerformance />;
-      case 'my-attendance':   return <MyAttendance />;
+      case 'my-attendance':   return <MyAttendancePage />;
       case 'my-sop':          return <SopViewer role="industry_manager" />;
 
       // ── Team ──────────────────────────────────────────────
