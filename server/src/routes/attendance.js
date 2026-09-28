@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const attendanceService = require('../services/attendanceService');
+const { getWorkPct, NON_WORKING_STATUSES } = require('../services/workPercentService');
 const Attendance = require('../models/Attendance');
 
 // Protect all routes
@@ -216,6 +217,9 @@ router.get('/team', async (req, res) => {
       toDate: { $gte: rangeStart }
     }).populate('user', 'name role industry');
 
+    // The register's WORK % column, over whatever range was asked for.
+    const workPctById = await getWorkPct(userIds, rangeStart, rangeEnd);
+
     // Aggregate per user across the range
     const results = users.map(u => {
       const uid = u._id.toString();
@@ -225,11 +229,22 @@ router.get('/team', async (req, res) => {
       const leaveDays = leaveDayKeys(userAtts, userLeaves, rangeStart, rangeEnd).size;
       const latest = userAtts.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-      const avgWorkPct = userAtts.length
-        ? Math.round(userAtts.reduce((sum, a) => sum + (a.workPercentage || 0), 0) / userAtts.length)
-        : 0;
-      const avgCompletionPct = userAtts.length
-        ? Math.round(userAtts.reduce((sum, a) => sum + (a.completionPct || 0), 0) / userAtts.length)
+      // Work %: the average of the range's daily work percentages. Both fields
+      // carry it — `workPercentage` is what the register renders and used to
+      // read a field that is not on the schema, so the column showed 0% for
+      // everybody; `completionPct` is the name the CSV exports read.
+      const avgWorkPct = Math.round(workPctById.get(uid)?.workPct || 0);
+
+      // Attendance %: how much of the range the person was actually there, a
+      // half day counting half. Days nobody was expected to work are not part
+      // of it. This is a different question from Work % — someone can be present
+      // every day and still work little of what was planned.
+      const workingDayAtts = userAtts.filter(a => !NON_WORKING_STATUSES.includes(a.status));
+      const attendedDays = workingDayAtts.reduce(
+        (sum, a) => sum + (a.status === 'present' ? 1 : a.status === 'half_day' ? 0.5 : 0), 0
+      );
+      const attendancePct = workingDayAtts.length
+        ? Math.round((attendedDays / workingDayAtts.length) * 100)
         : 0;
 
       return {
@@ -238,7 +253,8 @@ router.get('/team', async (req, res) => {
         status: userLeave ? 'leave' : (latest ? latest.status : 'absent'),
         startTime: latest?.workStartedAt ? new Date(latest.workStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
         workPercentage: avgWorkPct,
-        completionPct: avgCompletionPct,
+        completionPct: avgWorkPct,
+        attendancePct,
         leaveDays,
         // The work-from-home declaration made at Start Work, so the register
         // shows where the day was worked from and why.

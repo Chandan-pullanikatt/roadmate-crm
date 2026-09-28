@@ -1,70 +1,28 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
+import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+import { PerfScopeTabs, usePerfScope, scopeHint } from '../../../components/PerformanceScopeTabs';
 import { roleLabel } from '../../../utils/roleLabel';
-
-/** Time filter, the same tabs and (period, value) pair the State Manager Overview sends. */
-const PERIOD_TABS = ['today', 'week', 'month', 'quarter', 'year'];
-
-const defaultPeriodValue = (tab) => {
-  const now = new Date();
-  if (tab === 'week') {
-    const week = Math.ceil(now.getDate() / 7);
-    return `Week ${week > 5 ? 5 : week}`;
-  }
-  if (tab === 'month') return now.toLocaleString('en-US', { month: 'long' });
-  if (tab === 'quarter') return `Q${Math.floor(now.getMonth() / 3) + 1}`;
-  if (tab === 'year') return String(now.getFullYear());
-  return '';
-};
-
-const periodOptions = (tab) => {
-  if (tab === 'week') return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
-  if (tab === 'month') return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  if (tab === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'];
-  if (tab === 'year') {
-    const yr = new Date().getFullYear();
-    return Array.from({ length: 5 }, (_, i) => String(yr - i));
-  }
-  return [];
-};
-
-/**
- * Whose numbers the leaderboard reports.
- *
- * A team row is an Industry Manager rolled up with the district managers under
- * them (the server's `rollupMetrics`); a personal row is one person's own work,
- * for industry managers and district managers alike. The same manager therefore
- * appears twice under "All" — the sub-label under the name says which line is
- * which, so the two are never read as a double count.
- */
-const SCOPE_TABS = [
-  { key: 'teams',    label: 'Teams',    hint: 'each industry manager rolled up with their district managers' },
-  { key: 'personal', label: 'Personal', hint: 'every manager’s own work, counted on its own' },
-  { key: 'all',      label: 'All',      hint: 'team rollups and personal lines together' }
-];
 
 const Performance = () => {
   const navigate = useNavigate();
 
-  const [periodTab, setPeriodTab] = useState('month');
-  const [periodValue, setPeriodValue] = useState(() => defaultPeriodValue('month'));
-  const [scope, setScope] = useState('teams');
-
-  const changePeriodTab = (tab) => {
-    setPeriodTab(tab);
-    setPeriodValue(defaultPeriodValue(tab));
-  };
+  // The table used to call the dashboard with no period at all and so always
+  // showed the current month, whatever the rest of the app was looking at.
+  const picker = usePeriod('month');
+  const { period, value: periodValue } = picker;
+  const { scope, setScope } = usePerfScope('teams');
 
   // staleTime 0 so switching period always refetches instead of serving the
   // previous window's cached numbers.
   const { data: dashData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'state-manager', 'performance', periodTab, periodValue],
-    queryFn: () => dashboardApi.getStateManagerDashboard({ period: periodTab, value: periodValue }).then(res => res.data),
+    queryKey: ['dashboard', 'state-manager', 'performance', period, periodValue],
+    queryFn: () => dashboardApi.getStateManagerDashboard({ period, value: periodValue || undefined }).then(res => res.data),
     staleTime: 0,
     placeholderData: keepPreviousData
   });
@@ -117,10 +75,9 @@ const Performance = () => {
   const topConv = leader('converted');
   const topEfficiency = leader('efficiency');
 
-  const scopeHint = SCOPE_TABS.find(t => t.key === scope)?.hint;
-  const periodLabel = periodTab === 'today' ? 'today' : periodValue;
+  const periodLabel = period === 'today' ? 'today' : periodValue;
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading && !dashData) return <DashboardSkeleton />;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -129,31 +86,7 @@ const Performance = () => {
           <div className="section-title">Performance Analytics</div>
           <div className="section-sub">Cross-industry performance comparison and leaderboard for {user.state}</div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-            {PERIOD_TABS.map(t => (
-              <button
-                key={t}
-                onClick={() => changePeriodTab(t)}
-                className={`px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${periodTab === t ? 'bg-surface1 text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {periodTab !== 'today' && (
-            <select
-              value={periodValue}
-              onChange={(e) => setPeriodValue(e.target.value)}
-              className="bg-surface1 border border-border rounded-xl px-4 py-2 text-[14px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm min-w-[120px]"
-            >
-              {periodOptions(periodTab).map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          )}
-        </div>
+        <PeriodPicker {...picker} />
       </div>
 
       <div className="stat-grid mb-6">
@@ -183,22 +116,11 @@ const Performance = () => {
         <div>
           <div className="text-[15px] font-bold text-text-primary">Team Performance Leaderboard</div>
           <div className="text-[14px] text-text-muted mt-0.5">
-            Work %, Leads, Calls, Direct &amp; Virtual Meetings, Blockings and Revenue for {periodLabel} {"·"} {scopeHint} {"·"} click a column header to sort, a row to drill in
+            Work %, Leads, Calls, Direct &amp; Virtual Meetings, Blockings and Revenue for {periodLabel} {"·"} {scopeHint(scope)} {"·"} click a column header to sort, a row to drill in
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-            {SCOPE_TABS.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setScope(t.key)}
-                title={t.hint}
-                className={`px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded-lg transition-all ${scope === t.key ? 'bg-surface1 text-purple shadow-sm' : 'text-text-muted hover:text-text-secondary'}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <PerfScopeTabs scope={scope} setScope={setScope} />
           <Button variant="outline" size="sm">Export Detailed CSV</Button>
         </div>
       </div>

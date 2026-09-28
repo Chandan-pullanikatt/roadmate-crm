@@ -7,12 +7,13 @@
  * and the State Manager's Industry Managers table report the same figures for
  * the same person and period — they used to aggregate separately and drift.
  */
+const { Types } = require('mongoose');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
-const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const { REVENUE_EXPR } = require('./revenueService');
 const { CALL_ACTIONS } = require('../constants/workActions');
+const { getWorkPct } = require('./workPercentService');
 
 /** Activity actions that count as a meeting, whatever stage they were logged at. */
 const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'];
@@ -67,16 +68,23 @@ const EMPTY_METRICS = {
  * @returns {Promise<Map<string, object>>} keyed by String(userId)
  */
 const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
-  const ids = (userIds || []).filter(Boolean);
+  // Cast before matching. Most of the work below is an aggregation, and Mongoose
+  // does NOT cast values inside a pipeline the way it does for find() -- a user
+  // id that arrives as a string silently matches nothing, so the person comes
+  // back with a work % (that half is a find()) and zero for every other figure.
+  // req.user._id is a string, straight off the JWT, so any caller measuring the
+  // signed-in user alongside their team hits this.
+  const ids = (userIds || [])
+    .filter(id => id && Types.ObjectId.isValid(id))
+    .map(id => (id instanceof Types.ObjectId ? id : new Types.ObjectId(String(id))));
   if (ids.length === 0) return new Map();
 
   const periodWindow = { $gte: periodStart, $lte: periodEnd };
 
-  const [attendance, activities, meetingTypes, totalLeads, periodLeads, leaves] = await Promise.all([
-    Attendance.aggregate([
-      { $match: { user: { $in: ids }, date: periodWindow } },
-      { $group: { _id: '$user', avgWorkPct: { $avg: '$completionPct' } } }
-    ]),
+  const [workPctById, activities, meetingTypes, totalLeads, periodLeads, leaves] = await Promise.all([
+    // The average of the period's daily work percentages — see workPercentService,
+    // which is the only place that figure is defined.
+    getWorkPct(ids, periodStart, periodEnd),
     LeadActivity.aggregate([
       { $match: { performedBy: { $in: ids }, createdAt: periodWindow } },
       { $group: {
@@ -152,7 +160,6 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
   ]);
 
   const byId = (rows) => new Map(rows.map(r => [String(r._id), r]));
-  const att = byId(attendance);
   const act = byId(activities);
   const mt = byId(meetingTypes);
   const owned = byId(totalLeads);
@@ -165,7 +172,7 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
     const m = mt.get(key) || {};
     const p = fresh.get(key) || {};
     return [key, {
-      workPct: Math.round(att.get(key)?.avgWorkPct || 0),
+      workPct: Math.round(workPctById.get(key)?.workPct || 0),
       leads: owned.get(key)?.count || 0,
       periodLeads: p.count || 0,
       calls: a.calls || 0,

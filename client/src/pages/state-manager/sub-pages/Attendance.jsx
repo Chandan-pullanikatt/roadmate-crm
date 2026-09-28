@@ -41,7 +41,7 @@ const Attendance = () => {
     if (!attendanceRecords || attendanceRecords.length === 0) return;
     const headers = "Name,Role,Status,InTime,WorkPct,Leaves,AttendancePct\n";
     const rows = attendanceRecords.map(a => 
-      `${a.user?.name},${a.user?.role},${a.status},${a.startTime || 'N/A'},${a.workPercentage}%,${a.leaveDays || 0},${a.completionPct}%`
+      `${a.user?.name},${a.user?.role},${a.status},${a.startTime || 'N/A'},${a.workPercentage || 0}%,${a.leaveDays || 0},${a.attendancePct || 0}%`
     ).join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -157,7 +157,7 @@ const Attendance = () => {
                     <span className="mono text-[14px] font-black text-text-secondary">{r.leaveDays || 0}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="mono text-[15px] font-black text-text-secondary">{r.completionPct || 0}%</span>
+                    <span className="mono text-[15px] font-black text-text-secondary">{r.attendancePct || 0}%</span>
                   </td>
                 </tr>
               ))}

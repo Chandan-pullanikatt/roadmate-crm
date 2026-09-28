@@ -80,8 +80,7 @@ const Reports = () => {
             Role: a.user?.role,
             Date: new Date(a.date).toLocaleDateString(),
             Status: a.status,
-            WorkPct: `${a.workPercentage || 0}%`,
-            Efficiency: `${a.completionPct || 0}%`
+            WorkPct: `${a.completionPct || 0}%`
           }));
           break;
         case 'salary':

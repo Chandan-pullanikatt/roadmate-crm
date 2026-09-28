@@ -9,14 +9,15 @@ const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Salary = require('../models/Salary');
-const { getScopeOwnerIds } = require('../utils/hierarchy');
+const { getScopeOwnerIds, toObjectId } = require('../utils/hierarchy');
 const { pendingEscalationFilter } = require('../utils/escalation');
 const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
 const { getDateRange } = require('../utils/dateRange');
 const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
 const { countWeekdayWorkingDays } = require('../utils/workingDays');
 const { getPerformanceMetrics, rollupMetrics, EMPTY_METRICS } = require('../services/performanceService');
-const { CALL_ACTIONS, CALL_ACTION_MATCH, isCallAction } = require('../constants/workActions');
+const { getWorkPct, getDayWorkPct, rollupWorkPct } = require('../services/workPercentService');
+const { CALL_ACTIONS, CALL_ACTION_MATCH, WORK_ACTIONS, isCallAction } = require('../constants/workActions');
 
 // Protect all routes
 router.use(verifyToken);
@@ -94,13 +95,20 @@ router.get('/executive', async (req, res) => {
       lead: formatLeadSummary(activity.lead)
     });
 
+    // WORK_ACTIONS, not a list written out again here: this one had drifted from
+    // the shared constant and silently disagreed with the day's score.
     const completedTodayActivities = await LeadActivity.find({
       performedBy: req.user._id,
       createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
+      action: { $in: WORK_ACTIONS }
     })
       .populate('lead', 'leadId name company phone district status priority updatedAt createdAt')
       .sort({ createdAt: -1 });
+
+    // The day's score, on the one definition (workPercentService): leads
+    // completed in today's queue over the size of that queue.
+    const today = await getDayWorkPct(req.user._id);
+    const completedIds = new Set(today.completedIds);
 
     const completedTodayMap = new Map();
     completedTodayActivities.forEach(activity => {
@@ -108,7 +116,11 @@ router.get('/executive', async (req, res) => {
         completedTodayMap.set(activity.lead._id.toString(), formatLeadSummary(activity.lead));
       }
     });
-    const completedTodayLeads = Array.from(completedTodayMap.values());
+    // Only the queue leads count, so the card's list, its count and the work %
+    // above it are the same figure rather than three near-misses.
+    const completedTodayLeads = Array.from(completedTodayMap.entries())
+      .filter(([id]) => completedIds.has(id))
+      .map(([, lead]) => lead);
 
     const weeklyCallActivities = await LeadActivity.find({
       performedBy: req.user._id,
@@ -127,11 +139,9 @@ router.get('/executive', async (req, res) => {
       .sort({ createdAt: -1 });
 
     const todayStats = {
-      totalLeads: attendance ? attendance.totalLeads : await Lead.countDocuments({ 
-        owner: req.user._id, 
-        status: { $nin: ['converted', 'lost', 'not_interested'] } 
-      }),
-      completedLeads: completedTodayLeads.length,
+      // The day's queue -- the denominator of the work % -- not every open lead.
+      totalLeads: today.queueCount,
+      completedLeads: today.completedCount,
       calls: todayActivities.filter(a => isCallAction(a.action)).length,
       followups: todayActivities.filter(a => a.action === 'followup_set').length,
       meetings: todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length,
@@ -145,7 +155,9 @@ router.get('/executive', async (req, res) => {
       points: (todayActivities.filter(a => isCallAction(a.action)).length * 10) +
               (todayActivities.filter(a => ['meeting_scheduled', 'meeting_done'].includes(a.action)).length * 50) +
               (todayActivities.filter(a => a.action === 'converted').length * 200),
-      completionPct: attendance ? attendance.completionPct : 0
+      // Live while the day is open; once it is completed the stored figure is
+      // the official record (it is what attendance and salary were scored on).
+      completionPct: attendance?.workCompletedAt ? attendance.completionPct : today.workPct
     };
 
     // 2. Weekly Stats for growth
@@ -484,7 +496,11 @@ router.get('/industry-manager', async (req, res) => {
       isActive: { $ne: false }
     }).select('_id name district state industry');
     const teamIds = teamUsers.map(u => u._id);
-    const callActorIds = [req.user._id, ...teamIds];
+    // req.user._id is a string off the JWT, and Mongoose does not cast inside an
+    // aggregation pipeline the way it does for find() -- left as a string it
+    // matched nothing, so the manager's own calls were missing from every
+    // aggregate below while the find()s counted them.
+    const callActorIds = [toObjectId(req.user._id), ...teamIds];
 
     // Hierarchy-based lead visibility: own leads + everyone in the reporting subtree.
     // Replaces the old { industry: req.user.industry } scoping so two IMs sharing an
@@ -692,19 +708,31 @@ router.get('/industry-manager', async (req, res) => {
         LeadActivity.find({ performedBy: { $in: teamIds }, createdAt: { $gte: monthStart } })
           .populate('lead', 'leadId name company phone district priority status createdAt updatedAt')
           .populate('performedBy', 'name district'),
-        Lead.find({ owner: { $in: teamIds } }).populate('owner', 'name')
+        Lead.find({ owner: { $in: callActorIds } }).populate('owner', 'name')
     ]);
 
     // Canonical per-person numbers for the selected period, from the same service
-    // the Founder and State Manager dashboards use.
-    const imMetrics = await getPerformanceMetrics(teamIds, periodStart, periodEnd);
+    // the Founder and State Manager dashboards use. The manager is measured
+    // alongside the team so the Performance page can show their own line and the
+    // whole-team rollup without a second pass.
+    const imMetrics = await getPerformanceMetrics(callActorIds, periodStart, periodEnd);
+
+    // The baseline today's work % is compared against: the average of the daily
+    // work percentages over the week before this month, from the one definition
+    // in workPercentService.
+    const baselineEnd = new Date(monthStart.getTime() - 1);
+    const baselineWorkPct = await getWorkPct(teamIds, prevWeekStart, baselineEnd);
+
+    // `owner` is populated on these leads, so it is a User document: calling
+    // toString() on it prints the whole document rather than the id. Reading
+    // the id explicitly is what makes the per-person filters below match.
+    const ownerIdOf = (lead) => String(lead.owner?._id || lead.owner);
 
     const executivePerformance = teamUsers.map((u) => {
       const att = teamAttendance.find(a => a.user.toString() === u._id.toString() && new Date(a.date) >= todayStart);
-      const prevWeekAtt = teamAttendance.filter(a => a.user.toString() === u._id.toString() && new Date(a.date) < monthStart);
       
       const userActs = teamActivities.filter(a => (a.performedBy?._id || a.performedBy)?.toString() === u._id.toString());
-      const userLeads = teamLeads.filter(l => l.owner.toString() === u._id.toString());
+      const userLeads = teamLeads.filter(l => ownerIdOf(l) === u._id.toString());
       const activeLeads = userLeads.filter(l => !['converted', 'lost'].includes(l.status));
       const callRows = userActs.filter(a => isCallAction(a.action)).map(formatActivityRow);
       const convertedRows = userActs
@@ -714,10 +742,8 @@ router.get('/industry-manager', async (req, res) => {
         .filter(l => l.priority === 'hot')
         .map(formatSummaryLead);
 
-      const avgWorkPrevWeek = prevWeekAtt.length > 0 
-        ? prevWeekAtt.reduce((sum, a) => sum + a.completionPct, 0) / prevWeekAtt.length 
-        : 0;
-      
+      const avgWorkPrevWeek = baselineWorkPct.get(String(u._id))?.workPct || 0;
+
       const workGrowth = (att?.completionPct || 0) - avgWorkPrevWeek;
 
       return {
@@ -751,10 +777,22 @@ router.get('/industry-manager', async (req, res) => {
       };
     });
 
-    // Calculate Average Work Growth for the whole team
-    const avgWorkPct = executivePerformance.length > 0
-        ? executivePerformance.reduce((sum, e) => sum + e.completionPct, 0) / executivePerformance.length
-        : 0;
+    // The manager's own line and the team rollup report active leads on exactly
+    // the definitions the district-manager rows above use, so the Performance
+    // page's cards compare like with like whichever scope is selected.
+    const activeLeadCounts = (owners) => {
+      const ids = new Set((Array.isArray(owners) ? owners : [owners]).map(String));
+      const active = teamLeads.filter(l => ids.has(ownerIdOf(l)) && !['converted', 'lost'].includes(l.status));
+      return {
+        leadsCount: active.length,
+        followupsCount: active.filter(l => l.status === 'followup').length,
+        hotCount: active.filter(l => l.priority === 'hot').length
+      };
+    };
+
+    // The team's work % today: one average over every day the team recorded
+    // today, on the same rule as every other work figure (workPercentService).
+    const avgWorkPct = rollupWorkPct(await getWorkPct(teamIds, todayStart, todayEnd), teamIds);
     
     const avgWorkGrowth = executivePerformance.length > 0
         ? executivePerformance.reduce((sum, e) => sum + e.workGrowth, 0) / executivePerformance.length
@@ -1018,6 +1056,27 @@ router.get('/industry-manager', async (req, res) => {
       activePeriod: { period, value: value || null },
       summaryDrilldowns,
       executivePerformance,
+      // The manager's own line and the manager-plus-team rollup, for the
+      // Performance page's Personal / Teams / All filter. Same service and same
+      // window as executivePerformance, so the three views never disagree.
+      selfPerformance: {
+        ...(imMetrics.get(String(req.user._id)) || EMPTY_METRICS),
+        _id: req.user._id,
+        name: req.user.name,
+        state: req.user.state,
+        industry: req.user.industry,
+        district: req.user.district,
+        ...activeLeadCounts(req.user._id)
+      },
+      teamPerformance: {
+        ...rollupMetrics(imMetrics, req.user._id, teamIds),
+        _id: req.user._id,
+        name: req.user.name,
+        state: req.user.state,
+        industry: req.user.industry,
+        teamSize: teamIds.length,
+        ...activeLeadCounts(callActorIds)
+      },
       leads: leadsFormatted,
       leadStats,
       escalatedLeads,
@@ -1121,9 +1180,10 @@ router.get('/state-manager', async (req, res) => {
             date: { $gte: todayStart }
         });
 
-        const avgWorkPct = todayAttendance.length > 0 
-            ? Math.round(todayAttendance.reduce((sum, a) => sum + a.completionPct, 0) / todayAttendance.length) 
-            : 0;
+        // The team's work % today, on the one definition (workPercentService).
+        const avgWorkPct = Math.round(
+            rollupWorkPct(await getWorkPct(executiveIds, todayStart, todayEnd), executiveIds)
+        );
 
         const onLeaveToday = await Leave.countDocuments({
             user: { $in: executiveIds },
@@ -1908,7 +1968,7 @@ router.get('/founder', async (req, res) => {
         };
 
         // 2. Optimized By State Aggregation
-        const [stateStaff, stateLeads, stateActivities, stateAttendance] = await Promise.all([
+        const [stateStaff, stateLeads, stateActivities, stateStaffIds] = await Promise.all([
             User.aggregate([
                 { $group: { 
                     _id: '$state', 
@@ -1942,20 +2002,23 @@ router.get('/founder', async (req, res) => {
                     revenue: { $sum: REVENUE_EXPR }
                 }}
             ]),
-            Attendance.aggregate([
-                { $match: { date: { $gte: periodStart, $lte: periodEnd } } },
-                { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'user' } },
-                { $unwind: '$user' },
-                { $group: { _id: '$user.state', avgWorkPct: { $avg: '$completionPct' } } }
-            ])
+            User.find({ state: { $ne: null } }).select('state').lean()
         ]);
+
+        // A state's work % is one average over every day its staff recorded, not
+        // an average of their averages — a person with three recorded days must
+        // not weigh the same as one with sixty. See workPercentService.
+        const stateWorkPct = await getWorkPct(stateStaffIds.map(u => u._id), periodStart, periodEnd);
+        const userIdsByState = stateStaffIds.reduce((acc, u) => {
+            (acc[u.state] = acc[u.state] || []).push(u._id);
+            return acc;
+        }, {});
 
         const states = await User.distinct('state', { state: { $ne: null } });
         const byState = states.map(s => {
             const staff = stateStaff.find(x => x._id === s) || {};
             const leads = stateLeads.find(x => x._id === s) || {};
             const acts = stateActivities.find(x => x._id === s) || {};
-            const att = stateAttendance.find(x => x._id === s) || {};
 
             return {
                 state: s,
@@ -1968,7 +2031,7 @@ router.get('/founder', async (req, res) => {
                 calls: acts.calls || 0,
                 meetings: acts.meetings || 0,
                 revenue: acts.revenue || 0,
-                avgWorkPct: att.avgWorkPct || 0
+                avgWorkPct: rollupWorkPct(stateWorkPct, userIdsByState[s] || [])
             };
         });
 
@@ -2387,10 +2450,6 @@ router.get('/reports/attendance-summary', async (req, res) => {
                 absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
                 halfDay: { $sum: { $cond: [{ $eq: ['$status', 'half_day'] }, 1, 0] } },
                 leave: { $sum: { $cond: [{ $eq: ['$status', 'leave'] }, 1, 0] } },
-                // Work % is only meaningful once the day has been completed —
-                // a day that was started and never completed sits at 0 and
-                // would otherwise drag the average down. $avg skips nulls.
-                avgWorkPct: { $avg: { $cond: [{ $ifNull: ['$workCompletedAt', false] }, '$completionPct', null] } },
                 completedDays: { $sum: { $cond: [{ $ifNull: ['$workCompletedAt', false] }, 1, 0] } },
                 wfhDays: { $sum: { $cond: ['$isWFH', 1, 0] } },
                 avgLateMinutes: { $avg: '$lateLoginMinutes' },
@@ -2411,9 +2470,15 @@ router.get('/reports/attendance-summary', async (req, res) => {
             toDate: { $gte: todayStart }
         }).select('user').lean()).map(l => String(l.user)));
 
+        // The month's work %: the average of its daily work percentages, from the
+        // one definition in workPercentService. This used to score only the days
+        // that were completed, so the same person read higher here than on every
+        // performance table, which counts absences at 0%.
+        const workPctById = await getWorkPct(userIds, start, end);
+
         const data = users.map(u => {
             const stats = summary.find(s => s._id.toString() === u._id.toString()) || {
-                present: 0, absent: 0, halfDay: 0, leave: 0, avgWorkPct: 0,
+                present: 0, absent: 0, halfDay: 0, leave: 0,
                 wfhDays: 0, avgLateMinutes: 0, avgEarlyExitMinutes: 0, completedDays: 0
             };
             return {
@@ -2422,7 +2487,7 @@ router.get('/reports/attendance-summary', async (req, res) => {
                 absent: stats.absent,
                 halfDay: stats.halfDay,
                 leave: stats.leave,
-                avgWorkPct: Math.round(stats.avgWorkPct || 0),
+                avgWorkPct: Math.round(workPctById.get(String(u._id))?.workPct || 0),
                 // Days the work was actually completed, so the client can tell
                 // "0%" apart from "no completed day to score yet".
                 completedDays: stats.completedDays || 0,

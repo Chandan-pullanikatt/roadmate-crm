@@ -338,15 +338,13 @@ const MyWorkPage = ({
   // read it -- the Blocking Amount count, whose status never enters the queue.
   const myQueue = allLeadsData?.leads || [];
 
-  // The day's book. attendanceService already scores the day against the
-  // date-filtered day plan, so the live percentage has to divide by the same
-  // thing or the screen contradicts the figure attendance records -- which is
-  // the one the 60% cut-off is applied to.
-  const todayLeadCount = workQueue.length;
-
-  const completionPct = workCompleted
-    ? Math.min(Math.round(dashData?.attendance?.completionPct || 0), 100)
-    : Math.round(((dashData?.todayStats?.completedLeads || 0) / Math.max(todayLeadCount, 1)) * 100);
+  // The day's book. The server scores the day -- leads completed in today's
+  // queue over the size of that queue, from workPercentService -- and every
+  // other screen reads the same figure, so this one is rendered, never
+  // recomputed. Working it out here again is how My Work came to show 86% for a
+  // day attendance had recorded as 0%.
+  const todayLeadCount = dashData?.todayStats?.totalLeads ?? workQueue.length;
+  const completionPct = Math.min(Math.round(dashData?.todayStats?.completionPct || 0), 100);
   const pctColor = completionPct >= 70 ? 'text-accent' : completionPct >= 30 ? 'text-amber' : 'text-red';
   const barColor = completionPct >= 70 ? 'bg-accent' : completionPct >= 30 ? 'bg-amber' : 'bg-red';
   const isQueueEmpty = workQueue.length === 0;

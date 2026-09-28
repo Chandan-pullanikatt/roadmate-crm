@@ -18,6 +18,7 @@
  */
 const Lead = require('../models/Lead');
 const User = require('../models/User');
+const leadService = require('./leadService');
 const { startOfDay, addDays, loadCalendar, onDay } = require('../utils/workingDays');
 
 const CLOSED_STATUSES = ['converted', 'lost', 'not_interested', 'blocking_amount_received', 'full_amount_received', 'agreement_signed'];
@@ -56,21 +57,12 @@ const scheduleService = {
    * meetings (or their confirmation calls) that day. Returns lead ids.
    */
   async getDayPlan(userId, day = new Date()) {
-    const dayStart = startOfDay(day);
-    const dayEnd = new Date(dayStart); dayEnd.setHours(23, 59, 59, 999);
-
-    const leads = await Lead.find({
-      owner: userId,
-      $or: [
-        { status: { $nin: [...CLOSED_STATUSES, ...MEETING_STATUSES] }, nextActionAt: { $lte: dayEnd } },
-        {
-          status: { $in: MEETING_STATUSES },
-          meetingAt: { $gte: dayStart },
-          $or: [{ meetingAt: { $lte: dayEnd } }, { nextActionAt: { $lte: dayEnd } }],
-        },
-      ],
-    }).select('_id').lean();
-
+    // One definition of the day's book, shared with My Work: leadService.getQueue.
+    // This used to run its own Lead.find on nextActionAt alone, which missed new
+    // leads, RNRs and every lead whose date lives on followUpDate -- attendance
+    // then scored the day against a plan of 1 while the staff member was handed
+    // 44 leads to work.
+    const leads = await leadService.getQueue(userId, day);
     return leads.map(l => l._id);
   },
 

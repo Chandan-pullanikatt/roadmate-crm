@@ -59,7 +59,7 @@ const formatData = (type, data) => {
       Employee:  a.user?.name || '',
       Date:      a.date ? new Date(a.date).toLocaleDateString() : '',
       Status:    a.status || '',
-      Work_Pct:  `${a.workPercentage ?? a.completionPct ?? 0}%`,
+      Work_Pct:  `${a.completionPct ?? 0}%`,
       Check_In:  a.workStartedAt ? new Date(a.workStartedAt).toLocaleTimeString() : '-',
       Check_Out: a.workCompletedAt ? new Date(a.workCompletedAt).toLocaleTimeString() : '-',
     }));

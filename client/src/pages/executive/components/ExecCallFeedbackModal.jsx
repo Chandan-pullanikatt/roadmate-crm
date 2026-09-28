@@ -55,9 +55,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const [strategyNote, setStrategyNote]       = useState('');
   const [followUpDate, setFollowUpDate]       = useState('');
   const [followUpTime, setFollowUpTime]       = useState(TIME_SLOTS[0]);
-  const [isCustomDate, setIsCustomDate]       = useState(false);
   const [isFixedDate, setIsFixedDate]         = useState(true);
-  const [customDate, setCustomDate]           = useState('');
   const [customReason, setCustomReason]       = useState('');
   const [meetingDate, setMeetingDate]         = useState('');
   const [meetingTime, setMeetingTime]         = useState('');
@@ -79,6 +77,12 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     enabled: isOpen && selectedOutcome === 'followup',
   });
 
+  // The date picker is always available, so a custom date is simply one the
+  // suggestion chips did not offer -- and those still need a reason. Derived,
+  // rather than a mode to switch into, so a date can be set even when no
+  // suggestions come back from the server.
+  const isCustomDate = !!followUpDate && !(suggestedDates?.dates || []).some(d => d.value === followUpDate);
+
   const { data: hierarchy } = useQuery({
     queryKey: ['hierarchy'],
     queryFn: () => usersApi.getHierarchy().then(r => r.data),
@@ -97,8 +101,8 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   });
 
   const reset = () => {
-    setNotes(''); setStrategyNote(''); setFollowUpDate(''); setCustomDate('');
-    setCustomReason(''); setIsCustomDate(false); setIsFixedDate(true); setMeetingDate(''); setMeetingTime('');
+    setNotes(''); setStrategyNote(''); setFollowUpDate('');
+    setCustomReason(''); setIsFixedDate(true); setMeetingDate(''); setMeetingTime('');
     setMeetingLink(''); setInviteeId(''); setEscalateTo(''); setEscalateReason('');
     setAmount(''); setConductedType(null);
   };
@@ -112,6 +116,9 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
     if (!selectedOutcome) { addToast('Please select a call outcome first', 'warning'); return; }
     if (AMOUNT_STAGES.has(selectedOutcome) && !parseAmount(amount)) {
       addToast('Please enter the amount received.', 'warning'); return;
+    }
+    if (selectedOutcome === 'followup' && !followUpDate) {
+      addToast('Please pick a follow-up date.', 'warning'); return;
     }
 
     try {
@@ -135,17 +142,18 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
       } else if (selectedOutcome === 'followup') {
         await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes, priority });
-        const dateVal = isCustomDate ? customDate : followUpDate;
-        if (dateVal) {
-          await transitionMutation.mutateAsync({
-            action: 'set_followup_date',
-            followUpDate: dateVal,
-            followUpTime,
-            isCustom: isCustomDate,
-            customReason: isCustomDate ? customReason : undefined,
-            isFixed: isFixedDate,
-          });
-        }
+        await transitionMutation.mutateAsync({
+          action: 'set_followup_date',
+          followUpDate,
+          followUpTime,
+          // Flagged custom only once a reason is actually typed: the server
+          // writes customReason over the lead's notes, so sending an empty one
+          // would wipe them.
+          ...(isCustomDate && customReason.trim()
+            ? { isCustom: true, customReason: customReason.trim() }
+            : {}),
+          isFixed: isFixedDate,
+        });
         addToast('Follow-up scheduled.', 'success');
 
       } else if (selectedOutcome === 'schedule_virtual') {
@@ -359,7 +367,7 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
         {selectedOutcome === 'followup' && (
           <div className="space-y-3 p-4 bg-amber-light/20 border border-amber/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
             <label className={lbl + ' text-amber'}>📅 Follow-up Details</label>
-            {!isCustomDate && suggestedDates?.dates?.length > 0 && (
+            {suggestedDates?.dates?.length > 0 && (
               <div>
                 <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-2">Suggested Dates</div>
                 <div className="flex flex-wrap gap-2">
@@ -377,26 +385,23 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
                       {d.label}
                     </button>
                   ))}
-                  <button
-                    onClick={() => setIsCustomDate(true)}
-                    className="px-3 py-1.5 rounded-lg text-[14px] font-bold border border-dashed border-border text-text-muted hover:border-amber hover:text-amber cursor-pointer transition-all"
-                  >
-                    + Custom Date
-                  </button>
                 </div>
               </div>
             )}
+            <div>
+              <label className={lbl}>Follow-up Date *</label>
+              <input
+                type="date"
+                className={inp}
+                value={followUpDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => setFollowUpDate(e.target.value)}
+              />
+            </div>
             {isCustomDate && (
-              <div className="space-y-3">
-                <div>
-                  <label className={lbl}>Reason for Custom Date</label>
-                  <input className={inp} placeholder="Reason required for custom dates…" value={customReason} onChange={e => setCustomReason(e.target.value)} />
-                </div>
-                <div>
-                  <label className={lbl}>Custom Date</label>
-                  <input type="date" className={inp} value={customDate} onChange={e => setCustomDate(e.target.value)} />
-                </div>
-                <button onClick={() => setIsCustomDate(false)} className="text-[14px] text-text-muted hover:text-text-primary cursor-pointer">← Back to suggestions</button>
+              <div>
+                <label className={lbl}>Reason for Custom Date</label>
+                <input className={inp} placeholder="Why this date instead of a suggested one?" value={customReason} onChange={e => setCustomReason(e.target.value)} />
               </div>
             )}
             <div>

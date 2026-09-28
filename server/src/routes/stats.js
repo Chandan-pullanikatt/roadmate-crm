@@ -8,6 +8,7 @@ const Attendance = require('../models/Attendance');
 const { createdAtRange } = require('../utils/dateRange');
 const { sumRevenue } = require('../services/revenueService');
 const { isCallAction } = require('../constants/workActions');
+const { getWorkPct, NON_WORKING_STATUSES } = require('../services/workPercentService');
 
 const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done'];
 
@@ -90,15 +91,16 @@ router.get('/user/:id', async (req, res) => {
       date: { $gte: startOfMonth, $lte: endOfMonth }
     });
 
-    const avgWorkPct = attendanceRecords.length > 0
-      ? Math.round(attendanceRecords.reduce((sum, a) => sum + (a.completionPct || 0), 0) / attendanceRecords.length)
-      : 0;
+    // The month's work %: the average of its daily work percentages, from the
+    // one definition in workPercentService.
+    const workPctById = await getWorkPct([userId], startOfMonth, endOfMonth);
+    const avgWorkPct = Math.round(workPctById.get(String(userId))?.workPct || 0);
 
     const presentDays = attendanceRecords.filter(a => ['present', 'half_day'].includes(a.status)).length;
 
     // Attendance quality: share of this month's recorded working days the user was
     // present (a half day counts half). Holidays are not working days.
-    const workingDays = attendanceRecords.filter(a => !['holiday', 'optional_holiday'].includes(a.status));
+    const workingDays = attendanceRecords.filter(a => !NON_WORKING_STATUSES.includes(a.status));
     const attendedDays = workingDays.reduce(
       (sum, a) => sum + (a.status === 'present' ? 1 : a.status === 'half_day' ? 0.5 : 0), 0
     );

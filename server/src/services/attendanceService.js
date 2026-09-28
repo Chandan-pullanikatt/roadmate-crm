@@ -7,6 +7,7 @@ const User = require('../models/User');
 const scheduleService = require('./scheduleService');
 const { isWeeklyOff, loadCalendar, startOfDay } = require('../utils/workingDays');
 const { resolveAttendanceRules } = require('../constants/attendanceRules');
+const { getWorkPct, getDayWorkPct } = require('./workPercentService');
 const { WORK_ACTIONS } = require('../constants/workActions');
 
 const ATTENDANCE_LABELS = { present: 'Present', half_day: 'Half Day', leave: 'Leave', holiday: 'Holiday' };
@@ -160,32 +161,19 @@ const attendanceService = {
     if (!attendance) throw new Error('Attendance record not found');
     if (attendance.workCompletedAt) throw new Error('Work already completed for today');
 
-    // 1. Leads worked today (several activities on one lead count once)
-    const workedLeadIds = await LeadActivity.distinct('lead', {
-      performedBy: userId,
-      createdAt: { $gte: todayStart, $lte: todayEnd },
-      action: { $in: WORK_ACTIONS }
-    });
+    // 1. Score the day: leads completed in today's queue over the size of that
+    //    queue. One definition, in workPercentService, shared with My Work's
+    //    live figure and with every performance table -- scoring against the
+    //    start-of-day snapshot instead is what recorded a 44-lead day as 0%.
+    const { workPct: completionPct, queueCount, completedCount: completedLeadsCount } =
+      await getDayWorkPct(userId, now);
 
-    // 2. Completion % = share of the day's planned work that was done
-    const planned = new Set((attendance.plannedLeads || []).map(String));
-    let completedLeadsCount;
-    let completionPct;
-    if (planned.size) {
-      completedLeadsCount = workedLeadIds.filter(id => planned.has(String(id))).length;
-      completionPct = (completedLeadsCount / planned.size) * 100;
-    } else if (attendance.totalLeads > 0) {
-      // Started before plans were recorded: the old whole-queue count
-      completedLeadsCount = workedLeadIds.length;
-      completionPct = Math.min(100, (completedLeadsCount / attendance.totalLeads) * 100);
-    } else {
-      // Nothing was due: any work done counts as a full day's work
-      completedLeadsCount = workedLeadIds.length;
-      completionPct = completedLeadsCount > 0 ? 100 : 0;
-    }
     attendance.workCompletedAt = now;
     attendance.completedLeads = completedLeadsCount;
     attendance.completionPct = completionPct;
+    // The queue is re-read at completion, so the day is scored against the book
+    // as it finally stood rather than as it looked at login.
+    attendance.totalLeads = queueCount;
 
     // 3. Rules and working-hours config
     const Config = require('../models/Config');
@@ -419,21 +407,17 @@ const attendanceService = {
       avgCompletionPct: 0
     };
 
-    let totalPct = 0;
-    let daysWithWork = 0;
-
     attendances.forEach(a => {
       if (a.status === 'present') summary.totalPresent++;
       else if (a.status === 'half_day') summary.totalHalfDays++;
       else if (a.status === 'leave' || a.status === 'absent') summary.totalLeaves++;
-
-      if (a.workStartedAt) {
-        totalPct += a.completionPct || 0;
-        daysWithWork++;
-      }
     });
 
-    summary.avgCompletionPct = daysWithWork > 0 ? (totalPct / daysWithWork) : 0;
+    // The month's work %: the average of its daily work percentages, from the
+    // one definition in workPercentService. It used to divide only by the days
+    // that were started, which quietly left absences out of the average.
+    const workPctById = await getWorkPct([userId], startOfMonth, endOfMonth);
+    summary.avgCompletionPct = workPctById.get(String(userId))?.workPct || 0;
     return summary;
   }
 };
