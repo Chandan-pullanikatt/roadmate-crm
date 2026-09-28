@@ -127,7 +127,8 @@ const bulkCreateLeads = async (req, res) => {
 
     const statusMap = {
       'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
-      'rnr': 'rnr', 'not reached': 'rnr', 'switched off': 'rnr', 'not reachable': 'rnr',
+      'rnr': 'rnr', 'not reached': 'rnr', 'switched off': 'rnr', 'switch off': 'rnr',
+      'not reachable': 'rnr',
       'virtual meeting': 'meeting_virtual', 'meeting virtual': 'meeting_virtual',
       'direct meeting': 'meeting_direct', 'meeting direct': 'meeting_direct',
       'meeting': 'meeting_direct', 'meeting conducted': 'meeting_direct',
@@ -154,6 +155,20 @@ const bulkCreateLeads = async (req, res) => {
       'not interested': 'not_interested', 'not intersted': 'not_interested', 'not intrested': 'not_interested',
       'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
       'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',
+    };
+
+    const squashStatus = (v) => String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const statusByKey = Object.fromEntries(Object.entries(statusMap).map(([k, v]) => [squashStatus(k), v]));
+    /** A sheet's status text -> a Lead status, or undefined if it means nothing here. */
+    const resolveSheetStatus = (raw) => {
+      const key = squashStatus(raw);
+      if (!key) return undefined;
+      if (statusByKey[key]) return statusByKey[key];
+      // "Not Intersted (CB 4pm)" and the like: take the longest known value inside it.
+      const hit = Object.keys(statusByKey)
+        .filter(k => k.length > 3 && key.includes(k))
+        .sort((a, b) => b.length - a.length)[0];
+      return hit ? statusByKey[hit] : undefined;
     };
 
     // The allocation dropdown (ownerId) and the sheet's "Assigned To" column both name
@@ -222,10 +237,11 @@ const bulkCreateLeads = async (req, res) => {
           }
         }
 
-        // Status override — if not in map, default to 'new' so enum validation never fails
+        // Status override — if not in map, default to 'new' so enum validation never fails.
+        // Matched on letters and digits only: a double space or stray punctuation in
+        // the cell must not be the difference between Not Interested and a new lead.
         if (item.status) {
-          const mappedStatus = statusMap[(item.status || '').toLowerCase().trim()];
-          normalized.status = mappedStatus || 'new';
+          normalized.status = resolveSheetStatus(item.status) || 'new';
         }
 
         if (item.subStatus) normalized.subStatus = item.subStatus;

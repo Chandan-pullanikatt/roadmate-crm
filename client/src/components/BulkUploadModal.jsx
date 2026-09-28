@@ -30,6 +30,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const [selectedStateManagerId, setSelectedStateManagerId] = useState('');
   const [selectedIndustryManagerId, setSelectedIndustryManagerId] = useState('');
   const [selectedExecutiveId, setSelectedExecutiveId] = useState('');
+  const [keepWithMe, setKeepWithMe] = useState(false);
   const fileInputRef = useRef(null);
 
   // Reset state when modal opens/closes
@@ -42,6 +43,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       setSelectedStateManagerId('');
       setSelectedIndustryManagerId('');
       setSelectedExecutiveId('');
+      setKeepWithMe(false);
     }
   }, [isOpen]);
 
@@ -67,18 +69,17 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
 
   // A Founder or State Manager working leads personally has no entry in their own
   // allocation list -- the form only offers the levels below them -- so an upload
-  // they meant to keep could only land unallocated. This sentinel puts "keep with
-  // me" back on the first dropdown. An Industry Manager does not need it: the
-  // server already defaults their uploads to themselves.
-  const SELF = '__self__';
-  const keepSelf = (isFounder ? selectedStateManagerId : selectedIndustryManagerId) === SELF;
+  // they meant to keep could only land unallocated. This is its own control rather
+  // than an entry in the Industry Manager list, because keeping the leads is not
+  // a choice of manager. An Industry Manager does not need it: the server already
+  // defaults their uploads to themselves.
+  const canKeepSelf = isFounder || isStateManager;
+  const keepSelf = canKeepSelf && keepWithMe;
 
   // The branch of the tree the next dropdown reads from. For a manager it is
   // themselves -- their own level is implied, not chosen.
-  const realSm = selectedStateManagerId === SELF ? '' : selectedStateManagerId;
-  const realIm = selectedIndustryManagerId === SELF ? '' : selectedIndustryManagerId;
-  const branchSmId = isFounder ? realSm : (isStateManager ? currentUser?._id : '');
-  const branchImId = isIndustryManager ? currentUser?._id : realIm;
+  const branchSmId = isFounder ? selectedStateManagerId : (isStateManager ? currentUser?._id : '');
+  const branchImId = isIndustryManager ? currentUser?._id : selectedIndustryManagerId;
 
   // Each level is fetched by role + reportingTo, so the options come from the
   // reporting tree rather than from a state/industry match on the user record.
@@ -103,7 +104,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   React.useEffect(() => {
     setAssignmentTargetId(keepSelf
       ? currentUser?._id || ''
-      : (selectedExecutiveId || realIm || realSm || ''));
+      : (selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || ''));
   }, [selectedStateManagerId, selectedIndustryManagerId, selectedExecutiveId, keepSelf, currentUser?._id]);
 
   // Upload in chunks: large CSVs (300+ rows) overran the request/gateway timeout and showed
@@ -271,12 +272,15 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     setIsProcessing(true);
     const allocationTargetId = keepSelf
       ? (currentUser?._id || '')
-      : (selectedExecutiveId || realIm || realSm || '');
+      : (selectedExecutiveId || selectedIndustryManagerId || selectedStateManagerId || '');
     
     // Dates that could not be read at all. Collected across every row and shown
     // before the upload goes out, so a column the sheet formatted differently is
     // a visible warning instead of a quietly empty field.
     const dateErrors = [];
+    // Status values the map did not recognise. Left unset rather than guessed, so
+    // the server's own map gets a chance; anything it also misses becomes 'new'.
+    const statusErrors = [];
 
     // Map CSV rows to API payload
     const payload = parsedData.rows.map((row, rowIndex) => {
@@ -375,7 +379,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       const statusMap = {
         'new': 'new', 'called': 'called', 'follow-up': 'followup', 'followup': 'followup',
         'follow up': 'followup', 'followup require': 'followup', 'followup required': 'followup',
-        'rnr': 'rnr', 'meeting': 'meeting_direct',
+        'rnr': 'rnr', 'switched off': 'rnr', 'switch off': 'rnr', 'meeting': 'meeting_direct',
         'meeting virtual': 'meeting_virtual', 'meeting direct': 'meeting_direct',
         'converted': 'converted', 'blocking amount received': 'blocking_amount_received',
         'full amount received': 'full_amount_received', 'agreement signed': 'agreement_signed',
@@ -390,8 +394,31 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
         'busy': 'rnr', 'not available': 'rnr', 'unreachable': 'rnr',
       };
-      // Pass raw status through if not in map — server handles unknown statuses
-      const normalizedStatus = statusMap[rawStatus.toLowerCase()] || rawStatus || undefined;
+      // Matched on letters and digits only, for the same reason the headers are:
+      // "Not Intersted", "not  intersted" and "NOT-INTERESTED" are one value, and a
+      // stray double space or trailing punctuation in a cell must not decide whether
+      // a lead is Not Interested or brand new.
+      const statusByKey = Object.fromEntries(Object.entries(statusMap).map(([k, v]) => [squash(k), v]));
+      const statusKey = squash(rawStatus);
+      let normalizedStatus = statusByKey[statusKey];
+
+      // Still nothing, and the cell said something: fall back to the longest known
+      // value contained in it, so "Not Intersted (CB 4pm)" resolves rather than
+      // silently becoming a new lead.
+      if (!normalizedStatus && statusKey) {
+        const hit = Object.keys(statusByKey)
+          .filter(k => k.length > 3 && statusKey.includes(k))
+          .sort((a, b) => b.length - a.length)[0];
+        if (hit) normalizedStatus = statusByKey[hit];
+      }
+
+      // An unrecognised status used to pass through and the server turned it into
+      // 'new' without a word -- which is how a sheet full of "Not Intersted" landed
+      // as a queue full of fresh leads. Name it instead.
+      if (!normalizedStatus && statusKey) {
+        statusErrors.push(`Row ${rowNo}: unrecognised status "${rawStatus}"`);
+      }
+      normalizedStatus = normalizedStatus || undefined;
 
       // Normalize priority
       const rawPriority = (getVal('priority level', 'priority') || '').toLowerCase();
@@ -438,13 +465,19 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     // The upload still goes ahead -- an unreadable date is one empty field, not a
     // reason to reject the sheet -- but it is named, because "the follow-up dates
     // did not save" was previously the only symptom.
+    const problems = [];
     if (dateErrors.length) {
-      setErrors([
-        `${dateErrors.length} date${dateErrors.length === 1 ? '' : 's'} could not be read and were left empty:`,
-        ...dateErrors.slice(0, 8),
-        ...(dateErrors.length > 8 ? [`…and ${dateErrors.length - 8} more`] : []),
-      ]);
+      problems.push(`${dateErrors.length} date${dateErrors.length === 1 ? '' : 's'} could not be read and were left empty:`,
+        ...dateErrors.slice(0, 6),
+        ...(dateErrors.length > 6 ? [`…and ${dateErrors.length - 6} more`] : []));
     }
+    if (statusErrors.length) {
+      const distinct = [...new Set(statusErrors.map(e => e.replace(/^Row \d+: /, '')))];
+      problems.push(`${statusErrors.length} row${statusErrors.length === 1 ? '' : 's'} have a status this system does not know — they will import as New:`,
+        ...distinct.slice(0, 6),
+        ...(distinct.length > 6 ? [`…and ${distinct.length - 6} more kinds`] : []));
+    }
+    if (problems.length) setErrors(problems);
 
     bulkUploadMutation.mutate(payload, {
       onSettled: () => setIsProcessing(false)
@@ -578,6 +611,29 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                     label={keepSelf ? 'Stays with you' : assignmentTargetId ? 'Will assign' : (isIndustryManager ? 'Stays with you' : 'Unallocated')}
                   />
                 </div>
+                {canKeepSelf && (
+                  <label className="flex items-center gap-2.5 mt-4 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={keepWithMe}
+                      onChange={(e) => {
+                        setKeepWithMe(e.target.checked);
+                        // Keeping the leads and handing them down are mutually
+                        // exclusive, so a half-made choice cannot linger behind
+                        // the disabled dropdowns.
+                        if (e.target.checked) {
+                          setSelectedStateManagerId('');
+                          setSelectedIndustryManagerId('');
+                          setSelectedExecutiveId('');
+                        }
+                      }}
+                      className="w-4 h-4 accent-purple cursor-pointer"
+                    />
+                    <span className="text-[13px] font-bold text-text-primary">
+                      Keep these leads with me ({currentUser?.name})
+                    </span>
+                  </label>
+                )}
                 <div className={`grid grid-cols-1 gap-3 mt-4 ${stepCount === 3 ? 'md:grid-cols-3' : stepCount === 2 ? 'md:grid-cols-2' : ''}`}>
                   {/* Step 1 -- State Manager (Founder only; a State Manager is their own branch) */}
                   {showSmStep && (
@@ -586,7 +642,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                       <select
                         className="select"
                         value={selectedStateManagerId}
-                        disabled={loadingSMs}
+                        disabled={keepSelf || loadingSMs}
                         onChange={(e) => {
                           setSelectedStateManagerId(e.target.value);
                           setSelectedIndustryManagerId('');
@@ -594,7 +650,6 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                         }}
                       >
                         <option value="">{loadingSMs ? 'Loading state managers…' : 'Keep unallocated'}</option>
-                        <option value={SELF}>Keep with me ({currentUser?.name})</option>
                         {stateManagers.map(u => (
                           <option key={u._id} value={u._id}>{u.name} ({u.state || 'State Manager'})</option>
                         ))}
@@ -610,7 +665,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                       <select
                         className="select"
                         value={selectedIndustryManagerId}
-                        disabled={!branchSmId || loadingIMs}
+                        disabled={keepSelf || !branchSmId || loadingIMs}
                         onChange={(e) => {
                           setSelectedIndustryManagerId(e.target.value);
                           setSelectedExecutiveId('');
@@ -623,9 +678,6 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                               ? 'Keep unallocated'
                               : branchSmId ? 'Assign to State Manager' : 'Select State Manager first'}
                         </option>
-                        {isStateManager && (
-                          <option value={SELF}>Keep with me ({currentUser?.name})</option>
-                        )}
                         {industryManagerOptions.map(u => (
                           <option key={u._id} value={u._id}>{u.name} ({[u.industry, u.state].filter(Boolean).join(' · ') || 'Industry Manager'})</option>
                         ))}
