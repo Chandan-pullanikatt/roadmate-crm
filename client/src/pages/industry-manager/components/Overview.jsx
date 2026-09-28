@@ -11,6 +11,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { leaveApi } from '../../../api/leaveApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { groupParam } from '../../../constants/leadStatusGroups';
+import { callMeta } from '../../../components/modals/LeadHistoryModal';
 import { useToast } from '../../../context/ToastContext';
 
 const FILTER_PERIODS = [
@@ -892,7 +893,9 @@ const Overview = () => {
 
           {/* Activity history */}
           <div>
-            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Recent Activity</div>
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">
+              Interaction History{eventActivity.length > 0 && ` · ${eventActivity.length}`}
+            </div>
             {eventActivityLoading ? (
               <div className="py-6 text-center text-[16px] text-text-muted">Loading history…</div>
             ) : eventActivity.length === 0 ? (
@@ -900,7 +903,7 @@ const Overview = () => {
             ) : (
               <div className="relative pl-4 max-h-[220px] overflow-y-auto pr-1 -mr-2">
                 <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
-                {eventActivity.slice(0, 8).map((a, i) => (
+                {eventActivity.map((a, i) => (
                   <div key={i} className="relative mb-3.5">
                     <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${i === 0 ? 'bg-purple' : 'bg-border2'}`} />
                     <div className="flex items-center justify-between gap-2 mb-0.5">
@@ -913,7 +916,17 @@ const Overview = () => {
                         </span>
                       )}
                     </div>
-                    <div className="text-[13px] font-semibold text-text-secondary">{a.action?.replace(/_/g, ' ')}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {callMeta(a) && (
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                          style={{ color: callMeta(a).color, background: `${callMeta(a).color}14` }}
+                        >
+                          📞 {callMeta(a).label}
+                        </span>
+                      )}
+                      <span className="text-[13px] font-semibold text-text-secondary">{a.action?.replace(/_/g, ' ')}</span>
+                    </div>
                     {a.note && (
                       <div className="text-[13px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">
                         {a.note}

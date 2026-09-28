@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { leadsApi } from '../../api/leadsApi';
 import { DashboardSkeleton, Tag } from '../../components/ui';
 import { formatWhen, scheduleFor } from '../../utils/leadSchedule';
+import { callMeta } from '../../components/modals/LeadHistoryModal';
 
 const statusVariant = (status = '') => {
   if (status === 'converted') return 'green';
@@ -152,7 +153,17 @@ const LeadDetail = () => {
                   <div key={activity._id || idx} className="relative pb-5 last:pb-0">
                     <div className={`absolute -left-[18px] top-1 w-3 h-3 rounded-full border-2 border-white ${idx === 0 ? 'bg-purple' : 'bg-border2'}`} />
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="text-sm font-black text-text-primary capitalize">{(activity.action || 'updated').replace(/_/g, ' ')}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {callMeta(activity) && (
+                          <span
+                            className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                            style={{ color: callMeta(activity).color, background: `${callMeta(activity).color}14` }}
+                          >
+                            📞 {callMeta(activity).label}
+                          </span>
+                        )}
+                        <div className="text-sm font-black text-text-primary capitalize">{(activity.action || 'updated').replace(/_/g, ' ')}</div>
+                      </div>
                       <div className="text-[12px] font-bold text-text-muted">
                         {activity.createdAt ? new Date(activity.createdAt).toLocaleString('en-IN') : ''}
                       </div>

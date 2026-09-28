@@ -86,7 +86,10 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   });
 
   const transitionMutation = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(lead._id, data.action, data),
+    // Every transition this modal fires is the record of a phone call, so it
+    // is tagged as one -- the interaction history then shows the connection and
+    // the outcome together instead of the outcome on its own.
+    mutationFn: (data) => leadsApi.transitionLead(lead._id, data.action, { viaCall: true, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries(['leads', 'workflow']);
       queryClient.invalidateQueries(['dashboard', 'executive']);
@@ -123,11 +126,11 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
       }
 
       if (selectedOutcome === 'connected') {
-        await transitionMutation.mutateAsync({ action: 'mark_called', priority });
+        await transitionMutation.mutateAsync({ action: 'mark_called', note: notes, priority });
         addToast('Call logged as connected.', 'success');
 
       } else if (selectedOutcome === 'rnr') {
-        await transitionMutation.mutateAsync({ action: 'mark_rnr', priority });
+        await transitionMutation.mutateAsync({ action: 'mark_rnr', note: notes, priority });
         addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
 
       } else if (selectedOutcome === 'followup') {

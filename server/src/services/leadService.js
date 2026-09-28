@@ -181,6 +181,11 @@ const leadService = {
         lead.hasBeenEngaged = true; // Mark as engaged once called
         lead.lastCallAt = new Date();
         activityData.action = 'called';
+        // A connected call with no further outcome still carries the caller's
+        // remark. It used to live only on the activity note, so the lead's
+        // Remarks block skipped it -- every other outcome goes through
+        // set_feedback, which files the same remark here.
+        if (data.note) lead.feedback.push({ note: data.note, createdBy: performedBy?._id ?? null });
         if (data.priority) lead.priority = data.priority;
         break;
 
@@ -291,13 +296,17 @@ const leadService = {
           if (isDMDay) {
             const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
             lead.nextActionAt = oneHourFromNow < meetingAt ? oneHourFromNow : meetingAt;
-            activityData.note = `Pre-meeting retry #${lead.rnrCount}. Next attempt: ${lead.nextActionAt.toLocaleTimeString()}. Meeting at: ${meetingAt.toLocaleTimeString()}`;
+            // The caller's own remark leads; the retry detail is appended rather
+            // than written over it, which used to drop what they typed.
+            const retryNote = `Pre-meeting retry #${lead.rnrCount}. Next attempt: ${lead.nextActionAt.toLocaleTimeString()}. Meeting at: ${meetingAt.toLocaleTimeString()}`;
+            activityData.note = data.note ? `${data.note} — ${retryNote}` : retryNote;
           } else {
             const nextDay = new Date();
             nextDay.setDate(nextDay.getDate() + 1);
             nextDay.setHours(10, 0, 0, 0);
             lead.nextActionAt = nextDay;
-            activityData.note = data.note || `RNR #${lead.rnrCount}. Status kept; re-queued for next day.`;
+            const rnrNote = `RNR #${lead.rnrCount}. Status kept; re-queued for next day.`;
+            activityData.note = data.note ? `${data.note} — ${rnrNote}` : rnrNote;
           }
           break;
         }
@@ -417,6 +426,23 @@ const leadService = {
 
       default:
         throw new Error('Invalid transition action');
+    }
+
+    // Stamp how the call itself went, so the interaction history can show the
+    // connection and the outcome together rather than the outcome alone. Only
+    // the call feedback modals send viaCall, so a payment or status recorded
+    // from a desk screen is never dressed up as a call.
+    if (data.viaCall) {
+      activityData.metadata = {
+        ...(activityData.metadata || {}),
+        call: action === 'mark_rnr' ? 'no_answer' : 'connected',
+      };
+      // The Converted record maybeConvert() writes alongside a payment belongs
+      // to the same connected call. The RNR follow-ons (auto-transfer,
+      // auto-lost) are system work on a call nobody answered, so they stay bare.
+      if (extraActivity && action !== 'mark_rnr') {
+        extraActivity.metadata = { ...(extraActivity.metadata || {}), call: 'connected' };
+      }
     }
 
     await lead.save();

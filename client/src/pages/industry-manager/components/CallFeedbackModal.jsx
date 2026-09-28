@@ -80,7 +80,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   });
 
   const transitionMutation = useMutation({
-    mutationFn: (data) => leadsApi.transitionLead(lead._id, data.action, data),
+    // Every transition this modal fires is the record of a phone call, so it
+    // is tagged as one -- the interaction history then shows the connection and
+    // the outcome together instead of the outcome on its own.
+    mutationFn: (data) => leadsApi.transitionLead(lead._id, data.action, { viaCall: true, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads', 'personal-list'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'executive'] });

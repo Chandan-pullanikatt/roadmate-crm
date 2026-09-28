@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { scheduleField, formatWhen } from '../../utils/leadSchedule';
+import { callMeta } from '../../components/modals/LeadHistoryModal';
 
 const PRIORITY_DOT = { high: 'bg-red', medium: 'bg-amber', low: 'bg-blue' };
 const PRIORITY_STYLE = {
@@ -702,7 +703,22 @@ const MyWorkPage = ({
 
                     {/* Right: Interaction history */}
                     <div>
-                      <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider mb-3">Interaction History</div>
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="text-[12px] font-bold text-text-muted uppercase tracking-wider">
+                          Interaction History
+                          {recentActivity.length > 0 && ` · ${recentActivity.length}`}
+                        </div>
+                        {/* The panel is a preview of the newest few. The complete
+                            log lives in the lead detail dialog, which this opens. */}
+                        {recentActivity.length > 5 && (
+                          <button
+                            onClick={() => setLeadDetailOpen(true)}
+                            className="text-[11px] font-bold text-purple hover:underline shrink-0 cursor-pointer"
+                          >
+                            View all {recentActivity.length} →
+                          </button>
+                        )}
+                      </div>
                       <div className="relative pl-4">
                         <div className="absolute left-1.5 top-1 bottom-1 w-px bg-border/60" />
                         {activityLoading ? (
@@ -721,6 +737,11 @@ const MyWorkPage = ({
                                 {new Date(a.createdAt || a.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </div>
                               <div className="text-[13px] text-text-secondary mt-0.5 leading-relaxed">
+                                {callMeta(a) && (
+                                  <span className="font-bold" style={{ color: callMeta(a).color }}>
+                                    {callMeta(a).label} ·{' '}
+                                  </span>
+                                )}
                                 {a.action?.replace(/_/g, ' ')}
                                 {a.note ? ` — ${a.note.slice(0, 60)}${a.note.length > 60 ? '…' : ''}` : ''}
                               </div>
@@ -1394,8 +1415,18 @@ const MyWorkPage = ({
                         </span>
                       )}
                     </div>
-                    <div className="text-[13px] font-semibold text-text-secondary">
-                      {a.action?.replace(/_/g, ' ')}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {callMeta(a) && (
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                          style={{ color: callMeta(a).color, background: `${callMeta(a).color}14` }}
+                        >
+                          📞 {callMeta(a).label}
+                        </span>
+                      )}
+                      <span className="text-[13px] font-semibold text-text-secondary">
+                        {a.action?.replace(/_/g, ' ')}
+                      </span>
                     </div>
                     {a.note && (
                       <div className="text-[13px] text-text-muted mt-0.5 leading-relaxed bg-surface2 rounded-lg px-2.5 py-1.5 border border-border/40">

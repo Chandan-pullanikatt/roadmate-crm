@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Modal, Button } from '../ui';
 import { leadsApi } from '../../api/leadsApi';
-import { ACTION_META } from './LeadHistoryModal';
+import { ACTION_META, callMeta } from './LeadHistoryModal';
 
 /**
  * Read-only view of everything recorded against a lead, plus its activity
@@ -197,6 +197,7 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit, onEditDetails }) => {
         <div className="space-y-1">
           {activities.map((a, idx) => {
             const meta = ACTION_META[a.action] || { icon: '⚡', label: titleCase(a.action), color: '#6B7280' };
+            const call = callMeta(a);
             return (
               <div key={a._id || idx} className="flex gap-4 relative pl-12 py-3">
                 <div
@@ -205,8 +206,19 @@ const ViewLeadModal = ({ isOpen, onClose, leadId, onEdit, onEditDetails }) => {
                 />
                 <div className="flex-1 bg-surface2/30 rounded-xl border border-border/60 px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-base">{meta.icon}</span>
+                      {call && (
+                        <>
+                          <span
+                            className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                            style={{ color: call.color, background: `${call.color}14` }}
+                          >
+                            📞 {call.label}
+                          </span>
+                          <span className="text-[12px] text-text-muted">·</span>
+                        </>
+                      )}
                       <span className="text-[13px] font-bold text-text-primary">{meta.label}</span>
                     </div>
                     <span className="text-[12px] font-bold text-text-muted shrink-0">
