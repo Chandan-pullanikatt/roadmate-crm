@@ -150,6 +150,18 @@ const LeadList = () => {
     }));
   };
 
+  // Escalate is offered as a header button as well as through the selection bar,
+  // so the bulk hand-off is visible before any row is ticked. A District Manager is
+  // the bottom of the reporting tree -- there is nobody below to allocate to, so
+  // moving leads up is the only bulk hand-off they have.
+  const handleBulkEscalate = () => {
+    if (!selection.count) {
+      addToast('Tick the leads you want to escalate first', 'warning');
+      return;
+    }
+    openModal('escalate-leads', { leads: selection.selectedLeads });
+  };
+
   const formatLastContact = (dateStr) => {
     if (!dateStr) return 'Never';
     const date = new Date(dateStr);
@@ -202,6 +214,16 @@ const LeadList = () => {
         
         <div className="flex items-center gap-2 border-l border-border pl-4">
           <button className="btn btn-ghost btn-sm font-bold text-xs" onClick={handleExport} disabled={isExporting}>Export CSV</button>
+          {/* Same importer every other role uses. A District Manager gets no
+              allocation step inside it -- they are the bottom of the tree, so the
+              rows they upload stay with them and land in this list. */}
+          <button className="btn btn-outline btn-sm font-bold text-xs" onClick={() => openModal('bulk-upload')}>Bulk Upload</button>
+          <button
+            className="btn btn-outline btn-sm font-bold text-xs text-amber border-amber/20"
+            onClick={handleBulkEscalate}
+          >
+            Bulk Escalate{selection.count ? ` (${selection.count})` : ''}
+          </button>
           <button className="btn btn-orange btn-sm font-bold text-xs px-4" onClick={() => openModal('add-lead')}>+ Add Lead</button>
         </div>
       </div>

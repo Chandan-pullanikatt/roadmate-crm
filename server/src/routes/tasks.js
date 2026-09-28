@@ -56,19 +56,33 @@ router.get('/', async (req, res) => {
 // POST /api/tasks — create task. Every role can create; executives can only
 // self-allocate, managers can assign to themselves or someone below them in
 // their reporting tree — never to a peer or a higher-level manager.
+//
+// Only the founder may pass `assignedTo` as an array. One task row is created
+// per assignee rather than one shared row, so each person starts, completes
+// and is chased for their own copy.
 router.post('/', async (req, res) => {
   try {
     const { status, completedAt, ...body } = req.body;
-    if (req.user.role === 'executive' || !body.assignedTo) {
-      body.assignedTo = req.user._id;
+
+    let assignees = Array.isArray(body.assignedTo) ? body.assignedTo : [body.assignedTo];
+    assignees = [...new Set(assignees.filter(Boolean).map(String))];
+    if (req.user.role === 'executive' || !assignees.length) {
+      assignees = [String(req.user._id)];
     }
+    if (assignees.length > 1 && req.user.role !== 'founder') {
+      return res.status(403).json({ message: 'Only the founder can assign one task to several people at once' });
+    }
+
     const scopeIds = await getScopeOwnerIds(req.user);
-    if (scopeIds && !scopeIds.some(id => String(id) === String(body.assignedTo))) {
+    if (scopeIds && assignees.some(a => !scopeIds.some(id => String(id) === a))) {
       return res.status(403).json({ message: 'You can only assign tasks to yourself or your own team' });
     }
-    const task = await Task.create({ ...body, assignedBy: req.user._id });
-    const populated = await task.populate('assignedTo', 'name role');
-    res.status(201).json(populated);
+
+    const created = await Task.create(
+      assignees.map(assignedTo => ({ ...body, assignedTo, assignedBy: req.user._id }))
+    );
+    const populated = await Task.populate(created, { path: 'assignedTo', select: 'name role' });
+    res.status(201).json(populated.length === 1 ? populated[0] : { created: populated.length, tasks: populated });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

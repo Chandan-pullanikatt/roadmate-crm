@@ -49,6 +49,30 @@ try {
   assert.strictEqual(typeof attendanceService.completeWork, 'function', 'attendanceService.completeWork missing');
   assert.strictEqual(typeof salaryService.generateMonthlySalary, 'function', 'salaryService.generateMonthlySalary missing');
 
+  // The bulk import maps a sheet's status text twice -- once in the browser to
+  // preview and warn, once on the server which has the final say. They have
+  // drifted three times, and every time it showed up as "everything imported as a
+  // New lead" rather than as an error, so the two copies are compared here.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const keysOf = (file) => {
+      const text = fs.readFileSync(file, 'utf8');
+      const start = text.indexOf('statusMap = {');
+      assert(start !== -1, `No statusMap found in ${file}`);
+      const body = text.slice(start, text.indexOf('};', start));
+      return new Set([...body.matchAll(/'([^']+)'\s*:/g)].map(m => m[1]));
+    };
+    const server = keysOf(path.join(__dirname, '..', 'routes', 'leads.js'));
+    const client = keysOf(path.join(__dirname, '..', '..', '..', 'client', 'src', 'components', 'BulkUploadModal.jsx'));
+    const missing = [...server].filter(k => !client.has(k));
+    const extra = [...client].filter(k => !server.has(k));
+    assert(
+      !missing.length && !extra.length,
+      `Bulk import statusMap has drifted. Missing from client: [${missing}]. Only in client: [${extra}].`
+    );
+  }
+
   console.log('Smoke check passed: critical routes and services are present.');
 } catch (error) {
   console.error(`Smoke check failed: ${error.message}`);

@@ -119,6 +119,9 @@ const bulkCreateLeads = async (req, res) => {
   try {
     const insertedLeads = [];
     const updatedLeads = [];
+    // Payments named in the sheet, turned into revenue activities after the rows
+    // are in -- see the note where they are pushed.
+    const paymentRows = [];
     const errors = [];
     // Cache owner lookups so a 300-row upload doesn't issue 300 identical queries.
     const ownerScopeCache = new Map();
@@ -138,8 +141,13 @@ const bulkCreateLeads = async (req, res) => {
       'escalated': 'escalated',
       'blocking amount received': 'blocking_amount_received',
       'blocking_amount_received': 'blocking_amount_received',
+      // The client's sheet spells it "recieved" throughout; squash-matching cannot
+      // fix a transposition, so both spellings are listed.
+      'blocking amount recieved': 'blocking_amount_received',
+      'blocking amount': 'blocking_amount_received',
       'full amount received': 'full_amount_received',
       'full_amount_received': 'full_amount_received',
+      'full amount recieved': 'full_amount_received',
       'agreement signed': 'agreement_signed',
       'agreement_signed': 'agreement_signed',
       'call back': 'followup', 'callback': 'followup',
@@ -155,6 +163,14 @@ const bulkCreateLeads = async (req, res) => {
       'not interested': 'not_interested', 'not intersted': 'not_interested', 'not intrested': 'not_interested',
       'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
       'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',
+    };
+
+    /** Stages that mean money or a signature, not a pipeline step. */
+    const PAYMENT_STAGES = new Set(['blocking_amount_received', 'full_amount_received', 'agreement_signed', 'converted']);
+    /** "₹4,50,000" / "450000.0" -> 450000, and anything unreadable -> 0. */
+    const amountOf = (v) => {
+      const n = Number(String(v ?? '').replace(/[^\d.]/g, ''));
+      return Number.isFinite(n) && n > 0 ? n : 0;
     };
 
     const squashStatus = (v) => String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -285,6 +301,35 @@ const bulkCreateLeads = async (req, res) => {
 
         // New string fields passed through normalizeLeadPayload already via spread,
         // but explicitly set here for clarity
+        // The Outcome column is the one that says what stage a lead actually
+        // reached -- "Blocking amount recieved" while Status only said "Onboarded".
+        // It resolves through the same map and is accepted only when it names a
+        // payment or closing stage, which then beats the Status column.
+        const outcomeStage = item.outcome ? resolveSheetStatus(item.outcome) : undefined;
+        if (outcomeStage && PAYMENT_STAGES.has(outcomeStage)) normalized.status = outcomeStage;
+
+        // Amounts are what every revenue figure adds up (see revenueService).
+        // Client rule: Lead Value IS the money received at whatever stage the
+        // Outcome column names -- their sheet carries no separate amount column.
+        // An explicit Blocking Amount / Full Amount column still wins when present,
+        // since it says which part of the deal the money was.
+        const isPaid = !!outcomeStage && PAYMENT_STAGES.has(outcomeStage);
+        const leadValue = amountOf(normalized.expectedRevenue);
+        let blockingAmt = amountOf(item.blockingAmount);
+        let fullAmt = amountOf(item.fullAmount);
+        let convertedAmt = 0;
+        if (isPaid && !blockingAmt && !fullAmt) {
+          if (outcomeStage === 'blocking_amount_received') blockingAmt = leadValue;
+          else if (outcomeStage === 'full_amount_received') fullAmt = leadValue;
+          else if (outcomeStage === 'converted') convertedAmt = leadValue;
+          // agreement_signed books nothing: it is not a revenue action, so the
+          // signature sets the stage and the money is counted at its own stage.
+        }
+        if (blockingAmt > 0) normalized.blockingAmount = blockingAmt;
+        if (fullAmt > 0) normalized.fullAmount = fullAmt;
+        if (blockingAmt > 0 || fullAmt > 0) normalized.actualRevenue = blockingAmt + fullAmt;
+        else if (convertedAmt > 0) normalized.actualRevenue = convertedAmt;
+
         if (item.leadHandling) normalized.leadHandling = item.leadHandling;
         if (item.messagedStatus) normalized.messagedStatus = item.messagedStatus;
         if (item.partnershipCategory) normalized.partnershipCategory = item.partnershipCategory;
@@ -380,6 +425,22 @@ const bulkCreateLeads = async (req, res) => {
 
         if (isUpdate) updatedLeads.push(lead);
         else insertedLeads.push(lead);
+
+        // Revenue is booked from activities, never from the Lead document, so an
+        // imported payment needs one or it counts nowhere. Dated from the stage's
+        // own date so it lands in the month the money actually came in.
+        if (blockingAmt > 0) {
+          paymentRows.push({ lead: lead._id, action: 'blocking_amount_received', revenue: blockingAmt,
+            at: normalized.blockingDate || lead.blockingDate || lead.createdAt });
+        }
+        if (fullAmt > 0) {
+          paymentRows.push({ lead: lead._id, action: 'full_amount_received', revenue: fullAmt,
+            at: normalized.fullAmountReceivedDate || lead.fullAmountReceivedDate || lead.createdAt });
+        }
+        if (convertedAmt > 0) {
+          paymentRows.push({ lead: lead._id, action: 'converted', revenue: convertedAmt,
+            at: normalized.convertedAt || lead.convertedAt || lead.createdAt });
+        }
       } catch (rowErr) {
         const reason = rowErr.code === 11000
           ? `Lead ID ${rowErr.keyValue?.leadId || ''} already belongs to another lead`
@@ -401,6 +462,30 @@ const bulkCreateLeads = async (req, res) => {
         }))
       ];
       await LeadActivity.insertMany(activities);
+    }
+
+    // A re-upload must not book the same payment twice, so only stages this lead
+    // has no activity for are written.
+    if (paymentRows.length) {
+      const existing = await LeadActivity.find({
+        lead: { $in: paymentRows.map(p => p.lead) },
+        action: { $in: ['blocking_amount_received', 'full_amount_received', 'converted'] },
+      }).select('lead action').lean();
+      const already = new Set(existing.map(a => `${a.lead}|${a.action}`));
+      const fresh = paymentRows.filter(p => !already.has(`${p.lead}|${p.action}`));
+      if (fresh.length) {
+        // timestamps: false, or mongoose stamps createdAt with the upload time and
+        // the payment books into this month instead of the month it came in.
+        await LeadActivity.insertMany(fresh.map(p => ({
+          lead: p.lead,
+          performedBy: req.user._id,
+          action: p.action,
+          note: 'Recorded from bulk upload',
+          metadata: { revenue: p.revenue },
+          createdAt: p.at || new Date(),
+          updatedAt: p.at || new Date(),
+        })), { timestamps: false });
+      }
     }
 
     // Notify managers about new leads in their territory

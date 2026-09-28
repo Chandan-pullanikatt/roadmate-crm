@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leadsApi } from '../../../api/leadsApi';
+import DeleteLeadButton from '../../../components/DeleteLeadButton';
 import { Button, Tag } from '../../../components/ui';
 import { exportToCSV } from '../../../utils/exportUtils';
 import { Country, State } from 'country-state-city';
@@ -279,7 +280,7 @@ const ExpectedOnboarding = () => {
                       <button className="bg-white border border-border text-text-secondary px-3 py-1 rounded-md text-[13px] font-bold hover:bg-surface2 transition-all" onClick={() => openModal('lead-history', { leadId: l._id, leadName: l.name })}>History</button>
                       <button className="bg-[#0f766e] text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('update-lead', { leadData: l })}>Update</button>
                       <button className="bg-blue text-white px-3 py-1 rounded-md text-[11px] font-bold hover:shadow-md transition-all" onClick={() => openModal('allocate-lead', { leadData: l })}>Allocate</button>
-                      <button className="bg-white border border-red/20 text-red px-3 py-1 rounded-md text-[11px] font-bold hover:bg-red-light transition-all" onClick={() => leadsApi.deleteLead(l._id).then(() => window.location.reload())}>Delete</button>
+                      <DeleteLeadButton lead={l} />
                     </div>
                   </td>
                 </tr>

@@ -23,8 +23,10 @@ const STATUS_META = {
 // the server enforces the same rule against the reporting tree.
 const ROLE_RANK = { founder: 4, state_manager: 3, industry_manager: 2, executive: 1 };
 
-const makeEmptyForm = (selfId = '') => ({
-  title: '', description: '', assignedTo: selfId,
+// The founder can push one task to several people at once, so their form holds
+// an array of assignees; every other role assigns to exactly one person.
+const makeEmptyForm = (selfId = '', isFounder = false) => ({
+  title: '', description: '', assignedTo: isFounder ? [selfId] : selfId,
   startDate: '', endDate: '', startTime: '09:30', endTime: '18:30',
   priority: 'medium', category: '',
 });
@@ -35,10 +37,11 @@ const Tasks = () => {
   const { user } = useAuth();
   const selfId = user?._id || '';
   const isExec = user?.role === 'executive';
-  const emptyForm = makeEmptyForm(selfId);
+  const isFounder = user?.role === 'founder';
+  const emptyForm = makeEmptyForm(selfId, isFounder);
   const [filterStatus, setFilterStatus] = useState('all');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(() => makeEmptyForm(selfId));
+  const [form, setForm] = useState(() => makeEmptyForm(selfId, isFounder));
   const [saving, setSaving] = useState(false);
 
   const { data: taskData } = useQuery({
@@ -53,6 +56,18 @@ const Tasks = () => {
     staleTime: 10 * 60 * 1000,
     enabled: !isExec,
   });
+
+  // Everyone this user is allowed to assign to, excluding themselves — the
+  // server enforces the same rule against the reporting tree.
+  const assignable = allUsers.filter(u =>
+    u._id !== selfId && u.isActive !== false && (ROLE_RANK[u.role] || 0) < (ROLE_RANK[user?.role] || 0)
+  );
+  const everyoneIds = [selfId, ...assignable.map(u => u._id)];
+
+  const toggleAssignee = (id) => setForm(f => ({
+    ...f,
+    assignedTo: f.assignedTo.includes(id) ? f.assignedTo.filter(x => x !== id) : [...f.assignedTo, id],
+  }));
 
   const startMutation = useMutation({
     mutationFn: (id) => tasksApi.startTask(id),
@@ -77,11 +92,18 @@ const Tasks = () => {
     if (!form.title || !form.startDate || !form.endDate) {
       return addToast('Please fill all required fields', 'warning');
     }
+    if (isFounder && !form.assignedTo.length) {
+      return addToast('Pick at least one person to assign this task to', 'warning');
+    }
     setSaving(true);
     try {
-      await tasksApi.createTask({ ...form, assignedTo: form.assignedTo || selfId });
+      const assignedTo = isFounder ? form.assignedTo : (form.assignedTo || selfId);
+      await tasksApi.createTask({ ...form, assignedTo });
       qc.invalidateQueries({ queryKey: ['tasks'] });
-      addToast('Task created!', 'success');
+      addToast(
+        isFounder && assignedTo.length > 1 ? `Task created for ${assignedTo.length} people!` : 'Task created!',
+        'success'
+      );
       setForm(emptyForm);
       setShowForm(false);
     } catch (err) {
@@ -127,14 +149,51 @@ const Tasks = () => {
                   <label className="form-label">Task Title *</label>
                   <input className="input" placeholder="e.g. Follow up with Kerala leads" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
                 </div>
-                <div className="space-y-1">
+                <div className={isFounder ? 'md:col-span-2 space-y-1' : 'space-y-1'}>
                   <label className="form-label">Assign To *</label>
                   {isExec ? (
                     <input className="input" value="Myself" disabled />
+                  ) : isFounder ? (
+                    /* Founder only: pick several people and get one task each. */
+                    <div className="border border-border rounded-xl overflow-hidden bg-surface2/30">
+                      <div className="px-3 py-2 border-b border-border bg-surface flex items-center justify-between gap-3">
+                        <span className="text-[11px] font-bold text-text-secondary">
+                          {form.assignedTo.length} selected · one task is created for each person
+                        </span>
+                        <div className="flex gap-3 shrink-0">
+                          <button type="button" className="text-[11px] font-bold text-[#0f766e] hover:underline"
+                            onClick={() => setForm(f => ({ ...f, assignedTo: everyoneIds }))}>
+                            Select everyone
+                          </button>
+                          <button type="button" className="text-[11px] font-bold text-text-muted hover:underline"
+                            onClick={() => setForm(f => ({ ...f, assignedTo: [] }))}>
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto">
+                        <label className="px-3 py-2 border-b border-border/50 flex items-center gap-3 cursor-pointer hover:bg-surface transition-colors">
+                          <input type="checkbox" className="w-4 h-4 rounded accent-[#0f766e]"
+                            checked={form.assignedTo.includes(selfId)} onChange={() => toggleAssignee(selfId)} />
+                          <span className="text-sm font-bold text-text-primary">Myself</span>
+                        </label>
+                        {assignable.map(u => (
+                          <label key={u._id} className="px-3 py-2 border-b border-border/50 last:border-0 flex items-center gap-3 cursor-pointer hover:bg-surface transition-colors">
+                            <input type="checkbox" className="w-4 h-4 rounded accent-[#0f766e]"
+                              checked={form.assignedTo.includes(u._id)} onChange={() => toggleAssignee(u._id)} />
+                            <span className="text-sm text-text-primary">{u.name}</span>
+                            <span className="text-[11px] text-text-muted ml-auto">{roleLabel(u.role)}</span>
+                          </label>
+                        ))}
+                        {!assignable.length && (
+                          <div className="px-3 py-2 text-xs text-text-muted">No other staff available yet.</div>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                   <select className="select" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} required>
                     <option value={selfId}>Myself</option>
-                    {allUsers.filter(u => u._id !== selfId && u.isActive !== false && (ROLE_RANK[u.role] || 0) < (ROLE_RANK[user?.role] || 0)).map(u => (
+                    {assignable.map(u => (
                       <option key={u._id} value={u._id}>{u.name} — {roleLabel(u.role)}</option>
                     ))}
                   </select>

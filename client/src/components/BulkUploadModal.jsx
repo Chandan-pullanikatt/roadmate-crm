@@ -12,7 +12,8 @@ const EXPECTED_HEADERS = [
   'Lead Handing', 'Lead Source', 'Messaged Status', 'Status', 'Last Contact Date',
   'Remarks', 'Partnership Category', 'Industry', 'Next Follow-Up Date', 'Follow-Up Notes',
   'No. of Followups', 'Priority Level', 'Next Action', 'Lead Value', 'Outcome',
-  'Blocking Date', 'Full Amount Received Date', 'Reason for Lost Leads'
+  'Blocking Date', 'Blocking Amount', 'Full Amount Received Date', 'Full Amount',
+  'Reason for Lost Leads'
 ];
 const REQUIRED_HEADERS = ['Contact Information'];
 
@@ -253,7 +254,9 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       '500000',                  // Lead Value
       '',                        // Outcome
       '',                        // Blocking Date
+      '',                        // Blocking Amount — money received, not the deal size
       '',                        // Full Amount Received Date
+      '',                        // Full Amount — money received, not the deal size
       ''                         // Reason for Lost Leads
     ].join(',');
     const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + sampleRow;
@@ -281,6 +284,8 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     // Status values the map did not recognise. Left unset rather than guessed, so
     // the server's own map gets a chance; anything it also misses becomes 'new'.
     const statusErrors = [];
+    // Rows whose Outcome names a payment but carry no amount to book against it.
+    const paymentWarnings = [];
 
     // Map CSV rows to API payload
     const payload = parsedData.rows.map((row, rowIndex) => {
@@ -360,6 +365,18 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         return undefined;
       };
 
+      // Client rule: Lead Value IS the money received at the stage the Outcome
+      // column names. A Blocking Amount / Full Amount column overrides it when the
+      // sheet splits the deal. Only a payment stage with no figure at all books
+      // nothing, and that is worth saying rather than losing the money quietly.
+      const PAYMENT_STAGES = ['blocking_amount_received', 'full_amount_received', 'agreement_signed', 'converted'];
+
+      /** "₹4,50,000" / "450000.0" -> 450000; anything unreadable -> 0. */
+      const amountOf = (v) => {
+        const n = Number(String(v ?? '').replace(/[^\d.]/g, ''));
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      };
+
       const leadId = getVal('lead id', 'id');
       // Contact Information column holds the primary phone number
       const rawPhone = getVal('contact information', 'phone number', 'phone')
@@ -389,8 +406,13 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         'escalated': 'escalated',
         'blocking amount received': 'blocking_amount_received',
         'blocking_amount_received': 'blocking_amount_received',
+        // The client's sheet spells it "recieved" throughout; squash-matching cannot
+        // fix a transposition, so both spellings are listed.
+        'blocking amount recieved': 'blocking_amount_received',
+        'blocking amount': 'blocking_amount_received',
         'full amount received': 'full_amount_received',
         'full_amount_received': 'full_amount_received',
+        'full amount recieved': 'full_amount_received',
         'agreement signed': 'agreement_signed',
         'agreement_signed': 'agreement_signed',
         'call back': 'followup', 'callback': 'followup',
@@ -443,6 +465,16 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         : rawPriority.includes('cold') ? 'cold'
         : 'cold';
 
+      const rawOutcome = getVal('outcome');
+      const outcomeStage = rawOutcome ? statusByKey[squash(rawOutcome)] : undefined;
+      const blockingAmount = amountOf(getVal('=blocking amount', '=advance amount', '=blocking amt'));
+      const fullAmount = amountOf(getVal('=full amount', '=balance amount', '=full amount collected'));
+      const leadValueAmount = amountOf(revenueRaw);
+      if (PAYMENT_STAGES.includes(outcomeStage) && !blockingAmount && !fullAmount && !leadValueAmount
+          && outcomeStage !== 'agreement_signed') {
+        paymentWarnings.push(`Row ${rowNo}: "${rawOutcome}" with no Lead Value and no amount column — the stage is set but no revenue is recorded`);
+      }
+
       return {
         ...(leadId ? { _id: leadId } : {}),
         ...(allocationTargetId ? { ownerId: allocationTargetId } : {}),
@@ -469,6 +501,11 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         nextAction: getVal('next action') || undefined,
         expectedRevenue: revenueRaw ? Number(revenueRaw) : 0,
         outcome: getVal('outcome') || undefined,
+        // Money actually received, which is not Lead Value -- that is the deal
+        // size. Exact-only names, or 'full amount' would match the header
+        // "Full Amount received date" and import a date as an amount.
+        blockingAmount,
+        fullAmount,
         blockingDate: parseDate(getVal('blocking date'), 'Blocking Date'),
         fullAmountReceivedDate: parseDate(getVal('full amount received date'), 'Full Amount Received Date'),
         reasonForLost: getVal('reason for lost leads', 'reason for lost') || undefined,
@@ -492,6 +529,11 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
       problems.push(`${statusErrors.length} row${statusErrors.length === 1 ? '' : 's'} have a status this system does not know — they will import as New:`,
         ...distinct.slice(0, 6),
         ...(distinct.length > 6 ? [`…and ${distinct.length - 6} more kinds`] : []));
+    }
+    if (paymentWarnings.length) {
+      problems.push(`${paymentWarnings.length} row${paymentWarnings.length === 1 ? '' : 's'} record a payment but carry no figure — fill Lead Value, or add a "Blocking Amount" / "Full Amount" column:`,
+        ...paymentWarnings.slice(0, 6),
+        ...(paymentWarnings.length > 6 ? [`…and ${paymentWarnings.length - 6} more`] : []));
     }
     if (problems.length) setErrors(problems);
 
