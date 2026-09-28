@@ -80,6 +80,23 @@ const scheduleService = {
    */
   async escalatePending(now = new Date()) {
     const today = startOfDay(now);
+
+    // An imported lead carries followUpDate and no nextActionAt -- the bulk route
+    // wrote one field and not the other. movableQuery wants nextActionAt, so those
+    // leads were never carried forward: a follow-up promised for the 25th still
+    // read the 25th days later, riding in the queue as overdue with nothing able to
+    // move it. Copying the date across lets the ordinary carry-forward below take
+    // them, and heals the rows one night at a time.
+    await Lead.updateMany(
+      {
+        status: { $nin: [...CLOSED_STATUSES, ...MEETING_STATUSES, 'rnr'] },
+        owner: { $ne: null },
+        nextActionAt: null,
+        followUpDate: { $ne: null },
+      },
+      [{ $set: { nextActionAt: '$followUpDate' } }],
+    );
+
     const leads = await Lead.find(movableQuery({
       status: { $nin: [...CLOSED_STATUSES, ...MEETING_STATUSES, 'rnr'] },
       owner: { $ne: null },
