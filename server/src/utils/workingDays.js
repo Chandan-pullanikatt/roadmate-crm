@@ -106,6 +106,48 @@ const istDayRange = (date = new Date()) => {
 const IST_TZ = '+05:30';
 const istDayKey = (date) => new Date(new Date(date).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
 
+/**
+ * THE canonical date stamp for an attendance row: UTC midnight of the IST
+ * calendar day the instant falls in.
+ *
+ * Attendance rows used to be filed under `startOfDay()`, which is midnight in
+ * the *server's* zone -- so the same calendar day became a different instant
+ * depending on which machine wrote it. A UTC server filed 28 Sep under
+ * 28 Sep 00:00Z; a box running IST filed it under 27 Sep 18:30Z. Neither could
+ * see the other's row, so Start Work wrote one and the absentee cron wrote
+ * another, and the `{user, date}` unique index could not merge them because the
+ * two instants genuinely differ. The result was one day recorded twice, as
+ * "half day, 91%" and "absent, 0%" at once, and every attendance count adding up
+ * both copies (33 duplicated user-days across 12 users, found 2026-09-29).
+ *
+ * UTC midnight, not IST midnight, for two reasons: it is what the production
+ * server (UTC) has always written, so the rows already on disk stay valid; and
+ * every range query over attendance.date is built from server-local month
+ * bounds, which on that UTC server land exactly on these stamps. Moving the
+ * stamp to IST midnight would shift every row 5h30m out of its own month.
+ *
+ * The IST part still matters: it decides WHICH day an instant belongs to, so
+ * work logged at 1am IST is filed under that day rather than the one before.
+ *
+ * Every read and write of `Attendance.date` goes through this. Anything using
+ * `startOfDay` for an attendance stamp is the bug above, waiting to happen.
+ */
+const attendanceDay = (date = new Date()) => {
+  const shifted = new Date(new Date(date).getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()));
+};
+
+/**
+ * The same IST calendar day as a server-local Date, for the day arithmetic that
+ * reads local parts -- isWeeklyOff, holiday matching, getFullYear. Pair it with
+ * `attendanceDay`: that one says where the row is filed, this one says what day
+ * of the week it is.
+ */
+const istCivilDay = (date = new Date()) => {
+  const shifted = new Date(new Date(date).getTime() + IST_OFFSET_MS);
+  return new Date(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+};
+
 /** Same wall-clock time as `original`, on calendar day `day`. */
 const onDay = (original, day) => {
   const d = new Date(day);
@@ -118,6 +160,8 @@ module.exports = {
   startOfDay,
   istDayRange,
   istDayKey,
+  attendanceDay,
+  istCivilDay,
   IST_TZ,
   addDays,
   isWeeklyOff,

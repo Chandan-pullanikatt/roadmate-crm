@@ -15,7 +15,7 @@ const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGrou
 const { getDateRange } = require('../utils/dateRange');
 const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
 const { countWeekdayWorkingDays } = require('../utils/workingDays');
-const { getPerformanceMetrics, rollupMetrics, EMPTY_METRICS } = require('../services/performanceService');
+const { getPerformanceMetrics, rollupMetrics, teamOnlyMetrics, EMPTY_METRICS } = require('../services/performanceService');
 const { getWorkPct, getDayWorkPct, rollupWorkPct } = require('../services/workPercentService');
 const { CALL_ACTIONS, CALL_ACTION_MATCH, WORK_ACTIONS, isCallAction } = require('../constants/workActions');
 
@@ -1057,7 +1057,7 @@ router.get('/industry-manager', async (req, res) => {
       summaryDrilldowns,
       executivePerformance,
       // The manager's own line and the manager-plus-team rollup, for the
-      // Performance page's Personal / Teams / All filter. Same service and same
+      // Performance page's Individual / Teams / All filter. Same service and same
       // window as executivePerformance, so the three views never disagree.
       selfPerformance: {
         ...(imMetrics.get(String(req.user._id)) || EMPTY_METRICS),
@@ -1387,10 +1387,12 @@ router.get('/state-manager', async (req, res) => {
                 efficiency,
                 districts: [...new Set(team.map(e => e.district))].length,
                 // The manager's own figures, unrolled. The Performance page's
-                // Teams view reports `rolled` (manager + the district managers
-                // under them); its Personal view reports this. Sending both
-                // keeps the two views from needing separate requests.
+                // All view reports `rolled` (manager + the district managers
+                // under them), its Individual view `own` and its Teams view
+                // `teamOnly` (the district managers without the manager).
+                // Sending all three keeps the views on one request.
                 own: smMetrics.get(String(m._id)) || EMPTY_METRICS,
+                teamOnly: teamOnlyMetrics(smMetrics, execIds),
                 teamSize: execIds.length,
                 user: m
             };
@@ -2205,11 +2207,13 @@ router.get('/founder', async (req, res) => {
                     state: u.state,
                     industry: u.industry,
                     district: u.district,
-                    // This person's own figures, unrolled. The Performance page's
-                    // Teams view reports the rollup above, its Personal view
-                    // reports this; sending both keeps the two views on one
-                    // request. A district manager is a leaf, so the two agree.
+                    // This person's own figures, unrolled, and their team's
+                    // without them. The Performance page's All view reports the
+                    // rollup above, Individual `own`, Teams `teamOnly`; sending
+                    // all three keeps the views on one request. A district
+                    // manager is a leaf, so their team line is empty.
                     own: perfMetrics.get(String(u._id)) || EMPTY_METRICS,
+                    teamOnly: teamOnlyMetrics(perfMetrics, team),
                     teamSize: team.length,
                     user: u
                 };

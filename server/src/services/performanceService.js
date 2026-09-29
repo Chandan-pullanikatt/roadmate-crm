@@ -267,4 +267,12 @@ const rollupMetrics = (metricsById, ownId, teamIds = []) => {
   };
 };
 
-module.exports = { getPerformanceMetrics, rollupMetrics, EMPTY_METRICS, MEETING_ACTIONS };
+/**
+ * The team under a manager, without the manager: the same sums and the same
+ * work % average as rollupMetrics, over `teamIds` only. The Performance page's
+ * Teams view reports this, its Individual view the manager's own line, and All
+ * the two combined (rollupMetrics).
+ */
+const teamOnlyMetrics = (metricsById, teamIds = []) => rollupMetrics(metricsById, null, teamIds);
+
+module.exports = { getPerformanceMetrics, rollupMetrics, teamOnlyMetrics, EMPTY_METRICS, MEETING_ACTIONS };

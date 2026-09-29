@@ -4,6 +4,7 @@ const { verifyToken } = require('../middleware/auth');
 const attendanceService = require('../services/attendanceService');
 const { getWorkPct, NON_WORKING_STATUSES } = require('../services/workPercentService');
 const Attendance = require('../models/Attendance');
+const { attendanceDay } = require('../utils/workingDays');
 
 // Protect all routes
 router.use(verifyToken);
@@ -55,9 +56,10 @@ router.post('/complete', async (req, res) => {
  */
 router.get('/today', async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const attendance = await Attendance.findOne({ user: req.user._id, date: today });
+    // Exact-match lookup, so it has to use the canonical stamp -- a local
+    // midnight would miss a row filed by a server in another zone, and the page
+    // would offer Start Work to someone who had already started.
+    const attendance = await Attendance.findOne({ user: req.user._id, date: attendanceDay() });
     const status = await attendanceService.checkTodayStatus(req.user._id);
     
     res.json({

@@ -3,6 +3,7 @@ const router = express.Router();
 const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Attendance = require('../models/Attendance');
+const { attendanceDay } = require('../utils/workingDays');
 const User = require('../models/User');
 const Config = require('../models/Config');
 const { verifyToken } = require('../middleware/auth');
@@ -285,8 +286,10 @@ router.patch('/:id/approve', verifyToken, async (req, res, next) => {
     // Create Attendance docs
     const dates = getDatesInRange(leave.fromDate, leave.toDate);
     for (const date of dates) {
+      // Canonical stamp, or this upsert inserts a second row for a day that
+      // already has one -- see attendanceDay.
       await Attendance.findOneAndUpdate(
-        { user: leave.user, date: new Date(date).setHours(0,0,0,0) },
+        { user: leave.user, date: attendanceDay(date) },
         { status: 'leave' },
         { upsert: true, new: true }
       );

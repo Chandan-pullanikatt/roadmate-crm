@@ -5,7 +5,7 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const scheduleService = require('./scheduleService');
-const { isWeeklyOff, loadCalendar, startOfDay } = require('../utils/workingDays');
+const { isWeeklyOff, loadCalendar, attendanceDay, istCivilDay } = require('../utils/workingDays');
 const { resolveAttendanceRules } = require('../constants/attendanceRules');
 const { getWorkPct, getDayWorkPct } = require('./workPercentService');
 const { WORK_ACTIONS } = require('../constants/workActions');
@@ -21,6 +21,13 @@ const attendanceService = {
   async startWork(userId, wfhData = null) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Where the row is FILED. Deliberately not `today`: that is midnight in the
+    // server's own zone, so the same day landed on a different instant depending
+    // on which machine wrote it, and one day ended up recorded twice -- see
+    // attendanceDay. `today` still drives the day arithmetic below (day of week,
+    // holiday match, the expected start time), which reads local date parts.
+    const dateKey = attendanceDay(today);
 
     const isWFH = !!wfhData?.isWFH;
     const wfh = {
@@ -53,7 +60,7 @@ const attendanceService = {
     }
 
     // 2. Check if already started
-    let attendance = await Attendance.findOne({ user: userId, date: today });
+    let attendance = await Attendance.findOne({ user: userId, date: dateKey });
     if (attendance && attendance.workStartedAt) {
       throw new Error('Work already started for today');
     }
@@ -106,7 +113,7 @@ const attendanceService = {
     if (!attendance) {
       attendance = new Attendance({
         user: userId,
-        date: today,
+        date: dateKey,
         workStartedAt: now,
         totalLeads: todayLeadsCount,
         plannedLeads,
@@ -229,7 +236,13 @@ const attendanceService = {
    * pending-work sweep stacks it on the next working day.)
    */
   async markAbsentees(day = new Date()) {
-    const date = startOfDay(day);
+    // Two different things: `date` is where the row is filed (machine
+    // independent -- see attendanceDay), `civil` is the calendar day the
+    // holiday and weekly-off calendar reads. Filing on startOfDay is what made
+    // this job unable to see a Start Work row written by a server in another
+    // zone, so it marked people absent on days they had worked.
+    const date = attendanceDay(day);
+    const civil = istCivilDay(day);
     const users = await User.find({
       isActive: true,
       role: { $in: ['executive', 'industry_manager', 'state_manager'] },
@@ -239,8 +252,8 @@ const attendanceService = {
     let marked = 0;
     for (const user of users) {
       if (recorded.has(String(user._id))) continue;
-      const calendar = await loadCalendar(user, date);
-      if (!calendar.isAvailable(date)) continue;
+      const calendar = await loadCalendar(user, civil);
+      if (!calendar.isAvailable(civil)) continue;
       await Attendance.updateOne(
         { user: user._id, date },
         { $setOnInsert: { status: 'absent', note: 'No login (unapproved leave)' } },

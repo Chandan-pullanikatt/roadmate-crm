@@ -8,7 +8,7 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Tag } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
-import { PerfScopeTabs, usePerfScope, scopeHint } from '../../../components/PerformanceScopeTabs';
+import { PerfScopeTabs, usePerfScope, scopeHint, scopedMetrics } from '../../../components/PerformanceScopeTabs';
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 import { roleLabel } from '../../../utils/roleLabel';
 
@@ -28,59 +28,36 @@ const Performance = () => {
 
   const stats = dashData?.stats || {};
 
-  // Whose numbers the leaderboard reports.
+  // One row per State Manager (the founder's direct reports) under every
+  // filter; the filter picks what the row counts:
   //
-  //   Teams     each State Manager rolled up with their whole office — the
-  //             state managers, industry managers and district managers under
-  //             them. These are the teams that report to the founder.
-  //   Personal  every manager's own work, counted on its own, at all three
-  //             levels. A district manager is a leaf, so their line is the same
-  //             either way and appears once.
-  //   All       both, distinguished by the sub-label under the name.
-  //
-  // Row ids stay unique under All, where a manager contributes two lines, so
-  // the real user id travels as `userId`.
+  //   Individual  the State Manager's own work
+  //   Teams       everyone under them (industry and district managers), without them
+  //   All         the two combined
   const managers = useMemo(() => {
     const stateManagers = dashData?.stateManagersPerformance || [];
-    const industryManagers = dashData?.industryManagersPerformance || [];
-    const districtManagers = dashData?.executivesPerformance || [];
+    const subLabel = {
+      individual: () => `${roleLabel('state_manager')} · own work`,
+      teams: (m) => `Team · ${m.teamSize || 0} reporting`,
+      all: (m) => `${roleLabel('state_manager')} + ${m.teamSize || 0} reporting`
+    }[scope];
 
-    const decorate = (row) => ({
-      ...row,
-      completionPct: row.workPct || 0,
-      leadsCount: row.periodLeads || 0,
-      conversionsTotal: row.converted || 0,
-    });
-
-    const teamRows = stateManagers.map(m => decorate({
-      ...m,
-      _id: `${m._id}:team`,
-      userId: m._id,
-      subLabel: `Team · ${roleLabel('state_manager')} + ${m.teamSize || 0} reporting`,
-    }));
-
-    const personalOf = (row, role) => decorate({
-      ...row,
-      ...(row.own || {}),
-      _id: `${row._id}:self`,
-      userId: row._id,
-      subLabel: `${roleLabel(role)} · own work`,
-    });
-
-    const personalRows = [
-      ...stateManagers.map(m => personalOf(m, 'state_manager')),
-      ...industryManagers.map(m => personalOf(m, 'industry_manager')),
-      ...districtManagers.map(m => decorate({
-        ...m,
-        _id: `${m._id}:self`,
+    return stateManagers.map(m => {
+      const metrics = scopedMetrics(m, scope);
+      return {
+        ...metrics,
+        _id: `${m._id}:${scope}`,
         userId: m._id,
-        subLabel: `${roleLabel('executive')}${m.district ? ` · ${m.district}` : ''}`,
-      })),
-    ];
-
-    if (scope === 'teams') return teamRows;
-    if (scope === 'personal') return personalRows;
-    return [...teamRows, ...personalRows];
+        name: m.name,
+        state: m.state,
+        industry: m.industry,
+        user: m.user,
+        completionPct: metrics.workPct || 0,
+        leadsCount: metrics.periodLeads || 0,
+        conversionsTotal: metrics.converted || 0,
+        subLabel: subLabel(m)
+      };
+    });
   }, [dashData, scope]);
 
   const chartManagers = useMemo(
@@ -88,14 +65,8 @@ const Performance = () => {
     [managers]
   );
 
-  // The table lists all three levels under Personal, and only state managers
-  // have a state-manager profile page.
-  const profilePath = (row) => {
-    const id = row.userId || row._id;
-    return row.user?.role === 'state_manager'
-      ? `/dashboard/state-managers/${id}`
-      : `/dashboard/executives/${id}`;
-  };
+  // Every row is a State Manager, whichever filter is on.
+  const profilePath = (row) => `/dashboard/state-managers/${row.userId || row._id}`;
 
   const periodLabel = periodValue || period;
 

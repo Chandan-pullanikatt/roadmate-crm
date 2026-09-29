@@ -14,7 +14,7 @@ const Performance = () => {
   // showed the current month, whatever the rest of the app was looking at.
   const picker = usePeriod('month');
   const { period, value: periodValue } = picker;
-  const { scope, setScope } = usePerfScope('personal');
+  const { scope, setScope } = usePerfScope('individual');
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'industry-manager', period, periodValue],
@@ -25,41 +25,17 @@ const Performance = () => {
 
   const userInfo = dashData?.user || {};
 
-  // Three ways to read the same window, from the one payload. A district
-  // manager has nobody reporting to them, so their team line and their personal
-  // line would be identical — only this manager gets a team row, and it is the
-  // whole team's total. Row ids stay unique under "All", where the manager
-  // contributes both lines, so the real user id travels as `userId`.
+  // One row per District Manager (this manager's direct reports), as on the
+  // State Manager and Founder pages. A district manager has nobody under them,
+  // so Individual and All show the same figures and Teams is empty.
   const rows = useMemo(() => {
-    const executives = dashData?.executivePerformance || [];
-    const self = dashData?.selfPerformance;
-    const team = dashData?.teamPerformance;
-
-    const teamRows = team ? [{
-      ...team,
-      _id: `${team._id}:team`,
-      userId: team._id,
-      subLabel: `Team · ${roleLabel('industry_manager')} + ${team.teamSize || 0} ${roleLabel('executive')}${(team.teamSize || 0) === 1 ? '' : 's'}`
-    }] : [];
-
-    const personalRows = [
-      ...(self ? [{
-        ...self,
-        _id: `${self._id}:self`,
-        userId: self._id,
-        subLabel: `${roleLabel('industry_manager')} · own work`
-      }] : []),
-      ...executives.map(e => ({
-        ...e,
-        _id: `${e._id}:self`,
-        userId: e._id,
-        subLabel: `${roleLabel('executive')}${e.district ? ` · ${e.district}` : ''}`
-      }))
-    ];
-
-    if (scope === 'teams') return teamRows;
-    if (scope === 'personal') return personalRows;
-    return [...teamRows, ...personalRows];
+    if (scope === 'teams') return [];
+    return (dashData?.executivePerformance || []).map(e => ({
+      ...e,
+      _id: `${e._id}:${scope}`,
+      userId: e._id,
+      subLabel: `${roleLabel('executive')}${e.district ? ` · ${e.district}` : ''}`
+    }));
   }, [dashData, scope]);
 
   // The cards read the rows on screen, so they always describe the same people,
@@ -158,7 +134,9 @@ const Performance = () => {
           fallbackState={userInfo.state}
           sortable
           onRowClick={(row) => navigate(`/dashboard/executives/${row.userId || row._id}`)}
-          emptyMessage="No district managers found"
+          emptyMessage={scope === 'teams'
+            ? `${roleLabel('executive')}s have no team under them — see Individual or All`
+            : 'No district managers found'}
           renderActions={(row) => (
             // Active / On Leave is a live, per-person question, so it is only
             // meaningful on a district manager's own line.

@@ -6,7 +6,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { Button, Tag } from '../../../components/ui';
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
-import { PerfScopeTabs, usePerfScope, scopeHint } from '../../../components/PerformanceScopeTabs';
+import { PerfScopeTabs, usePerfScope, scopeHint, scopedMetrics } from '../../../components/PerformanceScopeTabs';
 import { roleLabel } from '../../../utils/roleLabel';
 
 const Performance = () => {
@@ -29,42 +29,30 @@ const Performance = () => {
 
   const user = dashData?.user || {};
 
-  // Row ids have to stay unique under "All", where a manager contributes both a
-  // team line and a personal one, so the real user id travels as `userId`.
+  // One row per Industry Manager under every filter; the filter picks whether
+  // the row counts their own leads, their district managers' leads, or both.
   const rows = useMemo(() => {
     const managers = dashData?.industryManagers || [];
-    const executives = dashData?.executivePerformance || [];
+    const dms = (n) => `${n} ${roleLabel('executive')}${n === 1 ? '' : 's'}`;
+    const subLabel = {
+      individual: () => `${roleLabel('industry_manager')} · own work`,
+      teams: (m) => `Team · ${dms(m.teamSize || 0)}`,
+      all: (m) => `${roleLabel('industry_manager')} + ${dms(m.teamSize || 0)}`
+    }[scope];
 
-    const teamRows = managers.map(m => ({
-      ...m,
-      _id: `${m._id}:team`,
-      userId: m._id,
-      subLabel: `Team · ${roleLabel('industry_manager')} + ${m.teamSize || 0} ${roleLabel('executive')}${(m.teamSize || 0) === 1 ? '' : 's'}`
-    }));
-
-    const personalRows = [
-      ...managers.map(m => ({
-        ...(m.own || {}),
-        _id: `${m._id}:self`,
+    return managers.map(m => {
+      const metrics = scopedMetrics(m, scope);
+      return {
+        ...metrics,
+        _id: `${m._id}:${scope}`,
         userId: m._id,
         name: m.name,
         state: m.state,
         industry: m.industry,
-        efficiency: m.own?.workPct || 0,
-        subLabel: `${roleLabel('industry_manager')} · own work`
-      })),
-      ...executives.map(e => ({
-        ...e,
-        _id: `${e._id}:self`,
-        userId: e._id,
-        efficiency: e.workPct || 0,
-        subLabel: `${roleLabel('executive')}${e.district ? ` · ${e.district}` : ''}`
-      }))
-    ];
-
-    if (scope === 'teams') return teamRows;
-    if (scope === 'personal') return personalRows;
-    return [...teamRows, ...personalRows];
+        efficiency: metrics.workPct || 0,
+        subLabel: subLabel(m)
+      };
+    });
   }, [dashData, scope]);
 
   // The headline cards read the rows on screen, so they always describe the same
