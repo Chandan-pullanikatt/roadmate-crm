@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import api from '../api/axios';
 import { leadsApi } from '../api/leadsApi';
+import PendingValue from './ui/PendingValue';
 import { LEAD_STATUS_GROUPS, GROUP_ORDER, groupParam } from '../constants/leadStatusGroups';
 
 // Pipeline card colours, keyed by the canonical group label (same as the Founder Overview).
@@ -89,7 +90,7 @@ const LeadPipelinePanel = ({ ownerId, ownerName, className = '' }) => {
   const picker = usePeriod('week');
   const { period, value } = picker;
 
-  const { data: counts } = useQuery({
+  const { data: counts, isError: countsError } = useQuery({
     queryKey: ['leads', 'counts', ownerId, period, value],
     queryFn: () => leadsApi.getCounts({
       owner: ownerId,
@@ -143,7 +144,9 @@ const LeadPipelinePanel = ({ ownerId, ownerName, className = '' }) => {
               onClick={() => openList(s.label)}
               title={`View ${ownerName}'s ${s.label} leads`}
             >
-              <div className="text-[24px] font-bold font-mono mb-1" style={{ color }}>{s.count}</div>
+              <div className="text-[24px] font-bold font-mono mb-1" style={{ color }}>
+                <PendingValue value={s.count} loading={!counts} error={!counts && countsError} className="h-7 w-10" />
+              </div>
               <div className="text-[13px] text-text-muted font-medium mb-4 text-center">{s.label}</div>
               <div className="w-[80%] h-1 rounded-t-md absolute bottom-0" style={{ backgroundColor: color }}></div>
             </div>
@@ -173,7 +176,7 @@ export const LeadMetricsBreakdown = ({ userId }) => {
   const picker = usePeriod('month');
   const { period, value } = picker;
 
-  const { data: counts = {} } = useQuery({
+  const { data: countsData, isError: countsError } = useQuery({
     queryKey: ['stats', 'user-actions', userId, period, value],
     queryFn: () => api.get(`/stats/user/${userId}/actions`, {
       params: { period, value: value || undefined }
@@ -182,6 +185,8 @@ export const LeadMetricsBreakdown = ({ userId }) => {
     placeholderData: keepPreviousData
   });
 
+  const counts = countsData || {};
+  const loading = !countsData && !countsError;
   const total = BREAKDOWN_ROWS.reduce((sum, r) => sum + (counts[r.key] || 0), 0);
 
   return (
@@ -191,7 +196,7 @@ export const LeadMetricsBreakdown = ({ userId }) => {
           <h3 className="text-[18px] font-bold mb-1 flex items-center gap-2">
             <span className="text-teal">📊</span> Lead Metrics Breakdown
           </h3>
-          <div className="text-[14px] text-text-muted">Lead actions {periodLabel(period, value)} · {total} in total</div>
+          <div className="text-[14px] text-text-muted">Lead actions {periodLabel(period, value)} · <PendingValue value={total} loading={loading} error={countsError && !countsData} className="h-3 w-6" /> in total</div>
         </div>
         <PeriodPicker {...picker} />
       </div>
@@ -203,7 +208,9 @@ export const LeadMetricsBreakdown = ({ userId }) => {
             <div key={r.key}>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[13px] font-bold text-text-primary">{r.label}</span>
-                <span className="text-[14px] font-black text-text-muted">{count} ({pct}%)</span>
+                <span className="text-[14px] font-black text-text-muted">
+                  <PendingValue value={`${count} (${pct}%)`} loading={loading} error={countsError && !countsData} className="h-3 w-12" />
+                </span>
               </div>
               <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden border border-border/50">
                 <div className={`h-full ${r.color} transition-all duration-1000`} style={{ width: `${pct}%` }}></div>

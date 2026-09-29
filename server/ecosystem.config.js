@@ -4,9 +4,13 @@ module.exports = {
       name: 'roadmate-server',
       script: 'src/index.js',
 
-      // Cluster mode: one process per CPU core — maximises throughput
-      instances: 'max',
-      exec_mode: 'cluster',
+      // One process only. Every process runs its own node-cron jobs, so N
+      // processes send every reminder N times and double-run the attendance
+      // sweeps; and Socket.io events emitted in one process never reach users
+      // connected to another. Scaling out needs a job lock and a Socket.io
+      // adapter (e.g. Redis) first.
+      instances: 1,
+      exec_mode: 'fork',
 
       // Restart automatically if the process crashes
       autorestart: true,

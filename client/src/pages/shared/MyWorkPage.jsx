@@ -100,7 +100,7 @@ const MyWorkPage = ({
   const closeFeedback = () => setFeedbackModal({ open: false, outcome: null });
 
   // 1. Personal stats (work attendance, personal completions, strategy logs)
-  const { data: dashData, isLoading: dashLoading, isFetching: dashFetching } = useQuery({
+  const { data: dashData, isPending: dashPending, isFetching: dashFetching } = useQuery({
     queryKey: ['dashboard', 'executive'],
     queryFn: () => dashboardApi.getExecutiveDashboard().then(res => res.data),
     staleTime: 5 * 60 * 1000,
@@ -109,7 +109,7 @@ const MyWorkPage = ({
 
   // 2. The work queue: open leads only, ordered meetings -> follow-ups -> new,
   //    each tagged with whether it has already been worked today.
-  const { data: queueData, isFetching: queueFetching } = useQuery({
+  const { data: queueData, isPending: queuePending, isFetching: queueFetching } = useQuery({
     queryKey: ['leads', 'my-work-queue'],
     queryFn: () => leadsApi.getLeadQueue().then(res => res.data),
     staleTime: 0,
@@ -370,7 +370,7 @@ const MyWorkPage = ({
     return 'text-purple';
   };
 
-  if ((dashLoading || !dashData) && (dashFetching || queueFetching)) return <DashboardSkeleton />;
+  if (dashPending || queuePending) return <DashboardSkeleton />;
   const isRefreshing = dashFetching || queueFetching || allLeadsFetching;
 
   const todayStats = dashData?.todayStats || {};

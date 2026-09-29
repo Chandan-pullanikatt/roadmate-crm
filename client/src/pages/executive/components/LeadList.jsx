@@ -207,7 +207,7 @@ const LeadList = () => {
               onClick={() => { setActiveTab(tab.id); setPage(1); }}
               className={`filter-chip-v2 ${activeTab === tab.id ? 'active' : ''}`}
             >
-              {tab.label} ({tab.count})
+              {tab.label} ({counts ? tab.count : '…'})
             </button>
           ))}
         </div>

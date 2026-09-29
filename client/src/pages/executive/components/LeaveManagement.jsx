@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
 import { dashboardApi } from '../../../api/dashboardApi';
-import { Tag, Modal } from '../../../components/ui';
+import { Tag, Modal, PendingValue } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -25,7 +25,7 @@ const LeaveManagement = () => {
   });
 
   // Fetch leave balance
-  const { data: balance } = useQuery({
+  const { data: balance, isError: balanceError } = useQuery({
     queryKey: ['leaves', 'balance', currentUser?._id],
     queryFn: () => leaveApi.getLeaveBalance(currentUser?._id).then(res => res.data),
     enabled: !!currentUser?._id
@@ -98,22 +98,22 @@ const LeaveManagement = () => {
       <div className="stat-grid">
         <div className="stat-card green">
           <div className="stat-label">Paid Leaves Remaining</div>
-          <div className="stat-value">{balance?.paidLeaveBalance || 0}</div>
+          <div className="stat-value"><PendingValue value={balance?.paidLeaveBalance || 0} loading={!balance && !balanceError} error={!balance && balanceError} className="h-8 w-10" /></div>
           <div className="stat-delta delta-up">Earned monthly</div>
         </div>
         <div className="stat-card amber">
           <div className="stat-label">Optional Holidays Left</div>
-          <div className="stat-value">{balance?.optionalHolidayBalance || 0}</div>
+          <div className="stat-value"><PendingValue value={balance?.optionalHolidayBalance || 0} loading={!balance && !balanceError} error={!balance && balanceError} className="h-8 w-10" /></div>
           <div className="stat-delta" style={{color: 'var(--amber)'}}>As per state policy</div>
         </div>
         <div className="stat-card blue">
           <div className="stat-label">Leaves Taken (Month)</div>
-          <div className="stat-value">{balance?.approvedThisMonth || 0}</div>
+          <div className="stat-value"><PendingValue value={balance?.approvedThisMonth || 0} loading={!balance && !balanceError} error={!balance && balanceError} className="h-8 w-10" /></div>
           <div className="stat-delta delta-up">Approved days</div>
         </div>
         <div className="stat-card red">
           <div className="stat-label">Pending Requests</div>
-          <div className="stat-value">{balance?.pendingRequests || 0}</div>
+          <div className="stat-value"><PendingValue value={balance?.pendingRequests || 0} loading={!balance && !balanceError} error={!balance && balanceError} className="h-8 w-10" /></div>
           <div className="stat-delta" style={{color: 'var(--accent)'}}>Awaiting approval</div>
         </div>
       </div>

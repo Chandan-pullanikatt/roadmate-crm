@@ -11,5 +11,6 @@ export { default as LeadFunnel } from './LeadFunnel';
 export { default as TaskStep } from './TaskStep';
 export { default as MemberRow } from './MemberRow';
 export { default as FileUpload } from './FileUpload';
+export { default as PendingValue } from './PendingValue';
 export { default as DashboardSkeleton } from '../skeletons/DashboardSkeleton';
 

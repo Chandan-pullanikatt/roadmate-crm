@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
@@ -53,12 +54,26 @@ const ALLOWED_ORIGINS = [
 
 // Middleware
 app.use(helmet());
+// Gzip API responses. Dashboard and lead-list payloads are large JSON that
+// shrinks ~80%, which is most of the wait on a slow mobile connection.
+app.use(compression());
 app.use('/api/', apiLimiter);
 app.use(cors({ 
   origin: ALLOWED_ORIGINS,
   credentials: true 
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// Flag any API call slower than a second, so slow dashboard queries show up in
+// the logs by name instead of as a vague "the app is laggy".
+app.use((req, res, next) => {
+  const started = process.hrtime.bigint();
+  res.on('finish', () => {
+    const ms = Number(process.hrtime.bigint() - started) / 1e6;
+    if (ms > 1000) console.warn(`[slow] ${req.method} ${req.originalUrl} ${res.statusCode} ${Math.round(ms)}ms`);
+  });
+  next();
+});
 app.use(express.json({ limit: '1mb' }));
 
 // Socket.io Setup

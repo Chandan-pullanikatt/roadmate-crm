@@ -51,7 +51,7 @@ const Targets = () => {
   const label = periodLabel(period, periodKey);
   const periodWord = period === 'weekly' ? 'Weekly' : 'Monthly';
 
-  const { data: teamTargets = [] } = useQuery({
+  const { data: teamTargets = [], isPending: targetsPending } = useQuery({
     queryKey: ['targets', 'team', period, periodKey],
     queryFn: () => targetsApi.getTeamTargets({ period, periodKey }).then(r => r.data),
     staleTime: 3 * 60 * 1000,
@@ -214,10 +214,14 @@ Their recorded meetings, blockings and conversions are not affected.`
       <div className="card">
         <div className="card-header border-b border-border bg-surface2/10">
           <div className="section-title text-sm">Team Progress — {label}</div>
-          <span className="text-[13px] text-text-muted">{teamTargets.length} targets set</span>
+          <span className="text-[13px] text-text-muted">{targetsPending ? 'Loading…' : `${teamTargets.length} targets set`}</span>
         </div>
 
-        {teamTargets.length === 0 ? (
+        {targetsPending ? (
+          <div className="p-6 space-y-3">
+            {[0, 1, 2].map(i => <div key={i} className="h-10 rounded-lg animate-pulse bg-border/40" />)}
+          </div>
+        ) : teamTargets.length === 0 ? (
           <div className="p-16 text-center text-text-muted italic">
             No {period} targets set for {label}{isFounder ? ' by anyone' : ' in your team'}. Use the form above to assign.
           </div>
