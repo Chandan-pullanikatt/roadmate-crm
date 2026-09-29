@@ -8,7 +8,9 @@ import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Tag } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
+import { PerfScopeTabs, usePerfScope, scopeHint } from '../../../components/PerformanceScopeTabs';
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
+import { roleLabel } from '../../../utils/roleLabel';
 
 const PERIOD_LABEL = { today: 'Today', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 
@@ -16,6 +18,7 @@ const Performance = () => {
   const navigate = useNavigate();
   const picker = usePeriod('month');
   const { period, value: periodValue } = picker;
+  const { scope, setScope } = usePerfScope('teams');
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard', 'founder', period, periodValue],
     queryFn: () => dashboardApi.getFounderDashboard({ period, value: periodValue || undefined }).then(res => res.data),
@@ -24,19 +27,77 @@ const Performance = () => {
   });
 
   const stats = dashData?.stats || {};
-  // The comparison chart sorts on its own aliases; the table below reads the
-  // shared performance fields straight off the API rows.
-  const managers = useMemo(() => (dashData?.stateManagersPerformance || []).map(m => ({
-    ...m,
-    completionPct: m.workPct || 0,
-    leadsCount: m.periodLeads || 0,
-    conversionsTotal: m.converted || 0,
-  })), [dashData]);
+
+  // Whose numbers the leaderboard reports.
+  //
+  //   Teams     each State Manager rolled up with their whole office — the
+  //             state managers, industry managers and district managers under
+  //             them. These are the teams that report to the founder.
+  //   Personal  every manager's own work, counted on its own, at all three
+  //             levels. A district manager is a leaf, so their line is the same
+  //             either way and appears once.
+  //   All       both, distinguished by the sub-label under the name.
+  //
+  // Row ids stay unique under All, where a manager contributes two lines, so
+  // the real user id travels as `userId`.
+  const managers = useMemo(() => {
+    const stateManagers = dashData?.stateManagersPerformance || [];
+    const industryManagers = dashData?.industryManagersPerformance || [];
+    const districtManagers = dashData?.executivesPerformance || [];
+
+    const decorate = (row) => ({
+      ...row,
+      completionPct: row.workPct || 0,
+      leadsCount: row.periodLeads || 0,
+      conversionsTotal: row.converted || 0,
+    });
+
+    const teamRows = stateManagers.map(m => decorate({
+      ...m,
+      _id: `${m._id}:team`,
+      userId: m._id,
+      subLabel: `Team · ${roleLabel('state_manager')} + ${m.teamSize || 0} reporting`,
+    }));
+
+    const personalOf = (row, role) => decorate({
+      ...row,
+      ...(row.own || {}),
+      _id: `${row._id}:self`,
+      userId: row._id,
+      subLabel: `${roleLabel(role)} · own work`,
+    });
+
+    const personalRows = [
+      ...stateManagers.map(m => personalOf(m, 'state_manager')),
+      ...industryManagers.map(m => personalOf(m, 'industry_manager')),
+      ...districtManagers.map(m => decorate({
+        ...m,
+        _id: `${m._id}:self`,
+        userId: m._id,
+        subLabel: `${roleLabel('executive')}${m.district ? ` · ${m.district}` : ''}`,
+      })),
+    ];
+
+    if (scope === 'teams') return teamRows;
+    if (scope === 'personal') return personalRows;
+    return [...teamRows, ...personalRows];
+  }, [dashData, scope]);
 
   const chartManagers = useMemo(
     () => [...managers].sort((a, b) => b.completionPct - a.completionPct),
     [managers]
   );
+
+  // The table lists all three levels under Personal, and only state managers
+  // have a state-manager profile page.
+  const profilePath = (row) => {
+    const id = row.userId || row._id;
+    return row.user?.role === 'state_manager'
+      ? `/dashboard/state-managers/${id}`
+      : `/dashboard/executives/${id}`;
+  };
+
+  const periodLabel = period === 'today' ? 'today' : periodValue;
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -102,14 +163,17 @@ const Performance = () => {
       <div className="flex flex-wrap justify-between items-end gap-3 mb-4">
         <div>
           <div className="text-[15px] font-bold text-text-primary">State Office Leaderboard</div>
-          <div className="text-[14px] text-text-muted mt-0.5">Work %, Leads, Direct &amp; Virtual Meetings, Blockings and Revenue · click a column header to sort</div>
+          <div className="text-[14px] text-text-muted mt-0.5">
+            Work %, Leads, Calls, Direct &amp; Virtual Meetings, Blockings and Revenue for {periodLabel} {"·"} {scopeHint(scope)} {"·"} click a column header to sort, a row to drill in
+          </div>
         </div>
+        <PerfScopeTabs scope={scope} setScope={setScope} />
       </div>
 
       <ManagerPerformanceTable
         rows={managers}
         sortable
-        onRowClick={(m) => navigate(`/dashboard/state-managers/${m._id}`)}
+        onRowClick={(m) => navigate(profilePath(m))}
         emptyMessage="No performance data available"
         renderActions={(m) => (
           <>
@@ -119,7 +183,7 @@ const Performance = () => {
             />
             <button
               className="text-[11px] font-bold text-blue underline underline-offset-2"
-              onClick={() => navigate(`/dashboard/state-managers/${m._id}`)}
+              onClick={() => navigate(profilePath(m))}
             >
               View Details
             </button>

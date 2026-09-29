@@ -2194,28 +2194,42 @@ router.get('/founder', async (req, res) => {
 
         const getPerformanceData = (role) => allPerformanceUsers
             .filter(u => u.role === role)
-            .map(u => ({
-                ...(role === 'executive'
-                    ? (perfMetrics.get(String(u._id)) || EMPTY_METRICS)
-                    : rollupMetrics(perfMetrics, u._id, descendantsOf(u._id))),
-                _id: u._id,
-                name: u.name,
-                state: u.state,
-                industry: u.industry,
-                district: u.district,
-                user: u
-            }));
+            .map(u => {
+                const team = descendantsOf(u._id);
+                return {
+                    ...(role === 'executive'
+                        ? (perfMetrics.get(String(u._id)) || EMPTY_METRICS)
+                        : rollupMetrics(perfMetrics, u._id, team)),
+                    _id: u._id,
+                    name: u.name,
+                    state: u.state,
+                    industry: u.industry,
+                    district: u.district,
+                    // This person's own figures, unrolled. The Performance page's
+                    // Teams view reports the rollup above, its Personal view
+                    // reports this; sending both keeps the two views on one
+                    // request. A district manager is a leaf, so the two agree.
+                    own: perfMetrics.get(String(u._id)) || EMPTY_METRICS,
+                    teamSize: team.length,
+                    user: u
+                };
+            });
 
         const industryManagersPerformance = getPerformanceData('industry_manager');
         const executivesPerformance = getPerformanceData('executive');
         const stateManagersPerformance = getPerformanceData('state_manager');
 
-        // Founder Performance cards: average work % of everyone who logged attendance
-        // in the period, and the share of the period's leads that reached a meeting.
-        const loggedWorkPcts = [...perfMetrics.values()].map(m => m.workPct).filter(v => v > 0);
-        stats.attendancePct = loggedWorkPcts.length
-            ? Math.round(loggedWorkPcts.reduce((sum, v) => sum + v, 0) / loggedWorkPcts.length)
-            : 0;
+        // Founder Performance cards: the platform's work % and the share of the
+        // period's leads that reached a meeting.
+        //
+        // The work % is one average over every day everybody worked, from the one
+        // definition (workPercentService). It used to average the per-person
+        // averages and drop anyone sitting at 0%, which both weighed a person
+        // with three recorded days the same as one with sixty and quietly
+        // deleted the days that pull the figure down.
+        stats.attendancePct = Math.round(
+            rollupWorkPct(await getWorkPct(allPerfUserIds, periodStart, periodEnd), allPerfUserIds)
+        );
         const meetingLeadIds = await LeadActivity.distinct('lead', {
             action: { $in: ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'] },
             createdAt: { $gte: periodStart, $lte: periodEnd }

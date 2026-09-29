@@ -24,6 +24,11 @@ const statsRouter = require('./routes/stats');
 const initCronJobs = require('./scripts/cronJobs');
 
 const app = express();
+// Exactly one proxy sits in front of the app (Nginx on the server, Render's
+// router before that). Trusting it makes req.ip the real client address;
+// without it every request looks like 127.0.0.1 and the rate limiter below
+// throttles all users as if they were one.
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // Connect to Database
