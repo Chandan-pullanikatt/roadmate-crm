@@ -241,9 +241,16 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
 
   // After a meeting, scheduling one is not an outcome of it — and neither the
   // call chips (connected / RNR) apply. Everything else stays as it is.
+  // Call Done already says the call connected, so neither call chip belongs in its
+  // outcome list: Connected would only restate the button that opened the form, and
+  // RNR contradicts it -- RNR is its own button in My Work with its own
+  // confirmation. Same split the Industry Manager modal makes. What the form asks
+  // for is what happened next.
   const availableOutcomes = isMeetingDone
     ? OUTCOMES.filter(o => !['connected', 'rnr', 'schedule_virtual', 'direct_meeting'].includes(o.id))
-    : OUTCOMES;
+    : initialOutcome === 'connected'
+      ? OUTCOMES.filter(o => !['connected', 'rnr'].includes(o.id))
+      : OUTCOMES;
 
   // In Meeting Done mode nothing else is asked until the kind is chosen.
   const showOutcomeSection = !isMeetingDone || !!conductedType;
@@ -252,6 +259,64 @@ const ExecCallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, o
   const needsStrategy = selectedOutcome === 'converted' || selectedOutcome === 'not_interested';
   const inp = 'w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:border-orange focus:ring-2 focus:ring-orange/10 outline-none transition-all bg-white';
   const lbl = 'block text-xs font-bold text-text-secondary mb-1.5';
+
+  // RNR is a one-click confirmation, not a feedback form: there is no outcome to
+  // choose, no priority to set and nothing to schedule -- the server re-queues the
+  // lead itself. Same box the Industry Manager gets.
+  if (initialOutcome === 'rnr' && isOpen) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="Ring Not Responded"
+        subtitle="Confirm RNR status"
+        className="max-w-md"
+      >
+        <div className="space-y-5">
+          {/* Lead context */}
+          <div className="bg-surface2 px-4 py-3 rounded-xl text-sm">
+            <strong className="text-text-primary">{lead?.company || lead?.name}</strong>
+            <span className="text-text-muted"> · {lead?.name}{lead?.district ? ` · ${lead.district}` : ''}</span>
+            {lead?.rnrCount > 0 && <span className="ml-2 text-[10px] font-bold text-amber bg-amber-light px-2 py-0.5 rounded-full">RNR ×{lead.rnrCount}</span>}
+          </div>
+
+          <div className="p-4 bg-red/5 border border-red/20 rounded-xl">
+            <p className="text-sm text-text-primary leading-relaxed">
+              📵 Mark this lead as <strong>RNR (Ring Not Responded)</strong>?
+            </p>
+            <p className="text-[14px] text-text-muted mt-2">
+              The call will be logged, and the lead will be automatically re-queued for retry.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+            <button
+              onClick={handleClose}
+              className="px-5 py-2.5 rounded-xl border border-border text-[16px] font-bold text-text-secondary hover:bg-surface2 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await transitionMutation.mutateAsync({ action: 'mark_rnr', note: '', priority: null });
+                  addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
+                  handleClose();
+                  if (onSuccess) onSuccess();
+                } catch (err) {
+                  addToast('Failed to save: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), 'error');
+                }
+              }}
+              disabled={transitionMutation.isPending}
+              className="px-6 py-2.5 rounded-xl bg-red text-white text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-red/20 disabled:opacity-50"
+            >
+              {transitionMutation.isPending ? 'Submitting…' : 'Confirm RNR'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
