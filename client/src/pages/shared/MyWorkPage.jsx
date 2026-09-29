@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { scheduleField, formatWhen } from '../../utils/leadSchedule';
 import { callMeta } from '../../components/modals/LeadHistoryModal';
+import EditLeadDetailsModal from '../../components/modals/EditLeadDetailsModal';
 
 const PRIORITY_DOT = { high: 'bg-red', medium: 'bg-amber', low: 'bg-blue' };
 const PRIORITY_STYLE = {
@@ -84,6 +85,7 @@ const MyWorkPage = ({
   const [taskFilter, setTaskFilter] = useState('All');
   const [summaryModal, setSummaryModal] = useState(null);
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
+  const [editDetailsLead, setEditDetailsLead] = useState(null);
   const [allocateOpen, setAllocateOpen] = useState(false);
   const [allocateUserId, setAllocateUserId] = useState('');
   const [strategyNote, setStrategyNote] = useState('');
@@ -620,13 +622,29 @@ const MyWorkPage = ({
                 <div className="animate-in slide-in-from-bottom-2 duration-300">
                   {/* Lead header */}
                   <div className="mb-5">
-                    <button
-                      onClick={() => setLeadDetailOpen(true)}
-                      className="text-xl font-bold text-text-primary tracking-tight hover:text-purple transition-colors text-left group"
-                    >
-                      {activeLead.company || activeLead.name}
-                      <span className="ml-2 text-[13px] font-semibold text-text-muted opacity-0 group-hover:opacity-60 transition-opacity">↗ Details</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setLeadDetailOpen(true)}
+                        className="text-xl font-bold text-text-primary tracking-tight hover:text-purple transition-colors text-left group"
+                      >
+                        {activeLead.company || activeLead.name}
+                        <span className="ml-2 text-[13px] font-semibold text-text-muted opacity-0 group-hover:opacity-60 transition-opacity">↗ Details</span>
+                      </button>
+                      {/* Quick edit: the name is often only learned on the call, so it
+                          can be filled in here instead of via Lead Management. */}
+                      <button
+                        type="button"
+                        onClick={() => setEditDetailsLead(activeLead)}
+                        title="Edit lead details"
+                        aria-label="Edit lead details"
+                        className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-purple hover:bg-purple/5 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-[14px] text-text-muted">Contact: <span className="font-semibold text-text-primary">{activeLead.name}</span></span>
                       <span className="w-1 h-1 rounded-full bg-border2" />
@@ -1306,6 +1324,14 @@ const MyWorkPage = ({
           </div>
         </Modal>
       )}
+
+      {/* Edit Lead Details — held on the lead as it was when opened, so a queue
+          refetch mid-edit does not reset the form. Saving refreshes ['leads']. */}
+      <EditLeadDetailsModal
+        isOpen={!!editDetailsLead}
+        onClose={() => setEditDetailsLead(null)}
+        lead={editDetailsLead}
+      />
 
       {/* Lead Detail Modal */}
       {activeLead && leadDetailOpen && (

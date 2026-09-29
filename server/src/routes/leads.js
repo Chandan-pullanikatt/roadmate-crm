@@ -524,7 +524,9 @@ const CONTACT_LABELS = {
   name: 'Name', company: 'Company', phone: 'Phone', email: 'Email',
   country: 'Country', state: 'State', district: 'District', regionType: 'Region type', region: 'Region'
 };
-const DETAIL_EDITOR_ROLES = ['founder', 'state_manager', 'industry_manager'];
+// The District Manager ('executive') is included so a name learned on the call can
+// be filled in straight from My Work; canAccessLead still limits it to their scope.
+const DETAIL_EDITOR_ROLES = ['founder', 'state_manager', 'industry_manager', 'executive'];
 
 /**
  * PATCH /api/leads/:id/details - Edit a lead's contact details.
