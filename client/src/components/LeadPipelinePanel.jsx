@@ -57,7 +57,21 @@ export const usePeriod = (initial) => {
   return { period, value, setPeriod, setValue };
 };
 
-export const PeriodPicker = ({ period, value, setPeriod, setValue }) => (
+const SELECT_CLASS = 'bg-white border border-border rounded-xl px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-blue shadow-sm capitalize';
+
+// `compact` swaps the tab strip for a dropdown, for cards too narrow to hold it.
+export const PeriodPicker = ({ period, value, setPeriod, setValue, compact = false }) => compact ? (
+  <div className="flex items-center gap-2">
+    <select value={period} onChange={(e) => setPeriod(e.target.value)} className={`${SELECT_CLASS} flex-1 min-w-0`}>
+      {PERIOD_TABS.map(t => <option key={t} value={t}>{t}</option>)}
+    </select>
+    {!isDayPeriod(period) && (
+      <select value={value} onChange={(e) => setValue(e.target.value)} className={`${SELECT_CLASS} flex-1 min-w-0`}>
+        {periodOptions(period).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    )}
+  </div>
+) : (
   <div className="flex flex-wrap items-center gap-2">
     <div className="flex bg-surface2 p-1 rounded-xl border border-border">
       {PERIOD_TABS.map(t => (

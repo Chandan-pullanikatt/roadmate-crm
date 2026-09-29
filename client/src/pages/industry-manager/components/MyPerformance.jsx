@@ -1,12 +1,12 @@
 import React from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import api from '../../../api/axios';
 import { leadsApi } from '../../../api/leadsApi';
 import { useAuth } from '../../../context/AuthContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardSkeleton } from '../../../components/ui';
 import { usePeriod, PeriodPicker } from '../../../components/LeadPipelinePanel';
 import { TargetSection } from '../../executive/components/Performance';
+import ActivityProgress from '../../../components/ActivityProgress';
 
 const STATUS_COLORS = {
   new: '#3B82F6',
@@ -41,7 +41,6 @@ const periodText = (period, value) => value || (period === 'yesterday' ? 'Yester
 const MyPerformance = () => {
   const { user } = useAuth();
   const breakdownPicker = usePeriod('month');
-  const progressPicker = usePeriod('month');
 
   const { data: countsData, isLoading: countsLoading } = useQuery({
     queryKey: ['leads', 'counts', 'self', breakdownPicker.period, breakdownPicker.value],
@@ -53,16 +52,8 @@ const MyPerformance = () => {
     placeholderData: keepPreviousData,
   });
 
-  const { data: actions = {}, isLoading: actionsLoading } = useQuery({
-    queryKey: ['stats', 'user-actions', user?._id, progressPicker.period, progressPicker.value],
-    queryFn: () => api.get(`/stats/user/${user._id}/actions`, {
-      params: { period: progressPicker.period, value: progressPicker.value || undefined }
-    }).then(res => res.data),
-    enabled: !!user?._id,
-    placeholderData: keepPreviousData,
-  });
 
-  if (countsLoading || actionsLoading) return <DashboardSkeleton />;
+  if (countsLoading) return <DashboardSkeleton />;
 
   // `total` is a sum, not a status -- keep it out of the pie.
   const { total: totalLeads = 0, ...statusCounts } = countsData || {};
@@ -73,9 +64,6 @@ const MyPerformance = () => {
       value: val,
       color: STATUS_COLORS[key] || '#94A3B8',
     }));
-
-  const calls = actions.calls || 0;
-  const conversionRate = calls > 0 ? Math.round(((actions.conversions || 0) / calls) * 100) : 0;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
@@ -153,59 +141,11 @@ const MyPerformance = () => {
           )}
         </div>
 
-        {/* Activity Progress */}
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-6 flex flex-col">
-          <div className="flex flex-col gap-3 mb-6">
-            <div>
-              <h3 className="text-[16px] font-bold text-text-primary mb-1 flex items-center gap-2">
-                <span className="text-green">🎯</span> Activity Progress
-              </h3>
-              <p className="text-[14px] text-text-muted">
-                Your lead actions · {periodText(progressPicker.period, progressPicker.value)}
-              </p>
-            </div>
-            <PeriodPicker {...progressPicker} />
-          </div>
-
-          <div className="space-y-5 flex-1">
-            <ProgressMetric label="Calls" value={calls} target={50} color="#8B5CF6" />
-            <ProgressMetric label="Meetings" value={actions.meetings || 0} target={20} color="#3B82F6" />
-            <ProgressMetric label="Converted" value={actions.conversions || 0} target={10} color="#10B981" />
-            <ProgressMetric label="Follow-Ups Set" value={actions.followups || 0} target={30} color="#F59E0B" />
-          </div>
-
-          <div className="mt-auto pt-6 border-t border-border">
-            <div className="flex justify-between items-end mb-2">
-              <span className="text-[12px] font-bold text-text-muted uppercase tracking-wider">Call-to-Conversion Rate</span>
-              <span className="text-sm font-black text-purple">{conversionRate}%</span>
-            </div>
-            <div className="h-2.5 bg-surface2 rounded-full overflow-hidden border border-border/50">
-              <div
-                className="h-full bg-gradient-to-r from-purple to-blue transition-all duration-1000 rounded-full"
-                style={{ width: `${Math.min(conversionRate, 100)}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
+        {/* Activity Progress -- the Team Performance Leaderboard's columns */}
+        <ActivityProgress userId={user?._id} />
       </div>
 
       <TargetSection filterable />
-    </div>
-  );
-};
-
-// Helper: Progress bar with label
-const ProgressMetric = ({ label, value, target, color }) => {
-  const pct = target > 0 ? Math.min(Math.round((value / target) * 100), 100) : 0;
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-[12px] font-bold text-text-primary">{label}</span>
-        <span className="text-[11px] font-black" style={{ color }}>{value} / {target}</span>
-      </div>
-      <div className="h-2 bg-surface2 rounded-full overflow-hidden border border-border/50">
-        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, backgroundColor: color }}></div>
-      </div>
     </div>
   );
 };

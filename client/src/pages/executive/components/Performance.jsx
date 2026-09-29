@@ -4,6 +4,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { targetsApi } from '../../../api/targetsApi';
 import { TARGET_METRICS, currentPeriodKey, periodLabel, shiftWeek } from '../../../utils/targetPeriod';
 import { useAuth } from '../../../hooks/useAuth';
+import { ACTIVITY_METRICS, useUserPerformance } from '../../../components/ActivityProgress';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -48,6 +49,10 @@ const Performance = () => {
     queryKey: ['performance', 'executive', timeFilter, periodValue],
     queryFn: () => dashboardApi.getPerformance({ month, year, period: timeFilter.toLowerCase(), value: periodValue }).then(res => res.data)
   });
+
+  // The top row is the Team Performance Leaderboard's activity columns, from the
+  // same performanceService row a manager's table shows for this DM.
+  const { data: activity = {} } = useUserPerformance(user?._id, timeFilter.toLowerCase(), periodValue);
 
   const metrics = data?.metrics || {};
   const statusBreakdown = data?.statusBreakdown || {};
@@ -104,10 +109,9 @@ const Performance = () => {
 
       {/* 2. Top Metric Rows */}
       <div className="grid grid-cols-4 gap-5 mb-5">
-        <MetricCard title="Total Calls Made" value={metrics.totalCalls?.value || 0} growth={metrics.totalCalls?.growth} />
-        <MetricCard title="Conversions" value={metrics.conversions?.value || 0} growth={metrics.conversions?.growth} />
-        <MetricCard title="Revenue Generated" value={metrics.revenue?.value || 0} unit="L" growth={metrics.revenue?.growth} isCurrency={true} />
-        <MetricCard title="Meetings Attended" value={metrics.meetings?.value || 0} growth={metrics.meetings?.growth} />
+        {ACTIVITY_METRICS.map(({ key, label }) => (
+          <MetricCard key={key} title={label} value={activity[key] || 0} />
+        ))}
       </div>
 
       <div className="grid grid-cols-4 gap-5 mb-8">

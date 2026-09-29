@@ -5,7 +5,8 @@ const User = require('../models/User');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Attendance = require('../models/Attendance');
-const { createdAtRange } = require('../utils/dateRange');
+const { createdAtRange, getDateRange } = require('../utils/dateRange');
+const { getPerformanceMetrics, EMPTY_METRICS } = require('../services/performanceService');
 const { sumRevenue } = require('../services/revenueService');
 const { isCallAction } = require('../constants/workActions');
 const { getWorkPct, NON_WORKING_STATUSES } = require('../services/workPercentService');
@@ -150,6 +151,24 @@ router.get('/user/:id/actions', async (req, res) => {
       createdAt: createdAtRange(period, value)
     }).select('action metadata lead').populate('lead', 'status').lean();
     res.json(countActions(activities));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * GET /api/stats/user/:id/performance?period=&value=
+ * One user's own row of the Team Performance Leaderboard — Work %, Leads, Calls,
+ * Direct/Virtual Meetings, Blockings, Revenue — from performanceService, so a
+ * person's My Performance card and their line in a manager's table can never
+ * disagree.
+ */
+router.get('/user/:id/performance', async (req, res) => {
+  try {
+    const { period = 'month', value } = req.query;
+    const { start, end } = getDateRange(period, value);
+    const metrics = await getPerformanceMetrics([req.params.id], start, end);
+    res.json(metrics.get(String(req.params.id)) || EMPTY_METRICS);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
