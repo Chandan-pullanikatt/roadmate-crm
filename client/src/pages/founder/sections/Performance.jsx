@@ -12,7 +12,7 @@ import { PerfScopeTabs, usePerfScope, scopeHint } from '../../../components/Perf
 import ManagerPerformanceTable from '../../../components/ManagerPerformanceTable';
 import { roleLabel } from '../../../utils/roleLabel';
 
-const PERIOD_LABEL = { today: 'Today', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
+const PERIOD_LABEL = { yesterday: 'Yesterday', today: 'Today', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 
 const Performance = () => {
   const navigate = useNavigate();
@@ -97,7 +97,7 @@ const Performance = () => {
       : `/dashboard/executives/${id}`;
   };
 
-  const periodLabel = period === 'today' ? 'today' : periodValue;
+  const periodLabel = periodValue || period;
 
   if (isLoading) return <DashboardSkeleton />;
 

@@ -69,7 +69,7 @@ const StateManagers = () => {
     .filter(u => matchesActiveFilter(u, showInactive))
     .filter(u => filterState === 'All' || u.state === filterState)
     .map(u => ({ ...EMPTY_PERF, ...perfById.get(String(u._id)), _id: u._id, name: u.name, state: u.state, industry: u.industry, user: u }));
-  const periodText = period === 'today' ? 'Today' : periodValue;
+  const periodText = periodValue || (period === 'yesterday' ? 'Yesterday' : 'Today');
 
   const handleExport = () => {
     exportToCSV(rows.map(m => ({

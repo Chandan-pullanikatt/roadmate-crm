@@ -78,7 +78,7 @@ const Performance = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-surface border border-border rounded-lg p-1">
-            {['Week', 'Month', 'Quarter', 'Year'].map(f => (
+            {['Yesterday', 'Week', 'Month', 'Quarter', 'Year'].map(f => (
               <button
                 key={f}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${timeFilter === f ? 'bg-[#FFFBEB] text-[#92400E] shadow-sm' : 'text-muted hover:bg-surface2'}`}
@@ -88,15 +88,17 @@ const Performance = () => {
               </button>
             ))}
           </div>
-          <select
-            value={periodValue}
-            onChange={(e) => setPeriodValue(e.target.value)}
-            className="bg-white border border-border rounded-xl px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-orange shadow-sm"
-          >
-            {getOptions(timeFilter).map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
+          {timeFilter !== 'Yesterday' && (
+            <select
+              value={periodValue}
+              onChange={(e) => setPeriodValue(e.target.value)}
+              className="bg-white border border-border rounded-xl px-3 py-1.5 text-[13px] font-bold text-text-secondary outline-none focus:border-orange shadow-sm"
+            >
+              {getOptions(timeFilter).map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

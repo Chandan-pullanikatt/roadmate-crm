@@ -18,13 +18,17 @@ const Attendance = () => {
 
   // Tab label -> what the /attendance/team endpoint expects. Anything not a
   // named period falls back to a single day.
-  const PERIOD_TABS = ['Today', 'This Week', 'This Month', 'This Year'];
+  const PERIOD_TABS = ['Yesterday', 'Today', 'This Week', 'This Month', 'This Year'];
   const PERIOD_PARAMS = {
     'This Week': { period: 'week' },
     'This Month': { period: 'month' },
     'This Year': { period: 'year' },
   };
-  const periodParam = PERIOD_PARAMS[period] || { date: new Date().toISOString().split('T')[0] };
+  // Local calendar date, not toISOString(): in IST that returns the previous UTC
+  // day until 5:30 am, which would make Yesterday two days back.
+  const localDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const dayParam = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return { date: localDate(d) }; };
+  const periodParam = PERIOD_PARAMS[period] || dayParam(period === 'Yesterday' ? -1 : 0);
 
   const { data: attendanceRecords, isLoading } = useQuery({
     queryKey: ['attendance', 'state-team', period],

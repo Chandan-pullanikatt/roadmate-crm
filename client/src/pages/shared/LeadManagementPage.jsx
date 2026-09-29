@@ -21,6 +21,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 const periodLabelOf = (period, value) => {
   if (!period) return null;
   if (period === 'today') return 'Today';
+  if (period === 'yesterday') return 'Yesterday';
   return value || period;
 };
 

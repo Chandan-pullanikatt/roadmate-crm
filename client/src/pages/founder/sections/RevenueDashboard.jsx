@@ -21,7 +21,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 // 1-7, 8-14, 15-21, 22-28, 29-end.
 const weekOfMonth = (date) => Math.min(5, Math.ceil(date.getDate() / 7));
 
-// The value each period starts on: the one containing today. 'today' takes none.
+// The value each period starts on: the one containing today. 'today' and 'yesterday' take none.
 const currentValueFor = (period) => {
   const now = new Date();
   if (period === 'week') return `Week ${weekOfMonth(now)}`;
@@ -41,7 +41,7 @@ const optionsFor = (period) => {
   return [];
 };
 
-const PREVIOUS_LABEL = { today: 'yesterday', week: 'previous week', month: 'previous month', quarter: 'previous quarter', year: 'previous year' };
+const PREVIOUS_LABEL = { yesterday: 'the day before', today: 'yesterday', week: 'previous week', month: 'previous month', quarter: 'previous quarter', year: 'previous year' };
 
 const RevenueDashboard = () => {
   const navigate = useNavigate();
@@ -96,7 +96,7 @@ const RevenueDashboard = () => {
         
         <div className="flex items-center gap-3 bg-surface2 p-1.5 rounded-2xl border border-border">
           <div className="flex gap-1">
-            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+            {['yesterday', 'today', 'week', 'month', 'quarter', 'year'].map(t => (
               <button
                 key={t}
                 onClick={() => {

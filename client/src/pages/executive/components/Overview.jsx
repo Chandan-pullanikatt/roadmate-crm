@@ -173,7 +173,7 @@ const Overview = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+            {['yesterday', 'today', 'week', 'month', 'quarter', 'year'].map(t => (
               <button
                 key={t}
                 onClick={() => handleTabChange(t)}
@@ -184,7 +184,7 @@ const Overview = () => {
             ))}
           </div>
 
-          {summaryTab !== 'today' && (
+          {summaryTab !== 'today' && summaryTab !== 'yesterday' && (
             <select
               value={summaryPeriodValue}
               onChange={(e) => setSummaryPeriodValue(e.target.value)}

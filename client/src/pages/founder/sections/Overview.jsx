@@ -117,7 +117,7 @@ const Overview = () => {
   };
 
   const getDropdownOptions = () => {
-    if (summaryTab === 'today') return [];
+    if (summaryTab === 'today' || summaryTab === 'yesterday') return [];
     if (summaryTab === 'week') return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
     if (summaryTab === 'month') return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     if (summaryTab === 'quarter') return ['Q1', 'Q2', 'Q3', 'Q4'];
@@ -252,7 +252,7 @@ const Overview = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-surface2 p-1 rounded-xl border border-border">
-            {['today', 'week', 'month', 'quarter', 'year'].map(t => (
+            {['yesterday', 'today', 'week', 'month', 'quarter', 'year'].map(t => (
               <button
                 key={t}
                 onClick={() => handleTabChange(t)}
@@ -263,7 +263,7 @@ const Overview = () => {
             ))}
           </div>
 
-          {summaryTab !== 'today' && (
+          {summaryTab !== 'today' && summaryTab !== 'yesterday' && (
             <select
               value={summaryPeriodValue}
               onChange={(e) => setSummaryPeriodValue(e.target.value)}

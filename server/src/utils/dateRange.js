@@ -17,6 +17,7 @@ const QUARTERS = { Q1: 0, Q2: 3, Q3: 6, Q4: 9 };
 
 const normalizeType = (t) => {
   if (t === 'day' || t === 'daily' || t === 'today') return 'today';
+  if (t === 'yesterday') return 'yesterday';
   if (t === 'week' || t === 'weekly') return 'weekly';
   if (t === 'month' || t === 'monthly') return 'monthly';
   if (t === 'quarter' || t === 'quarterly') return 'quarter';
@@ -33,6 +34,12 @@ const getDateRange = (type, value) => {
 
   if (period === 'today') {
     start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+  } else if (period === 'yesterday') {
+    // For the morning review meeting: the whole of the previous calendar day.
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    end = new Date(start);
     end.setHours(23, 59, 59, 999);
   } else if (period === 'weekly') {
     if (value && String(value).startsWith('Week ')) {

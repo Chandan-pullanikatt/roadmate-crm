@@ -36,7 +36,7 @@ const STATUS_LABELS = {
   full_amount_received: 'Full Amount Received',
 };
 
-const periodText = (period, value) => (period === 'today' ? 'Today' : value);
+const periodText = (period, value) => value || (period === 'yesterday' ? 'Yesterday' : 'Today');
 
 const MyPerformance = () => {
   const { user } = useAuth();

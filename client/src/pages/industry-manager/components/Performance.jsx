@@ -80,7 +80,7 @@ const Performance = () => {
     return `₹${val}`;
   };
 
-  const periodLabel = period === 'today' ? 'today' : periodValue;
+  const periodLabel = periodValue || period;
 
   if (isLoading && !dashData) return <DashboardSkeleton />;
 

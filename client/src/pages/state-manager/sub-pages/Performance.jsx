@@ -75,7 +75,7 @@ const Performance = () => {
   const topConv = leader('converted');
   const topEfficiency = leader('efficiency');
 
-  const periodLabel = period === 'today' ? 'today' : periodValue;
+  const periodLabel = periodValue || period;
 
   if (isLoading && !dashData) return <DashboardSkeleton />;
 

@@ -20,6 +20,7 @@ const FILTER_PERIODS = [
   { key: 'month',   label: 'Month'   },
   { key: 'week',    label: 'Week'    },
   { key: 'day',     label: 'Day'     },
+  { key: 'yesterday', label: 'Yesterday' },
 ];
 
 const PERIOD_SUB_OPTIONS = {
@@ -144,6 +145,8 @@ const Overview = () => {
 
   const convDelta = (stats.convertedThisMonth ?? 0) - (stats.convertedLastMonth ?? 0);
   const periodLabel = FILTER_PERIODS.find(p => p.key === period)?.label || 'Period';
+  // "this day" reads fine; "this yesterday" doesn't.
+  const periodPhrase = period === 'yesterday' ? 'yesterday' : `this ${periodLabel.toLowerCase()}`;
   const selectedPeriodQuery = `period=${encodeURIComponent(period)}${periodValue ? `&value=${encodeURIComponent(periodValue)}` : ''}`;
   // Every figure on this page counts the whole reporting subtree -- this manager's own
   // leads plus their District Managers'. The ?page=leads route defaults to team-only,
@@ -160,7 +163,7 @@ const Overview = () => {
       label: 'Total Leads',
       value: summaryCounts.totalLeads,
       valueColor: 'var(--text-primary)',
-      delta: `→ This ${periodLabel.toLowerCase()}`,
+      delta: `→ ${periodPhrase.charAt(0).toUpperCase()}${periodPhrase.slice(1)}`,
       deltaColor: 'var(--text-muted)',
     },
     {
@@ -190,7 +193,7 @@ const Overview = () => {
       valueColor: 'var(--text-primary)',
       delta: period === 'month'
         ? `${(stats.revGrowth ?? 0) >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(stats.revGrowth || 0))}% MoM`
-        : `→ This ${periodLabel.toLowerCase()}`,
+        : `→ ${periodPhrase.charAt(0).toUpperCase()}${periodPhrase.slice(1)}`,
       deltaColor: period === 'month'
         ? ((stats.revGrowth ?? 0) >= 0 ? 'var(--accent)' : 'var(--red)')
         : 'var(--text-muted)',
@@ -660,7 +663,7 @@ const Overview = () => {
           },
           'total-leads': {
             title: 'Total Leads',
-            subtitle: `${totalLeads.length} leads in this ${periodLabel.toLowerCase()}`,
+            subtitle: `${totalLeads.length} leads ${period === 'yesterday' ? '' : 'in '}${periodPhrase}`,
             color: '#D97706',
             value: totalLeads.length,
             leads: totalLeads,

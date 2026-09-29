@@ -21,7 +21,7 @@ const PIPELINE_COLORS = {
   Escalated: '#ea580c',
 };
 
-const PERIOD_TABS = ['today', 'week', 'month', 'quarter', 'year'];
+const PERIOD_TABS = ['yesterday', 'today', 'week', 'month', 'quarter', 'year'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const defaultPeriodValue = (tab) => {
@@ -44,9 +44,12 @@ const periodOptions = (tab) => {
   return [];
 };
 
-const periodLabel = (period, value) => (period === 'today' ? 'today' : `in ${value}`);
+// Single-day periods take no value; the dropdown hides for them.
+export const isDayPeriod = (period) => period === 'today' || period === 'yesterday';
 
-// Period state (today / week / month / quarter / year + which one), starting on `initial`.
+const periodLabel = (period, value) => (isDayPeriod(period) ? period : `in ${value}`);
+
+// Period state (yesterday / today / week / month / quarter / year + which one), starting on `initial`.
 export const usePeriod = (initial) => {
   const [period, setPeriodTab] = useState(initial);
   const [value, setValue] = useState(() => defaultPeriodValue(initial));
@@ -67,7 +70,7 @@ export const PeriodPicker = ({ period, value, setPeriod, setValue }) => (
         </button>
       ))}
     </div>
-    {period !== 'today' && (
+    {!isDayPeriod(period) && (
       <select
         value={value}
         onChange={(e) => setValue(e.target.value)}
