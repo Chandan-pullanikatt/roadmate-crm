@@ -14,6 +14,12 @@ import React, { useMemo, useState } from 'react';
  * Every figure comes from the server's performanceService, so the same person
  * shows the same numbers whichever dashboard is looking at them.
  *
+ * Leads is the sum of the period's daily queues -- the work handed out, counted
+ * once per day it was handed out, so a lead pending all week counts on each of
+ * those days. It is not a count of distinct leads and not the leads created in
+ * the period (client decision, 2026-09-29). See getQueueTotals in
+ * server/src/services/workPercentService.js.
+ *
  * Calls counts every connected call in the period, not just the ones saved as
  * the "Connected" outcome -- the feedback modal records one outcome per call,
  * so a call that ended in a follow-up or a meeting is still a call. RNR is a

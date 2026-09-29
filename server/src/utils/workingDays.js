@@ -95,6 +95,17 @@ const istDayRange = (date = new Date()) => {
   return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1) };
 };
 
+/**
+ * The IST calendar day an instant falls in, as 'YYYY-MM-DD'.
+ *
+ * The key form of `istDayRange`, for bucketing records by day in JS. `IST_TZ`
+ * is the same day boundary for a Mongo aggregation, so a `$dateToString` bucket
+ * and a key built here line up -- they must, or an activity lands on a
+ * different day from the attendance row it belongs to.
+ */
+const IST_TZ = '+05:30';
+const istDayKey = (date) => new Date(new Date(date).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+
 /** Same wall-clock time as `original`, on calendar day `day`. */
 const onDay = (original, day) => {
   const d = new Date(day);
@@ -106,6 +117,8 @@ const onDay = (original, day) => {
 module.exports = {
   startOfDay,
   istDayRange,
+  istDayKey,
+  IST_TZ,
   addDays,
   isWeeklyOff,
   countWeekdayWorkingDays,

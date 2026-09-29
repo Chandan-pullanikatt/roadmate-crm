@@ -31,12 +31,13 @@
  * seven call sites with three different rules. Add a new screen by calling
  * getWorkPct or getDayWorkPct, never by averaging completionPct yourself.
  */
+const { Types } = require('mongoose');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const LeadActivity = require('../models/LeadActivity');
 const leadService = require('./leadService');
 const { WORK_ACTIONS } = require('../constants/workActions');
-const { startOfDay, istDayRange } = require('../utils/workingDays');
+const { startOfDay, istDayRange, istDayKey, IST_TZ } = require('../utils/workingDays');
 
 /** Attendance statuses for days nobody was expected to work. */
 const NON_WORKING_STATUSES = ['holiday', 'optional_holiday'];
@@ -191,6 +192,113 @@ const getWorkPct = async (userIds, periodStart, periodEnd) => {
 };
 
 /**
+ * Leads per user for a period: the SUM of each day's queue.
+ *
+ * This is the Leads column on every staff performance table. Client rule
+ * (2026-09-29): Leads means the work that was handed out, not the leads that
+ * happened to be created in the window -- which is what it used to count, and
+ * why a district manager who owned 196 leads read 49 for September.
+ *
+ * A day contributes the size of its book, the same book work % is scored
+ * against, so Leads is the sum of the denominators that produced the percentage
+ * printed beside it. A lead that sits in the queue for five days is five days of
+ * work and counts five times: deliberately NOT deduplicated (client decision --
+ * the column measures daily load, not distinct leads).
+ *
+ * Only days that were actually worked count, exactly as getWorkPct counts them:
+ * a day nobody started has no book, and approved leave is skipped. That is what
+ * keeps the two columns describing the same set of days.
+ *
+ * Past days can only come from the frozen `plannedLeads`, never from
+ * leadService.getQueue -- that queue is built from each lead's CURRENT status
+ * and due date, so re-reading it for last Tuesday returns today's book rather
+ * than that day's. Days recorded before Start Work began freezing the book
+ * carry none, and contribute only what was worked on them.
+ *
+ * @returns {Promise<Map<string, {leads: number, days: number}>>} keyed by String(userId);
+ *          every id asked for is present.
+ */
+const getQueueTotals = async (userIds, periodStart, periodEnd) => {
+  const ids = (userIds || []).filter(Boolean);
+  if (ids.length === 0) return new Map();
+
+  // Cast before the aggregation. Mongoose does not cast inside a pipeline, so a
+  // user id arriving as a string matches nothing and the person reads 0 -- the
+  // same trap documented in performanceService.
+  const objectIds = ids
+    .filter(id => Types.ObjectId.isValid(id))
+    .map(id => (id instanceof Types.ObjectId ? id : new Types.ObjectId(String(id))));
+
+  const [records, workedByDay, leaveDays] = await Promise.all([
+    Attendance.find({
+      user: { $in: ids },
+      date: { $gte: periodStart, $lte: periodEnd },
+      status: { $nin: NON_WORKING_STATUSES },
+      workStartedAt: { $ne: null },
+    }).select('user date plannedLeads').lean(),
+    // Leads worked, per user per IST day. Bucketed in Mongo rather than day by
+    // day in JS: a founder looking at a year covers every user times 365 days,
+    // which is one query here and tens of thousands in a loop.
+    LeadActivity.aggregate([
+      { $match: {
+        performedBy: { $in: objectIds },
+        createdAt: { $gte: periodStart, $lte: periodEnd },
+        action: { $in: WORK_ACTIONS },
+      } },
+      { $group: {
+        _id: {
+          user: '$performedBy',
+          day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: IST_TZ } },
+        },
+        leads: { $addToSet: '$lead' },
+      } },
+    ]),
+    approvedLeaveDays(ids, periodStart, periodEnd),
+  ]);
+
+  const workedKey = (user, day) => `${String(user)}|${day}`;
+  const worked = new Map(workedByDay.map(row => [
+    workedKey(row._id.user, row._id.day),
+    (row.leads || []).map(String),
+  ]));
+
+  // Group the rows by the DAY they belong to before counting anything. The live
+  // data holds more than one attendance row for the same user-day -- startWork
+  // looks a row up by the exact instant rather than the day, so a second Start
+  // Work inserts another row (33 duplicated user-days across 12 users, measured
+  // 2026-09-29). Counting per row would charge those days twice, so it is one
+  // book per day, merged across whatever rows describe it. Fixing the duplicates
+  // at the source does not change this figure; it just makes the merge a no-op.
+  const byDay = new Map();
+  for (const record of records) {
+    if (leaveDays.has(dayKey(record.user, record.date))) continue;
+    const key = workedKey(record.user, istDayKey(record.date));
+    let book = byDay.get(key);
+    if (!book) {
+      book = { user: String(record.user), leads: new Set() };
+      byDay.set(key, book);
+    }
+    for (const leadId of (record.plannedLeads || [])) book.leads.add(String(leadId));
+  }
+
+  // The same book getDayWorkPct scores: the frozen queue plus anything worked
+  // that day, so a lead picked up outside the day's list still counts as load.
+  for (const [key, book] of byDay) {
+    for (const leadId of worked.get(key) || []) book.leads.add(leadId);
+  }
+
+  const totals = new Map();
+  for (const book of byDay.values()) {
+    const total = totals.get(book.user) || { leads: 0, days: 0 };
+    total.leads += book.leads.size;
+    total.days += 1;
+    totals.set(book.user, total);
+  }
+
+  return new Map(ids.map(id => [String(id), totals.get(String(id)) || { leads: 0, days: 0 }]));
+};
+
+/**
  * One group's work %: a single average over every day the group recorded, not
  * an average of its members' averages.
  */
@@ -206,4 +314,4 @@ const rollupWorkPct = (workPctById, userIds = []) => {
   return days > 0 ? sum / days : 0;
 };
 
-module.exports = { getWorkPct, getDayWorkPct, rollupWorkPct, EMPTY_WORK_PCT, NON_WORKING_STATUSES };
+module.exports = { getWorkPct, getDayWorkPct, getQueueTotals, rollupWorkPct, EMPTY_WORK_PCT, NON_WORKING_STATUSES };

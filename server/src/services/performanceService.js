@@ -13,15 +13,22 @@ const LeadActivity = require('../models/LeadActivity');
 const Leave = require('../models/Leave');
 const { REVENUE_EXPR } = require('./revenueService');
 const { CALL_ACTIONS } = require('../constants/workActions');
-const { getWorkPct } = require('./workPercentService');
+const { getWorkPct, getQueueTotals } = require('./workPercentService');
 
 /** Activity actions that count as a meeting, whatever stage they were logged at. */
 const MEETING_ACTIONS = ['meeting_scheduled', 'meeting_done', 'meeting_virtual', 'meeting_direct'];
 
 /**
- * Two ways to count the same thing, kept side by side.
+ * Three different questions, answered side by side.
  *
- * The figures the tables render — meetings, blocking, converted, revenue —
+ * LEADS (the `periodLeads` column) is the sum of the period's daily queues, from
+ * workPercentService.getQueueTotals — the work that was handed out, counted once
+ * per day it was handed out. It is NOT the leads created in the period, which is
+ * what it counted until 2026-09-29: that made a bulk upload's own sheet dates
+ * decide the column, and a district manager owning 196 leads read 49 for
+ * September.
+ *
+ * The other figures the tables render — meetings, blocking, converted, revenue —
  * count the LEADS, by the status they are standing on, across leads created in
  * the period. That is exactly what the Lead Pipeline cards show, and the staff
  * tables are read as a summary of that pipeline: counting logged activity
@@ -83,10 +90,14 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
 
   const periodWindow = { $gte: periodStart, $lte: periodEnd };
 
-  const [workPctById, activities, meetingTypes, totalLeads, periodLeads, leaves] = await Promise.all([
+  const [workPctById, queueTotals, activities, meetingTypes, totalLeads, periodLeads, leaves] = await Promise.all([
     // The average of the period's daily work percentages — see workPercentService,
     // which is the only place that figure is defined.
     getWorkPct(ids, periodStart, periodEnd),
+    // The Leads column: the sum of the period's daily queues, from the same
+    // service, so Leads and Work % are the numerator and denominator of one
+    // another rather than two unrelated figures.
+    getQueueTotals(ids, periodStart, periodEnd),
     LeadActivity.aggregate([
       { $match: { performedBy: { $in: ids }, createdAt: periodWindow } },
       { $group: {
@@ -131,11 +142,14 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
     // status they are standing on — the same buckets as the pipeline cards, so
     // the table and the pipeline always agree. Status names mirror
     // constants/leadStatusGroups.js; change them together.
+    //
+    // This no longer feeds the Leads column — that is getQueueTotals above — so
+    // the buckets here can be smaller than Leads, and are counted on a different
+    // basis. Splitting them is deliberate; see the note at the top.
     Lead.aggregate([
       { $match: { owner: { $in: ids }, createdAt: periodWindow } },
       { $group: {
         _id: '$owner',
-        count:           { $sum: 1 },
         directMeetings:  { $sum: { $cond: [{ $eq: ['$status', 'meeting_direct'] }, 1, 0] } },
         virtualMeetings: { $sum: { $cond: [{ $eq: ['$status', 'meeting_virtual'] }, 1, 0] } },
         blocking:        { $sum: { $cond: [{ $eq: ['$status', 'blocking_amount_received'] }, 1, 0] } },
@@ -166,6 +180,7 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
   const mt = byId(meetingTypes);
   const owned = byId(totalLeads);
   const fresh = byId(periodLeads);
+  const queued = queueTotals;
   const lv = byId(leaves);
 
   return new Map(ids.map(id => {
@@ -181,7 +196,9 @@ const getPerformanceMetrics = async (userIds, periodStart, periodEnd) => {
       workSum: workPctById.get(key)?.sum || 0,
       workDays: workPctById.get(key)?.days || 0,
       leads: owned.get(key)?.count || 0,
-      periodLeads: p.count || 0,
+      // The Leads column. The sum of the days' queues, NOT the leads created in
+      // the period -- see getQueueTotals for the rule and why it changed.
+      periodLeads: queued.get(key)?.leads || 0,
       calls: a.calls || 0,
       // Where the period's leads are standing — matches the pipeline cards.
       meetings: (p.directMeetings || 0) + (p.virtualMeetings || 0),
