@@ -74,7 +74,7 @@ const GlobalModals = () => {
     regionType: '',
     region: '',
     industry: isIndustryManager ? (currentUser?.industry || '') : '',
-    leadSource: 'Direct', priority: 'Hot 🔥',
+    leadSource: 'Direct', priority: '',
     // A state manager's own page allocates to their own name by default, so a
     // lead they add is theirs unless they hand it down to an IM or DM below.
     managerId: isStateManager ? (currentUser?._id || '') : '',
@@ -884,6 +884,7 @@ const GlobalModals = () => {
               <div className="space-y-2">
                 <label className="form-label">Lead Priority</label>
                 <select className="select" value={leadFormData.priority} onChange={(e)=>setLeadFormData({...leadFormData, priority: e.target.value})}>
+                  <option value="">Select Priority</option>
                   <option>Hot 🔥</option>
                   <option>Warm</option>
                   <option>Cold</option>
