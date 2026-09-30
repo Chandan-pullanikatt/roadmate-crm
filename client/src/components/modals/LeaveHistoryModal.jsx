@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Modal, Tag, Avatar, DashboardSkeleton } from '../ui';
 import { leaveApi } from '../../api/leaveApi';
 import { format } from 'date-fns';
+import { leaveDurationLabel } from '../HalfDayLeaveFields';
 
 const LeaveHistoryModal = ({ isOpen, onClose, user }) => {
   const { data: history, isLoading } = useQuery({
@@ -81,7 +82,7 @@ const LeaveHistoryModal = ({ isOpen, onClose, user }) => {
                         <div className="text-[13px] text-text-muted">{format(new Date(leave.fromDate), 'MMM dd')} - {format(new Date(leave.toDate), 'MMM dd, yyyy')}</div>
                       </td>
                       <td className="p-4">
-                        <div className="text-[13px] font-black text-text-primary">{leave.days} Days</div>
+                        <div className="text-[13px] font-black text-text-primary">{leaveDurationLabel(leave)}</div>
                         <div className="text-[13px] text-text-muted">Requested {format(new Date(leave.requestedAt), 'PP')}</div>
                       </td>
                       <td className="p-4">

@@ -8,6 +8,7 @@ import { leaveApi } from '../../../api/leaveApi';
 import { usersApi } from '../../../api/usersApi';
 import { Avatar, Button, Tag, Modal } from '../../../components/ui';
 import { groupParam } from '../../../constants/leadStatusGroups';
+import { leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 
 // Pipeline card colours, keyed by the canonical group label.
 const PIPELINE_COLORS = {
@@ -665,7 +666,7 @@ const Overview = () => {
                   <div>
                     <div className="text-[13.5px] font-bold text-text-primary group-hover:text-blue transition-colors">{mName}</div>
                     <div className="text-[13px] text-text-muted mt-0.5">
-                      {roleDisplay}, {stateDisplay} {"\u00B7"} {typeDisplay} {"\u00B7"} {l.days} day(s) {"\u00B7"} <span className="italic">{l.reason}</span>
+                      {roleDisplay}, {stateDisplay} {"\u00B7"} {typeDisplay} {"\u00B7"} {leaveDurationLabel(l)} {"\u00B7"} <span className="italic">{l.reason}</span>
                     </div>
                   </div>
                 </div>

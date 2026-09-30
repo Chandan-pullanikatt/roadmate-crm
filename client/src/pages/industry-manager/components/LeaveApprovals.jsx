@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
 import { Button, Avatar, Tag, Modal, DashboardSkeleton } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+import { leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 
 const LeaveApprovals = () => {
   const queryClient = useQueryClient();
@@ -75,7 +76,7 @@ const LeaveApprovals = () => {
               <div className="grid grid-cols-2 gap-4 bg-surface2/50 rounded-xl p-4 mb-4 border border-border/50">
                 <div>
                    <p className="text-[11px] font-bold text-text-muted uppercase mb-0.5">Duration</p>
-                   <p className="text-sm font-bold text-text-primary">{leave.days} Day{leave.days > 1 && 's'}</p>
+                   <p className="text-sm font-bold text-text-primary">{leaveDurationLabel(leave)}</p>
                 </div>
                 <div>
                    <p className="text-[11px] font-bold text-text-muted uppercase mb-0.5">Dates</p>

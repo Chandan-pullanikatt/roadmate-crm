@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import DashboardSkeleton from '../../../components/skeletons/DashboardSkeleton';
 import { leaveApi } from '../../../api/leaveApi';
+import HalfDayLeaveFields, { HALF_DAY_DEFAULTS, halfDayPayload, leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { toast } from 'react-hot-toast';
@@ -91,13 +92,14 @@ const LeaveCalendar = () => {
       };
       return leaveApi.requestLeave({
         ...data,
+        ...halfDayPayload(data),
         type: typeMap[data.type] || 'unpaid'
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
       toast.success("Leave request sent to Founder");
-      setLeaveForm({ type: 'casual', fromDate: '', toDate: '', days: 1, reason: '' });
+      setLeaveForm({ type: 'casual', fromDate: '', toDate: '', days: 1, reason: '', ...HALF_DAY_DEFAULTS });
     },
     onError: (err) => toast.error(err.response?.data?.message || "Failed to send request")
   });
@@ -106,7 +108,7 @@ const LeaveCalendar = () => {
 
   const handleApply = (e) => {
     e.preventDefault();
-    if (!leaveForm.fromDate || !leaveForm.toDate) {
+    if (!leaveForm.fromDate || (!leaveForm.toDate && !leaveForm.isHalfDay)) {
       toast.error('Please select leave dates');
       return;
     }
@@ -230,7 +232,7 @@ const LeaveCalendar = () => {
                   <Avatar name={l.user?.name} size="md" className="av-state" />
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-[13.5px] font-black leading-tight break-words">{l.user?.name}</div>
-                    <div className="text-[13px] text-text-muted mt-1 font-medium">{l.type?.replace('_', ' ')} · {l.days}d · {new Date(l.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-{new Date(l.toDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                    <div className="text-[13px] text-text-muted mt-1 font-medium">{l.type?.replace('_', ' ')} · {l.isHalfDay ? leaveDurationLabel(l) : `${l.days}d`} · {new Date(l.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-{new Date(l.toDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                   </div>
                   <div className="flex gap-2 shrink-0 ml-auto">
                     <Button
@@ -287,7 +289,7 @@ const LeaveCalendar = () => {
                       onChange={e => setLeaveForm({
                         ...leaveForm,
                         fromDate: e.target.value,
-                        toDate: leaveForm.toDate && leaveForm.toDate < e.target.value ? e.target.value : leaveForm.toDate
+                        toDate: leaveForm.isHalfDay || (leaveForm.toDate && leaveForm.toDate < e.target.value) ? e.target.value : leaveForm.toDate
                       })}
                       required
                     />
@@ -298,12 +300,14 @@ const LeaveCalendar = () => {
                       type="date"
                       className="w-full bg-surface2/50 border border-border/50 rounded-xl px-4 py-3 text-[13px] font-bold outline-none focus:border-blue/50 transition-all"
                       min={leaveForm.fromDate || todayStr}
-                      value={leaveForm.toDate}
+                      value={leaveForm.isHalfDay ? leaveForm.fromDate : leaveForm.toDate}
                       onChange={e => setLeaveForm({...leaveForm, toDate: e.target.value})}
-                      required
+                      disabled={leaveForm.isHalfDay}
+                      required={!leaveForm.isHalfDay}
                     />
                   </div>
                 </div>
+                <HalfDayLeaveFields form={leaveForm} setForm={setLeaveForm} />
                 <div className="space-y-1.5">
                   <label className="text-[12px] font-black uppercase text-text-muted tracking-widest px-1">Reason</label>
                   <textarea 

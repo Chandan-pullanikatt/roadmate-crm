@@ -23,6 +23,7 @@ import SendNotificationModal from './modals/SendNotificationModal';
 import ViewLeadModal from './modals/ViewLeadModal';
 import EditLeadDetailsModal from './modals/EditLeadDetailsModal';
 import LeavePolicyModal from './modals/LeavePolicyModal';
+import HalfDayLeaveFields, { HALF_DAY_DEFAULTS, halfDayPayload, leaveDurationLabel } from './HalfDayLeaveFields';
 import ConfirmTargetModal from './modals/ConfirmTargetModal';
 import { PHONE_CODES, dialCodeFor } from '../data/phoneCodes';
 import { roleLabel } from '../utils/roleLabel';
@@ -129,7 +130,7 @@ const GlobalModals = () => {
   });
 
   const [leaveFormData, setLeaveFormData] = useState({
-    leaveType: 'sick', fromDate: '', toDate: '', reason: ''
+    leaveType: 'sick', fromDate: '', toDate: '', reason: '', ...HALF_DAY_DEFAULTS
   });
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   // leadId -> userId chosen for that lead in the bulk allocate modal
@@ -176,7 +177,7 @@ const GlobalModals = () => {
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
     const today = toDateInputValue();
-    if (!leaveFormData.fromDate || !leaveFormData.toDate) {
+    if (!leaveFormData.fromDate || (!leaveFormData.toDate && !leaveFormData.isHalfDay)) {
       return addToast('Please select leave dates', 'warning');
     }
     if (leaveFormData.fromDate < today || leaveFormData.toDate < today) {
@@ -191,11 +192,12 @@ const GlobalModals = () => {
         type: leaveFormData.leaveType,
         fromDate: leaveFormData.fromDate,
         toDate: leaveFormData.toDate,
-        reason: leaveFormData.reason
+        reason: leaveFormData.reason,
+        ...halfDayPayload(leaveFormData)
       });
       addToast('Leave application submitted!', 'success');
       setActiveModal(null);
-      setLeaveFormData({ leaveType: 'sick', fromDate: '', toDate: '', reason: '' });
+      setLeaveFormData({ leaveType: 'sick', fromDate: '', toDate: '', reason: '', ...HALF_DAY_DEFAULTS });
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
       window.dispatchEvent(new CustomEvent('refresh-matrix'));
     } catch (err) {
@@ -1512,7 +1514,7 @@ const GlobalModals = () => {
 
                 <div className="grid grid-cols-2 gap-y-2 text-xs">
                   <div className="text-text-muted">Type: <span className="text-text-primary font-bold">{leave.type.replace(/_/g, ' ')}</span></div>
-                  <div className="text-text-muted">Duration: <span className="text-text-primary font-bold">{leave.days} day{leave.days > 1 ? 's' : ''}</span></div>
+                  <div className="text-text-muted">Duration: <span className="text-text-primary font-bold">{leaveDurationLabel(leave)}</span></div>
                   <div className="text-text-muted">From: <span className="text-text-primary font-bold">{new Date(leave.fromDate).toLocaleDateString()}</span></div>
                   <div className="text-text-muted">To: <span className="text-text-primary font-bold">{new Date(leave.toDate).toLocaleDateString()}</span></div>
                 </div>
@@ -1794,7 +1796,8 @@ const GlobalModals = () => {
             <div className="space-y-1">
               <label className="form-label">Duration</label>
               <div className="flex items-center h-10 px-3 bg-surface2 rounded-lg border border-border text-xs font-bold text-muted">
-                {leaveFormData.fromDate && leaveFormData.toDate ? 
+                {leaveFormData.isHalfDay ? 'Half Day' :
+                 leaveFormData.fromDate && leaveFormData.toDate ? 
                   `${Math.ceil((new Date(leaveFormData.toDate) - new Date(leaveFormData.fromDate)) / (1000 * 60 * 60 * 24)) + 1} Days` : 
                   'Select dates'
                 }
@@ -1813,7 +1816,8 @@ const GlobalModals = () => {
                 onChange={(e) => setLeaveFormData({
                   ...leaveFormData,
                   fromDate: e.target.value,
-                  toDate: leaveFormData.toDate && leaveFormData.toDate < e.target.value ? '' : leaveFormData.toDate
+                  toDate: leaveFormData.isHalfDay ? e.target.value
+                    : leaveFormData.toDate && leaveFormData.toDate < e.target.value ? '' : leaveFormData.toDate
                 })}
                 required 
               />
@@ -1823,13 +1827,16 @@ const GlobalModals = () => {
               <input 
                 type="date" 
                 className="input" 
-                value={leaveFormData.toDate}
+                value={leaveFormData.isHalfDay ? leaveFormData.fromDate : leaveFormData.toDate}
                 min={leaveFormData.fromDate || toDateInputValue()}
                 onChange={(e) => setLeaveFormData({...leaveFormData, toDate: e.target.value})}
-                required 
+                disabled={leaveFormData.isHalfDay}
+                required={!leaveFormData.isHalfDay}
               />
             </div>
           </div>
+
+          <HalfDayLeaveFields form={leaveFormData} setForm={setLeaveFormData} />
 
           <div className="space-y-1">
             <label className="form-label">Reason</label>

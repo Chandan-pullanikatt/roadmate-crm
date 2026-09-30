@@ -7,6 +7,7 @@ import { leaveApi } from '../../../api/leaveApi';
 import { uploadApi } from '../../../api/uploadApi';
 import { Avatar, Button, Tag } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
+import { leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 
 const POLICY_FILE_TYPES = {
   'application/pdf':    'pdf',
@@ -251,7 +252,7 @@ const LeaveCalendar = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="text-xs font-bold bg-surface2 px-2 py-1 rounded-lg">{leave.days}</span>
+                      <span className="text-xs font-bold bg-surface2 px-2 py-1 rounded-lg">{leave.isHalfDay ? leaveDurationLabel(leave) : leave.days}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-[13px] text-text-secondary italic max-w-[200px] truncate" title={leave.reason}>
@@ -337,7 +338,7 @@ const LeaveCalendar = () => {
                     <td className="px-6 py-4 text-xs">{new Date(leave.fromDate).toLocaleDateString()}</td>
                     <td className="px-6 py-4 text-xs">{new Date(leave.toDate).toLocaleDateString()}</td>
                     <td className="px-6 py-4 text-center">
-                      <span className="text-xs font-medium">{leave.days}</span>
+                      <span className="text-xs font-medium">{leave.isHalfDay ? leaveDurationLabel(leave) : leave.days}</span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Tag 

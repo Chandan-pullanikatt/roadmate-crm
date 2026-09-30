@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import LeadPipelinePanel, { LeadMetricsBreakdown, usePeriod, PeriodPicker } from '../../components/LeadPipelinePanel';
 import ManagerPerformanceTable from '../../components/ManagerPerformanceTable';
 import { dashboardApi } from '../../api/dashboardApi';
+import { leaveDurationLabel } from '../../components/HalfDayLeaveFields';
 
 const StateManagerDetail = () => {
   const { id } = useParams();
@@ -235,7 +236,7 @@ const StateManagerDetail = () => {
                   </td>
                   <td className="p-4">
                     <div className="text-[13px] font-bold text-text-primary">{format(new Date(leave.fromDate), 'MMM dd')} - {format(new Date(leave.toDate), 'MMM dd')}</div>
-                    <div className="text-[13px] text-text-muted">{leave.days} Day(s)</div>
+                    <div className="text-[13px] text-text-muted">{leaveDurationLabel(leave)}</div>
                   </td>
                   <td className="p-4">
                     <Tag 

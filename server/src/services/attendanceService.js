@@ -11,6 +11,23 @@ const { getWorkPct, getDayWorkPct } = require('./workPercentService');
 const { WORK_ACTIONS } = require('../constants/workActions');
 
 const ATTENDANCE_LABELS = { present: 'Present', half_day: 'Half Day', leave: 'Leave', holiday: 'Holiday' };
+const HALF_DAY_SESSION_LABELS = { first_half: 'first half', second_half: 'second half' };
+
+/** "HH:MM" halfway between two "HH:MM" times -- where a half-day leave splits the shift. */
+const midShift = (startStr, endStr) => {
+  const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const mid = Math.round((toMin(startStr) + toMin(endStr)) / 2);
+  return `${String(Math.floor(mid / 60)).padStart(2, '0')}:${String(mid % 60).padStart(2, '0')}`;
+};
+
+/** The approved half-day leave on civil day `day` (as istCivilDay gives it), if any. */
+const halfDayLeaveOn = (userId, day) => Leave.findOne({
+  user: userId,
+  status: 'approved',
+  isHalfDay: true,
+  fromDate: { $lte: day },
+  toDate: { $gte: day },
+});
 
 const attendanceService = {
   /**
@@ -81,9 +98,11 @@ const attendanceService = {
     // 3. Get working hours start. Global config is the source of truth;
     // user-specific hours remain a fallback for legacy profiles.
     let workStartTimeStr = whConfig.normalStart || user.workingHours?.start || '09:30';
+    let workEndTimeStr = whConfig.normalEnd || '18:30';
 
     if (isWithinRamadanConfig()) {
       workStartTimeStr = whConfig.ramadanStart || '09:00';
+      workEndTimeStr = whConfig.ramadanEnd || '17:30';
     } else if (policy && policy.ramadanStart && policy.ramadanEnd) {
       if (today >= policy.ramadanStart && today <= policy.ramadanEnd) {
         workStartTimeStr = policy.ramadanWorkStart || '09:00';
@@ -94,7 +113,12 @@ const attendanceService = {
     //    lateMarkMinutes, Half Day (decided at completeWork) from lateHalfDayMinutes.
     //    The start time is IST office hours, so it is placed on the IST day.
     const rules = resolveAttendanceRules(whConfig.rules);
-    const expectedStart = istTimeOn(now, workStartTimeStr);
+    // With the first half on approved leave, the day starts at mid-shift.
+    const halfDayLeave = await halfDayLeaveOn(userId, today);
+    const lateFromStr = halfDayLeave?.halfDaySession === 'first_half'
+      ? midShift(workStartTimeStr, workEndTimeStr)
+      : workStartTimeStr;
+    const expectedStart = istTimeOn(now, lateFromStr);
 
     const lateLoginMinutes = Math.max(0, Math.floor((now - expectedStart) / 60000));
     const isLateLogin = lateLoginMinutes >= rules.lateMarkMinutes;
@@ -190,6 +214,7 @@ const attendanceService = {
     //    is IST office hours on the row's own day, so an auto-complete that runs
     //    late cannot measure against the wrong day.
     const workDay = istCivilDay(attendance.date);
+    let expectedStartStr = whConfig.normalStart || '09:30';
     let expectedEndStr = whConfig.normalEnd || '18:30';
     if (whConfig.ramadanFrom && whConfig.ramadanTo) {
       const ramFrom = new Date(whConfig.ramadanFrom);
@@ -197,8 +222,17 @@ const attendanceService = {
       ramFrom.setHours(0, 0, 0, 0);
       ramTo.setHours(23, 59, 59, 999);
       if (workDay >= ramFrom && workDay <= ramTo) {
+        expectedStartStr = whConfig.ramadanStart || '09:00';
         expectedEndStr = whConfig.ramadanEnd || '17:30';
       }
+    }
+
+    // An approved half-day leave on this day. With the second half off, the
+    // day ends at mid-shift (the first half's late login was already measured
+    // from mid-shift at startWork), and the day is scored in step 5.
+    const halfDayLeave = await halfDayLeaveOn(attendance.user, workDay);
+    if (halfDayLeave?.halfDaySession === 'second_half') {
+      expectedEndStr = midShift(expectedStartStr, expectedEndStr);
     }
     const expectedEnd = istTimeOn(attendance.date, expectedEndStr);
 
@@ -212,8 +246,16 @@ const attendanceService = {
       attendance.note = [attendance.note, exitNote].filter(Boolean).join(' · ');
     }
 
-    // 5. Final status: work completion first, then late login / early exit
-    if (completionPct < rules.leaveBelowPct) {
+    // 5. Final status: work completion first, then late login / early exit.
+    //    On a half-day leave the best a day can be is Half Day, and it is
+    //    judged on half the queue: doing that half keeps it from being Leave.
+    if (halfDayLeave) {
+      const halfNote = `Half-day leave (${HALF_DAY_SESSION_LABELS[halfDayLeave.halfDaySession] || 'half day'})`;
+      if (!(attendance.note || '').includes(halfNote)) {
+        attendance.note = [halfNote, attendance.note].filter(Boolean).join(' · ');
+      }
+      attendance.status = Math.min(100, completionPct * 2) < rules.leaveBelowPct ? 'leave' : 'half_day';
+    } else if (completionPct < rules.leaveBelowPct) {
       attendance.status = 'leave';
     } else if (completionPct < rules.halfDayBelowPct) {
       attendance.status = 'half_day';
@@ -303,8 +345,10 @@ const attendanceService = {
     });
     
     if (leave) {
-      result.isOnLeave = true;
+      // A half-day leave still leaves half the day to work.
+      result.isOnLeave = !leave.isHalfDay;
       result.leaveType = leave.type;
+      result.halfDaySession = leave.isHalfDay ? leave.halfDaySession : null;
     }
 
     return result;
@@ -382,7 +426,9 @@ const attendanceService = {
         toDate: l.toDate,
         type: 'leave',
         status: 'on_leave',
-        label: l.leaveType || 'Leave',
+        label: l.isHalfDay
+          ? `Half Day Leave (${HALF_DAY_SESSION_LABELS[l.halfDaySession] || 'half day'})`
+          : l.leaveType || 'Leave',
         details: l.reason
       });
     });

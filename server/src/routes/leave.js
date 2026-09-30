@@ -23,6 +23,8 @@ const getDatesInRange = (startDate, endDate) => {
   return dates;
 };
 
+const HALF_DAY_SESSIONS = ['first_half', 'second_half'];
+
 // Authorization Helper: enforces strict role hierarchy
 const checkSuperior = async (requesterId, approver) => {
   if (approver.role === 'founder') return true;
@@ -53,9 +55,17 @@ const checkSuperior = async (requesterId, approver) => {
 // POST / (Create Leave)
 router.post('/', verifyToken, async (req, res, next) => {
   try {
-    const { leaveType, fromDate, toDate, reason, type: legacyType } = req.body;
+    const { leaveType, fromDate, reason, type: legacyType } = req.body;
     const type = leaveType || legacyType; // Handle both field names
     const userId = req.user._id;
+
+    // A half-day leave is one session of a single day.
+    const isHalfDay = req.body.isHalfDay === true || req.body.isHalfDay === 'true';
+    const halfDaySession = isHalfDay ? req.body.halfDaySession : null;
+    if (isHalfDay && !HALF_DAY_SESSIONS.includes(halfDaySession)) {
+      return res.status(400).json({ message: 'Choose which half of the day the leave is for' });
+    }
+    const toDate = isHalfDay ? fromDate : req.body.toDate;
 
     const start = new Date(fromDate);
     const end = new Date(toDate);
@@ -72,9 +82,10 @@ router.post('/', verifyToken, async (req, res, next) => {
     if (end < start) {
       return res.status(400).json({ message: 'To Date must be the same as or after From Date' });
     }
-    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    const days = isHalfDay ? 0.5 : Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-    // 1. Check for conflicts
+    // 1. Check for conflicts. This includes a second half-day on the same date:
+    //    both halves off is a full-day leave.
     const conflict = await Leave.findOne({
       user: userId,
       status: 'approved',
@@ -131,6 +142,8 @@ router.post('/', verifyToken, async (req, res, next) => {
       fromDate: start,
       toDate: end,
       days,
+      isHalfDay,
+      halfDaySession,
       reason,
       status: 'pending'
     });
@@ -280,11 +293,14 @@ router.patch('/:id/approve', verifyToken, async (req, res, next) => {
     leave.approvedAt = new Date();
     await leave.save();
 
+    // A half-day leave is still a working day: its work stays where it is and
+    // the day is scored when it is completed (attendanceService.completeWork).
+    // Not logging in at all leaves it to the nightly absentee sweep.
     // Shift the leave days' work forward — once, or it would shift again
-    if (!wasApproved) await scheduleService.cascadeForLeave(leave);
+    if (!wasApproved && !leave.isHalfDay) await scheduleService.cascadeForLeave(leave);
 
     // Create Attendance docs
-    const dates = getDatesInRange(leave.fromDate, leave.toDate);
+    const dates = leave.isHalfDay ? [] : getDatesInRange(leave.fromDate, leave.toDate);
     for (const date of dates) {
       // Canonical stamp, or this upsert inserts a second row for a day that
       // already has one -- see attendanceDay.
@@ -578,18 +594,19 @@ router.get('/calendar/:state', verifyToken, async (req, res, next) => {
     // Add leaves
     approvedLeaves.forEach(l => {
       const dates = getDatesInRange(l.fromDate, l.toDate);
+      const who = l.isHalfDay ? `${l.user.name} (half day)` : l.user.name;
       dates.forEach(d => {
         if (!month || (d.getMonth() + 1 === parseInt(month))) {
           // Find if holiday exists on this date
           const existing = calendar.find(c => new Date(c.date).toDateString() === d.toDateString());
           if (existing) {
-            existing.users.push(l.user.name);
+            existing.users.push(who);
           } else {
             calendar.push({
               date: d,
               type: 'leave',
-              name: 'Leave',
-              users: [l.user.name]
+              name: l.isHalfDay ? 'Half Day Leave' : 'Leave',
+              users: [who]
             });
           }
         }

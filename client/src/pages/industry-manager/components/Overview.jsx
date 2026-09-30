@@ -13,6 +13,7 @@ import { leadsApi } from '../../../api/leadsApi';
 import { groupParam } from '../../../constants/leadStatusGroups';
 import { callMeta } from '../../../components/modals/LeadHistoryModal';
 import { useToast } from '../../../context/ToastContext';
+import { leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 
 const FILTER_PERIODS = [
   { key: 'year',    label: 'Year'    },
@@ -603,7 +604,7 @@ const Overview = () => {
                     <div className="flex-1">
                       <div className="text-sm font-bold text-text-primary">{leave.user?.name}</div>
                       <div className="text-[12px] text-text-muted font-semibold uppercase tracking-wider">
-                        {leave.type.replace('_', ' ')} · {leave.days} Day{leave.days > 1 ? 's' : ''}
+                        {leave.type.replace('_', ' ')} · {leaveDurationLabel(leave)}
                       </div>
                     </div>
                   </div>

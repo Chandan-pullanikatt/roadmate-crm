@@ -58,9 +58,11 @@ const loadCalendar = async (user, from = new Date()) => {
   }).lean();
   policies.forEach(p => (p.holidays || []).forEach(h => holidayKeys.add(dayKey(h.date))));
 
+  // A half-day leave does not take the day out: the other half is worked.
   const leaves = await Leave.find({
     user: user._id,
     status: 'approved',
+    isHalfDay: { $ne: true },
     toDate: { $gte: fromDay },
   }).select('fromDate toDate').lean();
 

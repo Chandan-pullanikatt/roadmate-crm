@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
+import HalfDayLeaveFields, { HALF_DAY_DEFAULTS, halfDayPayload } from '../../../components/HalfDayLeaveFields';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Tag, Modal, PendingValue } from '../../../components/ui';
 import { useToast } from '../../../context/ToastContext';
@@ -12,7 +13,7 @@ const LeaveManagement = () => {
   const { user: currentUser } = useAuth();
   
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [leaveForm, setLeaveForm] = useState({ type: 'paid', fromDate: '', toDate: '', reason: '' });
+  const [leaveForm, setLeaveForm] = useState({ type: 'paid', fromDate: '', toDate: '', reason: '', ...HALF_DAY_DEFAULTS });
   const [viewDate, setViewDate] = useState(new Date());
 
   const month = viewDate.getMonth() + 1;
@@ -45,7 +46,7 @@ const LeaveManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
       setIsRequestModalOpen(false);
-      setLeaveForm({ type: 'paid', fromDate: '', toDate: '', reason: '' });
+      setLeaveForm({ type: 'paid', fromDate: '', toDate: '', reason: '', ...HALF_DAY_DEFAULTS });
       addToast("Leave request submitted", "success");
     },
     onError: (err) => {
@@ -54,7 +55,7 @@ const LeaveManagement = () => {
   });
 
   const handleLeaveSubmit = () => {
-    if (!leaveForm.fromDate || !leaveForm.toDate) {
+    if (!leaveForm.fromDate || (!leaveForm.toDate && !leaveForm.isHalfDay)) {
       addToast('Please select leave dates', 'warning');
       return;
     }
@@ -66,7 +67,7 @@ const LeaveManagement = () => {
       addToast('To Date must be on or after the From Date', 'warning');
       return;
     }
-    requestMutation.mutate(leaveForm);
+    requestMutation.mutate({ ...leaveForm, ...halfDayPayload(leaveForm) });
   };
 
   // Calendar helpers
@@ -192,7 +193,7 @@ const LeaveManagement = () => {
                   onChange={(e) => setLeaveForm({
                     ...leaveForm,
                     fromDate: e.target.value,
-                    toDate: leaveForm.toDate && leaveForm.toDate < e.target.value ? e.target.value : leaveForm.toDate
+                    toDate: leaveForm.isHalfDay || (leaveForm.toDate && leaveForm.toDate < e.target.value) ? e.target.value : leaveForm.toDate
                   })}
                 />
               </div>
@@ -202,10 +203,14 @@ const LeaveManagement = () => {
                   type="date"
                   className="form-input"
                   min={leaveForm.fromDate || today}
-                  value={leaveForm.toDate}
+                  value={leaveForm.isHalfDay ? leaveForm.fromDate : leaveForm.toDate}
                   onChange={(e) => setLeaveForm({...leaveForm, toDate: e.target.value})}
+                  disabled={leaveForm.isHalfDay}
                 />
               </div>
+            </div>
+            <div className="mb-4">
+              <HalfDayLeaveFields form={leaveForm} setForm={setLeaveForm} />
             </div>
             <div className="mb-4">
               <label className="form-label">Leave Type</label>

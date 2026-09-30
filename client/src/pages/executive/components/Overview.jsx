@@ -6,6 +6,7 @@ import { dashboardApi } from '../../../api/dashboardApi';
 import { leadsApi } from '../../../api/leadsApi';
 import { Button, Tag, Modal } from '../../../components/ui';
 import { groupParam } from '../../../constants/leadStatusGroups';
+import { leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 
 // Same card colours as the Founder overview, keyed by the canonical group label.
 const PIPELINE_COLORS = {
@@ -384,7 +385,7 @@ const Overview = () => {
             return (
               <div key={l._id} className="flex items-center justify-between p-4 hover:bg-surface2/30 transition-colors">
                 <div>
-                  <div className="text-[13.5px] font-bold text-text-primary">{typeDisplay || 'Leave'} {"·"} {l.days} day(s)</div>
+                  <div className="text-[13.5px] font-bold text-text-primary">{typeDisplay || 'Leave'} {"·"} {leaveDurationLabel(l)}</div>
                   <div className="text-[13px] text-text-muted mt-0.5">
                     {formatDate(l.fromDate)}{l.toDate && l.toDate !== l.fromDate ? ` – ${formatDate(l.toDate)}` : ''}
                     {l.reason ? <> {"·"} <span className="italic">{l.reason}</span></> : null}

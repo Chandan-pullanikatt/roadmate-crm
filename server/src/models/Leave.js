@@ -11,6 +11,11 @@ const leaveSchema = new mongoose.Schema({
   fromDate: { type: Date, required: true },
   toDate: { type: Date, required: true },
   days: { type: Number, required: true },
+  // A half-day leave covers one session of a single day (days = 0.5). The
+  // other half is still a working day: the queue stands and attendance is
+  // scored on it -- see attendanceService.completeWork.
+  isHalfDay: { type: Boolean, default: false },
+  halfDaySession: { type: String, enum: ['first_half','second_half', null], default: null },
   reason: { type: String, required: true },
   status: { 
     type: String, 

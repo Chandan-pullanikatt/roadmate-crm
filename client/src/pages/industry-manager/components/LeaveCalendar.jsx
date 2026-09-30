@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi } from '../../../api/leaveApi';
+import HalfDayLeaveFields, { HALF_DAY_DEFAULTS, halfDayPayload, leaveDurationLabel } from '../../../components/HalfDayLeaveFields';
 import { dashboardApi } from '../../../api/dashboardApi';
 import { Tag, Button, Avatar, DashboardSkeleton } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
@@ -16,7 +17,8 @@ const LeaveCalendar = () => {
     type: 'Casual Leave',
     fromDate: '',
     toDate: '',
-    reason: ''
+    reason: '',
+    ...HALF_DAY_DEFAULTS
   });
 
   const month = viewDate.getMonth() + 1;
@@ -62,12 +64,13 @@ const LeaveCalendar = () => {
       };
       return leaveApi.applyLeave({
         ...data,
+        ...halfDayPayload(data),
         type: typeMap[data.type] || 'unpaid'
       });
     },
     onSuccess: () => {
       addToast("Leave request submitted to State Manager", "success");
-      setLeaveForm({ type: 'Casual Leave', fromDate: '', toDate: '', reason: '' });
+      setLeaveForm({ type: 'Casual Leave', fromDate: '', toDate: '', reason: '', ...HALF_DAY_DEFAULTS });
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
     },
     onError: (err) => {
@@ -183,7 +186,7 @@ const LeaveCalendar = () => {
                                 <div>
                                     <p className="text-[11px] font-black text-text-primary">{leave.user.name}</p>
                                     <p className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
-                                        {leave.type.replace('_', ' ')} · {leave.days}d · {new Date(leave.fromDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(leave.toDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                        {leave.type.replace('_', ' ')} · {leave.isHalfDay ? leaveDurationLabel(leave) : `${leave.days}d`} · {new Date(leave.fromDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(leave.toDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                     </p>
                                 </div>
                             </div>
@@ -231,7 +234,7 @@ const LeaveCalendar = () => {
                                 type="date" 
                                 className="w-full px-4 py-2 bg-surface2 border border-border rounded-xl outline-none text-xs font-bold"
                                 value={leaveForm.fromDate}
-                                onChange={e => setLeaveForm({...leaveForm, fromDate: e.target.value})}
+                                onChange={e => setLeaveForm({...leaveForm, fromDate: e.target.value, ...(leaveForm.isHalfDay && { toDate: e.target.value })})}
                             />
                         </div>
                         <div className="space-y-1.5">
@@ -239,11 +242,14 @@ const LeaveCalendar = () => {
                             <input 
                                 type="date" 
                                 className="w-full px-4 py-2 bg-surface2 border border-border rounded-xl outline-none text-xs font-bold"
-                                value={leaveForm.toDate}
+                                value={leaveForm.isHalfDay ? leaveForm.fromDate : leaveForm.toDate}
                                 onChange={e => setLeaveForm({...leaveForm, toDate: e.target.value})}
+                                disabled={leaveForm.isHalfDay}
                             />
                         </div>
                     </div>
+
+                    <HalfDayLeaveFields form={leaveForm} setForm={setLeaveForm} />
 
                     <div className="space-y-1.5">
                         <label className="text-[12px] font-black text-text-muted uppercase tracking-widest">Reason</label>
@@ -258,7 +264,7 @@ const LeaveCalendar = () => {
                     <Button 
                         className="w-full bg-purple text-white border-none rounded-xl h-10 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-purple/10"
                         onClick={() => requestMutation.mutate(leaveForm)}
-                        disabled={!leaveForm.fromDate || !leaveForm.toDate || requestMutation.isLoading}
+                        disabled={!leaveForm.fromDate || (!leaveForm.toDate && !leaveForm.isHalfDay) || requestMutation.isLoading}
                     >
                         {requestMutation.isLoading ? "Submitting..." : "Submit Request"}
                     </Button>
