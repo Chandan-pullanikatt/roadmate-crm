@@ -11,6 +11,8 @@ import { formatRevenue } from './ManagerPerformanceTable';
  * table always read the same numbers for the same period.
  */
 export const ACTIVITY_METRICS = [
+  // The leaderboard's Leads column: the sum of the period's daily queues.
+  { key: 'periodLeads', label: 'Total Leads', color: '#3B82F6' },
   { key: 'calls', label: 'Calls', color: '#8B5CF6' },
   { key: 'directMeetings', label: 'Direct Meetings', color: '#0EA5E9' },
   { key: 'virtualMeetings', label: 'Virtual Meetings', color: '#06B6D4' },

@@ -51,6 +51,8 @@ const GlobalModals = () => {
   const [managers, setManagers] = useState([]);
   const [industryManagers, setIndustryManagers] = useState([]);
   const [founders, setFounders] = useState([]);
+  // Deactivated founders can't log in, so an escalation sent to one would sit unseen.
+  const activeFounders = useMemo(() => founders.filter(f => f.isActive !== false), [founders]);
   const [executives, setExecutives] = useState([]);
   const [loading, setLoading] = useState(false);
   const [leaveHistoryUser, setLeaveHistoryUser] = useState(null);
@@ -2038,6 +2040,33 @@ const GlobalModals = () => {
                     </div>
                   )}
                 </>
+              ) : isStateManager ? (
+                // A State Manager escalates to a founder, and with several founders
+                // they must pick one: only the founder chosen here sees the lead on
+                // their Lead Approvals page.
+                <>
+                  <label className="form-label">Founder to Escalate To *</label>
+                  {activeFounders.length ? (
+                    <select
+                      className="select"
+                      value={escalateData.managerId}
+                      onChange={(e) => setEscalateData({ ...escalateData, managerId: e.target.value })}
+                      required
+                    >
+                      <option value="">Select Founder</option>
+                      {activeFounders.map(f => (
+                        <option key={f._id} value={f._id}>{f.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-[13px] text-amber font-semibold">
+                      No founder account is available to escalate to.
+                    </div>
+                  )}
+                  <p className="text-[12px] text-text-muted">
+                    Only the founder you pick will see this for approval.
+                  </p>
+                </>
               ) : (
                 <>
                 <label className="form-label">Manager to Escalate To</label>
@@ -2048,13 +2077,6 @@ const GlobalModals = () => {
                   required
                 >
                   <option value="">Select Manager</option>
-                  {isStateManager && founders.length > 0 && (
-                    <optgroup label="Founder">
-                      {founders.map(f => (
-                        <option key={f._id} value={f._id}>{f.name} (Founder)</option>
-                      ))}
-                    </optgroup>
-                  )}
                   {isExecutive && (
                     <>
                       {hierarchy.industryManagers.length > 0 && (

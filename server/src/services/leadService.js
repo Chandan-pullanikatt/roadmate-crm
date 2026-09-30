@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
 const { applyStatus } = require('../constants/leadStatusRank');
 const { WORK_ACTIONS } = require('../constants/workActions');
-const { isPendingFor, escalationInboxIds } = require('../utils/escalation');
+const { isPendingFor } = require('../utils/escalation');
 
 const MEETING_STATUSES = ['meeting_virtual', 'meeting_direct'];
 
@@ -406,6 +406,18 @@ const leadService = {
         //
         // Re-escalating an already-escalated lead must not lose the stage it was
         // at, so statusBeforeEscalation is only written from a real status.
+        //
+        // A State Manager escalates to one founder they pick by name; only that
+        // founder sees it on their Lead Approvals page, so it must be a real,
+        // active founder account.
+        if (performedBy?.role === 'state_manager') {
+          const target = data.escalateTo
+            ? await User.findById(data.escalateTo).select('role isActive').lean()
+            : null;
+          if (!target || target.role !== 'founder' || target.isActive === false) {
+            throw new Error('Select which founder to escalate this lead to');
+          }
+        }
         if (lead.status !== 'escalated') lead.statusBeforeEscalation = lead.status;
         lead.status = 'escalated';
         lead.escalatedTo = data.escalateTo;
@@ -496,7 +508,7 @@ const leadService = {
     }
     const lead = await Lead.findById(leadId);
     if (!lead) throw new Error('Lead not found');
-    if (!isPendingFor(lead, await escalationInboxIds(approver))) {
+    if (!isPendingFor(lead, approver._id)) {
       throw new Error('This lead is not waiting on your approval');
     }
 

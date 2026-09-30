@@ -8,7 +8,7 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const { getScopeOwnerIds, applyLeadScope, canAccessLead } = require('../utils/hierarchy');
-const { ESCALATION_ROLES, escalationInboxIds, pendingEscalationFilter } = require('../utils/escalation');
+const { ESCALATION_ROLES, pendingEscalationFilter } = require('../utils/escalation');
 const { statusesForParam } = require('../constants/leadStatusGroups');
 const { resolveStatus } = require('../constants/leadStatusRank');
 const { createdAtRange } = require('../utils/dateRange');
@@ -1181,7 +1181,7 @@ router.get('/escalations/pending', async (req, res) => {
     if (!ESCALATION_ROLES.includes(req.user.role)) {
       return res.status(403).json({ message: 'Forbidden: no escalations are addressed to your role' });
     }
-    const leads = await Lead.find(pendingEscalationFilter(await escalationInboxIds(req.user)))
+    const leads = await Lead.find(pendingEscalationFilter(req.user._id))
       .sort({ escalatedAt: -1, updatedAt: -1 })
       .populate('owner', 'name role industry state district')
       .populate('escalatedFrom', 'name role industry state district')
@@ -1198,7 +1198,7 @@ router.get('/escalations/pending', async (req, res) => {
 router.get('/escalations/pending-count', async (req, res) => {
   try {
     if (!ESCALATION_ROLES.includes(req.user.role)) return res.json({ count: 0 });
-    const count = await Lead.countDocuments(pendingEscalationFilter(await escalationInboxIds(req.user)));
+    const count = await Lead.countDocuments(pendingEscalationFilter(req.user._id));
     res.json({ count });
   } catch (err) {
     res.status(500).json({ message: err.message });
