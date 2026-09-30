@@ -7,8 +7,8 @@ import Meetings from './components/Meetings';
 import LeadList from './components/LeadList';
 import Attendance from './components/Attendance';
 import LeaveManagement from './components/LeaveManagement';
-import Performance from './components/Performance';
 import MyTargets from './components/MyTargets';
+import MyPerformance from './components/MyPerformance';
 import SopViewer from '../industry-manager/components/SopViewer';
 import Tasks from '../founder/sections/Tasks';
 
@@ -27,8 +27,10 @@ const ExecutiveDashboard = () => {
       case 'attendance': return <Attendance />;
       case 'leave': return <LeaveManagement />;
       case 'targets': return <MyTargets />;
-      case 'reports-v2': return <Performance />;
-      case 'performance': return <Performance />;
+      case 'my-performance': return <MyPerformance />;
+      // The old Summary & Reports page; its links now land on My Performance.
+      case 'reports-v2': return <MyPerformance />;
+      case 'performance': return <MyPerformance />;
       case 'documents': return <SopViewer role="executive" />;
       default: return <MyWorkToday />;
     }

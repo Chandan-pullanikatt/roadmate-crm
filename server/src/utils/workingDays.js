@@ -148,6 +148,17 @@ const istCivilDay = (date = new Date()) => {
   return new Date(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
 };
 
+/**
+ * The instant an IST wall-clock time ('HH:MM') falls at, on the IST calendar day
+ * of `date`. For shift times -- start 09:30, end 18:30 -- which are Indian
+ * office hours, not server hours. `setHours` on a UTC server put 18:30 at
+ * midnight IST, so everyone finishing at 18:00 IST read as ~6 hours early.
+ */
+const istTimeOn = (date, hhmm) => {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  return new Date(istDayRange(date).start.getTime() + ((h || 0) * 60 + (m || 0)) * 60000);
+};
+
 /** Same wall-clock time as `original`, on calendar day `day`. */
 const onDay = (original, day) => {
   const d = new Date(day);
@@ -162,6 +173,7 @@ module.exports = {
   istDayKey,
   attendanceDay,
   istCivilDay,
+  istTimeOn,
   IST_TZ,
   addDays,
   isWeeklyOff,

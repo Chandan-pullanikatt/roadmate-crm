@@ -231,8 +231,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'INSIGHTS',
           items: [
-            { label: 'My Targets', path: '/dashboard?page=targets', icon: 'performance' },
-            { label: 'Summary & Reports', path: '/dashboard?page=reports-v2', icon: 'reports-v2' }
+            { label: 'My Performance', path: '/dashboard?page=my-performance', icon: 'performance' },
+            { label: 'My Targets', path: '/dashboard?page=targets', icon: 'performance' }
           ]
         },
         {
@@ -274,7 +274,7 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
     page === 'leads' ? 'My Leads' :
     page === 'leave-calendar' ? 'Leave Calendar' :
     page === 'targets' ? 'My Targets' :
-    page === 'reports-v2' ? 'Summary & Reports' : 'Dashboard'
+    ['my-performance', 'reports-v2', 'performance'].includes(page) ? 'My Performance' : 'Dashboard'
   ) : (pageTitle || (user?.role?.replace('_', ' ')?.toUpperCase() + ' Dashboard'));
 
   const dynamicSubtitle = isExecutive ? '' : (pageSubtitle || `${getDisplayPage(page)} · ${user?.state || 'Kerala'} · Management Portal`);

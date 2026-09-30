@@ -163,11 +163,11 @@ const getWorkPct = async (userIds, periodStart, periodEnd) => {
     approvedLeaveDays(ids, periodStart, periodEnd),
   ]);
 
-  // The day in progress has no stored percentage yet — it is only written when
-  // the day is completed — so it is scored live off the same queue. Without
-  // this, today reads 0% for everyone still working.
-  const todayKeyOf = startOfDay(new Date()).toDateString();
-  const liveDays = records.filter(r => !r.workCompletedAt && startOfDay(r.date).toDateString() === todayKeyOf);
+  // A day that was started but never completed has no stored percentage -- it
+  // is only written at Complete Work -- so it is scored live off the same book.
+  // That is today for everyone still working, and any past day the auto-complete
+  // missed. Reading the stored 0 instead showed a worked day as 0%.
+  const liveDays = records.filter(r => !r.workCompletedAt);
   const livePct = new Map(await Promise.all(liveDays.map(async (r) => {
     const { workPct } = await getDayWorkPct(r.user, r.date);
     return [dayKey(r.user, r.date), workPct];

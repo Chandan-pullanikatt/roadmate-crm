@@ -4,7 +4,7 @@ import MyPerformancePage from '../../../components/MyPerformancePage';
 
 const MyPerformance = () => {
   const { user } = useAuth();
-  return <MyPerformancePage roleName="Industry Manager" scope={[user?.industry, user?.state].filter(Boolean).join(' · ')} />;
+  return <MyPerformancePage roleName="District Manager" scope={[user?.district, user?.state].filter(Boolean).join(' · ')} />;
 };
 
 export default MyPerformance;

@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import api from '../api/axios';
 import { usePeriod, PeriodPicker } from './LeadPipelinePanel';
+import { formatRevenue } from './ManagerPerformanceTable';
 
 /**
  * The Team Performance Leaderboard's activity columns for one person. Figures
@@ -68,6 +69,12 @@ const ActivityProgress = ({ userId }) => {
             </div>
           );
         })}
+      </div>
+
+      {/* Money, not a count -- it would dwarf the bars above, so it stands alone. */}
+      <div className="mt-6 pt-5 border-t border-border flex justify-between items-center">
+        <span className="text-[12px] font-bold text-text-muted uppercase tracking-wider">Revenue</span>
+        <span className="text-[18px] font-black text-green">{isLoading ? '–' : formatRevenue(metrics.revenue || 0)}</span>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const User = require('../models/User');
 const scheduleService = require('./scheduleService');
-const { isWeeklyOff, loadCalendar, attendanceDay, istCivilDay } = require('../utils/workingDays');
+const { isWeeklyOff, loadCalendar, attendanceDay, istCivilDay, istTimeOn } = require('../utils/workingDays');
 const { resolveAttendanceRules } = require('../constants/attendanceRules');
 const { getWorkPct, getDayWorkPct } = require('./workPercentService');
 const { WORK_ACTIONS } = require('../constants/workActions');
@@ -19,15 +19,15 @@ const attendanceService = {
    * it, so the register says why the day was worked remotely.
    */
   async startWork(userId, wfhData = null) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    // The IST calendar day, as a server-local Date: drives the day arithmetic
+    // below (day of week, holiday match, Ramadan window), which reads local date
+    // parts. Midnight in the server's own zone would be the UTC date on Render,
+    // which is still yesterday for anyone starting before 05:30 IST.
+    const today = istCivilDay(now);
 
-    // Where the row is FILED. Deliberately not `today`: that is midnight in the
-    // server's own zone, so the same day landed on a different instant depending
-    // on which machine wrote it, and one day ended up recorded twice -- see
-    // attendanceDay. `today` still drives the day arithmetic below (day of week,
-    // holiday match, the expected start time), which reads local date parts.
-    const dateKey = attendanceDay(today);
+    // Where the row is FILED -- see attendanceDay.
+    const dateKey = attendanceDay(now);
 
     const isWFH = !!wfhData?.isWFH;
     const wfh = {
@@ -92,11 +92,9 @@ const attendanceService = {
 
     // 4. Late login, measured from the start time: Late Coming from
     //    lateMarkMinutes, Half Day (decided at completeWork) from lateHalfDayMinutes.
+    //    The start time is IST office hours, so it is placed on the IST day.
     const rules = resolveAttendanceRules(whConfig.rules);
-    const now = new Date();
-    const [startHour, startMin] = workStartTimeStr.split(':').map(Number);
-    const expectedStart = new Date(today);
-    expectedStart.setHours(startHour, startMin, 0, 0);
+    const expectedStart = istTimeOn(now, workStartTimeStr);
 
     const lateLoginMinutes = Math.max(0, Math.floor((now - expectedStart) / 60000));
     const isLateLogin = lateLoginMinutes >= rules.lateMarkMinutes;
@@ -106,7 +104,7 @@ const attendanceService = {
       : isLateLogin ? `Late Coming: ${lateLoginMinutes} min` : '';
 
     // 5. The day's work: due today plus pending from earlier days
-    const plannedLeads = await scheduleService.getDayPlan(userId, today);
+    const plannedLeads = await scheduleService.getDayPlan(userId, now);
     const todayLeadsCount = plannedLeads.length;
 
     // 6. Create or update Attendance doc
@@ -159,10 +157,6 @@ const attendanceService = {
    */
   async completeWork(userId, attendanceId) {
     const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
 
     const attendance = await Attendance.findById(attendanceId);
     if (!attendance) throw new Error('Attendance record not found');
@@ -172,8 +166,11 @@ const attendanceService = {
     //    queue. One definition, in workPercentService, shared with My Work's
     //    live figure and with every performance table -- scoring against the
     //    start-of-day snapshot instead is what recorded a 44-lead day as 0%.
+    //    Scored on the row's own day, not "now": the auto-complete cron can run
+    //    after midnight IST, and scoring `now` then reads the next day's empty
+    //    book and records the day just worked as 0%.
     const { workPct: completionPct, queueCount, completedCount: completedLeadsCount } =
-      await getDayWorkPct(userId, now);
+      await getDayWorkPct(userId, attendance.date);
 
     attendance.workCompletedAt = now;
     attendance.completedLeads = completedLeadsCount;
@@ -189,18 +186,21 @@ const attendanceService = {
     const rules = resolveAttendanceRules(whConfig.rules);
 
     // 4. Early exit, measured from the end time (Ramadan-aware): Early Exit
-    //    from earlyMarkMinutes, Half Day from earlyHalfDayMinutes.
+    //    from earlyMarkMinutes, Half Day from earlyHalfDayMinutes. The end time
+    //    is IST office hours on the row's own day, so an auto-complete that runs
+    //    late cannot measure against the wrong day.
+    const workDay = istCivilDay(attendance.date);
     let expectedEndStr = whConfig.normalEnd || '18:30';
     if (whConfig.ramadanFrom && whConfig.ramadanTo) {
       const ramFrom = new Date(whConfig.ramadanFrom);
       const ramTo   = new Date(whConfig.ramadanTo);
-      if (todayStart >= ramFrom && todayStart <= ramTo) {
+      ramFrom.setHours(0, 0, 0, 0);
+      ramTo.setHours(23, 59, 59, 999);
+      if (workDay >= ramFrom && workDay <= ramTo) {
         expectedEndStr = whConfig.ramadanEnd || '17:30';
       }
     }
-    const [endHour, endMin] = expectedEndStr.split(':').map(Number);
-    const expectedEnd = new Date(todayStart);
-    expectedEnd.setHours(endHour, endMin, 0, 0);
+    const expectedEnd = istTimeOn(attendance.date, expectedEndStr);
 
     const earlyExitMinutes = Math.max(0, Math.floor((expectedEnd - now) / 60000));
     attendance.earlyExitMinutes = earlyExitMinutes;

@@ -5,7 +5,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useAuth } from '../../../context/AuthContext';
 import { TARGET_METRICS, currentPeriodKey, periodLabel } from '../../../utils/targetPeriod';
 import ConfirmTargetModal from '../../../components/modals/ConfirmTargetModal';
-import { TargetSection } from './Performance';
+import TargetSection from '../../../components/TargetSection';
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 const EMPTY_FORM = { directMeetings: '', blocking: '', conversions: '' };

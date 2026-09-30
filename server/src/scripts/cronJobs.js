@@ -6,6 +6,7 @@ const leadService = require('../services/leadService');
 const scheduleService = require('../services/scheduleService');
 const pushService = require('../services/pushService');
 const notificationService = require('../services/notificationService');
+const { attendanceDay } = require('../utils/workingDays');
 
 // In-memory dedup: prevents duplicate reminder pushes within the same day.
 // Cleared at midnight each night.
@@ -19,14 +20,14 @@ const remindedFor15m = new Set();
 const initCronJobs = (io = null) => {
 
   // ─── 23:59 daily: Auto-complete attendance for staff who forgot ───────────
+  // Pinned to IST. The server runs in UTC, so an unpinned 23:59 fired at 05:29
+  // IST the NEXT morning -- completeWork then scored the new, empty day and
+  // recorded every forgotten day as 0% (Mekha: 110 leads, 21 calls, 0%).
   cron.schedule('59 23 * * *', async () => {
     console.log('[Cron] Running daily attendance auto-complete...');
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
       const incomplete = await Attendance.find({
-        date: today,
+        date: attendanceDay(),
         workStartedAt: { $exists: true },
         workCompletedAt: { $exists: false }
       });
@@ -50,7 +51,7 @@ const initCronJobs = (io = null) => {
     } catch (err) {
       console.error('[Cron] Absentee marking error:', err.message);
     }
-  });
+  }, { timezone: 'Asia/Kolkata' });
 
   // ─── 00:30 daily: Carry pending work to the next working day ─────────────
   // Anything not done on its day moves to the owner's next available working
