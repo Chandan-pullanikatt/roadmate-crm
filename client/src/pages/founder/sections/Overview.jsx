@@ -13,6 +13,7 @@ import { groupParam } from '../../../constants/leadStatusGroups';
 const PIPELINE_COLORS = {
   All: '#3b82f6',
   New: '#3b82f6',
+  'Business Lead': '#4f46e5',
   'Follow-up': '#8b5cf6',
   'Virtual Meeting': '#0d9488',
   'Direct Meeting': '#0f766e',

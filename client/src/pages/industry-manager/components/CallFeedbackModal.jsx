@@ -10,6 +10,7 @@ import FixedFollowUpToggle from '../../../components/FixedFollowUpToggle';
 const OUTCOMES = [
   { id: 'connected',               icon: '✅', label: 'Connected',          color: '#1C6A4E', bg: '#E8F4EF', border: '#6EE7B7' },
   { id: 'followup',                icon: '📞', label: 'Follow-up',          color: '#B45309', bg: '#FEF3C7', border: '#FCD34D' },
+  { id: 'business_lead',           icon: '💼', label: 'Business Lead',      color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE' },
   { id: 'meeting',                 icon: '🎥', label: 'Schedule Meeting',   color: '#2563EB', bg: '#EFF4FF', border: '#BFDBFE' },
   { id: 'rnr',                     icon: '📵', label: 'RNR',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
   { id: 'blocking_amount_received',icon: '💰', label: 'Blocking Amount',    color: '#D97706', bg: '#FFFBEB', border: '#FCD34D' },
@@ -18,6 +19,11 @@ const OUTCOMES = [
   // once Full Amount Received and Agreement Signed have both been recorded.
   { id: 'not_interested',          icon: '✗',  label: 'Not Interested',     color: '#9B1C1C', bg: '#FEF2F2', border: '#FECACA' },
 ];
+
+// Outcomes that book the next call. A Business Lead is still an open lead, so
+// it is chased like a follow-up -- without a date it would drop out of the
+// queue and never come back.
+const SCHEDULES_FOLLOWUP = new Set(['followup', 'business_lead']);
 
 // Meeting Done flow: which kind of meeting actually took place.
 const MEETING_KINDS = [
@@ -70,7 +76,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
   const { data: suggestedDates } = useQuery({
     queryKey: ['suggested-dates'],
     queryFn: () => leadsApi.getSuggestedDates().then(r => r.data),
-    enabled: isOpen && selectedOutcome === 'followup',
+    enabled: isOpen && SCHEDULES_FOLLOWUP.has(selectedOutcome),
   });
 
   const { data: hierarchy } = useQuery({
@@ -127,7 +133,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         return;
       }
     }
-    if (selectedOutcome === 'followup' && !followUpDate) {
+    if (SCHEDULES_FOLLOWUP.has(selectedOutcome) && !followUpDate) {
       addToast('Please set a follow-up date.', 'warning');
       return;
     }
@@ -155,10 +161,10 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         await transitionMutation.mutateAsync({ action: 'mark_rnr', note: notes || '', priority: priority || null });
         addToast(`RNR logged (attempt #${(lead?.rnrCount || 0) + 1}). Auto-retry scheduled.`, 'warning');
 
-      } else if (selectedOutcome === 'followup') {
-        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: 'followup', note: notes, priority });
+      } else if (SCHEDULES_FOLLOWUP.has(selectedOutcome)) {
+        await transitionMutation.mutateAsync({ action: 'set_feedback', nextAction: selectedOutcome, note: notes, priority });
         await transitionMutation.mutateAsync({ action: 'set_followup_date', followUpDate, followUpTime, isFixed: isFixedDate });
-        addToast('Follow-up scheduled.', 'success');
+        addToast(selectedOutcome === 'business_lead' ? 'Marked as Business Lead. Follow-up scheduled.' : 'Follow-up scheduled.', 'success');
 
       } else if (selectedOutcome === 'meeting') {
         if (!meetingDate) { addToast('Please set a meeting date.', 'warning'); return; }
@@ -429,7 +435,7 @@ const CallFeedbackModal = ({ isOpen, onClose, lead, initialOutcome = null, onSuc
         )}
 
         {/* Follow-up section */}
-        {selectedOutcome === 'followup' && (
+        {SCHEDULES_FOLLOWUP.has(selectedOutcome) && (
           <div className="space-y-3 p-4 bg-amber-light/20 border border-amber/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
             <label className={lbl + ' text-amber'}>📅 Follow-up Details</label>
             {suggestedDates?.dates?.length > 0 && (

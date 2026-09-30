@@ -230,7 +230,7 @@ router.get('/executive', async (req, res) => {
     const monthlyReviewedLeadIds = await LeadActivity.distinct('lead', {
       performedBy: req.user._id,
       createdAt: { $gte: monthStart },
-      action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] },
+      action: { $in: ['called', 'rnr', 'followup_set', 'business_lead', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] },
       lead: { $in: monthLeadIds }
     });
     const monthlyTotalLeads = monthLeadIds.length;
@@ -611,7 +611,7 @@ router.get('/industry-manager', async (req, res) => {
     // sum to 'All' -- see constants/leadStatusGroups.js.
     const imGroupCount = (statuses) => periodLeads.filter(l => statuses.includes(l.status)).length;
     const IM_GROUP_COLORS = {
-        New: 'blue', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
+        New: 'blue', 'Business Lead': 'indigo', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
         'Direct Meeting': 'teal', Converted: 'green',
         Blocking: 'amber', 'Full Amount Received': 'cyan',
         Lost: 'red', RNR: 'gray', Escalated: 'orange'
@@ -980,7 +980,7 @@ router.get('/industry-manager', async (req, res) => {
     // Count unique leads completed this month (same logic as MyWork)
     const imCompletedLeadsSet = new Set();
     imMonthlyActivities.forEach(activity => {
-      if (['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'].includes(activity.action) && activity.lead) {
+      if (['called', 'rnr', 'followup_set', 'business_lead', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'].includes(activity.action) && activity.lead) {
         imCompletedLeadsSet.add(activity.lead._id.toString());
       }
     });
@@ -1505,7 +1505,7 @@ router.get('/state-manager', async (req, res) => {
         };
 
         const GROUP_COLORS = {
-            New: 'blue', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
+            New: 'blue', 'Business Lead': 'indigo', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
             'Direct Meeting': 'teal', Converted: 'green',
             Blocking: 'amber', 'Full Amount Received': 'cyan',
             Lost: 'red', RNR: 'gray', Escalated: 'orange'
@@ -1752,7 +1752,7 @@ router.get('/district-manager', async (req, res) => {
 
         const countFor = (statuses) => statusRaw.filter(s => statuses.includes(s._id)).reduce((sum, s) => sum + s.count, 0);
         const GROUP_COLORS = {
-            New: 'blue', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
+            New: 'blue', 'Business Lead': 'indigo', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
             'Direct Meeting': 'teal', Converted: 'green',
             Blocking: 'amber', 'Full Amount Received': 'cyan',
             Lost: 'red', RNR: 'gray', Escalated: 'orange'
@@ -2133,7 +2133,7 @@ router.get('/founder', async (req, res) => {
         // Buckets come from the canonical grouping so that the sum of the
         // buckets always equals 'All' — see constants/leadStatusGroups.js.
         const GROUP_COLORS = {
-            New: 'blue', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
+            New: 'blue', 'Business Lead': 'indigo', 'Follow-up': 'purple', 'Virtual Meeting': 'teal',
             'Direct Meeting': 'teal', Converted: 'green',
             Blocking: 'amber', 'Full Amount Received': 'cyan',
             Lost: 'red', RNR: 'gray', Escalated: 'orange'

@@ -159,7 +159,7 @@ const bulkCreateLeads = async (req, res) => {
       'decision pending - future': 'followup', 'decision pending': 'followup', 'pending': 'followup',
       'no budget': 'not_interested', 'budget issue': 'not_interested',
       'duplicate': 'lost', 'duplicates': 'lost', 'dup': 'lost',
-      'business lead': 'new', 'business': 'new',
+      'business lead': 'business_lead', 'business': 'business_lead',
       'not interested': 'not_interested', 'not intersted': 'not_interested', 'not intrested': 'not_interested',
       'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
       'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',
@@ -759,6 +759,7 @@ router.get('/counts', async (req, res) => {
       new: 0,
       called: 0,
       followup: 0,
+      business_lead: 0,
       meeting_virtual: 0,
       meeting_direct: 0,
       converted: 0,
@@ -869,7 +870,7 @@ router.get('/', async (req, res) => {
       const leadIds = await LeadActivity.distinct('lead', {
         performedBy: req.user._id,
         createdAt: { $gte: start, $lte: end },
-        action: { $in: ['called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
+        action: { $in: ['called', 'rnr', 'followup_set', 'business_lead', 'meeting_scheduled', 'meeting_done', 'converted', 'blocking_amount_received', 'lost', 'not_interested'] }
       });
       query._id = { $in: leadIds };
     }

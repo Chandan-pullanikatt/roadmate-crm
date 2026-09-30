@@ -6,7 +6,7 @@ const leadActivitySchema = new mongoose.Schema({
   action: {
     type: String,
     enum: [
-      'created','called','rnr','followup_set','meeting_scheduled',
+      'created','called','rnr','followup_set','business_lead','meeting_scheduled',
       'meeting_done','meeting_confirmed','converted','lost','not_interested',
       'escalated','escalation_approved','escalation_rejected',
       'reallocated','note_added','document_attached','updated',

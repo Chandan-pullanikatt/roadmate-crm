@@ -30,7 +30,8 @@ export const scheduleFor = (lead = {}) => {
   switch (lead.status) {
     case 'meeting_direct':  return ['Direct Meeting', chain];
     case 'meeting_virtual': return ['Virtual Meeting', chain];
-    case 'followup':        return ['Follow-Up Date', lead.followUpDate || lead.nextActionAt];
+    case 'followup':
+    case 'business_lead':   return ['Follow-Up Date', lead.followUpDate || lead.nextActionAt];
     case 'rnr':             return ['Next Retry', lead.nextActionAt];
     case 'escalated':       return ['Awaiting Approval Since', lead.nextActionAt];
     default:                return ['Next Action', lead.nextActionAt || lead.followUpDate];

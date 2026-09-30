@@ -424,7 +424,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
         'decision pending - future': 'followup', 'decision pending': 'followup', 'pending': 'followup',
         'no budget': 'not_interested', 'budget issue': 'not_interested',
         'duplicate': 'lost', 'duplicates': 'lost', 'dup': 'lost',
-        'business lead': 'new', 'business': 'new',
+        'business lead': 'business_lead', 'business': 'business_lead',
         'not interested': 'not_interested', 'not intersted': 'not_interested', 'not intrested': 'not_interested',
         'call back later': 'followup', 'will call back': 'followup', 'cb': 'followup',
         'busy': 'rnr', 'not available': 'rnr', 'not reachable': 'rnr', 'unreachable': 'rnr',

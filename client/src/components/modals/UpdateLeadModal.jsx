@@ -7,6 +7,7 @@ import PaymentAmountField, { AMOUNT_STAGES, parseAmount } from '../PaymentAmount
 
 const STATUS_OPTIONS = [
   { value: 'new', label: 'New' },
+  { value: 'business_lead', label: 'Business Lead' },
   { value: 'followup', label: 'Follow-up' },
   { value: 'meeting_virtual', label: 'Virtual Meeting' },
   { value: 'meeting_direct', label: 'Direct Meeting' },

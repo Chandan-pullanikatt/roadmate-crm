@@ -200,6 +200,12 @@ const leadService = {
         if (nextAction === 'followup') {
           applyStatus(lead, 'followup');
           activityData.action = 'followup_set';
+        } else if (nextAction === 'business_lead') {
+          // Chased like a follow-up: the modal books the next call straight after
+          // with set_followup_date. The rank lock keeps a lead that is already
+          // further along (Follow-up and up) where it is.
+          applyStatus(lead, 'business_lead');
+          activityData.action = 'business_lead';
         } else if (nextAction === 'converted') {
           applyStatus(lead, 'converted');
           lead.convertedAt = new Date();
@@ -588,7 +594,10 @@ const leadService = {
         { status: 'called', lastCallAt: { $gte: dayStart, $lte: dayEnd } },
         { status: 'called', nextActionAt: { $ne: null, $lte: dayEnd } },
         ...dueBy(MEETING_STATUSES, dayEnd),
-        ...dueBy(['followup', 'escalated'], dayEnd),
+        ...dueBy(['followup', 'business_lead', 'escalated'], dayEnd),
+        // An imported Business Lead can arrive with no date at all. Like 'new',
+        // it stays in the book until a call books its next date.
+        { status: 'business_lead', meetingAt: null, nextActionAt: null, followUpDate: null },
       ],
     });
 
@@ -596,7 +605,7 @@ const leadService = {
     // 1. Direct meetings
     // 2. Virtual meetings
     // 3. New leads
-    // 4. Follow-ups (hot, then warm, then cold)
+    // 4. Follow-ups and Business Leads (hot, then warm, then cold)
     // 5. Called -- worked once, no follow-up booked yet
     // 6. RNR retries
     // 7. Everything else (escalated)
@@ -610,6 +619,7 @@ const leadService = {
       meeting_virtual: 2,
       new:             3,
       followup:        4,
+      business_lead:   4,
       called:          5,
       rnr:             6,
     };
@@ -750,7 +760,8 @@ const leadService = {
       name: l.company || l.name,
       type: l.status === 'meeting_virtual' ? 'Virtual Meeting'
         : l.status === 'meeting_direct' ? 'Direct Meeting'
-        : l.status === 'new' ? 'New Lead' : l.status === 'rnr' ? 'RNR' : 'Follow-up',
+        : l.status === 'new' ? 'New Lead' : l.status === 'rnr' ? 'RNR'
+        : l.status === 'business_lead' ? 'Business Lead' : 'Follow-up',
       time: l.meetingAt || l.nextActionAt,
       priority: l.priority
     }));

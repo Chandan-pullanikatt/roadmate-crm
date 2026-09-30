@@ -122,7 +122,7 @@ const Overview = () => {
 
   // Pipeline card colours, keyed by the canonical group label.
   const PIPELINE_COLORS = {
-    All: '#3b82f6', New: '#3b82f6', 'Follow-up': '#8b5cf6',
+    All: '#3b82f6', New: '#3b82f6', 'Business Lead': '#4f46e5', 'Follow-up': '#8b5cf6',
     'Virtual Meeting': '#0d9488', 'Direct Meeting': '#0f766e',
     Blocking: '#d97706', 'Full Amount Received': '#0891b2', Converted: '#16a34a',
     Lost: '#dc2626', RNR: '#64748b', Escalated: '#ea580c',

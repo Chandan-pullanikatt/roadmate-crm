@@ -8,6 +8,8 @@
 
 export const LEAD_STATUS_GROUPS = {
   New:                    ['new'],
+  // Engaged, but earlier than a follow-up (rank 10 vs 8 -- leadStatusRank.js).
+  'Business Lead':        ['business_lead'],
   'Follow-up':            ['called', 'followup'],
   // Virtual and Direct are separate pipeline stages: they are scheduled,
   // confirmed and targeted differently, so they never share a card.

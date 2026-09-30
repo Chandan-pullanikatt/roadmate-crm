@@ -368,6 +368,7 @@ const MyWorkPage = ({
     if (status === 'converted') return 'text-green';
     if (status === 'rnr') return 'text-red';
     if (status === 'followup') return 'text-amber';
+    if (status === 'business_lead') return 'text-blue';
     if (status === 'hot') return 'text-red';
     return 'text-purple';
   };

@@ -7,6 +7,7 @@
  *
  *   1 Agreement Signed · 2 Full Amount Received · 3 Blocking Amount Received
  *   5 Direct Meeting Scheduled · 7 Virtual Meeting Scheduled · 8 Follow up
+ *   10 Business Lead
  *
  * Converted sits above Agreement Signed: it is only reached once both the full
  * amount and the signature are in.
@@ -33,6 +34,7 @@ const STATUS_RANK = {
   meeting_direct:           5,
   meeting_virtual:          7,
   followup:                 8,
+  business_lead:            10,
 };
 
 /** Statuses that ignore the lock in both directions. */

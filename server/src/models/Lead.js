@@ -11,7 +11,7 @@ const leadSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [
-      'new','called','followup','rnr',
+      'new','called','followup','business_lead','rnr',
       'meeting_virtual','meeting_direct',
       'converted','blocking_amount_received','full_amount_received','agreement_signed',
       'lost','not_interested','escalated'

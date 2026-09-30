@@ -6,7 +6,7 @@
  * "done" for attendance while the work page keeps offering it, or the reverse.
  */
 const WORK_ACTIONS = [
-  'called', 'rnr', 'followup_set', 'meeting_scheduled', 'meeting_done', 'meeting_confirmed',
+  'called', 'rnr', 'followup_set', 'business_lead', 'meeting_scheduled', 'meeting_done', 'meeting_confirmed',
   'converted', 'blocking_amount_received', 'full_amount_received', 'agreement_signed',
   'lost', 'not_interested', 'escalated',
 ];
@@ -43,7 +43,7 @@ const WORK_ACTIONS = [
  * performedBy: null, so it is never attributed to anyone's call count.
  */
 const CALL_ACTIONS = [
-  'called', 'followup_set', 'meeting_scheduled', 'meeting_confirmed',
+  'called', 'followup_set', 'business_lead', 'meeting_scheduled', 'meeting_confirmed',
   'blocking_amount_received', 'full_amount_received', 'agreement_signed',
   'lost', 'not_interested',
 ];
