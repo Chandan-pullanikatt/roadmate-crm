@@ -3,6 +3,7 @@ import api from './axios';
 export const usersApi = {
   getUsers: (params) => api.get('/users', { params }),
   getUserById: (id) => api.get(`/users/${id}`),
+  createFounder: (data) => api.post('/users/create-founder', data),
   createStateManager: (data) => api.post('/users/create-state-manager', data),
   createIndustryManager: (data) => api.post('/users/create-industry-manager', data),
   createExecutive: (data) => api.post('/users/create-executive', data),

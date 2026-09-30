@@ -10,7 +10,7 @@ const Leave = require('../models/Leave');
 const LeavePolicy = require('../models/LeavePolicy');
 const Salary = require('../models/Salary');
 const { getScopeOwnerIds, toObjectId } = require('../utils/hierarchy');
-const { pendingEscalationFilter } = require('../utils/escalation');
+const { pendingEscalationFilter, escalationInboxIds } = require('../utils/escalation');
 const { LEAD_STATUS_GROUPS, GROUP_ORDER } = require('../constants/leadStatusGroups');
 const { getDateRange } = require('../utils/dateRange');
 const { REVENUE_ACTIONS, REVENUE_MATCH, REVENUE_EXPR, sumRevenue } = require('../services/revenueService');
@@ -2264,8 +2264,9 @@ router.get('/founder', async (req, res) => {
             };
         });
 
-        // Escalations from State Managers waiting on the founder's approval.
-        const escalated = await Lead.find(pendingEscalationFilter(req.user._id))
+        // Escalations from State Managers waiting on a founder's approval — any
+        // founder's, since founders share one approval inbox.
+        const escalated = await Lead.find(pendingEscalationFilter(await escalationInboxIds(req.user)))
             .populate('owner', 'name')
             .populate('escalatedFrom', 'name role');
 

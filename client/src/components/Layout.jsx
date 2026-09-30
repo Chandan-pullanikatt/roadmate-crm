@@ -110,7 +110,8 @@ const Layout = ({ children, pageTitle, pageSubtitle }) => {
         {
           label: 'Settings',
           items: [
-            { label: 'Manage Industries', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manage-industries' })), icon: 'industry' }
+            { label: 'Manage Industries', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manage-industries' })), icon: 'industry' },
+            { label: 'Add Founder', path: '#', onClick: () => window.dispatchEvent(new CustomEvent('open-modal', { detail: 'create-founder' })), icon: 'state-managers' }
           ]
         }
       ]

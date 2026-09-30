@@ -375,6 +375,47 @@ router.patch('/:id/status', async (req, res) => {
 });
 
 /**
+ * POST /api/users/create-founder
+ * Founder only. A new founder is a full equal: every founder check in the app is
+ * by role, so the account sees the same data and dashboard from its first login.
+ * The creating founder sets the password — there is no default founder password.
+ */
+router.post('/create-founder', async (req, res) => {
+  try {
+    if (req.user.role !== 'founder') {
+      return res.status(403).json({ message: 'Forbidden: Founder only' });
+    }
+
+    const { name, email, phone, password } = req.body;
+    if (!name || !String(name).trim() || !email) {
+      return res.status(400).json({ message: 'Name and email are required' });
+    }
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    const existingUser = await User.findOne({ email: String(email).toLowerCase().trim() });
+    if (existingUser) return res.status(400).json({ message: 'User with this email already exists' });
+
+    const newFounder = new User({
+      name: String(name).trim(),
+      email,
+      phone: phone || '',
+      password,
+      role: 'founder',
+      employeeId: `FND-${Date.now().toString().slice(-6)}`,
+    });
+
+    await newFounder.save();
+    const userResponse = newFounder.toObject();
+    delete userResponse.password;
+    res.status(201).json(userResponse);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
  * POST /api/users/create-state-manager
  * Founder only
  */
@@ -448,6 +489,11 @@ router.delete('/:id', async (req, res) => {
 
     const targetUser = await User.findById(id);
     if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    // Same rule as deactivation: one founder cannot remove another.
+    if (targetUser.role === 'founder') {
+      return res.status(400).json({ message: 'A founder account cannot be deleted' });
+    }
 
     // Permissions/Role checks
     if (req.user.role !== 'founder') {

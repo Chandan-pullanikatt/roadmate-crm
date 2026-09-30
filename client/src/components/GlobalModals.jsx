@@ -12,6 +12,7 @@ import { useIndustries, industryOptions } from '../hooks/useIndustries';
 import { TARGET_METRICS, currentPeriodKey, periodLabel } from '../utils/targetPeriod';
 import BulkUploadModal from './BulkUploadModal';
 import ChangePasswordModal from './modals/ChangePasswordModal';
+import CreateFounderModal from './modals/CreateFounderModal';
 import LocationSelector from './common/LocationSelector';
 import { State } from 'country-state-city';
 import LeaveHistoryModal from './modals/LeaveHistoryModal';
@@ -1852,6 +1853,12 @@ const GlobalModals = () => {
         isOpen={activeModal === 'change-password'} 
         onClose={handleCloseModal} 
       />
+      {isFounder && (
+        <CreateFounderModal
+          isOpen={activeModal === 'create-founder'}
+          onClose={handleCloseModal}
+        />
+      )}
       <SendNotificationModal
         isOpen={activeModal === 'send-notification'}
         onClose={handleCloseModal}

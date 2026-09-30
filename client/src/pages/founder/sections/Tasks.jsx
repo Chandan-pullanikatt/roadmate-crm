@@ -40,13 +40,19 @@ const Tasks = () => {
   const isFounder = user?.role === 'founder';
   const emptyForm = makeEmptyForm(selfId, isFounder);
   const [filterStatus, setFilterStatus] = useState('all');
+  // A founder sees every task in the company, so their own are easy to lose.
+  const [mineOnly, setMineOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => makeEmptyForm(selfId, isFounder));
   const [saving, setSaving] = useState(false);
 
   const { data: taskData } = useQuery({
-    queryKey: ['tasks', filterStatus],
-    queryFn: () => tasksApi.getTasks({ status: filterStatus === 'all' ? undefined : filterStatus, limit: 100 }).then(r => r.data),
+    queryKey: ['tasks', filterStatus, mineOnly],
+    queryFn: () => tasksApi.getTasks({
+      status: filterStatus === 'all' ? undefined : filterStatus,
+      assignedTo: mineOnly ? selfId : undefined,
+      limit: 100,
+    }).then(r => r.data),
     staleTime: 60 * 1000,
   });
 
@@ -58,9 +64,13 @@ const Tasks = () => {
   });
 
   // Everyone this user is allowed to assign to, excluding themselves — the
-  // server enforces the same rule against the reporting tree.
+  // server enforces the same rule against the reporting tree. Founders are
+  // equals, so a founder can also assign to the other founders.
   const assignable = allUsers.filter(u =>
-    u._id !== selfId && u.isActive !== false && (ROLE_RANK[u.role] || 0) < (ROLE_RANK[user?.role] || 0)
+    u._id !== selfId && u.isActive !== false && (
+      (ROLE_RANK[u.role] || 0) < (ROLE_RANK[user?.role] || 0) ||
+      (isFounder && u.role === 'founder')
+    )
   );
   const everyoneIds = [selfId, ...assignable.map(u => u._id)];
 
@@ -244,6 +254,7 @@ const Tasks = () => {
       )}
 
       {/* Status filter tabs */}
+      <div className="flex items-center gap-4 flex-wrap">
       <div className="flex bg-surface2 p-1 rounded-xl border border-border gap-1 w-fit">
         {STATUS_TABS.map(s => (
           <button
@@ -254,6 +265,14 @@ const Tasks = () => {
             {s.replace('_', ' ')}
           </button>
         ))}
+      </div>
+      {!isExec && (
+        <label className="flex items-center gap-2 text-[12px] font-bold text-text-secondary cursor-pointer select-none">
+          <input type="checkbox" className="w-4 h-4 rounded accent-[#0f766e]"
+            checked={mineOnly} onChange={e => setMineOnly(e.target.checked)} />
+          Only tasks assigned to me
+        </label>
+      )}
       </div>
 
       {/* Task Cards */}

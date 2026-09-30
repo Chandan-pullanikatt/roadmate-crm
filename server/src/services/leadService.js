@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const notificationService = require('./notificationService');
 const { applyStatus } = require('../constants/leadStatusRank');
 const { WORK_ACTIONS } = require('../constants/workActions');
-const { isPendingFor } = require('../utils/escalation');
+const { isPendingFor, escalationInboxIds } = require('../utils/escalation');
 
 const MEETING_STATUSES = ['meeting_virtual', 'meeting_direct'];
 
@@ -490,7 +490,7 @@ const leadService = {
     }
     const lead = await Lead.findById(leadId);
     if (!lead) throw new Error('Lead not found');
-    if (!isPendingFor(lead, approver._id)) {
+    if (!isPendingFor(lead, await escalationInboxIds(approver))) {
       throw new Error('This lead is not waiting on your approval');
     }
 
