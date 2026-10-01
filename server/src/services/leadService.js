@@ -242,7 +242,7 @@ const leadService = {
           lead.meetingAt = new Date(data.meetingAt);
           if (data.meetingInvitees) lead.meetingInvitees = data.meetingInvitees;
           activityData.action = 'meeting_scheduled';
-          activityData.metadata = { meetingType: 'direct' }; // counted by direct-meeting targets
+          activityData.metadata = { meetingType: 'direct' };
 
           // As above: no day-before confirmation task. This used to set
           // nextActionAt to the day before at 10 AM -- or to *now* for a meeting
@@ -395,7 +395,7 @@ const leadService = {
         lead.meetingDoneAt = new Date();
         lead.subStatus = null; // the pre-meeting confirmation task is over
         activityData.action = 'meeting_done';
-        activityData.metadata = { meetingType: conductedType };
+        activityData.metadata = { meetingType: conductedType }; // direct ones count towards targets
         break;
       }
 

@@ -29,7 +29,11 @@ const readPeriod = (source) => {
 
 /**
  * What each user achieved in the period, from their own lead activity:
- * direct meetings scheduled, blocking amounts recorded and conversions.
+ * direct meetings conducted, blocking amounts recorded and conversions.
+ *
+ * A direct meeting counts when it is recorded as having taken place ("Meeting
+ * Done"), in the period it took place in -- not when it was booked. A booked
+ * meeting that never happens earns nothing towards the target.
  */
 const achievedFor = async (userIds, { period, periodKey }) => {
   if (userIds.length === 0) return new Map();
@@ -37,21 +41,15 @@ const achievedFor = async (userIds, { period, periodKey }) => {
   const rows = await LeadActivity.aggregate([
     { $match: {
       performedBy: { $in: userIds },
-      action: { $in: ['meeting_scheduled', 'blocking_amount_received', 'converted'] },
+      action: { $in: ['meeting_done', 'blocking_amount_received', 'converted'] },
       createdAt: { $gte: start, $lt: end }
     } },
-    // Meetings logged before meetingType was recorded fall back to the lead's status
-    { $lookup: { from: 'leads', localField: 'lead', foreignField: '_id', as: 'leadDoc', pipeline: [{ $project: { status: 1 } }] } },
+    // Anything not recorded as virtual is direct, the same default leadService
+    // applies -- which also covers meetings logged before the type was recorded.
     { $addFields: {
       isDirectMeeting: { $and: [
-        { $eq: ['$action', 'meeting_scheduled'] },
-        { $or: [
-          { $eq: ['$metadata.meetingType', 'direct'] },
-          { $and: [
-            { $eq: [{ $ifNull: ['$metadata.meetingType', null] }, null] },
-            { $eq: [{ $arrayElemAt: ['$leadDoc.status', 0] }, 'meeting_direct'] }
-          ] }
-        ] }
+        { $eq: ['$action', 'meeting_done'] },
+        { $ne: ['$metadata.meetingType', 'virtual'] }
       ] }
     } },
     { $group: {
